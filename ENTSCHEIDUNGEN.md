@@ -109,3 +109,39 @@ Neue Einträge kommen ans Ende.
 - Der Paketmanager für pip, winget und Chocolatey wird ein eigenes Programm, nicht Teil des Cockpits.
 - Er entsteht irgendwann nach Phase 7 und übernimmt dann Bausteine des Cockpits.
 - Vorschläge der KI für Installationsbefehle muss er gegen die echten Paketquellen prüfen, weil KI-Modelle Paketnamen erfinden können.
+
+
+## 24.09.2026: Entscheidungen in Phase 2
+
+### Einhängepunkt für das Hochladen selbst
+
+- Neben den vier Einhängepunkten aus Konzept 3.3 gibt es den Punkt PUSH. Dort sitzt der Schritt des Kerns, der wirklich hochlädt.
+- Bis einschließlich PUSH bricht ein Fehler den Ablauf ab. Danach laufen die übrigen Schritte weiter (Konzept 9.2).
+- Schritte können auf bestimmte Abläufe beschränkt werden, zum Beispiel nur „Neues Projekt hochladen“.
+
+### „Neues Projekt hochladen“ schon im Baum
+
+- Der oberste Eintrag des Baums ist schon da, damit der Projektbaum vollständig getestet werden kann. Enter sagt an: „Diese Funktion kommt in Phase 5.“
+- Das ist eine bewusste Ausnahme von „Menüpunkte erst, wenn sie funktionieren“.
+
+### Projekte neu einlesen
+
+- Menü Datei, „Projekte neu einlesen“ mit Strg+R. F5 bleibt für „Rückmeldungen jetzt abfragen“ reserviert (Konzept 8.1).
+
+### Reihenfolge im Baum
+
+- Bis Phase 5 gibt es kein Datum des letzten Hochladens. Bis dahin stehen die Projekte mit der jüngsten Änderung im Ordner Code oben.
+
+### Aktionen im Kontextmenü
+
+- Die Menütaste im Baum zeigt dieselben Aktionen wie die Aktionsliste. So gibt es zwei Wege zu jeder Aktion.
+
+### Selbsttest und Testdaten
+
+- `main.py --selbsttest` startet das Cockpit, lässt es kurz laufen und beendet es mit Code 0 (Konzept 10.4). Das braucht später die Exe-Erstellung für das Cockpit selbst.
+- `start_testdaten.bat` startet mit Beispielprojekten in einem eigenen Ordner. Die echten Daten bleiben unberührt.
+
+### Einstellungsfelder
+
+- Einstellungsfelder werden so geschrieben: Kennung, Beschriftung, Standardwert, alles Weitere mit Namen. Beispiel: `Choice("test_mode", "Testart", "Start-Test", options=(...))`.
+- Das Feld „KI-Anbieter wählen“ kommt erst in Phase 7, wenn es KI-Anbieter gibt.

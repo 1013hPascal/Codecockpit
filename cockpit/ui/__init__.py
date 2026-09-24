@@ -1,0 +1,1 @@
+"""Die Oberfläche (PySide6)."""
