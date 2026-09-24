@@ -19,7 +19,7 @@ Inhalt:
 ## 1. Fortschritt der 17 Phasen
 
 - [x] Phase 1: Analyse der bestehenden Projekte, Plan, Regeln für Claude Code
-- [ ] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Probe des Projektbaums. Stand 24.09.2026: gebaut, 98 Tests bestanden, wartet auf den NVDA-Test mit checklisten\phase-02.md
+- [x] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Projektliste. Abgeschlossen am 25.09.2026: 105 Tests bestanden, NVDA-Test mit checklisten\phase-02.md bestanden
 - [ ] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git
 - [ ] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On
 - [ ] Phase 5: Grundfunktionen: Git-Identität, Projektaufbau, Projektbaum, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, Hochladen, Holen, Verlauf, Rückgängig, Links, Repository verwalten, Sicherheitsprüfung

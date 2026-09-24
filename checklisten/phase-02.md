@@ -309,9 +309,9 @@ Zu Punkt 43: Die Details hatten nur eine Zeile, weil Windows bei diesem Fehler n
 [ ] 47. Fokus beim Öffnen
 Tasten: Auf „Exe“ von PDF-Chat Tab, sodass „Exe starten“ markiert ist. Dann Alt+H, „Git installieren“, Enter. Danach dasselbe mit „Über CodeCockpit“, mit F1 und mit Strg+Umschalt+L.
 Erwartet: Direkt nach dem Öffnen zeigt die Braillezeile die erste Zeile des Fensters, nicht mehr „Exe starten“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 48. Fokus in den Grundeinstellungen und im Fehlerfenster
 Tasten: Alt+E, „Grundeinstellungen …“, Enter. Escape. Dann auf „Exe“ von PDF-Chat Enter.
 Erwartet: In den Grundeinstellungen steht der Fokus sofort im Feld „Projekte-Hauptordner“. Im Fehlerfenster steht er sofort auf „OK“.
-Ergebnis:
+Ergebnis: funktioniert
