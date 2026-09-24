@@ -19,7 +19,7 @@ Inhalt:
 ## 1. Fortschritt der 17 Phasen
 
 - [x] Phase 1: Analyse der bestehenden Projekte, Plan, Regeln für Claude Code
-- [ ] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Probe des Projektbaums. Stand 24.09.2026: gebaut, 98 Tests bestanden, wartet auf den NVDA-Test mit testanleitungen\phase-02.md
+- [ ] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Probe des Projektbaums. Stand 24.09.2026: gebaut, 98 Tests bestanden, wartet auf den NVDA-Test mit checklisten\phase-02.md
 - [ ] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git
 - [ ] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On
 - [ ] Phase 5: Grundfunktionen: Git-Identität, Projektaufbau, Projektbaum, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, Hochladen, Holen, Verlauf, Rückgängig, Links, Repository verwalten, Sicherheitsprüfung
@@ -64,7 +64,7 @@ Für Tests lässt sich der Datenordner mit der Umgebungsvariable `CODECOCKPIT_HO
 - `README.md`: auf Englisch, ab Phase 8 vom Cockpit selbst gepflegt.
 - `KONZEPT.md`, `PLAN.md`, `ANALYSE.md`, `ENTSCHEIDUNGEN.md`, `CLAUDE.md`
 - `anleitungen\`: Anleitungen für Nutzer, zum Beispiel `git-installieren.md`. Das Cockpit zeigt sie auch selbst an.
-- `testanleitungen\`: eine Datei pro Phase, zum Beispiel `phase-02.md`.
+- `checklisten\`: eine Checkliste pro Phase zum Ausfüllen, zum Beispiel `phase-02.md`.
 - `cockpit\`: das Programm als Python-Paket.
 - `tests\`: die automatischen Tests.
 
@@ -444,7 +444,7 @@ Dann baue ich:
 - Den Projektbaum mit einem Testprojekt, damit Sie Ausklappen, automatisches Zuklappen und die Ansagen früh mit NVDA prüfen können.
 - Die Aktionsliste mit Tab und Umschalt+Tab, zunächst mit Beispielaktionen.
 - Das Feature-System, den Ablauf-Motor und alle Adapter-Schnittstellen, geprüft mit Test-Features und Attrappen.
-- Automatische Tests und `testanleitungen\phase-02.md`.
+- Automatische Tests und `checklisten\phase-02.md`.
 
 
 ## 5. Offene Fragen an Sie #pascal

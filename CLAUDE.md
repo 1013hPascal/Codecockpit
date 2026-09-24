@@ -48,7 +48,7 @@ Diese Regeln gelten in jeder Sitzung.
 Jede Phase endet mit:
 
 1. Automatischen Tests mit pytest und pytest-qt. Alle Tests müssen bestehen. Das Ergebnis meldest du ehrlich.
-2. Einer Testanleitung für Screenreader und Braillezeile in `testanleitungen\phase-NN.md`. Sie sagt für jeden Prüfpunkt: welche Tasten, was angesagt werden soll und wo der Fokus landen soll. Neben jedem Prüfpunkt ist Platz für das Ergebnis.
+2. Einer Checkliste für Screenreader und Braillezeile zum Ausfüllen in `checklisten\phase-NN.md`. Sie sagt für jeden Prüfpunkt: welche Tasten, was angesagt werden soll und wo der Fokus landen soll. Jeder Prüfpunkt beginnt mit [ ] und hat eine Zeile „Ergebnis:“. Der Nutzer trägt [x] für OK oder [!] für ein Problem ein. Aufbau wie in checklisten\phase-02.md.
 3. Einem Häkchen in PLAN.md erst nach der Rückmeldung des Nutzers.
 
 Besonders gründlich testen: Tresor, Sicherheitsprüfung, Feature-Abhängigkeiten, Versionsberechnung, Rückgängig-Funktionen, Lizenzeinordnung, Projektbaum, Listen mit Kontrollkästchen und alle Dialoge.
