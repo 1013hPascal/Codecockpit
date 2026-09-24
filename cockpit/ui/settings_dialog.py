@@ -7,14 +7,15 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialogButtonBox, QVBoxLayout, QWidget
 
 from cockpit.core.settings import SettingsStore, setting_fields
+from cockpit.ui.common import FocusDialog
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
 
 
-class SettingsDialog(QDialog):
+class SettingsDialog(FocusDialog):
     def __init__(self, store: SettingsStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.store = store
@@ -35,6 +36,7 @@ class SettingsDialog(QDialog):
         first = self.form.first_focus()
         if first is not None:
             first.setFocus()
+        self.initial_focus_widget = first
 
     def save(self) -> None:
         try:

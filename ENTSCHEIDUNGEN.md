@@ -166,3 +166,8 @@ Neue Einträge kommen ans Ende.
 ### Statuszeile
 
 - NVDA+Ende (Laptop-Belegung: NVDA+Umschalt+Ende) ist ein Befehl von NVDA. Die Statuszeile von Qt erkennt NVDA damit nicht. Das ist nicht wichtig, weil Strg+Umschalt+M die letzte Meldung wiederholt. Der Prüfpunkt entfällt.
+
+### Fokus nach dem Öffnen eines Fensters
+
+- Alle Fenster (Anleitungen, Tastenkürzel, Meldungen, Fehler, Grundeinstellungen) setzen ihren Fokus kurz nach dem Öffnen noch einmal und senden NVDA ein Fokus-Ereignis, bei Listen für die markierte Zeile.
+- Grund: Beim Öffnen aus einem Menü zeigte die Braillezeile sonst noch den alten Fokus im Hauptfenster. Baustein dafür: FocusDialog in cockpit/ui/common.py. Neue Fenster nutzen ihn ebenfalls.

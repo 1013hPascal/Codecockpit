@@ -575,3 +575,31 @@ def test_testdata_are_complete(tmp_path, monkeypatch):
     assert (root / "Bildbeschreiber" / "Exe").is_dir()
     testdata.remove_missing_example(root)
     assert not (root / "Notizen").exists()
+
+
+def test_dialogs_refocus_after_showing_and_tell_nvda(qtbot, monkeypatch):
+    """Test Phase 2: Beim Öffnen aus dem Menü zeigte die Braillezeile noch den alten Fokus."""
+    from cockpit.ui import common
+    from cockpit.ui.text_dialog import TextDialog
+    sent = []
+    monkeypatch.setattr(common.QAccessible, "updateAccessibility",
+                        lambda event: sent.append((event.type(), event.child())))
+    dialog = TextDialog("Test", ["eins", "zwei"])
+    qtbot.addWidget(dialog)
+    dialog.list.setCurrentRow(1)
+    show_active(qtbot, dialog)
+    qtbot.waitUntil(lambda: bool(sent), timeout=2000)
+    assert dialog.list.hasFocus()
+    assert sent[-1] == (common.QAccessible.Event.Focus, 1)
+
+
+def test_all_dialogs_use_the_refocus(qtbot, make_services):
+    from cockpit.ui.common import FocusDialog
+    from cockpit.ui.messages_dialog import MessagesDialog
+    from cockpit.ui.text_dialog import TextDialog
+    dialogs = [TextDialog("T", ["x"]), MessagesDialog([]), ErrorDialog("F", "Text."),
+               SettingsDialog(make_services().settings)]
+    for dialog in dialogs:
+        qtbot.addWidget(dialog)
+        assert isinstance(dialog, FocusDialog)
+        assert dialog.initial_focus_widget is not None

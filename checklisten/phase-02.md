@@ -240,61 +240,78 @@ Nach Ihrem ersten Test habe ich zwei Dinge umgebaut. Der Projektbaum ist jetzt e
 [ ] 35. Projektliste zugeklappt
 Tasten: Pfeil runter, mehrmals, bis ganz unten, dann Pfeil hoch bis ganz oben.
 Erwartet: „Neues Projekt hochladen“, „PDF-Chat“, „Tagebuch“, „Bildbeschreiber“, „Notizen, Ordner nicht gefunden“. Keine Unterordner dazwischen. NVDA nennt „Liste“ und die Position, zum Beispiel „2 von 5“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 36. Ausklappen mit Pfeil rechts
 Tasten: auf „PDF-Chat“ Pfeil rechts.
 Erwartet: NVDA sagt „Ausgeklappt, 2 Unterordner.“ Der Fokus bleibt auf dem Projekt, es heißt jetzt „PDF-Chat, ausgeklappt“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 37. In die Unterordner
 Tasten: Pfeil rechts, dann Pfeil runter.
 Erwartet: „Code“, dann „Exe, PDF-Chat.exe, erstellt am“ mit Datum. Danach mit Pfeil runter „Tagebuch“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 38. Zuklappen mit Pfeil links
 Tasten: auf „Code“ oder „Exe“ Pfeil links.
 Erwartet: NVDA sagt „PDF-Chat“ und „Zugeklappt.“ Code und Exe sind aus der Liste verschwunden. Alle Projekte sind mit Pfeil hoch und runter erreichbar.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 39. Leertaste und Enter
 Tasten: auf „Tagebuch“ Leertaste, dann noch einmal Leertaste. Danach dasselbe mit Enter.
 Erwartet: Beim ersten Druck „Ausgeklappt, 1 Unterordner.“, beim zweiten „Zugeklappt.“ Der Fokus bleibt immer auf Tagebuch.
-Ergebnis:
+Ergebnis: Funktioniert
 
 [ ] 40. Nur ein Projekt offen
 Tasten: „PDF-Chat“ ausklappen, dann zu „Tagebuch“ gehen und ausklappen.
 Erwartet: PDF-Chat klappt dabei zu. In der Liste gibt es nur einmal „Code“, und zwar unter Tagebuch.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 41. Projekt ohne Ordner
 Tasten: auf „Notizen, Ordner nicht gefunden“ Enter.
 Erwartet: NVDA sagt „Der Ordner wurde nicht gefunden.“ Der Fokus bleibt in der Liste.
-Ergebnis:
+Ergebnis: funktiniert
 
 [ ] 42. Aktionen und Enter auf Exe
 Tasten: PDF-Chat ausklappen, auf „Exe“ gehen, Tab, dann Umschalt+Tab, dann Enter.
 Erwartet: Tab führt in die Aktionen mit „Exe starten“ und „Exe-Ordner öffnen“. Umschalt+Tab führt zurück auf „Exe“. Enter öffnet das Fehlerfenster, weil die Test-Exe keine echte Exe ist.
-Ergebnis:
+Ergebnis: funktinoiert
 
 [ ] 43. Fehlerfenster
 Tasten: im Fehlerfenster nichts drücken, dann Tab, Enter auf „Details anzeigen“, Pfeiltasten, Escape.
 Erwartet: Beim Öffnen liest NVDA „Exe starten hat nicht geklappt.“ Der Fokus steht auf „OK“. Nach „Details anzeigen“ steht der Fokus in der Liste „Details“, jede Zeile ist mit Pfeiltasten lesbar. Escape schließt, der Fokus ist wieder in der Projektliste.
-Ergebnis:
+Ergebnis: funktioniert. Bei Details wenn man drauf kickt, sehe ich nur eine zeile. wenn es nur eine gibt, dann geht's. 
 
 [ ] 44. Tastenkürzel als Liste
 Tasten: F1, Pfeil runter mehrmals, Escape.
 Erwartet: Eine Liste, jede Zeile mit Funktion und Taste, zum Beispiel „Projekt ausklappen, Pfeil rechts, Leertaste oder Enter“. Alle Zeilen lesbar.
-Ergebnis:
+Ergebnis: funktioniert
 
-[ ] 45. Git-Anleitung als Liste und Kopieren
+[ ] 45. Git-Anleitung ⠐⠐als Liste und Kopieren
 Tasten: Alt+H, „Git installieren“, Pfeil runter bis zur Zeile mit „winget install“, dann Strg+C.
 Erwartet: Jede Zeile der Anleitung ist ein Listeneintrag. Nach Strg+C sagt NVDA „Zeile kopiert.“ In einem Editor lässt sich der Befehl mit Strg+V einfügen.
-Ergebnis:
+Ergebnis: funktioniert, aber wenn man die Anleitung öfffnet, steht noch aktion exe starten und wenn man pfeilaste runter und hoch macht, dasnn ist das weg und man sieht die Anleitung und aktion exe starten kommt auch nicht mehr wieder in der Anleitung. also biem öfffen ist der fokus noch nicht ganz richtig zumindest kurz.
 
 [ ] 46. Über CodeCockpit
 Tasten: Alt+H, „Über CodeCockpit“, Pfeil runter.
 Erwartet: „CodeCockpit Version 0.2.0“, dann „Datenordner:“ mit dem Pfad, dann zwei Sätze zum Programm.
-Ergebnis:
+Ergebnis: funktioniert, hier auch selber fehler wie bei 45 mit aktion exe starten. ansonsten perfekt.
 
 Platz für Ihren Kommentar:
+
+
+## J. Kurzer Nachtest zum Fokus (25.09.2026)
+
+Beim Öffnen von Anleitung und „Über“ stand auf der Braillezeile kurz noch „Exe starten“. Jetzt setzen alle Fenster ihren Fokus nach dem Öffnen noch einmal und melden ihn NVDA.
+
+Zu Punkt 43: Die Details hatten nur eine Zeile, weil Windows bei diesem Fehler nur eine Zeile liefert. Das ist richtig so.
+
+[ ] 47. Fokus beim Öffnen
+Tasten: Auf „Exe“ von PDF-Chat Tab, sodass „Exe starten“ markiert ist. Dann Alt+H, „Git installieren“, Enter. Danach dasselbe mit „Über CodeCockpit“, mit F1 und mit Strg+Umschalt+L.
+Erwartet: Direkt nach dem Öffnen zeigt die Braillezeile die erste Zeile des Fensters, nicht mehr „Exe starten“.
+Ergebnis:
+
+[ ] 48. Fokus in den Grundeinstellungen und im Fehlerfenster
+Tasten: Alt+E, „Grundeinstellungen …“, Enter. Escape. Dann auf „Exe“ von PDF-Chat Enter.
+Erwartet: In den Grundeinstellungen steht der Fokus sofort im Feld „Projekte-Hauptordner“. Im Fehlerfenster steht er sofort auf „OK“.
+Ergebnis:

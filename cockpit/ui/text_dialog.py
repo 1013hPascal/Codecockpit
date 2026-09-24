@@ -14,10 +14,10 @@ import re
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
-from PySide6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import name_widget
+from cockpit.ui.common import FocusDialog, name_widget
 
 
 def text_to_lines(text: str) -> list[str]:
@@ -35,7 +35,7 @@ def text_to_lines(text: str) -> list[str]:
     return lines
 
 
-class TextDialog(QDialog):
+class TextDialog(FocusDialog):
     def __init__(self, title: str, text: str | list[str], name: str | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -57,6 +57,7 @@ class TextDialog(QDialog):
         layout.addWidget(self.close_button)
         self.resize(700, 560)
         self.list.setFocus()
+        self.initial_focus_widget = self.list
 
     def copy_current(self) -> None:
         item = self.list.currentItem()

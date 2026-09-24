@@ -4,13 +4,13 @@ Jede Zeile beginnt mit dem Text, die Uhrzeit steht am Ende. Escape schließt.
 """
 from __future__ import annotations
 
-from PySide6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.ui.announcer import Message
-from cockpit.ui.common import name_widget
+from cockpit.ui.common import FocusDialog, name_widget
 
 
-class MessagesDialog(QDialog):
+class MessagesDialog(FocusDialog):
     def __init__(self, messages: list[Message], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Meldungen")
@@ -29,3 +29,4 @@ class MessagesDialog(QDialog):
         layout.addWidget(close)
         self.resize(640, 480)
         self.list.setFocus()
+        self.initial_focus_widget = self.list

@@ -7,14 +7,14 @@ einer Zeile pro Detailzeile und setzt den Fokus hinein.
 """
 from __future__ import annotations
 
-from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QListWidget, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QListWidget, QPushButton, QVBoxLayout,
+                               QWidget)
 
 from cockpit.core.logging_setup import mask_secrets
-from cockpit.ui.common import name_widget
+from cockpit.ui.common import FocusDialog, name_widget
 
 
-class ErrorDialog(QDialog):
+class ErrorDialog(FocusDialog):
     def __init__(self, title: str, message: str, details: str = "",
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,6 +49,7 @@ class ErrorDialog(QDialog):
         QWidget.setTabOrder(self.details_button, self.details)
         self.resize(560, 200)
         self.ok_button.setFocus()
+        self.initial_focus_widget = self.ok_button
 
     def toggle_details(self) -> None:
         if self.details.isVisible():

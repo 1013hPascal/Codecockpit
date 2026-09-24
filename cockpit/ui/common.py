@@ -1,8 +1,42 @@
 """Kleine Hilfen für die Oberfläche (Muster aus Chatbot und Tagebuch)."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QMessageBox, QPlainTextEdit, QWidget
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QAccessible, QAccessibleEvent
+from PySide6.QtWidgets import (QAbstractItemView, QDialog, QLabel, QMessageBox, QPlainTextEdit,
+                               QWidget)
+
+REFOCUS_DELAY_MS = 80
+
+
+class FocusDialog(QDialog):
+    """Dialog, der seinen Startfokus erst nach dem Anzeigen setzt und NVDA meldet.
+
+    Test von Phase 2: Wurde der Fokus schon im Konstruktor gesetzt, zeigte die Braillezeile nach
+    dem Öffnen aus einem Menü noch den alten Fokus im Hauptfenster ("Exe starten"), bis man eine
+    Pfeiltaste drückte. Deshalb wird der Fokus kurz nach dem Anzeigen noch einmal gesetzt und ein
+    Fokus-Ereignis gesendet, bei Listen für den markierten Eintrag."""
+
+    initial_focus_widget: QWidget | None = None
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(REFOCUS_DELAY_MS, self.refocus)
+
+    def refocus(self) -> None:
+        widget = self.initial_focus_widget
+        if widget is None or not self.isVisible() or not widget.isVisible():
+            return
+        widget.setFocus()
+        announce_focus(widget)
+
+
+def announce_focus(widget: QWidget) -> None:
+    """Fokus-Ereignis für NVDA senden, bei Listen für den markierten Eintrag."""
+    event = QAccessibleEvent(widget, QAccessible.Event.Focus)
+    if isinstance(widget, QAbstractItemView) and widget.currentIndex().isValid():
+        event.setChild(widget.currentIndex().row())
+    QAccessible.updateAccessibility(event)
 
 
 def name_widget(widget: QWidget, name: str) -> None:
