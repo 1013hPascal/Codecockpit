@@ -220,3 +220,4 @@ Neue Einträge kommen ans Ende.
 - Nach einer erledigten Aktion in einem Einstellungsfenster springt der Fokus auf „Schließen“.
 - Die Kontenverwaltung hat am Ende der Liste den Eintrag „Wofür sind Konten? …“ mit einer Erklärung.
 - Automatisches Sperren prüft alle 15 Sekunden die Zeit seit der letzten Eingabe. So zählt auch Standby mit.
+- E-Mail-Adresse für Commits: Der Nutzer nimmt künftig die noreply-Adresse von GitHub. Seine bisherigen öffentlichen Commits tragen noch die private Adresse. Sie bleiben unverändert, denn Commits umzuschreiben würde die Geschichte auf der Plattform ändern (Konzept 9.7).

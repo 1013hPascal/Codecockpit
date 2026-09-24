@@ -210,27 +210,31 @@ Und eine ander Frage, ich habe ja schon ein acount. trotzdem diese mail da eintr
 
 Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten.
 
-[ ] 32. Tresor-Seite: erst die Erklärung
+[x] 32. Tresor-Seite: erst die Erklärung
 Tasten: im Assistenten zweimal Alt+W.
 Erwartet: Der Fokus steht in der Liste „Erklärung“. Sie hat jetzt sieben Zeilen, darunter „Gesperrt heißt: …“ und als letzte „Mit Tab kommen Sie zur Auswahl der Speicherart.“
 Ergebnis:
 
-[ ] 33. Speicherart als Liste
+[x] 33. Speicherart als Liste
 Tasten: Tab, dann Pfeil runter und hoch.
 Erwartet: Eine Liste „Speicherart“ mit zwei Einträgen. NVDA nennt jeweils nur den Eintrag, auf dem Sie stehen, zum Beispiel „Verschlüsselte Tresordatei mit Master-Passwort, 2 von 2“. Gewählt ist immer der markierte Eintrag. Enter in der Liste wirkt wie Weiter.
 Ergebnis:
 
-[ ] 34. Erklärung zu den Konten
+[x] 34. Erklärung zu den Konten
 Tasten: nach der Einrichtung Alt+O, Kontenverwaltung, Ende-Taste, Enter.
 Erwartet: Der letzte Eintrag heißt „Wofür sind Konten? …“. Enter öffnet eine Liste mit der Erklärung. Escape führt zurück in die Kontenliste.
 Ergebnis:
 
-[ ] 35. Fokus nach dem Passwortwechsel
+[!] 35. Fokus nach dem Passwortwechsel
 Tasten: Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speichern.
 Erwartet: NVDA sagt „Master-Passwort geändert.“ Der Fokus steht danach auf „Schließen“.
 Ergebnis:
+Ja der fokus springt auf schließen, sagt aber nicht dasss das Passwort gespeichert wurde. 
 
-[ ] 36. Automatisch sperren, zweiter Versuch
+[!] 36. Automatisch sperren, zweiter Versuch
 Tasten: Tresor-Einstellungen, „Automatisch sperren nach“ auf 1 Minute, Schließen. Dann etwa eine Minute keine Taste drücken und auch nicht NVDA-Befehle benutzen, die die Tastatur an das Programm schicken.
 Erwartet: Spätestens 15 Sekunden nach Ablauf der Minute sagt NVDA „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ Geht der Rechner in den Standby, wird direkt nach dem Aufwachen gesperrt.
 Ergebnis:
+
+Ich verstehe das jetzt so, bei Konto verwaltne kann man neues Konto hinzufügen z.b. für E-Mail, für Git etc. und damit passswörter für die konton nicht offen liegen, braucht man den Tresor oder?
+wäre es dann nicht sinnvoll, das man das paswort nicht bei  jedem start eingeben muss, sondern nur, sobald man in die Konto einstellungen geht?
