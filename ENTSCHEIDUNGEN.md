@@ -225,3 +225,4 @@ Neue Einträge kommen ans Ende.
 - Ansagen nach einem Fokuswechsel kommen mit kurzer Verzögerung (announce_after_focus), sonst übertönt NVDA sie.
 - Ansagen hängen am Steuerelement mit dem Fokus, nicht mehr fest am Hauptfenster. NVDA liest nur Ansagen aus dem Fenster, das vorne ist. Aus Dialogen kam deshalb vorher nichts an. Ansagen, während das Cockpit nicht vorne ist, werden beim Zurückkehren nachgeholt.
 - Wichtige Bestätigungen kommen als Meldung mit OK: Master-Passwort geändert, Speicherart gewechselt, Tresor automatisch gesperrt. Wunsch des Nutzers.
+- Jede Ansage wird etwa eine halbe Sekunde verzögert gesendet, an das Steuerelement, das dann den Fokus hat. Ein Fokuswechsel direkt nach einer Ansage hat sie in NVDA sonst abgebrochen.

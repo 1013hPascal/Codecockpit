@@ -278,7 +278,7 @@ Ergebnis:
 
 Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten. Im Assistenten die Tresordatei wählen.
 
-[ ] 41. Meldung nach dem Passwortwechsel
+[x] 41. Meldung nach dem Passwortwechsel
 Tasten: Alt+O, Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speichern.
 Erwartet: Eine Meldung „Das Master-Passwort wurde geändert.“ mit OK. Nach Enter steht der Fokus auf „Schließen“.
 Ergebnis:
@@ -288,12 +288,36 @@ Tasten: „Automatisch sperren nach“ auf 1 Minute, Schließen. Dann gern in ei
 Erwartet: Eine Meldung „Tresor gesperrt“ mit dem Text „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ NVDA liest sie, sobald Sie im Cockpit sind. Nach OK steht der Fokus wieder dort, wo er vorher war.
 Ergebnis:
 
-[ ] 43. Ansage beim Entsperren
+[!] 43. Ansage beim Entsperren
 Tasten: Kontenverwaltung, „Neues Konto anlegen …“, ausfüllen mit Token „richtig“, Alt+S, im Fenster „Tresor entsperren“ das Passwort eingeben, Enter.
 Erwartet: NVDA sagt „Tresor entsperrt.“ Danach „Konto … angelegt.“
 Ergebnis:
 
-[ ] 44. Ansagen in anderen Dialogen
+[!] 44. Ansagen in anderen Dialogen
 Tasten: In der Kontenverwaltung ein Konto mit Entf löschen und bestätigen.
 Erwartet: NVDA sagt „Konto … gelöscht.“ Das war vorher vermutlich auch stumm.
 Ergebnis:
+
+
+## J. Vierter Nachtest: Ansagen nach Fokuswechsel (25.09.2026)
+
+Antwort von Claude zu 43 und 44: Die Ansage kam, aber direkt danach sprang der Fokus zurück in die Liste. Ein Fokuswechsel bricht in NVDA die laufende Ansage ab. Jetzt wartet jede Ansage etwa eine halbe Sekunde, bis der Fokus angekommen ist, und kommt dann nach dem Vorlesen des Fokus.
+
+Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten. Im Assistenten die Tresordatei wählen.
+
+[ ] 45. Ansage beim Entsperren
+Tasten: Alt+O, Tresor sperren. Dann Kontenverwaltung, „Neues Konto anlegen …“, ausfüllen mit Token „richtig“, Alt+S, im Fenster „Tresor entsperren“ das Passwort, Enter.
+Erwartet: NVDA liest zuerst den neuen Fokus in der Kontenliste, danach „Tresor entsperrt.“ und „Konto … angelegt.“
+Ergebnis:
+
+[ ] 46. Ansage beim Löschen
+Tasten: Konto markieren, Entf, „Löschen“ wählen, Enter.
+Erwartet: NVDA liest den Fokus in der Liste, danach „Konto … gelöscht.“
+Ergebnis:
+
+[ ] 47. Ansagen im Hauptfenster
+Tasten: Projekt mit Pfeil rechts ausklappen und mit Pfeil links zuklappen.
+Erwartet: „Ausgeklappt, 2 Unterordner.“ und „Zugeklappt.“ kommen wie bisher, nur etwas später.
+Ergebnis:
+
+Punkt 42 (automatisch sperren mit Meldung) ist auch noch offen.

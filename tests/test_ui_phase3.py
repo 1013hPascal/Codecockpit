@@ -574,7 +574,26 @@ def test_announcement_goes_to_the_focused_widget_in_a_dialog(qtbot, make_service
     monkeypatch.setattr(announcer_module.QAccessible, "updateAccessibility",
                         lambda event: targets.append(event.object()))
     announcer.announce("Probe.")
+    assert targets == []                                     # erst, wenn der Fokus ruhig ist
+    qtbot.waitUntil(lambda: bool(targets), timeout=2000)
     assert targets == [dialog.password]                      # nicht das Hauptfenster
+
+
+def test_announcement_uses_the_focus_after_it_settled(qtbot, make_services, monkeypatch):
+    """Test Phase 3: Nach "Konto gelöscht" sprang der Fokus zurück in die Liste, und NVDA brach
+    die Ansage ab. Jetzt wird erst gesendet, wenn der Fokus angekommen ist."""
+    from cockpit.ui import announcer as announcer_module
+    win = MainWindow(make_services())
+    qtbot.addWidget(win)
+    show_active(qtbot, win)
+    targets = []
+    monkeypatch.setattr(announcer_module.QAccessible, "updateAccessibility",
+                        lambda event: targets.append(event.object()))
+    win.focus_actions()
+    announcer.announce("Konto gelöscht.")
+    win.focus_project_list()                                 # Fokus springt nach der Ansage
+    qtbot.waitUntil(lambda: bool(targets), timeout=2000)
+    assert targets == [win.project_list]
 
 
 def test_announcement_waits_while_cockpit_is_in_background(qtbot, make_services, monkeypatch):
@@ -586,6 +605,7 @@ def test_announcement_waits_while_cockpit_is_in_background(qtbot, make_services,
                         lambda event: sent.append(event))
     monkeypatch.setattr(announcer_module.Announcer, "app_is_active", staticmethod(lambda: False))
     announcer.announce("Der Tresor wurde gesperrt.")
+    qtbot.waitUntil(lambda: bool(announcer.pending), timeout=2000)
     assert sent == [] and [m.text for m in announcer.pending] == ["Der Tresor wurde gesperrt."]
     monkeypatch.setattr(announcer_module.Announcer, "app_is_active", staticmethod(lambda: True))
     announcer._state_changed(Qt.ApplicationState.ApplicationActive)

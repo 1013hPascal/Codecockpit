@@ -6,10 +6,11 @@ Ab Qt 6.8 gibt es dafür QAccessibleAnnouncementEvent. Jede Ansage steht zusätz
 Neu im Cockpit: Die letzten 50 Meldungen werden gespeichert. Strg+Umschalt+M wiederholt die
 letzte, Strg+Umschalt+L zeigt die Liste.
 
-Wichtig (Test von Phase 3): NVDA liest Ansagen nur aus dem Fenster, das gerade vorne ist. Das
-Ereignis hängt deshalb am Steuerelement mit dem Fokus, nicht fest am Hauptfenster. Ist das
-Cockpit gerade nicht vorne (zum Beispiel beim automatischen Sperren), wird die Ansage aufgehoben
-und beim Zurückkehren nachgeholt.
+Wichtig (Test von Phase 3):
+- Ein Fokuswechsel bricht in NVDA eine laufende Ansage ab. Nach einer Aktion springt der Fokus oft
+  noch (Dialog schließt, Liste wird neu gefüllt). Deshalb wird jede Ansage erst gesendet, wenn sich
+  der Fokus beruhigt hat (AFTER_FOCUS_MS), und zwar an das Steuerelement, das dann den Fokus hat.
+- Ist das Cockpit gerade nicht vorne, wird die Ansage aufgehoben und beim Zurückkehren nachgeholt.
 """
 from __future__ import annotations
 
@@ -31,7 +32,7 @@ except ImportError:                                    # Qt vor 6.8
 log = logging.getLogger(__name__)
 
 MAX_MESSAGES = 50
-AFTER_FOCUS_MS = 300
+AFTER_FOCUS_MS = 500              # Zeit, bis sich der Fokus nach einer Aktion beruhigt hat
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,7 @@ class Announcer:
         self.messages: deque[Message] = deque(maxlen=MAX_MESSAGES)
         self.listeners: list[Callable[[Message], None]] = []
         self.pending: list[Message] = []                   # für später, Cockpit war nicht vorne
+        self._generation = 0                               # reset() verwirft wartende Ansagen
         self._watching_state = False
 
     @property
@@ -67,7 +69,15 @@ class Announcer:
         for listener in list(self.listeners):
             listener(message)
         if speak:
+            self._send_later(text, urgent)
+
+    def _send_later(self, text: str, urgent: bool) -> None:
+        if QApplication.instance() is None:
             self._send(text, urgent)
+            return
+        generation = self._generation
+        QTimer.singleShot(AFTER_FOCUS_MS, lambda: generation == self._generation
+                          and self._send(text, urgent))
 
     def repeat_last(self) -> None:
         """Letzte Meldung noch einmal ansagen, ohne sie erneut zu speichern."""
@@ -84,6 +94,7 @@ class Announcer:
         self.messages.clear()
         self.listeners.clear()
         self.pending.clear()
+        self._generation += 1
 
     def current_target(self) -> QObject | None:
         """Steuerelement mit dem Fokus, sonst aktives Fenster, sonst das Hauptfenster."""
@@ -136,6 +147,5 @@ def announce(text: str, urgent: bool = False, speak: bool = True) -> None:
 
 
 def announce_after_focus(text: str, urgent: bool = False) -> None:
-    """Ansage kurz nach einem Fokuswechsel. Sonst übertönt NVDA sie mit dem neuen Fokus
-    (Test von Phase 3: "Master-Passwort geändert." war nicht zu hören)."""
-    QTimer.singleShot(AFTER_FOCUS_MS, lambda: announcer.announce(text, urgent))
+    """Früher nötig, heute gleichbedeutend mit announce: Jede Ansage wartet auf den Fokus."""
+    announcer.announce(text, urgent)
