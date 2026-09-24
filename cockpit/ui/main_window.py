@@ -28,6 +28,7 @@ from cockpit.ui.action_list import ActionList
 from cockpit.ui import vault_ui
 from cockpit.ui.accounts_dialog import AccountsDialog
 from cockpit.ui.asker import QtAsker
+from cockpit.ui.common import show_info
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.menus import AccessibleMenu
 from cockpit.ui.messages_dialog import MessagesDialog
@@ -367,8 +368,12 @@ class MainWindow(QMainWindow):
             self.services.vault.lock()
             self.update_vault_actions()
             minutes = self.services.settings.load().auto_lock_minutes
-            announce(f"Der Tresor wurde nach {count(minutes, 'Minute', 'Minuten')} ohne "
-                     "Eingabe gesperrt.")
+            text = (f"Der Tresor wurde nach {count(minutes, 'Minute', 'Minuten')} ohne "
+                    "Eingabe gesperrt.")
+            # Meldungsfenster mit OK (Wunsch aus dem Test): NVDA liest es sicher vor, auch wenn
+            # man gerade in einem anderen Programm war und zurückkommt.
+            announce(text, speak=False)
+            show_info(self, "Tresor gesperrt", text)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Jede Taste und jeder Mausklick startet die Zeit bis zum automatischen Sperren neu."""

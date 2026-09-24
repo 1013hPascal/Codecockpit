@@ -23,12 +23,18 @@ from tests.test_ui import show_active
 PASSWORD = "ErfundenesMasterPasswort1"
 
 
+shown_infos: list[str] = []
+
+
 @pytest.fixture(autouse=True)
 def no_blocking_questions(monkeypatch):
     """Rückfragen beim Schließen (zum Beispiel "Einrichtung abbrechen?") würden die Tests
     anhalten. Tests, die eine Antwort prüfen, ersetzen confirm selbst."""
     monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
     monkeypatch.setattr(ad, "show_info", lambda *args, **kwargs: None)
+    shown_infos.clear()
+    monkeypatch.setattr("cockpit.ui.vault_settings_dialog.show_info",
+                        lambda parent, title, text: shown_infos.append(text))
 
 
 class FakeNewPassword:
@@ -377,6 +383,8 @@ def test_vault_settings_switch_windows_to_file(qtbot, make_services, monkeypatch
     assert not dialog.password_button.isVisible()
     assert dialog.switch_button.text() == "&Wechseln zu Verschlüsselte Tresordatei …"
     dialog.switch()
+    assert shown_infos == ["Speicherart gewechselt. 1 Eintrag übertragen."]
+    assert dialog.close_button.hasFocus()
     qtbot.waitUntil(lambda: said("Speicherart gewechselt."), timeout=2000)
     assert services.settings.load().vault_kind == "vault_file"
     assert services.vault.read("codecockpit/account/1/token").reveal() == FAKE_TOKEN
@@ -459,7 +467,7 @@ def test_lock_and_unlock_file_vault_from_menu(qtbot, make_services, monkeypatch)
     assert not said("gesperrt. Entsperren")                  # beim Start keine Frage, keine Ansage
 
 
-def test_auto_lock_after_inactivity(qtbot, make_services):
+def test_auto_lock_after_inactivity(qtbot, make_services, monkeypatch):
     services = make_services()
     file = services.make_vault("vault_file")
     file.create(Secret(PASSWORD))
@@ -471,7 +479,11 @@ def test_auto_lock_after_inactivity(qtbot, make_services):
     win.check_auto_lock()
     assert services.vault.is_unlocked()                      # noch keine 5 Minuten
     win.last_input -= 5 * 60 + 1                             # auch Standby zählt mit
+    infos = []
+    monkeypatch.setattr("cockpit.ui.main_window.show_info",
+                        lambda parent, title, text: infos.append(text))
     win.check_auto_lock()
+    assert infos == ["Der Tresor wurde nach 5 Minuten ohne Eingabe gesperrt."]
     assert not services.vault.is_unlocked()
     assert said("Der Tresor wurde nach 5 Minuten ohne Eingabe gesperrt.")
 
@@ -545,6 +557,37 @@ def test_focus_goes_to_close_after_password_change(qtbot, make_services, monkeyp
     qtbot.addWidget(dialog)
     show_active(qtbot, dialog)
     dialog.change_password()
+    assert shown_infos == ["Das Master-Passwort wurde geändert."]   # Meldung mit OK
     assert dialog.close_button.hasFocus()
-    assert not said("Master-Passwort geändert.")             # erst nach dem Fokuswechsel
-    qtbot.waitUntil(lambda: said("Master-Passwort geändert."), timeout=2000)
+
+
+# -- Ansagen an das aktive Fenster (Test von Phase 3) ---------------------------------------
+def test_announcement_goes_to_the_focused_widget_in_a_dialog(qtbot, make_services, monkeypatch):
+    from cockpit.ui import announcer as announcer_module
+    win = MainWindow(make_services())
+    qtbot.addWidget(win)
+    dialog = pd.UnlockDialog(lambda s: None, win)
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    dialog.password.setFocus()
+    targets = []
+    monkeypatch.setattr(announcer_module.QAccessible, "updateAccessibility",
+                        lambda event: targets.append(event.object()))
+    announcer.announce("Probe.")
+    assert targets == [dialog.password]                      # nicht das Hauptfenster
+
+
+def test_announcement_waits_while_cockpit_is_in_background(qtbot, make_services, monkeypatch):
+    from cockpit.ui import announcer as announcer_module
+    win = MainWindow(make_services())
+    qtbot.addWidget(win)
+    sent = []
+    monkeypatch.setattr(announcer_module.QAccessible, "updateAccessibility",
+                        lambda event: sent.append(event))
+    monkeypatch.setattr(announcer_module.Announcer, "app_is_active", staticmethod(lambda: False))
+    announcer.announce("Der Tresor wurde gesperrt.")
+    assert sent == [] and [m.text for m in announcer.pending] == ["Der Tresor wurde gesperrt."]
+    monkeypatch.setattr(announcer_module.Announcer, "app_is_active", staticmethod(lambda: True))
+    announcer._state_changed(Qt.ApplicationState.ApplicationActive)
+    qtbot.waitUntil(lambda: bool(sent), timeout=2000)
+    assert announcer.pending == []

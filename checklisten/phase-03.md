@@ -250,22 +250,50 @@ Antwort von Claude: Ja, genau so. Ein Konto ist Ihr Zugang zu einem Dienst, zum 
 
 Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten. Im Assistenten diesmal gleich die Tresordatei wählen.
 
-[ ] 37. Ansage nach dem Passwortwechsel
+[!] 37. Ansage nach dem Passwortwechsel
 Tasten: Alt+O, Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speichern.
 Erwartet: Der Fokus springt auf „Schließen“. Kurz danach sagt NVDA „Master-Passwort geändert.“
-Ergebnis:
+Ergebnis: es kommt keine ansage von nvda. viellciht erst Meldung wurde gespiechert ok und dann auf schließen springen.
+Antwort von Claude: Gefunden. Alle Ansagen hingen am Hauptfenster. NVDA liest aber nur Ansagen aus dem Fenster, das gerade vorne ist. Aus Dialogen kam deshalb nichts. Jetzt hängen sie am Steuerelement mit dem Fokus. Zusätzlich kommt nach dem Passwortwechsel, wie vorgeschlagen, eine Meldung mit OK. Danach steht der Fokus auf Schließen. Siehe Punkt 41.
 
-[ ] 38. Automatisch sperren
+[!] 38. Automatisch sperren
 Tasten: Tresor-Einstellungen, „Automatisch sperren nach“ auf 1 Minute, Schließen. Das Cockpit offen lassen und etwa 75 Sekunden keine Taste drücken.
 Erwartet: NVDA sagt „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ Im Menü Konten steht danach „Tresor entsperren …“.
-Ergebnis:
+Ergebnis: Tresor wurde gespert, aber es gab keine ansage. Vielleicht Tresor wurde gespert Meldung anzeigen mit ok oder nur 2 Sekundne anzeigen oder so.
+Antwort von Claude: Umgesetzt wie vorgeschlagen: Es erscheint eine Meldung „Tresor gesperrt“ mit OK. Die liest NVDA sicher, auch wenn Sie gerade in einem anderen Programm waren und zurückkommen. Siehe Punkt 42.
 
 [ ] 39. Passwort erst bei Bedarf
 Tasten: Nach Punkt 38 ist der Tresor gesperrt. Kontenverwaltung öffnen, „Neues Konto anlegen …“, ausfüllen mit Token „richtig“, Alt+S.
 Erwartet: Die Kontenliste öffnet sich ohne Passwort. Erst beim Speichern erscheint „Tresor entsperren“. Nach dem richtigen Passwort ist das Konto gespeichert, und NVDA sagt „Tresor entsperrt.“
-Ergebnis:
+Ergebnis: Die nvda ansage kommt nicht mit Tresor entsperrt.
+Antwort von Claude: Gleiche Ursache wie bei Punkt 37, jetzt behoben. Siehe Punkt 43.
 
-[ ] 40. Kein Passwort beim Start
+[x] 40. Kein Passwort beim Start
 Tasten: Diesen Punkt prüfen Sie bei Ihrer echten Einrichtung (Punkt 31), falls Sie dort die Tresordatei wählen: Cockpit beenden und `start.bat` erneut starten.
 Erwartet: Das Cockpit startet ohne Frage nach dem Master-Passwort.
+Ergebnis:
+
+
+## I. Dritter Nachtest: Ansagen in Dialogen (25.09.2026)
+
+Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten. Im Assistenten die Tresordatei wählen.
+
+[ ] 41. Meldung nach dem Passwortwechsel
+Tasten: Alt+O, Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speichern.
+Erwartet: Eine Meldung „Das Master-Passwort wurde geändert.“ mit OK. Nach Enter steht der Fokus auf „Schließen“.
+Ergebnis:
+
+[ ] 42. Automatisch sperren mit Meldung
+Tasten: „Automatisch sperren nach“ auf 1 Minute, Schließen. Dann gern in ein anderes Programm wechseln, zum Beispiel diese Checkliste, und nach etwa 90 Sekunden mit Alt+Tab zurück ins Cockpit.
+Erwartet: Eine Meldung „Tresor gesperrt“ mit dem Text „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ NVDA liest sie, sobald Sie im Cockpit sind. Nach OK steht der Fokus wieder dort, wo er vorher war.
+Ergebnis:
+
+[ ] 43. Ansage beim Entsperren
+Tasten: Kontenverwaltung, „Neues Konto anlegen …“, ausfüllen mit Token „richtig“, Alt+S, im Fenster „Tresor entsperren“ das Passwort eingeben, Enter.
+Erwartet: NVDA sagt „Tresor entsperrt.“ Danach „Konto … angelegt.“
+Ergebnis:
+
+[ ] 44. Ansagen in anderen Dialogen
+Tasten: In der Kontenverwaltung ein Konto mit Entf löschen und bestätigen.
+Erwartet: NVDA sagt „Konto … gelöscht.“ Das war vorher vermutlich auch stumm.
 Ergebnis:

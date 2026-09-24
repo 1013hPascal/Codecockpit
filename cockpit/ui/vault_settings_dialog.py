@@ -13,8 +13,7 @@ from cockpit.core.services import Services
 from cockpit.core.text import count
 from cockpit.core.vault_service import KINDS
 from cockpit.ui import vault_ui
-from cockpit.ui.announcer import announce_after_focus
-from cockpit.ui.common import FocusDialog, label_for, name_widget
+from cockpit.ui.common import FocusDialog, label_for, name_widget, show_info
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.password_dialogs import NewPasswordDialog
 
@@ -84,6 +83,8 @@ class VaultSettingsDialog(FocusDialog):
     def switch(self) -> None:
         if vault_ui.switch_vault(self.services, self.other_kind(), self):
             self.refresh()
+            show_info(self, "Speicherart wechseln", self.services.vault.last_switch_text
+                      or f"Die Speicherart ist jetzt {self.services.vault.display_name}.")
             self.close_button.setFocus()             # erledigt: weiter zum Schließen
             return
         self.switch_button.setFocus()
@@ -98,8 +99,9 @@ class VaultSettingsDialog(FocusDialog):
                 show_error(self, "Master-Passwort ändern", exc.message, exc.details)
             else:
                 self.refresh()
-                self.close_button.setFocus()         # erledigt: weiter zum Schließen
-                announce_after_focus("Master-Passwort geändert.")
+                # Bestätigung als Meldung mit OK (Wunsch aus dem Test), danach zum Schließen
+                show_info(self, "Master-Passwort ändern", "Das Master-Passwort wurde geändert.")
+                self.close_button.setFocus()
                 return
         self.password_button.setFocus()
 

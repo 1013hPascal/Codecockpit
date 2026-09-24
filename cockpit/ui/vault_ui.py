@@ -82,7 +82,8 @@ def switch_vault(services: Services, kind: str, parent: QWidget | None) -> bool:
             return False
         if current.kind == "vault_file":
             current.destroy()
-        announce_after_focus(f"Speicherart gewechselt. "
-                             f"{count(moved, 'Eintrag', 'Einträge')} übertragen.")
+        text = f"Speicherart gewechselt. {count(moved, 'Eintrag', 'Einträge')} übertragen."
+        services.vault.last_switch_text = text
+        announce_after_focus(text)
     services.use_vault(new)
     return True

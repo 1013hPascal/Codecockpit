@@ -62,6 +62,7 @@ class VaultService:
     def __init__(self, vault: Vault | None, index: NameIndex) -> None:
         self.vault = vault
         self.index = index
+        self.last_switch_text = ""                 # Ergebnis des letzten Wechsels, für die Meldung
 
     @property
     def kind(self) -> str:
