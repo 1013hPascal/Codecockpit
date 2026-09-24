@@ -5,6 +5,7 @@ Diese Regeln gelten in jeder Sitzung.
 ## Grundlage
 
 - Lies zu Beginn jeder Sitzung KONZEPT.md, ENTSCHEIDUNGEN.md und PLAN.md. Sie sind die Grundlage für alle Arbeiten.
+- Lies auch TODO.md. Dort stehen verschobene offene Punkte.
 - Wo ENTSCHEIDUNGEN.md vom Konzept abweicht, gilt ENTSCHEIDUNGEN.md. Wichtig: Es gibt keine Profile.
 - Die Oberfläche spricht den Nutzer mit „Sie“ an.
 - Getestet wird mit NVDA und Braillezeile.

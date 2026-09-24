@@ -197,7 +197,7 @@ Ergebnis:
 
 ## F. Ihre echte Einrichtung
 
-[ ] 31. Echter Start
+[x] 31. Echter Start
 Tasten: `start.bat` starten.
 Erwartet: Der Assistent erscheint, weil Ihr echtes Cockpit noch nicht eingerichtet ist. Wählen Sie den Tresor, den Sie wirklich nutzen möchten. Empfohlen ist die Windows-Anmeldeinformationsverwaltung. Bei der Git-Identität tragen Sie „1013hPascal“ und `94653295+1013hPascal@users.noreply.github.com` ein. Am Ende öffnet sich das Hauptfenster mit „Codecockpit“.
 Ergebnis:
@@ -321,3 +321,5 @@ Erwartet: „Ausgeklappt, 2 Unterordner.“ und „Zugeklappt.“ kommen wie bis
 Ergebnis:
 
 Punkt 42 (automatisch sperren mit Meldung) ist auch noch offen.
+
+Stand 25.09.2026: Punkt 31 ist erledigt. Die Punkte 42 bis 47 zur Sprachausgabe sind verschoben, siehe TODO.md.
