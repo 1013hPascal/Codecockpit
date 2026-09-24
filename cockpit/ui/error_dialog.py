@@ -1,16 +1,17 @@
 """Fehlerfenster: einfacher Text, auf Wunsch technische Details (Konzept 8.6).
 
-Aufbau: Textfeld "Meldung" (ein Satz je Zeile), Schaltfläche "Details anzeigen" (nur wenn es
-Details gibt) und "OK". "Details anzeigen" öffnet ein zweites Textfeld und setzt den Fokus
-hinein. Escape und Enter schließen.
+Aufbau wie ein normales Meldungsfenster: oben der Text, darunter "Details anzeigen" (nur wenn es
+Details gibt) und "OK". Der Fokus steht auf "OK", NVDA liest beim Öffnen den Text des Fensters.
+Zusätzlich wird die Meldung vorher dringend angesagt. "Details anzeigen" öffnet eine Liste mit
+einer Zeile pro Detailzeile und setzt den Fokus hinein.
 """
 from __future__ import annotations
 
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QListWidget, QPushButton,
+                               QVBoxLayout, QWidget)
 
 from cockpit.core.logging_setup import mask_secrets
-from cockpit.core.text import one_sentence_per_line
-from cockpit.ui.common import PlainEdit, name_widget
+from cockpit.ui.common import name_widget
 
 
 class ErrorDialog(QDialog):
@@ -19,15 +20,13 @@ class ErrorDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
 
-        self.message = PlainEdit()
-        self.message.setReadOnly(True)
-        self.message.setPlainText(one_sentence_per_line(message))
-        self.message.setMaximumHeight(140)
-        name_widget(self.message, "Meldung")
+        self.message = QLabel(message)
+        self.message.setWordWrap(True)
 
-        self.details = PlainEdit()
-        self.details.setReadOnly(True)
-        self.details.setPlainText(mask_secrets(details))
+        self.details = QListWidget()
+        self.details.addItems([line for line in mask_secrets(details).splitlines()
+                               if line.strip()])
+        self.details.setCurrentRow(0)
         name_widget(self.details, "Details")
         self.details.hide()
 
@@ -46,11 +45,10 @@ class ErrorDialog(QDialog):
         layout.addWidget(self.message)
         layout.addWidget(self.details, 1)
         layout.addLayout(buttons)
-        QWidget.setTabOrder(self.message, self.details)
-        QWidget.setTabOrder(self.details, self.details_button)
-        QWidget.setTabOrder(self.details_button, self.ok_button)
-        self.resize(560, 260)
-        self.message.setFocus()
+        QWidget.setTabOrder(self.ok_button, self.details_button)
+        QWidget.setTabOrder(self.details_button, self.details)
+        self.resize(560, 200)
+        self.ok_button.setFocus()
 
     def toggle_details(self) -> None:
         if self.details.isVisible():
@@ -60,7 +58,7 @@ class ErrorDialog(QDialog):
         else:
             self.details.show()
             self.details_button.setText("&Details ausblenden")
-            self.resize(self.width(), max(self.height(), 460))
+            self.resize(self.width(), max(self.height(), 420))
             self.details.setFocus()
 
 

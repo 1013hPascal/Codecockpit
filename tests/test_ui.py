@@ -1,4 +1,4 @@
-"""Oberfläche: Barrierefreiheit, Tastatur, Projektbaum, Aktionen, Dialoge."""
+"""Oberfläche: Barrierefreiheit, Tastatur, Projektliste, Aktionen, Dialoge."""
 from __future__ import annotations
 
 import re
@@ -17,7 +17,7 @@ from cockpit.ui.announcer import announcer
 from cockpit.ui.error_dialog import ErrorDialog
 from cockpit.ui.form_builder import FormError, SettingsForm
 from cockpit.ui.main_window import MainWindow
-from cockpit.ui.project_tree import NEW_PROJECT_TEXT
+from cockpit.ui.project_list import NEW_PROJECT_TEXT
 from cockpit.ui.settings_dialog import SettingsDialog
 from tests.conftest import FAKE_TOKEN, make_project, said
 
@@ -49,12 +49,12 @@ def press(qtbot, widget, key, modifier=Qt.KeyboardModifier.NoModifier):
 
 
 def current_text(win: MainWindow) -> str:
-    return win.tree.currentIndex().data()
+    return win.project_list.currentItem().text()
 
 
 def select_project(win: MainWindow, name: str) -> None:
     project = next(p for p in win.services.projects.all() if p.name == name)
-    win.tree.select(Target.PROJECT, project.id)
+    win.project_list.select(Target.PROJECT, project.id)
 
 
 def close_dialogs_later(qtbot, action=lambda d: d.reject()):
@@ -74,9 +74,9 @@ def test_every_focusable_control_has_a_name(window):
     for widget in win.findChildren(QWidget):
         if widget.focusPolicy() != Qt.FocusPolicy.NoFocus and widget.isVisibleTo(win) \
                 and isinstance(widget, (QListWidget, QPlainTextEdit, QLineEdit)) \
-                or widget in (win.tree, win.actions_list):
+                or widget in (win.project_list, win.actions_list):
             assert widget.accessibleName(), f"{type(widget).__name__} ohne Namen"
-    assert win.tree.accessibleName() == "Projekte"
+    assert win.project_list.accessibleName() == "Projekte"
     assert win.actions_list.accessibleName() == "Aktionen"
     assert win.status_label.accessibleName() == "Status"
 
@@ -126,25 +126,25 @@ def test_shortcut_list_mentions_every_shortcut(window):
         shortcut = action.shortcut().toString()
         if shortcut:
             readable = shortcut.replace("Ctrl", "Strg").replace("Shift", "Umschalt")
-            assert readable in mw.SHORTCUTS, readable
+            assert any(readable in line for line in mw.SHORTCUTS), readable
 
 
 # -- Tab-Reihenfolge und Bereiche -------------------------------------------------------------
-def test_tab_circle_tree_actions_tree(window, qtbot):
+def test_tab_circle_list_actions_list(window, qtbot):
     win = window()
-    assert win.tree.hasFocus()
-    press(qtbot, win.tree, Qt.Key.Key_Tab)
+    assert win.project_list.hasFocus()
+    press(qtbot, win.project_list, Qt.Key.Key_Tab)
     assert win.actions_list.hasFocus()
     press(qtbot, win.actions_list, Qt.Key.Key_Tab)
-    assert win.tree.hasFocus()
+    assert win.project_list.hasFocus()
 
 
-def test_shift_tab_returns_to_the_same_tree_entry(window, qtbot):
+def test_shift_tab_returns_to_the_same_list_entry(window, qtbot):
     win = window()
     select_project(win, "Tagebuch")
-    press(qtbot, win.tree, Qt.Key.Key_Tab)
+    press(qtbot, win.project_list, Qt.Key.Key_Tab)
     press(qtbot, win.actions_list, Qt.Key.Key_Backtab, Qt.KeyboardModifier.ShiftModifier)
-    assert win.tree.hasFocus()
+    assert win.project_list.hasFocus()
     assert current_text(win) == "Tagebuch"
 
 
@@ -153,87 +153,116 @@ def test_area_shortcuts(window, qtbot):
     win.focus_actions()
     assert win.actions_list.hasFocus()
     win.cycle_area(+1)
-    assert win.tree.hasFocus()
+    assert win.project_list.hasFocus()
     win.cycle_area(-1)
     assert win.actions_list.hasFocus()
 
 
-# -- Projektbaum ----------------------------------------------------------------------------
-def test_tree_starts_with_new_project_and_lists_projects(window):
+# -- Projektliste ----------------------------------------------------------------------------
+def test_list_starts_with_new_project_and_lists_projects(window):
     win = window()
-    texts = win.tree.texts()
+    texts = win.project_list.texts()
     assert texts[0] == NEW_PROJECT_TEXT
-    assert "PDF-Chat" in texts and "Tagebuch" in texts
+    assert sorted(texts[1:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
     assert current_text(win) == NEW_PROJECT_TEXT
-    pdf = texts.index("PDF-Chat")
-    assert texts[pdf + 1:pdf + 3] == ["  Code", "  Exe, leer"]
-    tagebuch = texts.index("Tagebuch")
-    assert texts[tagebuch + 1:tagebuch + 2] == ["  Code"]
-    assert not any("Exe" in t for t in texts[tagebuch + 1:tagebuch + 2])
+    assert win.project_list.accessibleName() == "Projekte"
 
 
-def test_right_expands_and_collapses_all_others(window, qtbot):
+def test_right_expands_and_says_so(window, qtbot):
     win = window()
     select_project(win, "PDF-Chat")
-    press(qtbot, win.tree, Qt.Key.Key_Right)
-    pdf_index = win.tree.currentIndex()
-    assert win.tree.isExpanded(pdf_index)
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    texts = win.project_list.texts()
+    row = texts.index("PDF-Chat, ausgeklappt")
+    assert texts[row + 1:row + 3] == ["Code", "Exe, leer"]
+    assert current_text(win) == "PDF-Chat, ausgeklappt"            # Fokus bleibt
+    assert announcer.last_text == "Ausgeklappt, 2 Unterordner."
+
+
+@pytest.mark.parametrize("key", [Qt.Key.Key_Space, Qt.Key.Key_Return])
+def test_space_and_enter_toggle_a_project(window, qtbot, key):
+    win = window()
     select_project(win, "Tagebuch")
-    press(qtbot, win.tree, Qt.Key.Key_Right)
-    assert current_text(win) == "Tagebuch"                     # Fokus bleibt
-    assert win.tree.isExpanded(win.tree.currentIndex())
-    assert not win.tree.isExpanded(pdf_index)                  # anderes Projekt zugeklappt
-
-
-def test_right_on_expanded_goes_to_first_child_left_goes_back(window, qtbot):
-    win = window()
-    select_project(win, "PDF-Chat")
-    press(qtbot, win.tree, Qt.Key.Key_Right)
-    press(qtbot, win.tree, Qt.Key.Key_Right)
-    assert current_text(win) == "Code"
-    press(qtbot, win.tree, Qt.Key.Key_Down)
-    assert current_text(win) == "Exe, leer"
-    press(qtbot, win.tree, Qt.Key.Key_Left)
-    assert current_text(win) == "PDF-Chat"
-    press(qtbot, win.tree, Qt.Key.Key_Left)
-    assert not win.tree.isExpanded(win.tree.currentIndex())
-
-
-def test_enter_toggles_a_project(window, qtbot):
-    win = window()
-    select_project(win, "PDF-Chat")
-    press(qtbot, win.tree, Qt.Key.Key_Return)
-    assert win.tree.isExpanded(win.tree.currentIndex())
-    press(qtbot, win.tree, Qt.Key.Key_Return)
-    assert not win.tree.isExpanded(win.tree.currentIndex())
-
-
-def test_expanding_by_mouse_moves_focus_out_of_collapsed_project(window):
-    win = window()
-    select_project(win, "PDF-Chat")
-    win.tree.expand(win.tree.currentIndex())
-    pdf = win.services.projects.all()
-    win.tree.select(Target.CODE, next(p.id for p in pdf if p.name == "PDF-Chat"))
-    tagebuch_index = win.tree.index_for(
-        Target.PROJECT, next(p.id for p in pdf if p.name == "Tagebuch"))
-    win.tree.expand(tagebuch_index)
+    press(qtbot, win.project_list, key)
+    assert current_text(win) == "Tagebuch, ausgeklappt"
+    assert announcer.last_text == "Ausgeklappt, 1 Unterordner."
+    press(qtbot, win.project_list, key)
     assert current_text(win) == "Tagebuch"
+    assert "Code" not in win.project_list.texts()
+    assert announcer.last_text == "Zugeklappt."
 
 
-def test_missing_folder_is_named(window, projects_root):
+def test_expanding_one_collapses_the_other(window, qtbot):
+    win = window()
+    select_project(win, "PDF-Chat")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    select_project(win, "Tagebuch")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    texts = win.project_list.texts()
+    assert "PDF-Chat" in texts and "Tagebuch, ausgeklappt" in texts
+    assert texts.count("Code") == 1
+    assert current_text(win) == "Tagebuch, ausgeklappt"
+
+
+def test_right_goes_to_child_left_collapses_back_to_project(window, qtbot):
+    win = window()
+    select_project(win, "PDF-Chat")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    assert current_text(win) == "Code"
+    press(qtbot, win.project_list, Qt.Key.Key_Down)
+    assert current_text(win) == "Exe, leer"
+    press(qtbot, win.project_list, Qt.Key.Key_Left)
+    assert current_text(win) == "PDF-Chat"
+    assert win.project_list.texts().count("Code") == 0              # wieder die normale Liste
+    assert announcer.last_text == "Zugeklappt."
+
+
+def test_every_project_stays_reachable_after_collapsing(window, qtbot):
+    """Rückmeldung aus Phase 2: Nach dem Zuklappen waren Projekte nicht mehr erreichbar."""
+    win = window(names=("A", "B", "C"))
+    select_project(win, "B")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    press(qtbot, win.project_list, Qt.Key.Key_Left)
+    win.project_list.setCurrentRow(0)
+    seen = [current_text(win)]
+    for _ in range(5):
+        press(qtbot, win.project_list, Qt.Key.Key_Down)
+        seen.append(current_text(win))
+    assert {NEW_PROJECT_TEXT, "A", "B", "C"} <= set(seen)
+
+
+def test_left_on_expanded_project_collapses(window, qtbot):
+    win = window()
+    select_project(win, "PDF-Chat")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    press(qtbot, win.project_list, Qt.Key.Key_Left)
+    assert current_text(win) == "PDF-Chat"
+    assert "Code" not in win.project_list.texts()
+
+
+def test_missing_folder_is_named_and_cannot_expand(window, qtbot, projects_root):
     win = window()
     shutil.rmtree(projects_root / "Tagebuch")
     win.reload_projects()
-    assert "Tagebuch, Ordner nicht gefunden" in win.tree.texts()
-
-
-def test_rescan_finds_new_projects_and_keeps_selection(window, qtbot, projects_root):
-    win = window()
+    assert "Tagebuch, Ordner nicht gefunden" in win.project_list.texts()
     select_project(win, "Tagebuch")
+    press(qtbot, win.project_list, Qt.Key.Key_Return)
+    assert announcer.last_text == "Der Ordner wurde nicht gefunden."
+    assert win.project_list.hasFocus()
+
+
+def test_rescan_keeps_selection_and_expanded_project(window, qtbot, projects_root):
+    win = window()
+    select_project(win, "PDF-Chat")
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
+    press(qtbot, win.project_list, Qt.Key.Key_Right)
     make_project(projects_root, "Bildbeschreiber")
     win.rescan()
-    assert "Bildbeschreiber" in win.tree.texts()
-    assert current_text(win) == "Tagebuch"
+    assert "Bildbeschreiber" in win.project_list.texts()
+    assert current_text(win) == "Code"
+    assert "PDF-Chat, ausgeklappt" in win.project_list.texts()
     assert said("Neu: Bildbeschreiber.")
 
 
@@ -241,7 +270,9 @@ def test_exe_label_names_file_and_date(window, projects_root):
     win = window()
     (projects_root / "PDF-Chat" / "Exe" / "PDF-Chat.exe").write_text("x")
     win.reload_projects()
-    assert any(t.startswith("  Exe, PDF-Chat.exe, erstellt am ") for t in win.tree.texts())
+    select_project(win, "PDF-Chat")
+    win.project_list.expand(win.project_list.current_target()[1])
+    assert any(t.startswith("Exe, PDF-Chat.exe, erstellt am ") for t in win.project_list.texts())
 
 
 # -- Aktionen -------------------------------------------------------------------------------
@@ -252,7 +283,7 @@ def test_actions_follow_the_tree_selection(window):
     select_project(win, "PDF-Chat")
     assert win.actions_list.texts() == ["Projektordner öffnen"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
-    win.tree.select(Target.EXE, project.id)
+    win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
         "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.", "Exe-Ordner öffnen"]
 
@@ -280,9 +311,9 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
 def test_enter_on_code_without_default_moves_to_actions(window, qtbot):
     win = window()
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
-    win.tree.select(Target.CODE, project.id)
-    win.tree.setFocus()
-    press(qtbot, win.tree, Qt.Key.Key_Return)
+    win.project_list.select(Target.CODE, project.id)
+    win.project_list.setFocus()
+    press(qtbot, win.project_list, Qt.Key.Key_Return)
     assert win.actions_list.hasFocus()
 
 
@@ -293,8 +324,8 @@ def test_enter_on_exe_starts_it(window, qtbot, monkeypatch, projects_root):
     (projects_root / "PDF-Chat" / "Exe" / "PDF-Chat.exe").write_text("x")
     win.reload_projects()
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
-    win.tree.select(Target.EXE, project.id)
-    press(qtbot, win.tree, Qt.Key.Key_Return)
+    win.project_list.select(Target.EXE, project.id)
+    press(qtbot, win.project_list, Qt.Key.Key_Return)
     assert started[0].name == "PDF-Chat.exe"
     assert said("PDF-Chat.exe wird gestartet.")
 
@@ -308,7 +339,7 @@ def test_failing_action_shows_error_dialog(window, monkeypatch, qtbot):
     win = window()
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     (project.exe_dir / "PDF-Chat.exe").write_text("x")
-    win.tree.select(Target.EXE, project.id)
+    win.project_list.select(Target.EXE, project.id)
     win.run_default_action()
     assert shown[0][2] == "Exe starten hat nicht geklappt."
     assert said("Exe starten hat nicht geklappt.")
@@ -324,9 +355,9 @@ def test_context_menu_offers_the_same_actions(window, qtbot, monkeypatch):
         assert menu.accessibleName() == "Aktionen"
         return None
     monkeypatch.setattr(mw.AccessibleMenu, "exec", fake_exec)
-    win.show_context_menu(win.tree.mapToGlobal(win.tree.rect().center()))
+    win.show_context_menu(win.project_list.mapToGlobal(win.project_list.rect().center()))
     assert seen == win.actions_list.texts()
-    assert win.tree.hasFocus()
+    assert win.project_list.hasFocus()
 
 
 # -- Meldungen ------------------------------------------------------------------------------
@@ -377,16 +408,18 @@ def test_messages_dialog_lists_newest_first(window, qtbot):
 # -- Dialoge --------------------------------------------------------------------------------
 def test_error_dialog_details_get_focus_and_hide_secrets(qtbot):
     dialog = ErrorDialog("Fehler", "Es ging nicht. Bitte erneut versuchen.",
-                         f"Traceback mit {FAKE_TOKEN}")
+                         f"Traceback\nZeile mit {FAKE_TOKEN}")
     qtbot.addWidget(dialog)
     show_active(qtbot, dialog)
-    assert dialog.message.toPlainText() == "Es ging nicht.\nBitte erneut versuchen."
-    assert dialog.message.hasFocus()
+    assert dialog.message.text() == "Es ging nicht. Bitte erneut versuchen."
+    assert dialog.ok_button.hasFocus()
     assert not dialog.details.isVisible()
     dialog.details_button.click()
     assert dialog.details.isVisible() and dialog.details.hasFocus()
-    assert FAKE_TOKEN not in dialog.details.toPlainText()
+    lines = [dialog.details.item(r).text() for r in range(dialog.details.count())]
+    assert lines[0] == "Traceback" and FAKE_TOKEN not in lines[1]
     assert dialog.details_button.text() == "&Details ausblenden"
+    assert not dialog.findChildren(QPlainTextEdit)                 # keine Eingabefelder
 
 
 def test_error_dialog_without_details_has_no_button(qtbot):
@@ -468,15 +501,35 @@ def test_settings_dialog_first_field_has_focus_and_buttons_are_german(qtbot, mak
         "Standard-Lizenz für neue Projekte"
 
 
-def test_text_dialogs_open_with_focus_in_text(window, qtbot):
+def test_text_windows_are_lists_with_focus(window, qtbot):
     win = window()
-    for opener in (win.show_shortcuts, win.show_git_guide, win.show_about):
-        def check(dialog):
-            assert dialog.text.hasFocus()
-            assert dialog.text.toPlainText()
+    for opener, expected in ((win.show_shortcuts, "Projekt ausklappen, Pfeil rechts"),
+                             (win.show_git_guide, "winget install --id Git.Git -e --source winget"),
+                             (win.show_about, "Datenordner: ")):
+        def check(dialog, expected=expected):
+            assert dialog.list.hasFocus()
+            assert any(line.startswith(expected) for line in dialog.lines), expected
+            assert not dialog.findChildren(QPlainTextEdit)
             dialog.accept()
         close_dialogs_later(qtbot, check)
         opener()
+
+
+def test_text_to_lines_cleans_markdown():
+    from cockpit.ui.text_dialog import text_to_lines
+    assert text_to_lines("# Titel\n\n- Punkt\n1. Schritt\n   `befehl -x`\n**fett**") == \
+        ["Titel", "Punkt", "1. Schritt", "befehl -x", "fett"]
+
+
+def test_text_window_copies_the_current_line(qtbot):
+    from cockpit.ui.text_dialog import TextDialog
+    dialog = TextDialog("Test", ["eins", "zwei"])
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    dialog.list.setCurrentRow(1)
+    qtbot.keyClick(dialog.list, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
+    assert QApplication.clipboard().text() == "zwei"
+    assert announcer.last_text == "Zeile kopiert."
 
 
 def test_text_edit_makes_real_line_breaks(qtbot):

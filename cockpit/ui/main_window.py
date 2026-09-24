@@ -1,7 +1,7 @@
-"""Hauptfenster: Menüleiste, Projektbaum, Aktionsliste und Statuszeile.
+"""Hauptfenster: Menüleiste, Projektliste, Aktionsliste und Statuszeile.
 
-Tab-Kreis: Projektbaum, Aktionsliste, wieder Projektbaum. Umschalt+Tab führt aus der Aktionsliste
-zurück auf den Eintrag im Baum, von dem man kam. Die Statuszeile ist kein Tab-Stopp. Ihre Meldungen
+Tab-Kreis: Projektliste, Aktionsliste, wieder Projektliste. Umschalt+Tab führt aus der
+Aktionsliste zurück auf den Eintrag, von dem man kam. Die Statuszeile ist kein Tab-Stopp. Ihre Meldungen
 kommen als Ansage, Strg+Umschalt+M wiederholt die letzte.
 
 Es erscheinen nur Menüpunkte, die schon funktionieren (ENTSCHEIDUNGEN.md).
@@ -28,49 +28,42 @@ from cockpit.ui.asker import QtAsker
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.menus import AccessibleMenu
 from cockpit.ui.messages_dialog import MessagesDialog
-from cockpit.ui.project_tree import ProjectTree
+from cockpit.ui.project_list import ProjectList
 from cockpit.ui.settings_dialog import SettingsDialog
 from cockpit.ui.text_dialog import TextDialog
 
 log = logging.getLogger(__name__)
 
-SHORTCUTS = """\
-Aufbau des Fensters
-Links der Projektbaum, rechts die Aktionen.
-Tab wechselt zwischen Projektbaum und Aktionen.
-Umschalt+Tab führt aus den Aktionen zurück auf den Eintrag im Baum.
-
-Projektbaum
-Pfeil hoch und runter: zwischen den Einträgen wechseln
-Pfeil rechts auf einem Projekt: ausklappen, alle anderen Projekte klappen zu
-Pfeil rechts auf einem ausgeklappten Projekt: zum ersten Unterordner
-Pfeil links auf einem Unterordner: zurück zum Projekt
-Pfeil links auf einem ausgeklappten Projekt: zuklappen
-Enter auf einem Projekt: aus- oder zuklappen
-Enter auf Code oder Exe: wichtigste Aktion ausführen
-Menütaste oder Umschalt+F10: Aktionen als Kontextmenü
-
-Aktionen
-Enter oder Leertaste: markierte Aktion ausführen
-Bei nicht verfügbaren Aktionen wird der Grund angesagt.
-
-Bereiche
-Strg+1: Projektbaum
-Strg+2: Aktionen
-F6 und Umschalt+F6: nächster und vorheriger Bereich
-
-Meldungen
-Strg+Umschalt+M: letzte Meldung wiederholen
-Strg+Umschalt+L: Liste der letzten Meldungen
-
-Menüs
-Alt+D: Datei
-Alt+E: Einstellungen
-Alt+H: Hilfe
-Strg+R: Projekte neu einlesen
-Strg+Q: Beenden
-F1: dieses Fenster
-"""
+SHORTCUTS = [
+    "Aufbau: links die Projektliste, rechts die Aktionen",
+    "Zwischen Projektliste und Aktionen wechseln, Tab",
+    "Aus den Aktionen zurück zum Eintrag in der Projektliste, Umschalt+Tab",
+    "Projektliste",
+    "Projekt ausklappen, Pfeil rechts, Leertaste oder Enter",
+    "Im ausgeklappten Projekt zum ersten Unterordner, Pfeil rechts",
+    "Projekt zuklappen, Leertaste oder Enter auf dem Projekt",
+    "Zuklappen und zurück zum Projekt, Pfeil links auf Code oder Exe",
+    "Wichtigste Aktion auf Code oder Exe, Enter",
+    "Aktionen als Kontextmenü, Menütaste oder Umschalt+F10",
+    "Aktionen",
+    "Markierte Aktion ausführen, Enter oder Leertaste",
+    "Bei nicht verfügbaren Aktionen wird der Grund angesagt",
+    "Bereiche",
+    "Projektliste, Strg+1",
+    "Aktionen, Strg+2",
+    "Nächster und vorheriger Bereich, F6 und Umschalt+F6",
+    "Meldungen",
+    "Letzte Meldung wiederholen, Strg+Umschalt+M",
+    "Liste der letzten Meldungen, Strg+Umschalt+L",
+    "Menüs",
+    "Datei, Alt+D",
+    "Einstellungen, Alt+E",
+    "Hilfe, Alt+H",
+    "Projekte neu einlesen, Strg+R",
+    "Beenden, Strg+Q",
+    "Diese Liste, F1",
+    "In Listen wie dieser: Zeile kopieren, Strg+C",
+]
 
 
 class MainWindow(QMainWindow):
@@ -81,16 +74,16 @@ class MainWindow(QMainWindow):
         self.asker = QtAsker(self)
         self.setWindowTitle(f"{APP_NAME} (Testdaten)" if testdata else APP_NAME)
 
-        self.tree = ProjectTree()
+        self.project_list = ProjectList()
         self.actions_list = ActionList()
-        tree_label = QLabel("&Projekte:")
-        tree_label.setBuddy(self.tree)
+        list_label = QLabel("&Projekte:")
+        list_label.setBuddy(self.project_list)
         actions_label = QLabel("A&ktionen:")
         actions_label.setBuddy(self.actions_list)
 
         left = QVBoxLayout()
-        left.addWidget(tree_label)
-        left.addWidget(self.tree, 1)
+        left.addWidget(list_label)
+        left.addWidget(self.project_list, 1)
         right = QVBoxLayout()
         right.addWidget(actions_label)
         right.addWidget(self.actions_list, 1)
@@ -111,13 +104,13 @@ class MainWindow(QMainWindow):
 
         self._build_menus()
         self._build_shortcuts()
-        QWidget.setTabOrder(self.tree, self.actions_list)
-        QWidget.setTabOrder(self.actions_list, self.tree)
-        self.areas = [self.tree, self.actions_list]
+        QWidget.setTabOrder(self.project_list, self.actions_list)
+        QWidget.setTabOrder(self.actions_list, self.project_list)
+        self.areas = [self.project_list, self.actions_list]
 
-        self.tree.selectionModel().currentChanged.connect(lambda *_: self.refresh_actions())
-        self.tree.defaultActionRequested.connect(self.run_default_action)
-        self.tree.contextMenuRequested.connect(self.show_context_menu)
+        self.project_list.currentRowChanged.connect(lambda _row: self.refresh_actions())
+        self.project_list.defaultActionRequested.connect(self.run_default_action)
+        self.project_list.contextMenuRequested.connect(self.show_context_menu)
         self.actions_list.entryTriggered.connect(self.run_entry)
 
         self.reload_projects()
@@ -156,7 +149,7 @@ class MainWindow(QMainWindow):
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
 
     def _build_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+1"), self, activated=self.focus_tree)
+        QShortcut(QKeySequence("Ctrl+1"), self, activated=self.focus_project_list)
         QShortcut(QKeySequence("Ctrl+2"), self, activated=self.focus_actions)
         QShortcut(QKeySequence("F6"), self, activated=lambda: self.cycle_area(+1))
         QShortcut(QKeySequence("Shift+F6"), self, activated=lambda: self.cycle_area(-1))
@@ -166,7 +159,7 @@ class MainWindow(QMainWindow):
 
     # -- Start ----------------------------------------------------------------------------
     def initial_focus(self) -> None:
-        self.tree.setFocus()
+        self.project_list.setFocus()
 
     def startup(self) -> None:
         """Nach dem Anzeigen: Projekte melden, Voraussetzungen prüfen."""
@@ -181,10 +174,10 @@ class MainWindow(QMainWindow):
 
     # -- Projekte -------------------------------------------------------------------------
     def reload_projects(self) -> list:
-        """Hauptordner durchsuchen und Baum neu füllen. Gibt neu gefundene Projekte zurück."""
+        """Hauptordner durchsuchen und Projektliste neu füllen. Gibt neu gefundene Projekte zurück."""
         root = Path(self.services.settings.load().projects_root)
         found = self.services.projects.scan(root) if root.is_dir() else []
-        self.tree.set_projects(self.services.projects.all())
+        self.project_list.set_projects(self.services.projects.all())
         self.refresh_actions()
         return found
 
@@ -198,7 +191,7 @@ class MainWindow(QMainWindow):
 
     # -- Aktionen -------------------------------------------------------------------------
     def action_context(self) -> ActionContext:
-        target, project_id = self.tree.current_target()
+        target, project_id = self.project_list.current_target()
         project = self.services.projects.get(project_id) if project_id is not None else None
         return ActionContext(self.services, project, target, announce=announce,
                              asker=self.asker)
@@ -227,7 +220,7 @@ class MainWindow(QMainWindow):
         self.refresh_actions()
 
     def run_default_action(self) -> None:
-        """Enter im Baum: wichtigste Aktion, sonst in die Aktionsliste springen."""
+        """Enter in der Projektliste: wichtigste Aktion, sonst in die Aktionsliste springen."""
         entries = self.current_entries()
         entry = default_entry(entries)
         if entry is not None:
@@ -248,13 +241,13 @@ class MainWindow(QMainWindow):
         for entry in entries:
             chosen[menu.addAction(entry.label.replace("&", "&&"))] = entry
         picked = menu.exec(position)
-        self.tree.setFocus()
+        self.project_list.setFocus()
         if picked is not None:
             self.run_entry(chosen[picked])
 
     # -- Bereiche -------------------------------------------------------------------------
-    def focus_tree(self) -> None:
-        self.tree.setFocus()
+    def focus_project_list(self) -> None:
+        self.project_list.setFocus()
 
     def focus_actions(self) -> None:
         self.actions_list.setFocus()
@@ -289,10 +282,10 @@ class MainWindow(QMainWindow):
         TextDialog("Git installieren", text, "Anleitung Git installieren", self).exec()
 
     def show_about(self) -> None:
-        text = (f"{APP_NAME} Version {__version__}\n"
-                "Verwaltet Code-Projekte auf GitHub und GitLab ohne Terminal.\n"
-                "Barrierefrei entwickelt, vollständig per Tastatur bedienbar.\n"
-                f"Daten: {paths.data_dir()}")
+        text = [f"{APP_NAME} Version {__version__}",
+                f"Datenordner: {paths.data_dir()}",
+                "Verwaltet Code-Projekte auf GitHub und GitLab ohne Terminal.",
+                "Barrierefrei entwickelt, vollständig per Tastatur bedienbar."]
         TextDialog(f"Über {APP_NAME}", text, f"Über {APP_NAME}", self).exec()
 
     # -- Ende -----------------------------------------------------------------------------

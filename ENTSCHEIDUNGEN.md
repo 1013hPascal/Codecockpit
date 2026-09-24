@@ -145,3 +145,24 @@ Neue Einträge kommen ans Ende.
 
 - Einstellungsfelder werden so geschrieben: Kennung, Beschriftung, Standardwert, alles Weitere mit Namen. Beispiel: `Choice("test_mode", "Testart", "Start-Test", options=(...))`.
 - Das Feld „KI-Anbieter wählen“ kommt erst in Phase 7, wenn es KI-Anbieter gibt.
+
+
+## 25.09.2026: Änderungen nach dem NVDA-Test von Phase 2
+
+### Projektliste statt Projektbaum
+
+- Der Qt-Baum (QTreeView) hat den Test nicht bestanden: NVDA sagte bei Pfeiltasten nicht „ausgeklappt“ oder „zugeklappt“, und nach dem Zuklappen waren Projekte darüber oder darunter nicht mehr erreichbar.
+- Ersatz: eine normale Liste. Beim Ausklappen werden Code und Exe als eigene Zeilen unter dem Projekt eingefügt. Das Projekt heißt dann „PDF-Chat, ausgeklappt“. Beim Aus- und Zuklappen kommt eine kurze Ansage.
+- Bedienung nach Wunsch des Nutzers: Pfeil rechts, Leertaste oder Enter klappt ein Projekt auf. Pfeil links auf Code oder Exe klappt zu und führt zurück zum Projekt. Leertaste oder Enter auf einem offenen Projekt klappt es zu.
+- Weiter gilt: Es ist immer höchstens ein Projekt offen.
+
+### Listen statt schreibgeschützter Textfelder
+
+- Tastenkürzel, Anleitungen, „Über CodeCockpit“ und die Details im Fehlerfenster sind Listen mit einer Zeile pro Eintrag. In den schreibgeschützten Textfeldern gab es keinen Cursor, NVDA las nur die erste Zeile.
+- Strg+C kopiert in diesen Listen die markierte Zeile, zum Beispiel einen Befehl aus einer Anleitung.
+- Das Fehlerfenster zeigt die Meldung wie ein normales Windows-Meldungsfenster als Text, der Fokus steht auf „OK“. Die Meldung wird zusätzlich angesagt.
+- Tastenkürzel stehen als „Funktion, Taste“, zum Beispiel „Projekte neu einlesen, Strg+R“, so wie NVDA es aus Menüs kennt.
+
+### Statuszeile
+
+- NVDA+Ende (Laptop-Belegung: NVDA+Umschalt+Ende) ist ein Befehl von NVDA. Die Statuszeile von Qt erkennt NVDA damit nicht. Das ist nicht wichtig, weil Strg+Umschalt+M die letzte Meldung wiederholt. Der Prüfpunkt entfällt.

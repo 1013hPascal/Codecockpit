@@ -53,8 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     if "--selbsttest" in args:
         # Selbsttest (Konzept 10.4): starten, kurz laufen lassen, mit Code 0 beenden
         def finish() -> None:
-            log.info("Selbsttest: %s", " | ".join(window.tree.texts()))
-            app.exit(0 if window.tree.texts() else 1)
+            log.info("Selbsttest: %s", " | ".join(window.project_list.texts()))
+            app.exit(0 if window.project_list.texts() else 1)
         QTimer.singleShot(1500, finish)
     code = app.exec()
     services.close()

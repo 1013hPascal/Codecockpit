@@ -78,6 +78,10 @@ Ergebnis:
 Tasten: auf „Bildbeschreiber“ zweimal Enter.
 Erwartet: Beim ersten Enter klappt das Projekt aus, beim zweiten wieder zu. Beim Bildbeschreiber heißt der zweite Unterordner „Exe, leer“.
 Ergebnis:
+Aslo klappt noch nicht perfekt. 
+also enter drauf klappt. und liest auch vor. bei Pfeiltasten sagt er nicht ausgeklappt und auch nicht eingeklappt. 
+außerdem wenn man es einklappt, verschwindet das projetk drunter oder dürüber. wird nicht mehr mit pfieltasten ereichbar. 
+ich hätte gerne, das man auf einem projekt lertaste drück oder Pfeiltaste, oder enter, dann klappt es sich auf. und wenn man dort ist, ob auf code oder exe und man Pfeiltaste links drückt, soll er das wieder schließen. und die normale liste wieder anzeigen. und dann alle einträge anzeigen.
 
 
 ## C. Aktionen
@@ -85,42 +89,42 @@ Ergebnis:
 [ ] 10. Tab in die Aktionen und zurück
 Tasten: auf „PDF-Chat“ Tab, dann Umschalt+Tab.
 Erwartet: Tab führt in die Liste „Aktionen“ mit dem Eintrag „Projektordner öffnen“. Umschalt+Tab führt zurück in den Baum genau auf „PDF-Chat“. Ein zweites Tab aus den Aktionen führt ebenfalls in den Baum.
-Ergebnis:
+Ergebnis: Das funktioniert
 
 [ ] 11. Aktionen hängen von der Auswahl ab
 Tasten: im Baum auf „Exe“ von PDF-Chat gehen, dann Tab und Pfeil runter.
 Erwartet: „Exe starten“ und „Exe-Ordner öffnen“. Bei „Exe, leer“ vom Bildbeschreiber lautet der erste Eintrag „Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.“
-Ergebnis:
+Ergebnis: das funtktioniert.
 
 [ ] 12. Nicht verfügbare Aktion
 Tasten: im Baum ganz nach oben auf „Neues Projekt hochladen“, Tab, Enter.
 Erwartet: NVDA sagt „Neues Projekt hochladen ist nicht verfügbar. Diese Funktion kommt in Phase 5.“
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 13. Ordner öffnen
 Tasten: auf „PDF-Chat“ Tab, Enter.
 Erwartet: NVDA sagt „Projektordner wird geöffnet.“, und der Explorer zeigt den Ordner PDF-Chat mit Code und Exe. Schließen Sie den Explorer mit Alt+F4 und kehren Sie ins Cockpit zurück.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 14. Fehlerfenster
 Tasten: im Baum auf „Exe“ von PDF-Chat, Enter.
 Erwartet: Ein Fenster „Exe starten“ öffnet sich. NVDA liest „Exe starten hat nicht geklappt.“ Der Fokus steht im Feld „Meldung“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 15. Details im Fehlerfenster
 Tasten: Tab bis „Details anzeigen“, Enter.
 Erwartet: Das Feld „Details“ erscheint, und der Fokus steht darin. Es enthält eine technische Meldung von Windows, etwa „WinError 193“. Mit Pfeiltasten lesbar. Escape schließt das Fenster, der Fokus ist danach wieder im Baum.
-Ergebnis:
+Ergebnis: funktioiniert
 
 [ ] 16. Kontextmenü
 Tasten: auf „Exe“ von PDF-Chat die Menütaste oder Umschalt+F10.
 Erwartet: Ein Menü mit „Exe starten“ und „Exe-Ordner öffnen“. NVDA nennt sofort den ersten Eintrag. Escape schließt, der Fokus ist wieder im Baum auf „Exe“.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 17. Bereiche wechseln
 Tasten: Strg+2, Strg+1, dann F6 und Umschalt+F6.
 Erwartet: Strg+2 springt in die Aktionen, Strg+1 in den Baum. F6 und Umschalt+F6 wechseln zwischen beiden.
-Ergebnis:
+Ergebnis: funktioniert
 
 
 ## D. Meldungen
@@ -128,17 +132,17 @@ Ergebnis:
 [ ] 18. Letzte Meldung wiederholen
 Tasten: Strg+Umschalt+M.
 Erwartet: NVDA wiederholt die letzte Meldung, zum Beispiel „Projektordner wird geöffnet.“
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 19. Liste der Meldungen
 Tasten: Strg+Umschalt+L, Pfeiltasten, Escape.
 Erwartet: Fenster „Meldungen“ mit einer Liste. Die neueste Meldung steht oben, am Ende jeder Zeile die Uhrzeit. Escape schließt, der Fokus kehrt zurück.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 20. Statuszeile
 Tasten: NVDA+Ende (Statuszeile vorlesen).
 Erwartet: NVDA liest die letzte Meldung aus der Statuszeile.
-Ergebnis:
+Ergebnis: geht nicht, bitte andern tastenbefehl oder ist drer von ´nvda? ist aber auch nicht so wichtig oder?
 
 
 ## E. Menüs
@@ -146,27 +150,27 @@ Ergebnis:
 [ ] 21. Menüleiste
 Tasten: Alt, dann Pfeil rechts und links.
 Erwartet: Drei Menüs: Datei, Einstellungen, Hilfe. Beim Öffnen nennt NVDA gleich den ersten Eintrag, nicht nur den Programmnamen.
-Ergebnis:
+Ergebnis: klappt.
 
 [ ] 22. Menü Datei
 Tasten: Alt+D.
 Erwartet: „Projekte neu einlesen, Strg+R“ und „Beenden, Strg+Q“.
-Ergebnis:
+Ergebnis: funktioniertr
 
 [ ] 23. Tastenkürzel
 Tasten: F1.
 Erwartet: Fenster „Tastenkürzel“, der Fokus steht im Text. Mit Pfeil runter liest man Zeile für Zeile. Tab führt zu „Schließen“, Escape schließt.
-Ergebnis:
+Ergebnis: tab funktioniert und schließen auch. die liste der Tastenbefehle ist schlecht man sieht nur afubau des fenster.s. das kannst du besser. einfach eine liste machen odrer so. 
 
 [ ] 24. Git-Anleitung
 Tasten: Alt+H, dann „Git installieren“ wählen, Enter.
 Erwartet: Die Anleitung mit drei Wegen: winget, Chocolatey und Webseite. Gut lesbar mit Pfeiltasten.
-Ergebnis:
+Ergebnis: tap funktioniert schließen auch. wie eben, die liste geht nicht. 
 
 [ ] 25. Über CodeCockpit
 Tasten: Alt+H, „Über CodeCockpit“, Enter.
 Erwartet: Version 0.2.0 und der Datenordner.
-Ergebnis:
+Ergebnis: auch hier tab und schließen geht. aber Inhalt sehe ich nur Version aber nicht Datei rdner. also hier auch wieder Darstellungsweise schlecht.
 
 
 ## F. Grundeinstellungen
@@ -174,27 +178,29 @@ Ergebnis:
 [ ] 26. Dialog öffnen
 Tasten: Alt+E, Enter auf „Grundeinstellungen …“.
 Erwartet: Fenster „Grundeinstellungen“. Der Fokus steht im Feld „Projekte-Hauptordner“. Bei den Testdaten steht dort der Testordner.
-Ergebnis:
+Ergebnis: funktioniert
+
+
 
 [ ] 27. Felder mit Tab
 Tasten: Tab, mehrmals.
 Erwartet in dieser Reihenfolge: Projekte-Hauptordner, Ordner wählen, Git-Name für Commits, Git-E-Mail-Adresse für Commits, Kontrollkästchen „Neue Repositories privat anlegen“ (aktiviert), Auswahl „Standard-Lizenz für neue Projekte“ (MIT), Kontrollkästchen „Code-Auszüge nur an lokale oder firmeninterne KI senden“, Kontrollkästchen „Neue Projekte mit Branches und Pull Requests“, Speichern, Abbrechen. NVDA liest bei jedem Feld den Namen, auf der Braillezeile stehen nur Name und Art.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 28. Falsche Eingabe
 Tasten: bei „Git-E-Mail-Adresse“ nur „test“ eintippen, dann Alt+S.
 Erwartet: Ein Fenster „Eingabe prüfen“ mit „Bitte eine gültige E-Mail-Adresse eingeben.“ Nach Enter steht der Fokus wieder im Feld Git-E-Mail-Adresse, und der Text ist markiert.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 29. Speichern
 Tasten: Git-Name „1013hPascal“, Git-E-Mail-Adresse `94653295+1013hPascal@users.noreply.github.com` eintragen, Alt+S.
 Erwartet: Das Fenster schließt. NVDA sagt „Grundeinstellungen gespeichert.“ Beim erneuten Öffnen stehen die Werte noch da.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 30. Abbrechen
 Tasten: Dialog öffnen, etwas ändern, Escape.
 Erwartet: Das Fenster schließt ohne Speichern.
-Ergebnis:
+Ergebnis: funktioiinert
 
 
 ## G. Neu einlesen und Beenden
@@ -202,12 +208,16 @@ Ergebnis:
 [ ] 31. Neues Projekt finden
 Tasten: Im Explorer im Testordner `%LOCALAPPDATA%\CodeCockpit\Testdaten\Projekte` einen Ordner „Neu“ mit einem Unterordner „Code“ anlegen. Dann im Cockpit Strg+R.
 Erwartet: NVDA sagt „Projekte neu eingelesen. 5 Projekte. Neu: Neu.“ Der Fokus bleibt auf dem Eintrag, auf dem er vorher war.
-Ergebnis:
+Ergebnis: funktioniert
 
 [ ] 32. Beenden
 Tasten: Strg+Q.
 Erwartet: Das Programm schließt ohne Rückfrage und ohne Fehlermeldung.
-Ergebnis:
+Ergebnis: funktioniert.
+
+Kommentar von mir:
+Also das einzige was nicht so gut klappt sind die listen. und Meldungen sind bei dir auch in eingabefeldern eingabaut, weiß nicht ob das so typisch ist. auch tastenbefehle kannst du ja in eine liste machen. 
+Das ein und ausklappen der liste klappt noch nicht so gut auf der hauptebene, weil dann sachen komisch werden. weiß icht, ob die komisch egealdn werden. bei den refeerenzprojekten war das auch schon manchmal der fall. 
 
 
 ## H. Echter Start
@@ -221,3 +231,70 @@ Ergebnis:
 Tasten: Windows-Hochkontrast einschalten (linke Alt+linke Umschalt+Druck), Cockpit ansehen, wieder ausschalten.
 Erwartet: Alle Texte und die Markierung im Baum sind sichtbar. Dieser Punkt ist nur wichtig, wenn Sie selbst oder eine sehende Person mitprüft.
 Ergebnis:
+
+
+## I. Nachtest nach dem Umbau (25.09.2026)
+
+Nach Ihrem ersten Test habe ich zwei Dinge umgebaut. Der Projektbaum ist jetzt eine Projektliste. Tastenkürzel, Anleitungen, „Über“ und die Fehlerdetails sind jetzt Listen statt Textfelder. Bitte starten Sie `start_testdaten.bat` neu und prüfen Sie die folgenden Punkte. Die Punkte 33 und 34 oben sind auch noch offen.
+
+[ ] 35. Projektliste zugeklappt
+Tasten: Pfeil runter, mehrmals, bis ganz unten, dann Pfeil hoch bis ganz oben.
+Erwartet: „Neues Projekt hochladen“, „PDF-Chat“, „Tagebuch“, „Bildbeschreiber“, „Notizen, Ordner nicht gefunden“. Keine Unterordner dazwischen. NVDA nennt „Liste“ und die Position, zum Beispiel „2 von 5“.
+Ergebnis:
+
+[ ] 36. Ausklappen mit Pfeil rechts
+Tasten: auf „PDF-Chat“ Pfeil rechts.
+Erwartet: NVDA sagt „Ausgeklappt, 2 Unterordner.“ Der Fokus bleibt auf dem Projekt, es heißt jetzt „PDF-Chat, ausgeklappt“.
+Ergebnis:
+
+[ ] 37. In die Unterordner
+Tasten: Pfeil rechts, dann Pfeil runter.
+Erwartet: „Code“, dann „Exe, PDF-Chat.exe, erstellt am“ mit Datum. Danach mit Pfeil runter „Tagebuch“.
+Ergebnis:
+
+[ ] 38. Zuklappen mit Pfeil links
+Tasten: auf „Code“ oder „Exe“ Pfeil links.
+Erwartet: NVDA sagt „PDF-Chat“ und „Zugeklappt.“ Code und Exe sind aus der Liste verschwunden. Alle Projekte sind mit Pfeil hoch und runter erreichbar.
+Ergebnis:
+
+[ ] 39. Leertaste und Enter
+Tasten: auf „Tagebuch“ Leertaste, dann noch einmal Leertaste. Danach dasselbe mit Enter.
+Erwartet: Beim ersten Druck „Ausgeklappt, 1 Unterordner.“, beim zweiten „Zugeklappt.“ Der Fokus bleibt immer auf Tagebuch.
+Ergebnis:
+
+[ ] 40. Nur ein Projekt offen
+Tasten: „PDF-Chat“ ausklappen, dann zu „Tagebuch“ gehen und ausklappen.
+Erwartet: PDF-Chat klappt dabei zu. In der Liste gibt es nur einmal „Code“, und zwar unter Tagebuch.
+Ergebnis:
+
+[ ] 41. Projekt ohne Ordner
+Tasten: auf „Notizen, Ordner nicht gefunden“ Enter.
+Erwartet: NVDA sagt „Der Ordner wurde nicht gefunden.“ Der Fokus bleibt in der Liste.
+Ergebnis:
+
+[ ] 42. Aktionen und Enter auf Exe
+Tasten: PDF-Chat ausklappen, auf „Exe“ gehen, Tab, dann Umschalt+Tab, dann Enter.
+Erwartet: Tab führt in die Aktionen mit „Exe starten“ und „Exe-Ordner öffnen“. Umschalt+Tab führt zurück auf „Exe“. Enter öffnet das Fehlerfenster, weil die Test-Exe keine echte Exe ist.
+Ergebnis:
+
+[ ] 43. Fehlerfenster
+Tasten: im Fehlerfenster nichts drücken, dann Tab, Enter auf „Details anzeigen“, Pfeiltasten, Escape.
+Erwartet: Beim Öffnen liest NVDA „Exe starten hat nicht geklappt.“ Der Fokus steht auf „OK“. Nach „Details anzeigen“ steht der Fokus in der Liste „Details“, jede Zeile ist mit Pfeiltasten lesbar. Escape schließt, der Fokus ist wieder in der Projektliste.
+Ergebnis:
+
+[ ] 44. Tastenkürzel als Liste
+Tasten: F1, Pfeil runter mehrmals, Escape.
+Erwartet: Eine Liste, jede Zeile mit Funktion und Taste, zum Beispiel „Projekt ausklappen, Pfeil rechts, Leertaste oder Enter“. Alle Zeilen lesbar.
+Ergebnis:
+
+[ ] 45. Git-Anleitung als Liste und Kopieren
+Tasten: Alt+H, „Git installieren“, Pfeil runter bis zur Zeile mit „winget install“, dann Strg+C.
+Erwartet: Jede Zeile der Anleitung ist ein Listeneintrag. Nach Strg+C sagt NVDA „Zeile kopiert.“ In einem Editor lässt sich der Befehl mit Strg+V einfügen.
+Ergebnis:
+
+[ ] 46. Über CodeCockpit
+Tasten: Alt+H, „Über CodeCockpit“, Pfeil runter.
+Erwartet: „CodeCockpit Version 0.2.0“, dann „Datenordner:“ mit dem Pfad, dann zwei Sätze zum Programm.
+Ergebnis:
+
+Platz für Ihren Kommentar:
