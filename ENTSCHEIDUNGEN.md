@@ -212,3 +212,11 @@ Neue Einträge kommen ans Ende.
 ### Hinweis auf Sicherung
 
 - Konzept 5.6 verlangt nach Änderungen an Konten oder Tresor einen Hinweis auf eine neue Sicherung. Die Sicherung kommt in Phase 17, der Hinweis deshalb auch.
+
+### Nach dem NVDA-Test von Phase 3
+
+- Auf der Tresor-Seite des Assistenten steht der Fokus zuerst in der Erklärung. Mit Tab geht es zur Auswahl.
+- Die Auswahl der Speicherart ist eine Liste statt zweier Auswahlschalter. NVDA meldete bei den Auswahlschaltern beide als „markiert“. Grundsatz ab jetzt: einfache Auswahl als Liste, wie in den Referenz-Projekten.
+- Nach einer erledigten Aktion in einem Einstellungsfenster springt der Fokus auf „Schließen“.
+- Die Kontenverwaltung hat am Ende der Liste den Eintrag „Wofür sind Konten? …“ mit einer Erklärung.
+- Automatisches Sperren prüft alle 15 Sekunden die Zeit seit der letzten Eingabe. So zählt auch Standby mit.

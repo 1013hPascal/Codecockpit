@@ -27,8 +27,25 @@ from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, confirm, name_widget, show_info
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
+from cockpit.ui.text_dialog import TextDialog
 
 NEW_ACCOUNT_TEXT = "Neues Konto anlegen …"
+HELP_TEXT = "Wofür sind Konten? …"
+HELP_LINES = [
+    "Ein Konto ist Ihr Zugang zu einem Dienst, den das Cockpit für Sie benutzt.",
+    "Plattform-Konto, zum Beispiel GitHub: Damit lädt das Cockpit Ihren Code hoch, legt "
+    "Repositories an und holt Rückmeldungen. Das brauchen fast alle.",
+    "KI-Konto, zum Beispiel ein Cloud-Anbieter mit API-Schlüssel: nur nötig, wenn Sie nicht "
+    "die lokale KI Ollama nutzen. Kommt ab Phase 7.",
+    "E-Mail-Konto: für Berichte und Benachrichtigungen per E-Mail. Kommt in Phase 11.",
+    "Automations-Konto, zum Beispiel n8n: für Abläufe im Hintergrund. Kommt in Phase 10.",
+    "Zu jedem Konto gehören Zugangsdaten wie ein Token. Sie liegen nur im Tresor.",
+    "Sie können mehrere Konten gleicher Art haben, zum Beispiel ein privates GitHub-Konto "
+    "und eines für einen Verein. Jedes Projekt merkt sich, zu welchem Konto es gehört.",
+    "Privat und Beruflich trennen Sie über getrennte Installationen auf verschiedenen "
+    "Rechnern. Innerhalb einer Installation brauchen Sie meist nur ein Plattform-Konto.",
+    "Mit Verbindung testen prüfen Sie, ob die Zugangsdaten stimmen.",
+]
 
 
 def show_test_result(parent: QWidget, result: TestResult) -> None:
@@ -191,6 +208,7 @@ class AccountsDialog(FocusDialog):
         self.list.clear()
         self.list.addItem(NEW_ACCOUNT_TEXT)
         self.list.addItems([a.label for a in self.accounts])
+        self.list.addItem(HELP_TEXT)                 # Erklärung, immer am Ende der Liste
         if select_id is not None:
             row = next((i + 1 for i, a in enumerate(self.accounts) if a.id == select_id), 0)
         self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
@@ -200,6 +218,10 @@ class AccountsDialog(FocusDialog):
         return self.accounts[row - 1] if 1 <= row <= len(self.accounts) else None
 
     def open_current(self) -> None:
+        if self.list.currentRow() == self.list.count() - 1:
+            TextDialog("Wofür sind Konten?", HELP_LINES, "Erklärung Konten", self).exec()
+            self.list.setFocus()
+            return
         account = self.current_account()
         if account is None:
             self.new_account()

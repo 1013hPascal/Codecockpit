@@ -37,7 +37,7 @@ class VaultSettingsDialog(FocusDialog):
         self.auto_lock.setSpecialValueText("nie")
         self.auto_lock.setValue(services.settings.load().auto_lock_minutes)
         self.auto_lock.valueChanged.connect(self.save_auto_lock)
-        close = QPushButton("&Schließen")
+        close = self.close_button = QPushButton("&Schließen")
         close.setDefault(True)
         close.clicked.connect(self.accept)
 
@@ -68,6 +68,9 @@ class VaultSettingsDialog(FocusDialog):
         if vault.vault is not None:
             if vault.needs_unlock:
                 lines.append("Zustand: entsperrt" if vault.is_unlocked() else "Zustand: gesperrt")
+                lines.append("Gesperrt heißt: Die Zugangsdaten sind nicht lesbar. Alles ohne "
+                             "Zugangsdaten funktioniert weiter. Braucht eine Aktion einen "
+                             "Zugang, fragt das Cockpit nach dem Master-Passwort.")
             lines.append(f"Gespeicherte Zugangsdaten: "
                          f"{count(len(vault.index.list()), 'Eintrag', 'Einträge')}")
         self.state.clear()
@@ -81,6 +84,8 @@ class VaultSettingsDialog(FocusDialog):
     def switch(self) -> None:
         if vault_ui.switch_vault(self.services, self.other_kind(), self):
             self.refresh()
+            self.close_button.setFocus()             # erledigt: weiter zum Schließen
+            return
         self.switch_button.setFocus()
 
     def change_password(self) -> None:
@@ -94,6 +99,8 @@ class VaultSettingsDialog(FocusDialog):
             else:
                 announce("Master-Passwort geändert.")
                 self.refresh()
+                self.close_button.setFocus()         # erledigt: weiter zum Schließen
+                return
         self.password_button.setFocus()
 
     def save_auto_lock(self, minutes: int) -> None:

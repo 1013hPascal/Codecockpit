@@ -14,19 +14,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-                               QPushButton, QRadioButton, QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QListWidget, QPushButton, QStackedWidget,
+                               QVBoxLayout, QWidget)
 
 from cockpit import APP_NAME
 from cockpit.core import git, paths
-from cockpit.core.features import settings_fields as sf
 from cockpit.core.services import Services
 from cockpit.core.settings import setting_fields
 from cockpit.core.text import count
 from cockpit.core.vault_service import KINDS
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, announce_focus, confirm, name_widget
+from cockpit.ui.common import FocusDialog, announce_focus, confirm, label_for, name_widget
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
 from cockpit.ui.text_dialog import TextDialog
@@ -158,24 +157,28 @@ class VaultPage(Page):
             "Sinnvoll, wenn mehrere Personen den Rechner nutzen.",
             "Das Master-Passwort wird beim Start abgefragt. Geht es verloren, müssen Sie alle "
             "Zugangsdaten neu eingeben.",
+            "Gesperrt heißt: Die Zugangsdaten sind nicht lesbar. Alles ohne Zugangsdaten "
+            "funktioniert weiter. Braucht eine Aktion einen Zugang, fragt das Cockpit nach dem "
+            "Master-Passwort.",
             "Die Speicherart lässt sich später wechseln, ohne etwas neu einzugeben.",
+            "Mit Tab kommen Sie zur Auswahl der Speicherart.",
         ])
-        self.windows = QRadioButton("Windows-&Anmeldeinformationsverwaltung (empfohlen)")
-        self.file = QRadioButton("Verschlüsselte &Tresordatei mit Master-Passwort")
-        group = QButtonGroup(self)
-        group.addButton(self.windows)
-        group.addButton(self.file)
-        current = self.services.vault.kind or "windows"
-        (self.file if current == "vault_file" else self.windows).setChecked(True)
-        self.layout_.addWidget(self.text)
-        self.layout_.addWidget(self.windows)
-        self.layout_.addWidget(self.file)
+        # Auswahl als Liste statt Auswahlschaltern: Im Test sagte NVDA bei beiden Schaltern
+        # "markiert". Eine Liste mit einem markierten Eintrag ist eindeutig.
+        self.choice = QListWidget()
+        self.choice.addItems(["Windows-Anmeldeinformationsverwaltung (empfohlen)",
+                              "Verschlüsselte Tresordatei mit Master-Passwort"])
+        self.choice.setCurrentRow(1 if self.services.vault.kind == "vault_file" else 0)
+        self.choice.itemActivated.connect(lambda item: wizard.next())
+        self.layout_.addWidget(self.text, 3)
+        self.layout_.addWidget(label_for(self.choice, "&Speicherart:"))
+        self.layout_.addWidget(self.choice, 1)
 
     def chosen_kind(self) -> str:
-        return "vault_file" if self.file.isChecked() else "windows"
+        return "vault_file" if self.choice.currentRow() == 1 else "windows"
 
     def first_focus(self):
-        return self.windows if self.windows.isChecked() else self.file
+        return self.text                            # zuerst die Erklärung, dann mit Tab die Wahl
 
     def accept_page(self) -> bool:
         if not vault_ui.switch_vault(self.services, self.chosen_kind(), self.wizard):

@@ -5,7 +5,7 @@ import re
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QLineEdit, QPushButton, QRadioButton, QWidget
+from PySide6.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QWidget
 
 from cockpit.core.accounts import find_type
 from cockpit.core.secret import Secret
@@ -124,8 +124,14 @@ def test_wizard_pages_and_announcements(wizard, monkeypatch):
     dialog.next()
     assert dialog.page.title == "Tresor"
     assert not dialog.skip_button.isVisible()                  # Tresor ist Pflicht
-    assert dialog.page.windows.isChecked()
-    assert dialog.focusWidget() is dialog.page.windows
+    assert dialog.page.chosen_kind() == "windows"
+    assert dialog.focusWidget() is dialog.page.text            # zuerst die Erklärung
+    assert dialog.page.choice.accessibleName() == "Speicherart"
+    assert [dialog.page.choice.item(r).text() for r in range(2)] == [
+        "Windows-Anmeldeinformationsverwaltung (empfohlen)",
+        "Verschlüsselte Tresordatei mit Master-Passwort"]
+    lines = [dialog.page.text.item(r).text() for r in range(dialog.page.text.count())]
+    assert any(line.startswith("Gesperrt heißt:") for line in lines)
 
 
 def test_wizard_full_run_with_windows_vault(wizard, projects_root):
@@ -164,7 +170,7 @@ def test_wizard_with_vault_file(wizard, monkeypatch, home):
     dialog, services = wizard()
     dialog.next()
     dialog.next()
-    dialog.page.file.setChecked(True)
+    dialog.page.choice.setCurrentRow(1)
     dialog.next()
     assert services.settings.load().vault_kind == "vault_file"
     assert (home / "vault.bin").is_file()
@@ -179,7 +185,7 @@ def test_wizard_cancelled_vault_password_stays_on_page(wizard, monkeypatch):
     dialog, services = wizard()
     dialog.next()
     dialog.next()
-    dialog.page.file.setChecked(True)
+    dialog.page.choice.setCurrentRow(1)
     dialog.next()
     assert dialog.page.title == "Tresor"
     assert services.settings.load().vault_kind == ""
@@ -221,7 +227,7 @@ def test_wizard_mnemonics_are_unique_per_page(wizard):
     for page in dialog.pages:
         texts = [b.text() for b in buttons]
         texts += [w.text() for w in page.findChildren(QPushButton)]
-        texts += [w.text() for w in page.findChildren(QRadioButton)]
+        texts += [w.text() for w in page.findChildren(QLabel)]
         keys = [m.group(1).lower() for t in texts if (m := re.search(r"&(\w)", t))]
         assert len(keys) == len(set(keys)), (page.title, texts)
 
@@ -239,6 +245,7 @@ def accounts(qtbot, make_services, account_adapter):
 def test_accounts_list_starts_with_new_account(accounts):
     dialog, _, _ = accounts
     assert dialog.list.item(0).text() == "Neues Konto anlegen …"
+    assert dialog.list.item(dialog.list.count() - 1).text() == "Wofür sind Konten? …"
     assert dialog.list.accessibleName() == "Konten"
     assert dialog.list.hasFocus()
 
@@ -459,8 +466,11 @@ def test_auto_lock_after_inactivity(qtbot, make_services):
     services.settings.update(auto_lock_minutes=5)
     win = MainWindow(services)
     qtbot.addWidget(win)
-    assert win.lock_timer.isActive() and win.lock_timer.interval() == 5 * 60_000
-    win.auto_lock()
+    assert win.lock_timer.isActive()
+    win.check_auto_lock()
+    assert services.vault.is_unlocked()                      # noch keine 5 Minuten
+    win.last_input -= 5 * 60 + 1                             # auch Standby zählt mit
+    win.check_auto_lock()
     assert not services.vault.is_unlocked()
     assert said("Der Tresor wurde nach 5 Minuten ohne Eingabe gesperrt.")
 
@@ -488,3 +498,51 @@ def test_all_new_dialogs_have_named_controls(qtbot, make_services, account_adapt
             if edit.objectName() == "qt_spinbox_lineedit":
                 edit = edit.parent()                      # Name steht am Zahlenfeld selbst
             assert edit.accessibleName(), type(dialog).__name__
+
+
+def test_input_restarts_the_lock_clock(qtbot, make_services):
+    import time
+    services = make_services()
+    file = services.make_vault("vault_file")
+    file.create(Secret(PASSWORD))
+    services.use_vault(file)
+    services.settings.update(auto_lock_minutes=1)
+    win = MainWindow(services)
+    qtbot.addWidget(win)
+    win.last_input = time.time() - 120
+    qtbot.keyClick(win.project_list, Qt.Key.Key_Down)
+    win.check_auto_lock()
+    assert services.vault.is_unlocked()
+
+
+def test_accounts_help_entry_opens_explanation(accounts, monkeypatch):
+    dialog, _, _ = accounts
+    opened = []
+
+    class FakeText:
+        def __init__(self, title, lines, name, parent=None):
+            opened.append((title, lines))
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(ad, "TextDialog", FakeText)
+    dialog.list.setCurrentRow(dialog.list.count() - 1)
+    dialog.open_current()
+    assert opened[0][0] == "Wofür sind Konten?"
+    assert any("mehrere Konten gleicher Art" in line for line in opened[0][1])
+    assert dialog.current_account() is None
+
+
+def test_focus_goes_to_close_after_password_change(qtbot, make_services, monkeypatch):
+    services = make_services()
+    file = services.make_vault("vault_file")
+    file.create(Secret(PASSWORD))
+    services.use_vault(file)
+    monkeypatch.setattr("cockpit.ui.vault_settings_dialog.NewPasswordDialog", FakeNewPassword)
+    dialog = VaultSettingsDialog(services)
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    dialog.change_password()
+    assert dialog.close_button.hasFocus()
+    assert said("Master-Passwort geändert.")

@@ -9,6 +9,7 @@ Es erscheinen nur Menüpunkte, die schon funktionieren (ENTSCHEIDUNGEN.md).
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
@@ -37,6 +38,8 @@ from cockpit.ui.text_dialog import TextDialog
 from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
 
 log = logging.getLogger(__name__)
+
+LOCK_CHECK_MS = 15_000
 
 SHORTCUTS = [
     "Aufbau: links die Projektliste, rechts die Aktionen",
@@ -118,10 +121,13 @@ class MainWindow(QMainWindow):
         self.project_list.contextMenuRequested.connect(self.show_context_menu)
         self.actions_list.entryTriggered.connect(self.run_entry)
 
-        # Automatisches Sperren der Tresordatei nach Inaktivität (Tresor-Einstellungen)
+        # Automatisches Sperren der Tresordatei nach Inaktivität (Tresor-Einstellungen).
+        # Geprüft wird alle 15 Sekunden gegen die Uhrzeit der letzten Eingabe. So zählt auch
+        # die Zeit im Standby mit, und nach dem Aufwachen wird sofort gesperrt.
+        self.last_input = time.time()
         self.lock_timer = QTimer(self)
-        self.lock_timer.setSingleShot(True)
-        self.lock_timer.timeout.connect(self.auto_lock)
+        self.lock_timer.setInterval(LOCK_CHECK_MS)
+        self.lock_timer.timeout.connect(self.check_auto_lock)
         QApplication.instance().installEventFilter(self)
         self.restart_lock_timer()
 
@@ -346,12 +352,19 @@ class MainWindow(QMainWindow):
     def restart_lock_timer(self) -> None:
         vault = self.services.vault
         minutes = self.services.settings.load().auto_lock_minutes
+        self.last_input = time.time()
         if vault.needs_unlock and vault.is_unlocked() and minutes > 0:
-            self.lock_timer.start(minutes * 60_000)
+            self.lock_timer.start()
         else:
             self.lock_timer.stop()
 
+    def check_auto_lock(self) -> None:
+        minutes = self.services.settings.load().auto_lock_minutes
+        if minutes > 0 and time.time() - self.last_input >= minutes * 60:
+            self.auto_lock()
+
     def auto_lock(self) -> None:
+        self.lock_timer.stop()
         if self.services.vault.needs_unlock and self.services.vault.is_unlocked():
             self.services.vault.lock()
             self.update_vault_actions()
@@ -361,8 +374,8 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Jede Taste und jeder Mausklick startet die Zeit bis zum automatischen Sperren neu."""
-        if event.type() in (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress)                 and self.lock_timer.isActive():
-            self.lock_timer.start()
+        if event.type() in (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress):
+            self.last_input = time.time()
         return False
 
     # -- Ende -----------------------------------------------------------------------------
