@@ -206,6 +206,8 @@ Platz für Ihren Kommentar:
 Eine Frage, wofür sind die konen, also nicht entfernen nur erklären. 
 Und eine ander Frage, ich habe ja schon ein acount. trotzdem diese mail da eintragen? oder welche mail ist bei mir biher bei den commits von 1013hpascal eingetragen, dass ich die selbe nehme die ich bisher hatte. Sonst gibt das ein durcheinander.
 
+Antwort von Claude: Wofür Konten sind, erklärt jetzt der Eintrag „Wofür sind Konten? …“ am Ende der Kontenliste. Zur E-Mail-Adresse: Ihre bisherigen Commits tragen Ihre private Adresse. Sie haben am 25.09.2026 entschieden, künftig die noreply-Adresse zu nehmen. Ein Durcheinander gibt es nicht, weil GitHub beide Adressen Ihrem Konto zuordnet.
+
 ## G. Nachtest nach Ihren Rückmeldungen (25.09.2026)
 
 Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten.
@@ -230,11 +232,40 @@ Tasten: Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speic
 Erwartet: NVDA sagt „Master-Passwort geändert.“ Der Fokus steht danach auf „Schließen“.
 Ergebnis:
 Ja der fokus springt auf schließen, sagt aber nicht dasss das Passwort gespeichert wurde. 
+Antwort von Claude: Die Ansage wurde ausgelöst, aber vom Fokuswechsel auf „Schließen“ übertönt. Jetzt kommt sie kurz nach dem Fokuswechsel. Siehe Punkt 37.
 
 [!] 36. Automatisch sperren, zweiter Versuch
 Tasten: Tresor-Einstellungen, „Automatisch sperren nach“ auf 1 Minute, Schließen. Dann etwa eine Minute keine Taste drücken und auch nicht NVDA-Befehle benutzen, die die Tastatur an das Programm schicken.
 Erwartet: Spätestens 15 Sekunden nach Ablauf der Minute sagt NVDA „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ Geht der Rechner in den Standby, wird direkt nach dem Aufwachen gesperrt.
 Ergebnis:
+Antwort von Claude: Laut Log wurde das Cockpit 5 Sekunden nach dem Passwortwechsel beendet. Die Minute ist also nie abgelaufen. In meinem Test sperrt der Tresor zuverlässig. Bitte noch einmal mit Punkt 38 prüfen und das Cockpit dabei offen lassen.
 
 Ich verstehe das jetzt so, bei Konto verwaltne kann man neues Konto hinzufügen z.b. für E-Mail, für Git etc. und damit passswörter für die konton nicht offen liegen, braucht man den Tresor oder?
 wäre es dann nicht sinnvoll, das man das paswort nicht bei  jedem start eingeben muss, sondern nur, sobald man in die Konto einstellungen geht?
+
+Antwort von Claude: Ja, genau so. Ein Konto ist Ihr Zugang zu einem Dienst, zum Beispiel GitHub oder später E-Mail. Die Passwörter und Tokens dieser Konten liegen im Tresor, damit sie nirgends offen stehen. Ihren Vorschlag habe ich umgesetzt: Das Master-Passwort wird nicht mehr beim Start abgefragt, sondern erst, wenn Zugangsdaten gebraucht werden. Zum Beispiel beim Speichern eines Kontos, beim Verbindungstest und später beim Hochladen. Die Kontenliste selbst lässt sich ohne Passwort ansehen. Siehe Punkt 39.
+
+
+## H. Zweiter Nachtest (25.09.2026)
+
+Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten. Im Assistenten diesmal gleich die Tresordatei wählen.
+
+[ ] 37. Ansage nach dem Passwortwechsel
+Tasten: Alt+O, Tresor-Einstellungen, Master-Passwort ändern, richtig ausfüllen, Speichern.
+Erwartet: Der Fokus springt auf „Schließen“. Kurz danach sagt NVDA „Master-Passwort geändert.“
+Ergebnis:
+
+[ ] 38. Automatisch sperren
+Tasten: Tresor-Einstellungen, „Automatisch sperren nach“ auf 1 Minute, Schließen. Das Cockpit offen lassen und etwa 75 Sekunden keine Taste drücken.
+Erwartet: NVDA sagt „Der Tresor wurde nach 1 Minute ohne Eingabe gesperrt.“ Im Menü Konten steht danach „Tresor entsperren …“.
+Ergebnis:
+
+[ ] 39. Passwort erst bei Bedarf
+Tasten: Nach Punkt 38 ist der Tresor gesperrt. Kontenverwaltung öffnen, „Neues Konto anlegen …“, ausfüllen mit Token „richtig“, Alt+S.
+Erwartet: Die Kontenliste öffnet sich ohne Passwort. Erst beim Speichern erscheint „Tresor entsperren“. Nach dem richtigen Passwort ist das Konto gespeichert, und NVDA sagt „Tresor entsperrt.“
+Ergebnis:
+
+[ ] 40. Kein Passwort beim Start
+Tasten: Diesen Punkt prüfen Sie bei Ihrer echten Einrichtung (Punkt 31), falls Sie dort die Tresordatei wählen: Cockpit beenden und `start.bat` erneut starten.
+Erwartet: Das Cockpit startet ohne Frage nach dem Master-Passwort.
+Ergebnis:
