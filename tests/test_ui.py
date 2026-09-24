@@ -97,7 +97,7 @@ def test_no_fixed_colors(window):
 def test_menu_bar_order_and_unique_mnemonics(window):
     win = window()
     titles = [a.text() for a in win.menuBar().actions()]
-    assert [t.replace("&", "") for t in titles] == ["Datei", "Einstellungen", "Hilfe"]
+    assert [t.replace("&", "") for t in titles] == ["Datei", "Konten", "Einstellungen", "Hilfe"]
     keys = [re.search(r"&(\w)", t).group(1).lower() for t in titles]
     assert len(keys) == len(set(keys))
     for top in win.menuBar().actions():
@@ -110,7 +110,7 @@ def test_menu_bar_order_and_unique_mnemonics(window):
 
 def test_help_menu_entries_and_shortcuts(window):
     win = window()
-    help_menu = win.menuBar().actions()[2].menu()
+    help_menu = win.menuBar().actions()[3].menu()
     entries = {a.text().replace("&", ""): a.shortcut().toString()
                for a in help_menu.actions() if not a.isSeparator()}
     assert entries["Tastenkürzel"] == "F1"

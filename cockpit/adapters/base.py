@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar, Mapping
 
 
 @dataclass(frozen=True)
@@ -34,3 +34,9 @@ class Adapter(ABC):
     @abstractmethod
     def test_connection(self) -> TestResult:
         """Prüft Verbindung und Zugangsdaten. Wirft keine Ausnahme, sondern meldet im Ergebnis."""
+
+    @classmethod
+    def from_account(cls, values: Mapping[str, Any]) -> "Adapter":
+        """Adapter mit den Angaben eines Kontos erzeugen. Geheimnisse kommen als Secret.
+        Jeder Adapter mit account_fields muss das umsetzen."""
+        raise NotImplementedError(f"{cls.__name__} unterstützt keine Konten.")

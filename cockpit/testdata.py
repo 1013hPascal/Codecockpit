@@ -1,7 +1,11 @@
-"""Testdaten für den Test des Projektbaums mit NVDA (Start mit start_testdaten.bat).
+"""Testdaten für die Tests mit NVDA (Start mit start_testdaten.bat).
 
 Alles liegt in einem eigenen Ordner %LOCALAPPDATA%\\CodeCockpit\\Testdaten und wird bei jedem
 Start neu angelegt. Die echten Daten des Cockpits werden nicht berührt.
+
+Die Einrichtung beginnt bei jedem Start neu. Wählt man die Windows-Anmeldeinformationsverwaltung,
+liegen die Test-Zugangsdaten dort unter einem eigenen Namen (VAULT_SERVICE) und werden beim nächsten
+Start gelöscht. Dazu gibt es die Testplattform für die Kontenverwaltung (testdata_platform.py).
 
 Beispielprojekte:
 - PDF-Chat: Code und Exe. Die Exe ist absichtlich keine echte Exe, damit man das Fehlerfenster
@@ -12,13 +16,22 @@ Beispielprojekte:
 """
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+import sqlite3
 import time
 from pathlib import Path
 
 from cockpit import APP_NAME
+from cockpit.core.errors import CockpitError
 from cockpit.core.paths import HOME_VARIABLE
+
+log = logging.getLogger(__name__)
+
+VAULT_SERVICE = "CodeCockpit Testdaten"
+IN_USE = ("Die Testdaten werden noch von einem offenen CodeCockpit benutzt. Bitte schließen Sie "
+          "zuerst alle Fenster von CodeCockpit mit Testdaten.")
 
 FAKE_EXE_TEXT = "Dies ist keine echte Exe. Sie gehört zu den Testdaten von CodeCockpit.\n"
 
@@ -33,7 +46,16 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     Datenordner des Cockpits dorthin um."""
     base = base or base_dir()
     if base.exists():
-        shutil.rmtree(base)
+        # Erst umbenennen: Das klappt nur, wenn kein offenes Cockpit Dateien darin benutzt.
+        # So wird nie ein halber Ordner gelöscht, während ein anderes Fenster ihn noch braucht.
+        old = base.with_name(base.name + "-alt")
+        shutil.rmtree(old, ignore_errors=True)
+        try:
+            base.rename(old)
+        except PermissionError as exc:
+            raise CockpitError(IN_USE, str(exc)) from None
+        remove_old_vault_entries(old / "Daten" / "cockpit.db")
+        shutil.rmtree(old, ignore_errors=True)
     home = base / "Daten"
     root = base / "Projekte"
     home.mkdir(parents=True)
@@ -66,3 +88,32 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
 def remove_missing_example(root: Path) -> None:
     """Nach dem ersten Einlesen den Ordner von Notizen löschen, damit er als fehlend erscheint."""
     shutil.rmtree(root / "Notizen", ignore_errors=True)
+
+
+def remove_old_vault_entries(database: Path, backend=None) -> int:
+    """Test-Zugangsdaten des letzten Starts aus der Windows-Anmeldeinformationsverwaltung löschen.
+    Gelöscht wird nur unter VAULT_SERVICE, nie unter dem echten Namen des Cockpits."""
+    if not database.is_file():
+        return 0
+    try:
+        connection = sqlite3.connect(database)
+        try:
+            names = [row[0] for row in connection.execute("SELECT name FROM vault_names")]
+        finally:
+            connection.close()                  # sonst lässt Windows den Ordner nicht löschen
+    except sqlite3.Error:
+        return 0
+    if not names:
+        return 0
+    import keyring
+    from keyring.errors import KeyringError
+    backend = backend or keyring.get_keyring()
+    removed = 0
+    for name in names:
+        try:
+            backend.delete_password(VAULT_SERVICE, name)
+            removed += 1
+        except KeyringError:
+            pass
+    log.info("%s alte Test-Einträge im Tresor gelöscht", removed)
+    return removed

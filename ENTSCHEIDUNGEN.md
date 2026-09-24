@@ -171,3 +171,44 @@ Neue Einträge kommen ans Ende.
 
 - Alle Fenster (Anleitungen, Tastenkürzel, Meldungen, Fehler, Grundeinstellungen) setzen ihren Fokus kurz nach dem Öffnen noch einmal und senden NVDA ein Fokus-Ereignis, bei Listen für die markierte Zeile.
 - Grund: Beim Öffnen aus einem Menü zeigte die Braillezeile sonst noch den alten Fokus im Hauptfenster. Baustein dafür: FocusDialog in cockpit/ui/common.py. Neue Fenster nutzen ihn ebenfalls.
+
+
+## 25.09.2026: Entscheidungen in Phase 3
+
+### Bibliotheken
+
+- `keyring` für die Windows-Anmeldeinformationsverwaltung und `cryptography` für die Tresordatei, wie in Konzept 14. Der Nutzer hat zugestimmt.
+
+### Tresordatei
+
+- Verfahren wie im Tagebuch: Scrypt und AES-GCM. Scrypt mit n = 2 hoch 15, etwa 32 MB Speicher, unter einer Sekunde.
+- Auch die Namen der Einträge sind verschlüsselt. Lesbar ist nur der Kopf mit den Parametern, und der ist in die Verschlüsselung eingebunden.
+- Mindestlänge des Master-Passworts: 8 Zeichen.
+- Wird beim Start das Master-Passwort abgebrochen, startet das Cockpit mit gesperrtem Tresor. Entsperren geht über das Menü Konten.
+- Automatisch sperren nach Inaktivität ist einstellbar, Standard „nie“. Es gilt nur für die Tresordatei.
+
+### Wechsel der Speicherart
+
+- Alle Einträge werden kopiert und zurückgelesen. Erst wenn alles stimmt, werden sie in der alten Speicherart gelöscht. Die alte Tresordatei wird danach gelöscht.
+
+### Einrichtungsassistent
+
+- Eigene Umsetzung statt QWizard, damit Fokus und Ansagen verlässlich sind.
+- Seiten in Phase 3: Willkommen, Git, Tresor, Projekte-Hauptordner, Git-Identität, Zusammenfassung. Die Seite „Profil“ entfällt (keine Profile). Die Seiten für Plattform-Konto, KI, Automation, E-Mail und Features kommen in den jeweiligen Phasen dazu.
+- Neu gegenüber dem Konzept ist die Seite „Git“: Sie prüft, ob Git installiert ist, und zeigt sonst die Anleitung.
+- Der Assistent lässt sich über Einstellungen, „Einrichtungsassistent …“ erneut starten.
+
+### Menü Konten
+
+- Alt+O, weil Alt+K schon zur Beschriftung „Aktionen“ gehört.
+- „Tresor sperren“ und „Tresor entsperren …“ erscheinen nur bei der Tresordatei.
+
+### Testplattform
+
+- Bis zur echten GitHub-Anbindung gibt es in den Testdaten eine „Testplattform“, damit die Kontenverwaltung mit NVDA getestet werden kann. Sie erscheint nur mit `start_testdaten.bat`.
+- Test-Zugangsdaten in der Windows-Anmeldeinformationsverwaltung stehen unter dem Namen „CodeCockpit Testdaten“ und werden beim nächsten Start mit Testdaten gelöscht.
+- Ein zweiter Start mit Testdaten, während noch ein Cockpit mit Testdaten offen ist, meldet das verständlich und löscht nichts.
+
+### Hinweis auf Sicherung
+
+- Konzept 5.6 verlangt nach Änderungen an Konten oder Tresor einen Hinweis auf eine neue Sicherung. Die Sicherung kommt in Phase 17, der Hinweis deshalb auch.

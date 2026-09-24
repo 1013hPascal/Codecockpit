@@ -98,7 +98,7 @@ class SettingsForm(QWidget):
             return _Field(spec, listing, listing, get_checked, set_checked)
         if isinstance(spec, sf.Folder):
             edit = QLineEdit()
-            button = QPushButton("Ordner &wählen …")
+            button = QPushButton("&Ordner wählen …")
             name_widget(button, "Ordner wählen")
             button.clicked.connect(lambda: self._choose_folder(edit, spec.label))
             row = QWidget()
@@ -108,6 +108,14 @@ class SettingsForm(QWidget):
             box.addWidget(button)
             self._order += [edit, button]
             return _Field(spec, row, edit, edit.text, lambda v: edit.setText(str(v or "")))
+        if isinstance(spec, sf.SecretText):
+            edit = QLineEdit()
+            edit.setEchoMode(QLineEdit.EchoMode.Password)
+            if spec.keep_if_empty:
+                edit.setPlaceholderText("Leer lassen: bleibt unverändert")
+            self._order.append(edit)
+            # Geheimnisse werden nie ins Feld geschrieben, nur neu eingegeben
+            return _Field(spec, edit, edit, edit.text, lambda v: None)
         edit = QLineEdit()                              # Text, Email, TimeOfDay
         self._order.append(edit)
         return _Field(spec, edit, edit, edit.text, lambda v: edit.setText(str(v or "")))

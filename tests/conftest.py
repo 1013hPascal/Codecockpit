@@ -224,3 +224,83 @@ def make_services(tmp_path, projects_root):
 def said(text: str) -> bool:
     from cockpit.ui.announcer import announcer
     return any(text in m.text for m in announcer.messages)
+
+
+# -- Phase 3: Tresor und Konten ---------------------------------------------------------------
+import keyring  # noqa: E402
+from keyring.backend import KeyringBackend  # noqa: E402
+from keyring.errors import PasswordDeleteError  # noqa: E402
+
+from cockpit.adapters import registry as adapter_registry  # noqa: E402
+from cockpit.adapters.base import AccountField  # noqa: E402
+from cockpit.vault import crypto  # noqa: E402
+
+FAST_KDF = crypto.KdfParameters(n=2 ** 10, r=8, p=1)     # schnell, nur für Tests
+
+
+class MemoryKeyring(KeyringBackend):
+    """Ersetzt die Windows-Anmeldeinformationsverwaltung in allen Tests."""
+    priority = 1
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entries: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service, username):
+        return self.entries.get((service, username))
+
+    def set_password(self, service, username, password):
+        self.entries[(service, username)] = password
+
+    def delete_password(self, service, username):
+        if self.entries.pop((service, username), None) is None:
+            raise PasswordDeleteError("nicht vorhanden")
+
+
+@pytest.fixture(autouse=True)
+def memory_keyring():
+    """Kein Test berührt die echte Windows-Anmeldeinformationsverwaltung."""
+    previous = keyring.get_keyring()
+    backend = MemoryKeyring()
+    keyring.set_keyring(backend)
+    yield backend
+    keyring.set_keyring(previous)
+
+
+@pytest.fixture(autouse=True)
+def fast_vault_file(monkeypatch):
+    """Schnelle Schlüsselableitung für neue Tresordateien in Tests."""
+    from cockpit.vault import vault_file
+    monkeypatch.setattr(vault_file, "DEFAULT_KDF", FAST_KDF)
+
+
+class AccountPlatform(FakePlatform):
+    """Testplattform mit Kontofeldern: Benutzername, Serveradresse, Team (extra), Token."""
+    kind = "konto_test"
+    display_name = "Kontotest"
+    account_fields = (AccountField("username", "Benutzername"),
+                      AccountField("url", "Serveradresse", required=False,
+                                   default="https://git.example"),
+                      AccountField("team", "Team", required=False),
+                      AccountField("token", "Token", secret=True))
+
+    def __init__(self, values=None) -> None:
+        super().__init__()
+        self.values = dict(values or {})
+
+    @classmethod
+    def from_account(cls, values):
+        return cls(values)
+
+    def test_connection(self) -> TestResult:
+        token = self.values.get("token")
+        if token is not None and token.reveal() == FAKE_TOKEN:
+            return TestResult(True, f"Angemeldet als {self.values.get('username')}.")
+        return TestResult(False, "Der Token wurde abgelehnt.", "HTTP 401")
+
+
+@pytest.fixture
+def account_adapter():
+    adapter_registry.register("platform", AccountPlatform.kind, AccountPlatform)
+    yield AccountPlatform
+    adapter_registry.unregister("platform", AccountPlatform.kind)

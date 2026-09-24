@@ -43,6 +43,10 @@ class Settings:
     ai_local_only: bool = False
     branches_by_default: bool = False
     default_features: list[str] | None = None     # None: Standard der Features
+    # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
+    setup_done: bool = False                      # Einrichtungsassistent abgeschlossen
+    vault_kind: str = ""                          # "windows", "vault_file" oder leer
+    auto_lock_minutes: int = 0                    # Tresordatei nach Inaktivität sperren, 0: nie
 
 
 class SettingsStore:

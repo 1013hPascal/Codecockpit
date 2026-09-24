@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow, QMenu,
                                QVBoxLayout, QWidget)
@@ -24,13 +24,17 @@ from cockpit.core.services import Services
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce, announcer
 from cockpit.ui.action_list import ActionList
+from cockpit.ui import vault_ui
+from cockpit.ui.accounts_dialog import AccountsDialog
 from cockpit.ui.asker import QtAsker
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.menus import AccessibleMenu
 from cockpit.ui.messages_dialog import MessagesDialog
 from cockpit.ui.project_list import ProjectList
 from cockpit.ui.settings_dialog import SettingsDialog
+from cockpit.ui.setup_wizard import SetupWizard
 from cockpit.ui.text_dialog import TextDialog
+from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +61,7 @@ SHORTCUTS = [
     "Liste der letzten Meldungen, Strg+Umschalt+L",
     "Menüs",
     "Datei, Alt+D",
+    "Konten, Alt+O",
     "Einstellungen, Alt+E",
     "Hilfe, Alt+H",
     "Projekte neu einlesen, Strg+R",
@@ -113,6 +118,13 @@ class MainWindow(QMainWindow):
         self.project_list.contextMenuRequested.connect(self.show_context_menu)
         self.actions_list.entryTriggered.connect(self.run_entry)
 
+        # Automatisches Sperren der Tresordatei nach Inaktivität (Tresor-Einstellungen)
+        self.lock_timer = QTimer(self)
+        self.lock_timer.setSingleShot(True)
+        self.lock_timer.timeout.connect(self.auto_lock)
+        QApplication.instance().installEventFilter(self)
+        self.restart_lock_timer()
+
         self.reload_projects()
 
     # -- Aufbau ---------------------------------------------------------------------------
@@ -134,9 +146,19 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
 
+        accounts_menu = AccessibleMenu("K&onten", self)
+        bar.addMenu(accounts_menu)
+        self._action(accounts_menu, "&Kontenverwaltung …", self.open_accounts)
+        self._action(accounts_menu, "&Tresor-Einstellungen …", self.open_vault_settings)
+        self.act_lock = self._action(accounts_menu, "Tresor &sperren", self.lock_vault)
+        self.act_unlock = self._action(accounts_menu, "Tresor &entsperren …", self.unlock_vault)
+        accounts_menu.aboutToShow.connect(self.update_vault_actions)
+        self.update_vault_actions()
+
         settings_menu = AccessibleMenu("&Einstellungen", self)
         bar.addMenu(settings_menu)
         self._action(settings_menu, "&Grundeinstellungen …", self.open_settings)
+        self._action(settings_menu, "&Einrichtungsassistent …", self.open_wizard)
 
         help_menu = AccessibleMenu("&Hilfe", self)
         bar.addMenu(help_menu)
@@ -166,6 +188,8 @@ class MainWindow(QMainWindow):
         number = len(self.services.projects.all())
         prefix = f"{APP_NAME} mit Testdaten bereit." if self.testdata else f"{APP_NAME} bereit."
         announce(f"{prefix} {count(number, 'Projekt', 'Projekte')}.")
+        if self.services.vault.needs_unlock and not self.services.vault.is_unlocked():
+            announce("Der Tresor ist gesperrt. Entsperren im Menü Konten.")
         if git.find_git() is None:
             announce("Git wurde nicht gefunden. Die Anleitung steht im Menü Hilfe unter "
                      "Git installieren.", urgent=True)
@@ -288,8 +312,63 @@ class MainWindow(QMainWindow):
                 "Barrierefrei entwickelt, vollständig per Tastatur bedienbar."]
         TextDialog(f"Über {APP_NAME}", text, f"Über {APP_NAME}", self).exec()
 
+    # -- Konten und Tresor ---------------------------------------------------------------
+    def update_vault_actions(self) -> None:
+        """Sperren und Entsperren gibt es nur bei der Tresordatei."""
+        vault = self.services.vault
+        self.act_lock.setVisible(vault.needs_unlock and vault.is_unlocked())
+        self.act_unlock.setVisible(vault.needs_unlock and not vault.is_unlocked())
+
+    def open_accounts(self) -> None:
+        AccountsDialog(self.services, self).exec()
+        self.restart_lock_timer()
+
+    def open_vault_settings(self) -> None:
+        VaultSettingsDialog(self.services, self).exec()
+        self.update_vault_actions()
+        self.restart_lock_timer()
+
+    def lock_vault(self) -> None:
+        self.services.vault.lock()
+        self.update_vault_actions()
+        announce("Tresor gesperrt.")
+
+    def unlock_vault(self) -> None:
+        vault_ui.ensure_unlocked(self.services, self)
+        self.update_vault_actions()
+        self.restart_lock_timer()
+
+    def open_wizard(self) -> None:
+        SetupWizard(self.services, self).exec()
+        self.update_vault_actions()
+        self.reload_projects()
+
+    def restart_lock_timer(self) -> None:
+        vault = self.services.vault
+        minutes = self.services.settings.load().auto_lock_minutes
+        if vault.needs_unlock and vault.is_unlocked() and minutes > 0:
+            self.lock_timer.start(minutes * 60_000)
+        else:
+            self.lock_timer.stop()
+
+    def auto_lock(self) -> None:
+        if self.services.vault.needs_unlock and self.services.vault.is_unlocked():
+            self.services.vault.lock()
+            self.update_vault_actions()
+            minutes = self.services.settings.load().auto_lock_minutes
+            announce(f"Der Tresor wurde nach {count(minutes, 'Minute', 'Minuten')} ohne "
+                     "Eingabe gesperrt.")
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Jede Taste und jeder Mausklick startet die Zeit bis zum automatischen Sperren neu."""
+        if event.type() in (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress)                 and self.lock_timer.isActive():
+            self.lock_timer.start()
+        return False
+
     # -- Ende -----------------------------------------------------------------------------
     def closeEvent(self, event) -> None:
+        QApplication.instance().removeEventFilter(self)
+        self.lock_timer.stop()
         if self._show_status in announcer.listeners:
             announcer.listeners.remove(self._show_status)
         super().closeEvent(event)

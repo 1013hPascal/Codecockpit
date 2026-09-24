@@ -52,6 +52,21 @@ class Text(SettingField):
 
 
 @dataclass(frozen=True, kw_only=True)
+class SecretText(SettingField):
+    """Passwort oder Token. Im Formular verdeckt, der Wert ist ein Secret.
+    keep_if_empty: beim Bearbeiten bleibt ein leeres Feld unverändert."""
+    required: bool = False
+    keep_if_empty: bool = False
+
+    def check(self, value: Any) -> Any:
+        from cockpit.core.secret import Secret
+        text = value.reveal() if isinstance(value, Secret) else str(value or "")
+        if self.required and not self.keep_if_empty and not text:
+            raise ValueError(f"Bitte {self.label} ausfüllen.")
+        return Secret(text)
+
+
+@dataclass(frozen=True, kw_only=True)
 class Email(Text):
     pattern: str = r"[^@\s]+@[^@\s]+\.[^@\s]+"
     pattern_hint: str = "Bitte eine gültige E-Mail-Adresse eingeben."
