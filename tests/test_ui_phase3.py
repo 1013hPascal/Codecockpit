@@ -377,6 +377,7 @@ def test_vault_settings_switch_windows_to_file(qtbot, make_services, monkeypatch
     assert not dialog.password_button.isVisible()
     assert dialog.switch_button.text() == "&Wechseln zu Verschlüsselte Tresordatei …"
     dialog.switch()
+    qtbot.waitUntil(lambda: said("Speicherart gewechselt."), timeout=2000)
     assert services.settings.load().vault_kind == "vault_file"
     assert services.vault.read("codecockpit/account/1/token").reveal() == FAKE_TOKEN
     assert (home / "vault.bin").is_file()
@@ -455,7 +456,7 @@ def test_lock_and_unlock_file_vault_from_menu(qtbot, make_services, monkeypatch)
     win.update_vault_actions()
     assert visible_texts(konten_menu(win))[-1] == "Tresor entsperren …"
     win.startup()
-    assert said("Der Tresor ist gesperrt. Entsperren im Menü Konten.")
+    assert not said("gesperrt. Entsperren")                  # beim Start keine Frage, keine Ansage
 
 
 def test_auto_lock_after_inactivity(qtbot, make_services):
@@ -545,4 +546,5 @@ def test_focus_goes_to_close_after_password_change(qtbot, make_services, monkeyp
     show_active(qtbot, dialog)
     dialog.change_password()
     assert dialog.close_button.hasFocus()
-    assert said("Master-Passwort geändert.")
+    assert not said("Master-Passwort geändert.")             # erst nach dem Fokuswechsel
+    qtbot.waitUntil(lambda: said("Master-Passwort geändert."), timeout=2000)

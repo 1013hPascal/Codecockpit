@@ -194,8 +194,6 @@ class MainWindow(QMainWindow):
         number = len(self.services.projects.all())
         prefix = f"{APP_NAME} mit Testdaten bereit." if self.testdata else f"{APP_NAME} bereit."
         announce(f"{prefix} {count(number, 'Projekt', 'Projekte')}.")
-        if self.services.vault.needs_unlock and not self.services.vault.is_unlocked():
-            announce("Der Tresor ist gesperrt. Entsperren im Menü Konten.")
         if git.find_git() is None:
             announce("Git wurde nicht gefunden. Die Anleitung steht im Menü Hilfe unter "
                      "Git installieren.", urgent=True)

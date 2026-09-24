@@ -13,7 +13,7 @@ from cockpit.core.services import Services
 from cockpit.core.text import count
 from cockpit.core.vault_service import KINDS
 from cockpit.ui import vault_ui
-from cockpit.ui.announcer import announce
+from cockpit.ui.announcer import announce_after_focus
 from cockpit.ui.common import FocusDialog, label_for, name_widget
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.password_dialogs import NewPasswordDialog
@@ -97,9 +97,9 @@ class VaultSettingsDialog(FocusDialog):
             except CockpitError as exc:
                 show_error(self, "Master-Passwort ändern", exc.message, exc.details)
             else:
-                announce("Master-Passwort geändert.")
                 self.refresh()
                 self.close_button.setFocus()         # erledigt: weiter zum Schließen
+                announce_after_focus("Master-Passwort geändert.")
                 return
         self.password_button.setFocus()
 

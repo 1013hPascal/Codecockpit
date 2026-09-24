@@ -13,7 +13,7 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.services import Services
 from cockpit.core.text import count
 from cockpit.core.vault_service import KINDS, move_entries
-from cockpit.ui.announcer import announce
+from cockpit.ui.announcer import announce, announce_after_focus
 from cockpit.ui.common import confirm
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.password_dialogs import NewPasswordDialog, UnlockDialog
@@ -31,7 +31,7 @@ def ensure_unlocked(services: Services, parent: QWidget | None) -> bool:
     if vault.is_unlocked():
         return True
     if UnlockDialog(vault.unlock, parent).exec():
-        announce("Tresor entsperrt.")
+        announce_after_focus("Tresor entsperrt.")
         return True
     return False
 
@@ -82,6 +82,7 @@ def switch_vault(services: Services, kind: str, parent: QWidget | None) -> bool:
             return False
         if current.kind == "vault_file":
             current.destroy()
-        announce(f"Speicherart gewechselt. {count(moved, 'Eintrag', 'Einträge')} übertragen.")
+        announce_after_focus(f"Speicherart gewechselt. "
+                             f"{count(moved, 'Eintrag', 'Einträge')} übertragen.")
     services.use_vault(new)
     return True

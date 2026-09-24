@@ -19,7 +19,6 @@ from cockpit.core.logging_setup import setup_logging
 from cockpit.core.services import Services
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.main_window import MainWindow
-from cockpit.ui.password_dialogs import UnlockDialog
 from cockpit.ui.setup_wizard import SetupWizard
 
 log = logging.getLogger("cockpit")
@@ -69,10 +68,8 @@ def main(argv: list[str] | None = None) -> int:
                 log.info("Einrichtung abgebrochen")
                 services.close()
                 return 0
-        # Tresordatei: Master-Passwort abfragen. Abbrechen startet mit gesperrtem Tresor.
-        vault = services.vault
-        if vault.needs_unlock and not vault.is_unlocked():
-            UnlockDialog(vault.unlock).exec()
+        # Die Tresordatei bleibt beim Start gesperrt. Das Master-Passwort wird erst abgefragt,
+        # wenn Zugangsdaten gebraucht werden (Wunsch des Nutzers, ENTSCHEIDUNGEN.md).
 
     window = MainWindow(services, testdata=use_testdata)
     window.showMaximized()

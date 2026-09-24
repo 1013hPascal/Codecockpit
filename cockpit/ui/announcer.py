@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, QTimer
 from PySide6.QtGui import QAccessible, QAccessibleEvent
 
 try:
@@ -25,6 +25,7 @@ except ImportError:                                    # Qt vor 6.8
 log = logging.getLogger(__name__)
 
 MAX_MESSAGES = 50
+AFTER_FOCUS_MS = 300
 
 
 @dataclass(frozen=True)
@@ -90,3 +91,9 @@ announcer = Announcer()
 
 def announce(text: str, urgent: bool = False) -> None:
     announcer.announce(text, urgent)
+
+
+def announce_after_focus(text: str, urgent: bool = False) -> None:
+    """Ansage kurz nach einem Fokuswechsel. Sonst übertönt NVDA sie mit dem neuen Fokus
+    (Test von Phase 3: "Master-Passwort geändert." war nicht zu hören)."""
+    QTimer.singleShot(AFTER_FOCUS_MS, lambda: announcer.announce(text, urgent))
