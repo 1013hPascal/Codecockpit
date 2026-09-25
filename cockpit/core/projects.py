@@ -4,12 +4,17 @@ Jedes Projekt hat einen Projektordner mit den Unterordnern Code (das Git-Reposit
 Die Projekteinstellungen stehen ohne Geheimnisse in Code\\cockpit.toml und werden mitversioniert.
 Die Zuordnung von Projekt und Pfad steht in der Datenbank.
 
-Phase 2 enthält nur das Nötigste: Projekte im Hauptordner finden, auflisten und die aktiven
-Features aus cockpit.toml lesen und schreiben. Der Rest folgt in Phase 5.
+Projekte kommen auf diesen Wegen in die Liste (Konzept 7.3 und 7.4):
+- Im Projekte-Hauptordner gefunden oder als Projektordner mit Unterordner Code hinzugefügt.
+- Umgestellt: Ein Ordner ohne Unterordner Code wird als Code in einen neuen Projektordner
+  verschoben.
+- Nur verknüpft: Code-Ordner und Exe-Ordner bleiben, wo sie sind (linked).
 """
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import tomllib
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,6 +25,7 @@ import tomli_w
 
 from cockpit.core.database import Database
 from cockpit.core.errors import CockpitError
+from cockpit.core.git import RemoteAddress
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +40,11 @@ class Project:
     name: str
     project_dir: Path
     code_dir: Path
-    exe_dir: Path
+    exe_dir: Path | None                 # None: verknüpftes Projekt ohne Exe-Ordner
     account_id: int | None = None
-    last_updated: str | None = None      # letztes Hochladen, ab Phase 5
+    last_updated: str | None = None      # Datum des letzten hochgeladenen Commits
+    linked: bool = False                 # nur verknüpft, die Ordner stehen einzeln
+    remote: RemoteAddress | None = None  # Adresse auf der Plattform, zuletzt gesehen
 
     @property
     def folder_found(self) -> bool:
@@ -44,7 +52,7 @@ class Project:
 
     @property
     def has_exe_dir(self) -> bool:
-        return self.exe_dir.is_dir()
+        return self.exe_dir is not None and self.exe_dir.is_dir()
 
     @property
     def config_path(self) -> Path:
@@ -89,11 +97,18 @@ class ProjectStore:
     @staticmethod
     def _from_row(row) -> Project:
         project_dir = Path(row["project_dir"])
+        linked = bool(row["linked"])
+        if row["exe_dir"]:
+            exe_dir = Path(row["exe_dir"])
+        else:
+            exe_dir = None if linked else project_dir / EXE_DIR
+        remote = (RemoteAddress(row["remote_host"], row["remote_owner"], row["remote_name"])
+                  if row["remote_name"] else None)
         return Project(
             id=row["id"], name=row["name"], project_dir=project_dir,
-            code_dir=Path(row["code_dir"]),
-            exe_dir=Path(row["exe_dir"]) if row["exe_dir"] else project_dir / EXE_DIR,
-            account_id=row["account_id"], last_updated=row["last_updated"])
+            code_dir=Path(row["code_dir"]), exe_dir=exe_dir,
+            account_id=row["account_id"], last_updated=row["last_updated"], linked=linked,
+            remote=remote)
 
     def all(self) -> list[Project]:
         """Alle Projekte, zuletzt aktualisierte oben."""
@@ -108,6 +123,11 @@ class ProjectStore:
     def find_by_dir(self, project_dir: Path) -> Project | None:
         row = self.database.query_one("SELECT * FROM projects WHERE project_dir = ?",
                                       (str(project_dir.resolve()),))
+        return self._from_row(row) if row else None
+
+    def find_by_code_dir(self, code_dir: Path) -> Project | None:
+        row = self.database.query_one("SELECT * FROM projects WHERE code_dir = ?",
+                                      (str(code_dir.resolve()),))
         return self._from_row(row) if row else None
 
     # -- Ändern --------------------------------------------------------------------------
@@ -126,6 +146,86 @@ class ProjectStore:
             (project_dir.name, str(project_dir), str(code_dir), str(project_dir / EXE_DIR),
              datetime.now().isoformat(timespec="seconds")))
         return self.find_by_dir(project_dir)
+
+    def add_linked(self, code_dir: Path, exe_dir: Path | None = None) -> Project:
+        """Nur verknüpfen (Konzept 7.4): Die Ordner bleiben, wo sie sind."""
+        code_dir = code_dir.resolve()
+        existing = self.find_by_dir(code_dir) or self.find_by_code_dir(code_dir)
+        if existing is not None:
+            return existing
+        if not code_dir.is_dir():
+            raise CockpitError(f"Den Ordner {code_dir} gibt es nicht.")
+        self.database.execute(
+            "INSERT INTO projects (name, project_dir, code_dir, exe_dir, added_at, linked) "
+            "VALUES (?, ?, ?, ?, ?, 1)",
+            (code_dir.name, str(code_dir), str(code_dir),
+             str(exe_dir.resolve()) if exe_dir else None,
+             datetime.now().isoformat(timespec="seconds")))
+        return self.find_by_dir(code_dir)
+
+    def convert(self, folder: Path, root: Path) -> tuple[Project, bool]:
+        """Umstellen (Konzept 7.4): Projektordner root/<Name> anlegen und folder als Code
+        hineinverschieben. Auf einem anderen Laufwerk wird kopiert, der alte Ordner bleibt dann
+        unverändert. Gibt das Projekt zurück und ob verschoben (True) oder kopiert wurde."""
+        folder = folder.resolve()
+        target = root / folder.name
+        if target.exists():
+            raise CockpitError(f"Den Ordner {target} gibt es schon. Bitte benennen Sie zuerst "
+                               "einen der Ordner um.")
+        target.mkdir(parents=True)
+        code_dir = target / CODE_DIR
+        moved = same_drive(folder, target)
+        try:
+            if moved:
+                os.rename(folder, code_dir)         # ändert keinen Inhalt, nur den Ort
+            else:
+                shutil.copytree(folder, code_dir, symlinks=True)
+        except OSError as exc:
+            if not moved:
+                shutil.rmtree(code_dir, ignore_errors=True)
+            try:
+                target.rmdir()
+            except OSError:
+                pass
+            raise CockpitError("Der Ordner ließ sich nicht umstellen. Ist er noch in einem "
+                               "anderen Programm geöffnet?", str(exc)) from None
+        return self.add(target), moved
+
+    def relocate(self, project: Project, new_dir: Path) -> Project:
+        """Neuen Ort angeben (Konzept 7.2). Bei verknüpften Projekten ist new_dir der Code-Ordner,
+        sonst der Projektordner mit Unterordner Code (oder dieser Unterordner selbst)."""
+        new_dir = new_dir.resolve()
+        if project.linked:
+            project_dir = code_dir = new_dir
+            exe_dir = str(project.exe_dir) if project.exe_dir else None
+        else:
+            kind, project_dir = classify_folder(new_dir)
+            code_dir = project_dir / CODE_DIR
+            exe_dir = str(project_dir / EXE_DIR)
+            if kind != "project":
+                raise CockpitError(f"Im Ordner {new_dir} gibt es keinen Unterordner Code.")
+        if not code_dir.is_dir():
+            raise CockpitError(f"Den Ordner {code_dir} gibt es nicht.")
+        other = self.find_by_dir(project_dir)
+        if other is not None and other.id != project.id:
+            raise CockpitError(f"Der Ordner gehört schon zum Projekt {other.name}.")
+        self.database.execute(
+            "UPDATE projects SET project_dir = ?, code_dir = ?, exe_dir = ? WHERE id = ?",
+            (str(project_dir), str(code_dir), exe_dir, project.id))
+        return self.get(project.id)
+
+    def set_remote(self, project: Project, remote: RemoteAddress | None,
+                   last_updated: str | None) -> None:
+        """Adresse auf der Plattform und Datum des letzten Hochladens merken."""
+        self.database.execute(
+            "UPDATE projects SET remote_host = ?, remote_owner = ?, remote_name = ?, "
+            "last_updated = ? WHERE id = ?",
+            (remote.host if remote else "", remote.owner if remote else "",
+             remote.name if remote else "", last_updated or None, project.id))
+
+    def set_account(self, project: Project, account_id: int | None) -> None:
+        self.database.execute("UPDATE projects SET account_id = ? WHERE id = ?",
+                              (account_id, project.id))
 
     def scan(self, root: Path) -> list[Project]:
         """Alle Unterordner des Hauptordners mit einem Ordner Code aufnehmen (Konzept 7.2).
@@ -162,3 +262,22 @@ class ProjectStore:
         features["enabled"] = sorted(feature_ids)
         data["features"] = features
         write_config(project.code_dir, data)
+
+
+# -- Hilfen zum Hinzufügen -------------------------------------------------------------------
+def classify_folder(folder: Path) -> tuple[str, Path]:
+    """Was für ein Ordner wurde gewählt?
+
+    ("project", Projektordner): enthält einen Unterordner Code.
+    ("project", Projektordner): ist selbst der Ordner Code eines Projekts.
+    ("other", folder): passt nicht zum Aufbau, Umstellen oder Verknüpfen nötig."""
+    folder = folder.resolve()
+    if (folder / CODE_DIR).is_dir():
+        return "project", folder
+    if folder.name.lower() == CODE_DIR.lower() and folder.parent != folder:
+        return "project", folder.parent
+    return "other", folder
+
+
+def same_drive(a: Path, b: Path) -> bool:
+    return a.resolve().drive.lower() == b.resolve().drive.lower()

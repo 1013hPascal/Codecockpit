@@ -87,6 +87,17 @@ class RepoInfo:
 
 
 @dataclass(frozen=True)
+class RemoteRepo:
+    """Ein Repository in der Liste der Plattform (für die Projektliste und das Herunterladen)."""
+    ref: RepoRef
+    private: bool
+    clone_url: str               # Adresse für git clone, ohne Zugangsdaten
+    web_url: str
+    pushed_at: str = ""          # letztes Hochladen, ISO
+    archived: bool = False
+
+
+@dataclass(frozen=True)
 class RepoLinks:
     project_page: str
     readme: str
@@ -118,6 +129,11 @@ class Platform(Adapter):
 
     @abstractmethod
     def noreply_email(self) -> str | None: ...
+
+    @abstractmethod
+    def repositories(self, owner: str = "") -> list[RemoteRepo]:
+        """Repositories, neueste oben. owner leer: die eigenen des Kontos, sonst die der
+        Organisation owner."""
 
     @abstractmethod
     def create_repo(self, spec: NewRepo) -> RepoRef: ...

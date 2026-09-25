@@ -13,6 +13,17 @@ Beispielprojekte:
 - Tagebuch: nur Code.
 - Bildbeschreiber: Code und ein leerer Ordner Exe.
 - Notizen: steht in der Liste, der Ordner fehlt aber ("Ordner nicht gefunden").
+
+Ab Phase 5a mit Git (nur, wenn Git installiert ist):
+- PDF-Chat und Tagebuch sind Git-Repositories. Ihre "Plattform" ist ein Ordner mit nackten
+  Repositories (Testdaten\\Plattform). PDF-Chat ist ganz hochgeladen, in Tagebuch ist eine Datei
+  geändert.
+- Tagebuch hat eine virtuelle Umgebung, die angeblich an einem anderen Ort angelegt wurde. So lässt
+  sich "Virtuelle Umgebung neu anlegen" prüfen.
+- Bildbeschreiber hat keinen Git-Ordner ("noch nicht auf GitHub").
+- Im Ordner Testdaten\\Andere Ordner liegen Ordner zum Prüfen von "Vorhandenes Projekt
+  hinzufügen": "Wetter" (Projektordner mit Code), "Rechner" und "Firmenprojekt" (ohne Code),
+  "Vereinsseite" (mit anderer Git-Identität) und "Notizen" (neuer Ort für das fehlende Projekt).
 """
 from __future__ import annotations
 
@@ -20,10 +31,13 @@ import logging
 import os
 import shutil
 import sqlite3
+import subprocess
+import sys
 import time
 from pathlib import Path
 
 from cockpit import APP_NAME
+from cockpit.core import git
 from cockpit.core.errors import CockpitError
 from cockpit.core.paths import HOME_VARIABLE
 
@@ -81,8 +95,76 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     time.sleep(0.02)
     project("PDF-Chat", {"main.py": "print('PDF-Chat')\n", "README.md": "# PDF-Chat\n"},
             exe="PDF-Chat.exe")
+    if git.find_git() is not None:
+        try:
+            add_git(base, root)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            log.warning("Testdaten ohne Git: %r", exc)
+    others = base / "Andere Ordner"
+    (others / "Wetter" / "Code").mkdir(parents=True)
+    (others / "Wetter" / "Code" / "wetter.py").write_text("print('Wetter')\n", encoding="utf-8")
+    for name in ("Rechner", "Firmenprojekt"):
+        (others / name).mkdir(parents=True)
+        (others / name / "main.py").write_text(f"print('{name}')\n", encoding="utf-8")
+    # Neuer Ort für Notizen (das Projekt fehlt im Hauptordner)
+    (others / "Notizen" / "Code").mkdir(parents=True)
+    (others / "Notizen" / "Code" / "notizen.py").write_text("print('Notizen')\n",
+                                                           encoding="utf-8")
+    if git.find_git() is not None:
+        # Projekt mit einer anderen Git-Identität, für die Rückfrage beim Hinzufügen
+        code = others / "Vereinsseite" / "Code"
+        code.mkdir(parents=True)
+        (code / "index.html").write_text("<h1>Verein</h1>\n", encoding="utf-8")
+        try:
+            _git(code, "init", "-q")
+            _git(code, "config", "--local", "user.name", "Alter Name")
+            _git(code, "config", "--local", "user.email", "alt@example.org")
+        except (OSError, subprocess.CalledProcessError) as exc:
+            log.warning("Testdaten ohne Vereinsseite: %r", exc)
     os.environ[HOME_VARIABLE] = str(home)
     return home, root
+
+
+def _git(cwd: Path, *args: str) -> None:
+    """Git für die Testdaten, mit fester Identität nur auf dieser Befehlszeile (ohne
+    Geheimnisse)."""
+    subprocess.run([str(git.find_git()), "-c", "user.name=Testdaten",
+                    "-c", "user.email=testdaten@example.org", "-c", "init.defaultBranch=main",
+                    *args], cwd=cwd, check=True, capture_output=True,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def add_git(base: Path, root: Path) -> None:
+    """PDF-Chat und Tagebuch zu Git-Repositories mit einer "Plattform" im Dateisystem machen."""
+    platform = base / "Plattform"
+    platform.mkdir()
+    for name in ("PDF-Chat", "Tagebuch"):
+        code = root / name / "Code"
+        _git(code, "init", "-q")
+        _git(code, "add", "-A")
+        _git(code, "commit", "-q", "-m", "Erste Version")
+        bare = platform / f"{name}.git"
+        _git(platform, "init", "-q", "--bare", str(bare))
+        _git(code, "remote", "add", "origin", bare.as_uri())
+        _git(code, "push", "-q", "-u", "origin", "main")
+    (root / "Tagebuch" / "Code" / "main.py").write_text("print('Tagebuch, geändert')\n",
+                                                        encoding="utf-8")
+    # Virtuelle Umgebung, die angeblich an einem anderen Ort angelegt wurde
+    venv = root / "Tagebuch" / "Code" / ".venv"
+    (venv / "Scripts").mkdir(parents=True)
+    python = Path(getattr(sys, "_base_executable", sys.executable))
+    python = python.with_name("python.exe") if python.name.lower() == "pythonw.exe" else python
+    old = base / "Alter Ort" / "Tagebuch" / "Code" / ".venv"
+    (venv / "pyvenv.cfg").write_text(
+        f"home = {python.parent}\ninclude-system-site-packages = false\n"
+        f"version = {sys.version.split()[0]}\nexecutable = {python}\n"
+        f"command = {python} -m venv {old}\n", encoding="utf-8")
+    (venv / "Scripts" / "activate.bat").write_text(f'@echo off\nset "VIRTUAL_ENV={old}"\n',
+                                                   encoding="utf-8")
+    (root / "Tagebuch" / "Code" / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    _git(root / "Tagebuch" / "Code", "add", ".gitignore")
+    _git(root / "Tagebuch" / "Code", "commit", "-q", "-m", ".gitignore")
+    _git(root / "Tagebuch" / "Code", "push", "-q")
 
 
 def remove_missing_example(root: Path) -> None:

@@ -23,7 +23,11 @@ from tests.conftest import FAKE_TOKEN, make_project, said
 
 
 @pytest.fixture
-def window(qtbot, make_services, projects_root):
+def window(qtbot, make_services, projects_root, monkeypatch):
+    """Hauptfenster ohne Abfrage des Stands im Hintergrund, damit die Zeilen nur den Namen zeigen.
+    Den Stand prüfen die Tests in test_phase5a.py."""
+    monkeypatch.setattr(MainWindow, "refresh_status", lambda self, ids=None: None)
+
     def factory(names=("PDF-Chat", "Tagebuch"), exe=("PDF-Chat",)):
         for name in names:
             make_project(projects_root, name, exe=name in exe)

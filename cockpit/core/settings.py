@@ -30,6 +30,7 @@ def setting_fields() -> list[SettingField]:
         Choice("default_license", "Standard-Lizenz für neue Projekte", "MIT", options=LICENSES),
         YesNo("ai_local_only", "Code-Auszüge nur an lokale oder firmeninterne KI senden", False),
         YesNo("branches_by_default", "Neue Projekte mit Branches und Pull Requests", False),
+        YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
     ]
 
 
@@ -42,6 +43,7 @@ class Settings:
     default_license: str = "MIT"
     ai_local_only: bool = False
     branches_by_default: bool = False
+    auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
     setup_done: bool = False                      # Einrichtungsassistent abgeschlossen

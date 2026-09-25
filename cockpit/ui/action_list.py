@@ -24,7 +24,15 @@ class ActionList(QListWidget):
         self.entries: list[ActionEntry] = []
         self.itemActivated.connect(self._activated)
 
-    def set_entries(self, entries: list[ActionEntry]) -> None:
+    def set_entries(self, entries: list[ActionEntry], keep_selection: bool = False) -> None:
+        """Liste neu füllen. keep_selection: nur neu füllen, wenn sich etwas geändert hat, und
+        die markierte Aktion behalten (für Änderungen aus dem Hintergrund)."""
+        labels = [e.label for e in entries] or [EMPTY_TEXT]
+        if keep_selection and labels == self.texts():
+            self.entries = list(entries)
+            return
+        current = self.current_entry()
+        keep_id = current.action.id if keep_selection and current is not None else None
         self.entries = list(entries)
         self.clear()
         if not entries:
@@ -33,7 +41,8 @@ class ActionList(QListWidget):
             item = QListWidgetItem(entry.label)
             item.setData(Qt.ItemDataRole.UserRole, entry.action.id)
             self.addItem(item)
-        self.setCurrentRow(0)
+        row = next((i for i, e in enumerate(entries) if e.action.id == keep_id), 0)
+        self.setCurrentRow(row)
 
     def texts(self) -> list[str]:
         return [self.item(r).text() for r in range(self.count())]

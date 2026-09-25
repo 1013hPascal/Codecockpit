@@ -53,6 +53,26 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (feature_id, key)
     );
     """,
+    # Phase 5a: verknüpfte Projekte, Adresse auf der Plattform, Repositories der Konten
+    """
+    ALTER TABLE projects ADD COLUMN linked INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE projects ADD COLUMN remote_host TEXT NOT NULL DEFAULT '';
+    ALTER TABLE projects ADD COLUMN remote_owner TEXT NOT NULL DEFAULT '';
+    ALTER TABLE projects ADD COLUMN remote_name TEXT NOT NULL DEFAULT '';
+    CREATE TABLE remote_repos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        host TEXT NOT NULL,
+        owner TEXT NOT NULL,
+        name TEXT NOT NULL,
+        private INTEGER NOT NULL DEFAULT 1,
+        clone_url TEXT NOT NULL,
+        web_url TEXT NOT NULL DEFAULT '',
+        pushed_at TEXT NOT NULL DEFAULT '',
+        first_seen TEXT NOT NULL,
+        UNIQUE (account_id, owner, name)
+    );
+    """,
 ]
 
 

@@ -29,8 +29,8 @@ from cockpit.core.secret import Secret
 from cockpit.core.text import join_words
 from cockpit.platforms.base import (BrowserLogin, Capability, GitCredentials, NetworkError,
                                     NewRepo, NotAuthenticated, NotFound, PendingApproval,
-                                    PermissionMissing, Platform, PlatformError, RepoInfo,
-                                    RepoLinks, RepoRef, SsoAuthorizationRequired,
+                                    PermissionMissing, Platform, PlatformError, RemoteRepo,
+                                    RepoInfo, RepoLinks, RepoRef, SsoAuthorizationRequired,
                                     SupportsBrowserLogin, User)
 
 log = logging.getLogger(__name__)
@@ -253,6 +253,24 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         return result
 
     # -- Repositories ------------------------------------------------------------------------
+    def repositories(self, owner: str = "") -> list[RemoteRepo]:
+        if owner:
+            path, params = f"/orgs/{owner}/repos", {"sort": "pushed", "type": "all"}
+        else:
+            path, params = "/user/repos", {"sort": "pushed", "affiliation": "owner"}
+        result: list[RemoteRepo] = []
+        for page in range(1, 51):                        # höchstens 5000 Repositories
+            items = self.request("GET", path, "Repositories lesen", params={
+                **params, "per_page": 100, "page": page}).json()
+            for data in items:
+                result.append(RemoteRepo(
+                    RepoRef(data["owner"]["login"], data["name"]), bool(data.get("private")),
+                    data.get("clone_url", ""), data.get("html_url", ""),
+                    data.get("pushed_at") or "", bool(data.get("archived"))))
+            if len(items) < 100:
+                break
+        return sorted(result, key=lambda r: r.pushed_at, reverse=True)
+
     def create_repo(self, spec: NewRepo) -> RepoRef:
         path = f"/orgs/{spec.organization}/repos" if spec.organization else "/user/repos"
         data = self.request("POST", path, "Repository anlegen", Capability.CREATE_REPO,

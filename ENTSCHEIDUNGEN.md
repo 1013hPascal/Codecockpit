@@ -317,3 +317,37 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Konzept 10.14 ist erweitert. Die Grundfunktionen für Branches gehören zum Kern (Teilschritt 5f).
 - Pull Requests, Reviews und Schutzregeln kommen als Phase 6 direkt nach Phase 5, statt in Phase 15. Die Phasen 6 bis 14 rücken um eins nach hinten. Es bleiben 17 Phasen.
 - Neu im Konzept: Tags beim Feature Versionen, GitHub Actions beim Feature Releases, Mitarbeiter bei „Repository verwalten“.
+
+
+## 25.09.2026: Entscheidungen in Phase 5a
+
+### Umstellen verschiebt nur
+
+- Umstellen verschiebt den Ordner auf demselben Laufwerk nur an einen neuen Ort. Der Inhalt bleibt unverändert. Deshalb gibt es dafür keine Sicherheitskopie.
+- Liegt der Ordner auf einem anderen Laufwerk, kopiert das Cockpit ihn. Der alte Ordner bleibt dann unverändert, der Nutzer löscht ihn später selbst.
+
+### Verbinden ohne Git-Ordner
+
+- Fehlt der Git-Ordner, bietet „Code“ die Aktion „Mit vorhandenem Repository verbinden …“. Das Cockpit holt den Verlauf von der Plattform und setzt nur den Index von Git. Die Dateien bleiben unverändert. Unterschiede erscheinen als Änderungen, die noch nicht hochgeladen sind.
+
+### Virtuelle Umgebung
+
+- Die alte Umgebung wandert vor dem Neuanlegen als Sicherheitskopie in den Ordner `backups` im Datenordner. Das Cockpit löscht Sicherheitskopien nach 30 Tagen.
+- Neu angelegt wird mit demselben Python wie vorher, sonst mit dem Python-Starter `py` und derselben Version.
+
+### Git-Identität
+
+- Das Cockpit trägt die Identität ein, wenn ein Projekt hinzugefügt, heruntergeladen oder verbunden wird. Ab Phase 5c prüft es sie zusätzlich vor jedem Commit.
+
+### Aktionen nur, wenn sie passen
+
+- Manche Aktionen erscheinen nur, wenn sie gebraucht werden: „Neuen Ort angeben …“ bei fehlendem Ordner, „Mit vorhandenem Repository verbinden …“ ohne Git-Ordner, „Virtuelle Umgebung neu anlegen …“ bei kaputter Umgebung. Andere Aktionen stehen weiter mit Grund als „nicht verfügbar“ in der Liste.
+
+### Liste der Repositories
+
+- Das Cockpit fragt die Repositories beim Start, mit Strg+R und nach der Kontenverwaltung ab. Ist die Tresordatei gesperrt, bleibt es bei der gemerkten Liste. Fehler erscheinen nur in der Statuszeile und in der Liste der Meldungen, ohne Ansage.
+- Aktualisiert der Hintergrund den Stand, ändert das Cockpit nur die betroffenen Zeilen. Auswahl und Fokus bleiben, und es gibt keine Ansage.
+
+### Testdaten
+
+- Die Testdaten haben jetzt Git-Repositories mit einer „Plattform“ aus Ordnern, eine kaputte virtuelle Umgebung und einen Ordner `Andere Ordner` zum Hinzufügen.

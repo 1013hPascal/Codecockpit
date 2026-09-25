@@ -18,6 +18,7 @@ from cockpit.core.features.manager import FeatureManager
 from cockpit.core.features.registry import FeatureRegistry
 from cockpit.core.flows.engine import FlowEngine
 from cockpit.core.projects import Project, ProjectStore
+from cockpit.core.remote_repos import RemoteRepoStore
 from cockpit.core.settings import SettingsStore
 from cockpit.core.vault_service import NameIndex, VaultService, create_vault
 
@@ -46,6 +47,7 @@ class Services:
     automation: "Automation | None" = None
     email: "EmailSender | None" = None
     accounts: AccountStore = field(init=False)
+    remote_repos: RemoteRepoStore = field(init=False)
     features: FeatureManager = field(init=False)
     flows: FlowEngine = field(init=False)
 
@@ -54,6 +56,7 @@ class Services:
             self.vault = VaultService(self.vault or self._configured_vault(),
                                       NameIndex(self.database))
         self.accounts = AccountStore(self.database, self.vault)
+        self.remote_repos = RemoteRepoStore(self.database)
         if self.automation is None:
             self.automation = adapter_registry.adapter_class("automation", "none")()
         self.features = FeatureManager(self.registry, self.database, self.projects,
@@ -99,9 +102,42 @@ class Services:
         raise KeyError(name)
 
     def platform_for(self, project: Project) -> "Platform | None":
-        if project.account_id is None:
+        """Plattform des Projekts. Ohne zugeordnetes Konto das Konto zur Adresse des Projekts."""
+        account_id = project.account_id
+        if account_id is None and project.remote is not None:
+            account = self.account_for_host(project.remote.host)
+            account_id = account.id if account else None
+        return self.platform(account_id) if account_id is not None else None
+
+    def platform_accounts(self) -> list:
+        """Alle Konten bei Code-Plattformen."""
+        return [a for a in self.accounts.all() if a.kind == "platform"]
+
+    def account_for_host(self, host: str):
+        """Erstes Plattform-Konto, dessen Serveradresse zum Rechnernamen passt."""
+        from urllib.parse import urlparse
+        host = host.lower()
+        for account in self.platform_accounts():
+            account_host = (urlparse(account.url or "https://github.com").hostname or "").lower()
+            if account_host in (host, f"www.{host}") or host == f"www.{account_host}":
+                return account
+        return None
+
+    def platform(self, account_id: int) -> "Platform | None":
+        """Plattform-Adapter eines Kontos, beim ersten Mal mit dem Zugang aus dem Tresor gebaut.
+        Der Tresor muss dafür offen sein (sonst VaultLocked)."""
+        if account_id in self.platforms:
+            return self.platforms[account_id]
+        account = self.accounts.get(account_id)
+        if account is None or account.kind != "platform":
             return None
-        return self.platforms.get(project.account_id)
+        platform = self.accounts.adapter_for(account)
+        self.platforms[account_id] = platform
+        return platform
+
+    def forget_platforms(self) -> None:
+        """Nach Änderungen an Konten: Adapter beim nächsten Gebrauch neu bauen."""
+        self.platforms.clear()
 
     def capabilities_for(self, project: Project) -> "set[Capability] | None":
         platform = self.platform_for(project)

@@ -18,8 +18,9 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow, Q
                                QVBoxLayout, QWidget)
 
 from cockpit import APP_NAME, __version__
-from cockpit.core import core_actions, git, paths
-from cockpit.core.actions import ActionContext, ActionEntry, default_entry, entries_for
+from cockpit.core import backups, core_actions, git, paths, project_status
+from cockpit.core.actions import (ActionContext, ActionEntry, Target, default_entry,
+                                  entries_for)
 from cockpit.core.errors import CockpitError
 from cockpit.core.services import Services
 from cockpit.core.text import count
@@ -32,9 +33,11 @@ from cockpit.ui.common import show_info
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.menus import AccessibleMenu
 from cockpit.ui.messages_dialog import MessagesDialog
+from cockpit.ui.project_actions import ProjectController
 from cockpit.ui.project_list import ProjectList
 from cockpit.ui.settings_dialog import SettingsDialog
 from cockpit.ui.setup_wizard import SetupWizard
+from cockpit.ui.tasks import Task
 from cockpit.ui.text_dialog import TextDialog
 from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
 
@@ -53,6 +56,7 @@ SHORTCUTS = [
     "Zuklappen und zurück zum Projekt, Pfeil links auf Code oder Exe",
     "Wichtigste Aktion auf Code oder Exe, Enter",
     "Aktionen als Kontextmenü, Menütaste oder Umschalt+F10",
+    "Repository herunterladen, das nur auf GitHub liegt, Enter",
     "Aktionen",
     "Markierte Aktion ausführen, Enter oder Leertaste",
     "Bei nicht verfügbaren Aktionen wird der Grund angesagt",
@@ -68,7 +72,7 @@ SHORTCUTS = [
     "Konten, Alt+O",
     "Einstellungen, Alt+E",
     "Hilfe, Alt+H",
-    "Projekte neu einlesen, Strg+R",
+    "Projekte neu einlesen und Stand abfragen, Strg+R",
     "Beenden, Strg+Q",
     "Diese Liste, F1",
     "In Listen wie dieser: Zeile kopieren, Strg+C",
@@ -84,6 +88,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{APP_NAME} (Testdaten)" if testdata else APP_NAME)
 
         self.project_list = ProjectList()
+        self.controller = ProjectController(self)
+        self.status_task: Task | None = None
+        self.status_queue: set[int] | None = None       # wartet auf den laufenden Abruf
+        self.status_queue_all = False
+        self.remote_task: Task | None = None
         self.actions_list = ActionList()
         list_label = QLabel("&Projekte:")
         list_label.setBuddy(self.project_list)
@@ -149,6 +158,8 @@ class MainWindow(QMainWindow):
         bar = self.menuBar()
         file_menu = AccessibleMenu("&Datei", self)
         bar.addMenu(file_menu)
+        self._action(file_menu, "Vorhandenes Projekt &hinzufügen …",
+                     self.controller.add_existing)
         self._action(file_menu, "Projekte &neu einlesen", self.rescan, "Ctrl+R")
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
@@ -192,7 +203,7 @@ class MainWindow(QMainWindow):
         self.project_list.setFocus()
 
     def startup(self) -> None:
-        """Nach dem Anzeigen: Projekte melden, Voraussetzungen prüfen."""
+        """Nach dem Anzeigen: Projekte melden, Voraussetzungen prüfen, Repositories abfragen."""
         number = len(self.services.projects.all())
         prefix = f"{APP_NAME} mit Testdaten bereit." if self.testdata else f"{APP_NAME} bereit."
         announce(f"{prefix} {count(number, 'Projekt', 'Projekte')}.")
@@ -201,14 +212,36 @@ class MainWindow(QMainWindow):
                      "Git installieren.", urgent=True)
         for problem in self.services.registry.load_errors:
             announce(problem, urgent=True)
+        try:
+            backups.remove_old()
+        except OSError as exc:
+            log.warning("Alte Sicherheitskopien nicht gelöscht: %r", exc)
+        self.refresh_remote()
 
     # -- Projekte -------------------------------------------------------------------------
-    def reload_projects(self) -> list:
-        """Hauptordner durchsuchen und Projektliste neu füllen. Gibt neu gefundene Projekte zurück."""
+    def platform_name(self) -> str:
+        """Name der Plattform für "nur auf GitHub" und "noch nicht auf GitHub"."""
+        from cockpit.core.accounts import find_type
+        for account in self.services.platform_accounts():
+            account_type = find_type(account.kind, account.adapter)
+            if account_type is not None:
+                return account_type.display_name
+        return "GitHub"
+
+    def _remote_only(self) -> list:
+        local = {p.remote.key for p in self.services.projects.all() if p.remote is not None}
+        return self.services.remote_repos.only_remote(local)
+
+    def reload_projects(self, refresh: bool = True) -> list:
+        """Hauptordner durchsuchen und Projektliste neu füllen. Gibt neu gefundene Projekte zurück.
+        refresh: danach den Stand aller Projekte im Hintergrund abfragen."""
         root = Path(self.services.settings.load().projects_root)
         found = self.services.projects.scan(root) if root.is_dir() else []
-        self.project_list.set_projects(self.services.projects.all())
+        self.project_list.platform_name = self.platform_name()
+        self.project_list.set_projects(self.services.projects.all(), self._remote_only())
         self.refresh_actions()
+        if refresh:
+            self.refresh_status()
         return found
 
     def rescan(self) -> None:
@@ -218,20 +251,131 @@ class MainWindow(QMainWindow):
         if found:
             text += f" Neu: {', '.join(p.name for p in found)}."
         announce(text)
+        self.refresh_remote()
+
+    def show_project(self, project_id: int) -> None:
+        """Projekt in der Liste markieren."""
+        self.project_list.select(Target.PROJECT, project_id)
+
+    def _reload_if_remote_changed(self) -> None:
+        """Nur neu aufbauen, wenn sich die Zeilen "nur auf GitHub" geändert haben."""
+        remote_ids = {r.id for r in self._remote_only()}
+        if remote_ids != set(self.project_list.remote_ids()):
+            self.reload_projects(refresh=False)
+
+    def refresh_status(self, project_ids: list[int] | None = None) -> None:
+        """Stand der Projekte im Hintergrund abfragen (ohne Ansage, der Fokus bleibt)."""
+        if self.status_task is not None:
+            if project_ids is None:
+                self.status_queue_all = True
+            self.status_queue = (self.status_queue or set()) | set(project_ids or [])
+            return
+        store = self.services.projects
+        wanted = None if project_ids is None else set(project_ids)
+        projects = [p for p in store.all() if wanted is None or p.id in wanted]
+
+        def work(task: Task) -> list:
+            result = []
+            for project in projects:
+                if task.cancel_event.is_set():
+                    break
+                status = project_status.compute(project)
+                project_status.remember(store, project, status)
+                result.append(status)
+            return result
+
+        task = Task(work, self)
+        task.result.connect(self._status_done)
+        task.finished.connect(self._status_finished)
+        self.status_task = task
+        task.start()
+
+    def _status_done(self, statuses: list) -> None:
+        current = self.project_list.current_target()[1]
+        for status in statuses:
+            self.project_list.update_status(status, self.services.projects.get(status.project_id))
+        if any(s.project_id == current for s in statuses):
+            self.refresh_actions(keep_selection=True)
+        self._reload_if_remote_changed()           # ein Projekt ist jetzt verbunden
+
+    def _status_finished(self) -> None:
+        task, self.status_task = self.status_task, None
+        if task is not None:
+            task.deleteLater()
+        if self.status_queue is not None:
+            queued = None if self.status_queue_all else list(self.status_queue)
+            self.status_queue, self.status_queue_all = None, False
+            self.refresh_status(queued)
+
+    def refresh_remote(self) -> None:
+        """Repositories der Plattform-Konten im Hintergrund abfragen. Ist die Tresordatei
+        gesperrt, bleibt es bei der gemerkten Liste (das Master-Passwort kommt erst bei Bedarf)."""
+        accounts = self.services.platform_accounts()
+        vault = self.services.vault
+        if not accounts or self.remote_task is not None or vault.vault is None:
+            return
+        if not vault.is_unlocked():
+            return
+        services = self.services
+
+        def work(task: Task) -> tuple:
+            new, problems = [], []
+            for account in accounts:
+                if task.cancel_event.is_set():
+                    break
+                try:
+                    platform = services.platform(account.id)
+                    if platform is None:
+                        continue
+                    repos = platform.repositories()
+                    new.extend(services.remote_repos.replace(account.id, repos))
+                except CockpitError as exc:
+                    log.warning("Repositories von %s: %s %s", account.display_name,
+                                exc.message, exc.details)
+                    problems.append(f"{account.display_name}: {exc.message}")
+            return new, problems
+
+        task = Task(work, self)
+        task.result.connect(self._remote_done)
+        task.finished.connect(self._remote_finished)
+        self.remote_task = task
+        task.start()
+
+    def _remote_done(self, outcome) -> None:
+        new, problems = outcome
+        for problem in problems:
+            announce(f"Repositories nicht abgefragt. {problem}", speak=False)
+        self._reload_if_remote_changed()
+        if new and self.services.settings.load().auto_clone_new:
+            remote_ids = set(self.project_list.remote_ids())
+            for repo in new:
+                if repo.id in remote_ids:
+                    self.controller.download(repo, speak=False)
+
+    def _remote_finished(self) -> None:
+        task, self.remote_task = self.remote_task, None
+        if task is not None:
+            task.deleteLater()
 
     # -- Aktionen -------------------------------------------------------------------------
     def action_context(self) -> ActionContext:
-        target, project_id = self.project_list.current_target()
-        project = self.services.projects.get(project_id) if project_id is not None else None
+        target, item_id = self.project_list.current_target()
+        project = remote = None
+        if target is Target.REMOTE_REPO:
+            remote = self.services.remote_repos.get(item_id) if item_id is not None else None
+        elif item_id is not None:
+            project = self.services.projects.get(item_id)
+        status = self.project_list.status_of(project.id) if project is not None else None
         return ActionContext(self.services, project, target, announce=announce,
-                             asker=self.asker)
+                             asker=self.asker, status=status, remote_repo=remote)
 
     def current_entries(self) -> list[ActionEntry]:
         context = self.action_context()
-        return entries_for(core_actions.all_actions(context), context)
+        actions = core_actions.all_actions(context) + self.controller.actions()
+        return entries_for(actions, context)
 
-    def refresh_actions(self) -> None:
-        self.actions_list.set_entries(self.current_entries())
+    def refresh_actions(self, keep_selection: bool = False) -> None:
+        self.actions_list.set_entries(self.current_entries(), keep_selection)
 
     def run_entry(self, entry: ActionEntry) -> None:
         if not entry.availability.available:
@@ -333,7 +477,10 @@ class MainWindow(QMainWindow):
 
     def open_accounts(self) -> None:
         AccountsDialog(self.services, self).exec()
+        self.services.forget_platforms()
         self.restart_lock_timer()
+        self.reload_projects(refresh=False)
+        self.refresh_remote()
 
     def open_vault_settings(self) -> None:
         VaultSettingsDialog(self.services, self).exec()
@@ -392,6 +539,11 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         QApplication.instance().removeEventFilter(self)
         self.lock_timer.stop()
+        self.controller.wait()
+        for task in (self.status_task, self.remote_task):
+            if task is not None:
+                task.cancel()
+                task.wait(5000)
         if self._show_status in announcer.listeners:
             announcer.listeners.remove(self._show_status)
         super().closeEvent(event)

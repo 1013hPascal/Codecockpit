@@ -12,10 +12,11 @@ from cockpit.adapters.base import AccountField, TestResult
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
 from cockpit.core.secret import Secret
-from cockpit.platforms.base import (Capability, GitCredentials, NewRepo, Platform, RepoInfo,
-                                    RepoLinks, RepoRef, User)
+from cockpit.platforms.base import (Capability, GitCredentials, NewRepo, Platform, RemoteRepo,
+                                    RepoInfo, RepoLinks, RepoRef, User)
 
 GOOD_TOKEN = "richtig"
+REMOTE_REPOS: list[RemoteRepo] = []          # füllt testdata.prepare()
 _NOT_REAL = "Die Testplattform kann das nicht."
 
 
@@ -57,6 +58,10 @@ class TestPlatform(Platform):
 
     def noreply_email(self) -> str | None:
         return None
+
+    def repositories(self, owner: str = "") -> list[RemoteRepo]:
+        """Die Repositories aus den Testdaten (lokale Git-Ordner statt echter Plattform)."""
+        return list(REMOTE_REPOS)
 
     def create_repo(self, spec: NewRepo) -> RepoRef:
         raise CockpitError(_NOT_REAL)

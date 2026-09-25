@@ -38,6 +38,7 @@ class FakePlatform(Platform):
     def __init__(self, capabilities: set[Capability] | None = None) -> None:
         self.caps = set(Capability) if capabilities is None else capabilities
         self.repos: dict[RepoRef, RepoInfo] = {}
+        self.remote: list = []                   # Antwort von repositories()
 
     def test_connection(self) -> TestResult:
         return TestResult(True, "Verbindung in Ordnung.")
@@ -56,6 +57,9 @@ class FakePlatform(Platform):
 
     def noreply_email(self) -> str | None:
         return "1+tester@users.noreply.example"
+
+    def repositories(self, owner: str = "") -> list:
+        return list(self.remote)
 
     def create_repo(self, spec: NewRepo) -> RepoRef:
         ref = RepoRef("tester", spec.name)

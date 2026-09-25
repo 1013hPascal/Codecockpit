@@ -1,6 +1,8 @@
 """Kleine Hilfen für die Oberfläche (Muster aus Chatbot und Tagebuch)."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAccessible, QAccessibleEvent
 from PySide6.QtWidgets import (QAbstractItemView, QDialog, QLabel, QMessageBox, QPlainTextEdit,
@@ -97,3 +99,61 @@ def show_info(parent: QWidget | None, title: str, text: str) -> None:
                       QMessageBox.StandardButton.NoButton, parent)
     box.setEscapeButton(box.addButton("OK", QMessageBox.ButtonRole.AcceptRole))
     box.exec()
+
+
+def ask_buttons(parent: QWidget | None, title: str, text: str, buttons: list[str],
+                default: int, escape: int) -> int:
+    """Rückfrage mit mehreren Antworten als Knöpfe. Gibt den Index des gewählten Knopfs zurück.
+    default und escape sollten die sichere Antwort sein (CLAUDE.md)."""
+    box = QMessageBox(QMessageBox.Icon.Question, title, text, QMessageBox.StandardButton.NoButton,
+                      parent)
+    added = [box.addButton(label, QMessageBox.ButtonRole.ActionRole) for label in buttons]
+    box.setDefaultButton(added[default])
+    box.setEscapeButton(added[escape])
+    box.exec()
+    clicked = box.clickedButton()
+    return added.index(clicked) if clicked in added else escape
+
+
+def pick_folder(parent: QWidget | None, title: str, start: str = "") -> Path | None:
+    """Ordner wählen mit dem Dialog von Windows (NVDA kennt ihn). None bei Abbruch."""
+    from PySide6.QtWidgets import QFileDialog
+    chosen = QFileDialog.getExistingDirectory(parent, title, start)
+    return Path(chosen) if chosen else None
+
+
+class ListChoiceDialog(FocusDialog):
+    """Auswahl aus einer Liste mit OK und Abbrechen. Enter wählt, Escape bricht ab."""
+
+    def __init__(self, title: str, name: str, items: list[str], current: int = 0,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        from PySide6.QtWidgets import QDialogButtonBox, QListWidget, QVBoxLayout
+        self.setWindowTitle(title)
+        self.list = QListWidget()
+        name_widget(self.list, name)
+        self.list.addItems(items)
+        self.list.setCurrentRow(max(0, min(current, len(items) - 1)))
+        self.list.itemActivated.connect(lambda _item: self.accept())
+        buttons = QDialogButtonBox()
+        buttons.addButton("OK", QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.addButton("Abbrechen", QDialogButtonBox.ButtonRole.RejectRole)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.list)
+        layout.addWidget(buttons)
+        self.resize(560, 400)
+        self.initial_focus_widget = self.list
+        self.list.setFocus()
+
+    @property
+    def chosen(self) -> int:
+        return self.list.currentRow()
+
+
+def choose_from_list(parent: QWidget | None, title: str, name: str, items: list[str],
+                     current: int = 0) -> int | None:
+    """Index des gewählten Eintrags oder None bei Abbruch."""
+    dialog = ListChoiceDialog(title, name, items, current, parent)
+    return dialog.chosen if dialog.exec() else None
