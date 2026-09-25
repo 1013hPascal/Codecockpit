@@ -26,7 +26,8 @@ from cockpit.core.projects import CODE_DIR, Project, classify_folder, same_drive
 from cockpit.core.remote_repos import StoredRepo
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import ask_buttons, choose_from_list, confirm, pick_folder
+from cockpit.ui.common import (ask_buttons, choose_from_list, confirm, pick_folder,
+                               show_info)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.tasks import Task
 
@@ -55,6 +56,8 @@ class ProjectController:
                    order=5),
             Action("connect_repo", "Mit vorhandenem Repository verbinden …", Target.CODE,
                    self.connect_action, visible=_git_missing, order=40),
+            Action("git_identity", "Git-Identität …", Target.CODE, self.identity_action,
+                   visible=_is_repo, order=85),
             Action("repair_venv", "Virtuelle Umgebung neu anlegen …", Target.CODE,
                    self.repair_venv_action, visible=_venv_broken, order=45),
             Action("download", "Herunterladen", Target.REMOTE_REPO, self.download_action,
@@ -176,6 +179,36 @@ class ProjectController:
                             settings.git_email, self.window.asker)
         except CockpitError as exc:
             log.warning("Git-Identität für %s: %s %s", project.name, exc.message, exc.details)
+
+    def identity_action(self, context: ActionContext) -> None:
+        """Git-Identität des Projekts anzeigen und bei Bedarf die aus den Grundeinstellungen
+        übernehmen (Wunsch aus dem Test von Phase 5a)."""
+        project = context.project
+        settings = self.services.settings.load()
+        name, email = settings.git_name, settings.git_email
+        title = f"Git-Identität von {project.name}"
+        current = identity.state(project.code_dir, name, email)
+        own = ", ".join(v for v in git.identity(project.code_dir) if v)
+        if current is identity.IdentityState.NOT_SET:
+            text = f"Eingetragen: {own}." if own else "Im Projekt ist keine eingetragen."
+            show_info(self.window, title, f"{text} In den Grundeinstellungen fehlen Name oder "
+                      "E-Mail-Adresse. Sie stehen im Menü Einstellungen unter "
+                      "Grundeinstellungen.")
+            return
+        if current is identity.IdentityState.SAME:
+            show_info(self.window, title, f"{own}. Das ist die Identität aus den "
+                      "Grundeinstellungen.")
+            return
+        if current is identity.IdentityState.MISSING:
+            text = (f"{project.name} hat noch keine eigene Git-Identität. In den "
+                    f"Grundeinstellungen steht: {name}, {email}. Übernehmen?")
+        else:
+            text = (f"Eingetragen: {own}. In den Grundeinstellungen steht: {name}, {email}. "
+                    "Soll das Projekt die Identität aus den Grundeinstellungen bekommen?")
+        if confirm(self.window, title, text, yes="Grundeinstellungen übernehmen",
+                   no="Vorhandene behalten"):
+            git.set_identity(project.code_dir, name, email)
+            announce(f"Git-Identität von {project.name}: {name}, {email}.")
 
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
@@ -312,6 +345,11 @@ class ProjectController:
 
         self.run_task(f"project:{project.id}", work, done, "Virtuelle Umgebung",
                       on_status=announce)
+
+
+def _is_repo(context: ActionContext) -> bool:
+    status = context.status
+    return status is not None and status.repo is not None and status.repo.is_repo
 
 
 def _git_missing(context: ActionContext) -> bool:

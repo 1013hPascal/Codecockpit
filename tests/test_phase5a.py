@@ -780,3 +780,36 @@ def test_testdata_can_be_prepared_twice(tmp_path, monkeypatch):
     testdata.prepare(base)
     assert not base.with_name("Testdaten-alt").exists()
     assert (base / "Andere Ordner" / "Vereinsseite" / "Code" / ".git").is_dir()
+
+
+def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, projects_root,
+                                                 monkeypatch):
+    code = make_project(projects_root, "Verein") / "Code"
+    git.init(code)
+    git.set_identity(code, "Alt", "alt@example.org")
+    services = make_services()
+    services.settings.update(git_name=NAME, git_email=EMAIL)
+    win = live(services)
+    project = services.projects.all()[0]
+    win.project_list.select(Target.CODE, project.id)
+    entry = next(e for e in win.current_entries() if e.label == "Git-Identität …")
+    asked = []
+    monkeypatch.setattr(project_actions, "confirm",
+                        lambda parent, title, text, **k: asked.append((text, k)) or True)
+    win.run_entry(entry)
+    text, buttons = asked[0]
+    assert text.startswith("Eingetragen: Alt, alt@example.org. In den Grundeinstellungen steht:")
+    assert buttons["no"] == "Vorhandene behalten"
+    assert git.identity(code) == (NAME, EMAIL)
+    shown = []
+    monkeypatch.setattr(project_actions, "show_info", lambda p, t, text: shown.append(text))
+    win.run_entry(entry)
+    assert shown == [f"{NAME}, {EMAIL}. Das ist die Identität aus den Grundeinstellungen."]
+
+
+def test_identity_action_only_for_repositories(live, qtbot, make_services, projects_root):
+    make_project(projects_root, "OhneGit")
+    services = make_services()
+    win = live(services)
+    win.project_list.select(Target.CODE, services.projects.all()[0].id)
+    assert "Git-Identität …" not in [e.label for e in win.current_entries()]

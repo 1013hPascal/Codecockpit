@@ -28,7 +28,7 @@ Hinweis: Ansagen in Dialogen sind noch ein offener Punkt (TODO.md). Die Ansagen 
 
 ## A. Stand in der Projektliste
 
-[ ] 1. Zeilen der Projekte
+[x] 1. Zeilen der Projekte
 Tasten: Nach dem Start Pfeiltasten in der Projektliste. Warten Sie vorher ein paar Sekunden.
 Erwartet: Es gibt diese Zeilen:
 - „Tagebuch, aktualisiert am“ mit dem heutigen Datum, dann „1 Datei noch nicht hochgeladen, virtuelle Umgebung muss neu angelegt werden“.
@@ -38,12 +38,12 @@ Erwartet: Es gibt diese Zeilen:
 - Ihre Repositories auf GitHub, zum Beispiel „Tagebuch, nur auf GitHub, aktualisiert am …“. Sie stehen nach Datum zwischen den anderen Projekten.
 Ergebnis:
 
-[ ] 2. Zeile Code
+[x] 2. Zeile Code
 Tasten: Auf „PDF-Chat“ Pfeil rechts, dann Pfeil runter. Danach dasselbe bei „Tagebuch“.
 Erwartet: Bei PDF-Chat heißt die Zeile „Code, alles hochgeladen“. Bei Tagebuch heißt sie „Code, 1 Datei noch nicht hochgeladen“.
 Ergebnis:
 
-[ ] 3. Neu einlesen ohne Sprung
+[x] 3. Neu einlesen ohne Sprung
 Tasten: Markieren Sie „Code“ unter Tagebuch. Drücken Sie Strg+R und warten Sie kurz.
 Erwartet: NVDA sagt „Projekte neu eingelesen“ und die Zahl der Projekte. Der Fokus bleibt auf der Zeile „Code“ von Tagebuch. Danach kommen keine weiteren Ansagen.
 Ergebnis:
@@ -53,24 +53,31 @@ Ergebnis:
 
 Wählen Sie für diesen Abschnitt ein kleines Repository aus Ihrer Liste.
 
-[ ] 4. Aktionen
+[x] 4. Aktionen
 Tasten: Pfeiltasten bis zu einer Zeile „…, nur auf GitHub, …“, dann Tab.
 Erwartet: Die Aktionen heißen „Herunterladen“ und „Auf GitHub öffnen“.
 Ergebnis:
 
-[ ] 5. Auf GitHub öffnen
+[x] 5. Auf GitHub öffnen
 Tasten: In den Aktionen „Auf GitHub öffnen“, Enter.
 Erwartet: Der Browser zeigt die Seite des Repositories auf GitHub. NVDA sagt „Wird im Browser geöffnet.“
 Ergebnis:
 
-[ ] 6. Herunterladen mit Enter
+[x] 6. Herunterladen mit Enter
 Tasten: Zurück ins Cockpit, Umschalt+Tab zur Projektliste, Enter auf der Zeile „…, nur auf GitHub, …“.
 Erwartet: NVDA sagt „… wird heruntergeladen.“ und nach einer Weile „… heruntergeladen.“ Der Fokus steht auf dem Projekt. Die Zeile heißt jetzt „Name, aktualisiert am …“ ohne „nur auf GitHub“. Mit Pfeil rechts und Pfeil runter kommt „Code, alles hochgeladen“.
 Ergebnis:
 
-[ ] 7. Git-Identität im heruntergeladenen Projekt
+[?] 7. Git-Identität im heruntergeladenen Projekt
 Tasten: Öffnen Sie im Explorer `%LOCALAPPDATA%\CodeCockpit\Testdaten\Projekte\<Name>\Code\.git\config` mit dem Editor.
 Erwartet: Unter `[user]` stehen Ihr Name und Ihre E-Mail-Adresse aus dem Einrichtungsassistenten.
+Ergebnis: fWarum kann man das nicht auch bei projekt mit tab bei Aktionen, das wor zur projektdatein acuh der diese Infos, sondren in der Datei, oder ist das nich treelvant., odrer kommt das später noch?
+
+Antwort von Claude: Gute Idee, ist eingebaut. Bei „Code“ gibt es jetzt die Aktion „Git-Identität …“. Sie zeigt die Identität des Projekts. Weicht sie von den Grundeinstellungen ab oder fehlt sie, fragt sie, ob die aus den Grundeinstellungen übernommen werden soll. Bitte prüfen Sie Punkt 7a statt Punkt 7. Dafür das Cockpit neu starten.
+
+[ ] 7a. Aktion Git-Identität
+Tasten: „Code“ unter dem heruntergeladenen Projekt, Tab, „Git-Identität …“, Enter. Danach dasselbe bei „Code“ unter Bildbeschreiber.
+Erwartet: Beim heruntergeladenen Projekt ein Meldungsfenster: Ihr Name und Ihre E-Mail-Adresse, dann „Das ist die Identität aus den Grundeinstellungen.“ Bei Bildbeschreiber gibt es die Aktion nicht, weil es noch kein Git-Repository ist.
 Ergebnis:
 
 
@@ -79,7 +86,13 @@ Ergebnis:
 [ ] 8. Projektordner mit Code
 Tasten: Alt+D, „Vorhandenes Projekt hinzufügen …“, Ordner `…\Andere Ordner\Wetter` wählen.
 Erwartet: NVDA sagt „Wetter hinzugefügt.“ Der Fokus steht auf „Wetter, noch nicht auf GitHub“.
-Ergebnis:
+Ergebnis: Check nicht was du hier willst. wo soll ichhin, woher soll ein orndre hinzugefügt werden? von wo anders vom rechner in diesn Explorer, und damit dan auf GitHub?
+
+Antwort von Claude: Es geht um Projekte, die nicht im Projekte-Hauptordner liegen, zum Beispiel auf einem anderen Laufwerk oder ein Repository der Firma. Mit „Vorhandenes Projekt hinzufügen“ kommen sie in die Projektliste des Cockpits. Auf GitHub passiert dabei nichts, hochgeladen wird erst in 5b. Für den Test habe ich solche Ordner in den Testdaten vorbereitet. So geht es:
+1. Alt+D, „Vorhandenes Projekt hinzufügen …“. Es öffnet sich das Fenster „Ordner auswählen“ von Windows.
+2. Tippen Sie in das Feld „Ordner“ diesen Pfad: `C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Andere Ordner\Wetter`
+3. Drücken Sie Enter. Falls das Fenster noch offen ist, wählen Sie den Knopf „Ordner auswählen“.
+Für die Punkte 9 bis 13 und 14 ist es genauso, nur der letzte Teil des Pfads ändert sich, zum Beispiel `…\Andere Ordner\Rechner`.
 
 [ ] 9. Schon in der Liste
 Tasten: Dasselbe noch einmal mit `Wetter`.
