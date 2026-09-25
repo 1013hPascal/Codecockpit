@@ -37,7 +37,7 @@ Erwartet: NVDA sagt „codecockpit-test wird heruntergeladen.“ und danach „c
 Ergebnis:
 
 [ ] 2. Aktionen beim Projekt
-Tasten: Auf codecockpit-test Tab, mit den Pfeiltasten durch die Aktionen.
+Tasten: Auf der Zeile codecockpit-test selbst Tab, nicht auf Code. Ist das Projekt ausgeklappt, führt Pfeil links von Code zurück zum Projekt. Dann mit den Pfeiltasten durch die Aktionen.
 Erwartet: Unter anderem stehen dort in dieser Reihenfolge „Projekt neu einlesen“, „Links …“, „Repository verwalten …“, „Projektordner öffnen“ und ganz unten „Aus der Liste entfernen …“.
 Ergebnis:
 
