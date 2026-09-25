@@ -32,6 +32,9 @@ class Adapter(ABC):
     kind: ClassVar[str] = ""                 # "github", "ollama", "windows" ...
     display_name: ClassVar[str] = ""         # "GitHub", "Ollama" ...
     account_fields: ClassVar[tuple[AccountField, ...]] = ()
+    # Anleitung, woher man die Zugangsdaten bekommt (Pfad unter anleitungen/), leer: keine
+    account_guide: ClassVar[str] = ""
+    account_guide_title: ClassVar[str] = ""
 
     @abstractmethod
     def test_connection(self) -> TestResult:

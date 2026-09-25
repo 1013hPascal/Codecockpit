@@ -79,7 +79,9 @@ class BrowserLoginDialog(FocusDialog):
             f"Ihr Code: {login.user_code}",
             "Der Code ist in der Zwischenablage.",
             f"Der Browser öffnet die Seite {login.verification_uri}.",
-            "Melden Sie sich dort an, fügen Sie den Code mit Strg+V ein und bestätigen Sie.",
+            "Melden Sie sich dort an, fügen Sie den Code mit Strg+V ein und wählen Sie Continue.",
+            "Auf der nächsten Seite fragt GitHub, ob CodeCockpit auf Ihr Konto zugreifen darf. "
+            "Bestätigen Sie mit Authorize.",
             "Danach kehren Sie hierher zurück. Das Cockpit wartet, bis Sie fertig sind.",
             f"Der Code gilt {login.expires_in // 60} Minuten.",
         ])

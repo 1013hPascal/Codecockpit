@@ -220,3 +220,41 @@ def test_wizard_mnemonics_still_unique(wizard):
         texts += [w.text() for w in page.findChildren(QPushButton)]
         keys = [m.group(1).lower() for t in texts if (m := re.search(r"&(\w)", t))]
         assert len(keys) == len(set(keys)), (page.title, texts)
+
+
+def test_token_guide_button_sits_before_the_token(qtbot, make_services, monkeypatch):
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    assert dialog.guide_button.text() == "&Anleitung für den Token …"
+    url = dialog.form.fields["url"].focus
+    token = dialog.form.fields["token"].focus
+    assert url.nextInFocusChain() is dialog.guide_button or \
+        dialog.guide_button.previousInFocusChain() is url
+    opened = []
+
+    class FakeText:
+        def __init__(self, title, text, name, parent=None):
+            opened.append((title, text))
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(ad, "TextDialog", FakeText)
+    dialog.show_guide()
+    assert opened[0][0] == "GitHub-Token erstellen"
+    assert "personal-access-tokens/new" in opened[0][1]
+    url.setFocus()
+    qtbot.keyClick(url, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key.Key_Tab)
+    assert dialog.guide_button.hasFocus()
+    qtbot.keyClick(dialog.guide_button, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key.Key_Tab)
+    assert token.hasFocus()
+
+
+def test_login_steps_mention_authorize(qtbot):
+    dialog = bld.BrowserLoginDialog(FakeLoginPlatform)
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: dialog.token is not None, timeout=5000)
+    lines = [dialog.steps.item(r).text() for r in range(dialog.steps.count())]
+    assert any("Authorize" in line for line in lines)

@@ -87,6 +87,8 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         AccountField("url", "Serveradresse", required=False, default=DEFAULT_URL),
         AccountField("token", "Token", secret=True),
     )
+    account_guide = "anleitungen/github-token-erstellen.md"
+    account_guide_title = "GitHub-Token erstellen"
 
     # In Tests ersetzbar: httpx.MockTransport und eine Warte-Funktion ohne echtes Warten
     transport: httpx.BaseTransport | None = None

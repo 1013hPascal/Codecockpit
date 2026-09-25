@@ -150,6 +150,9 @@ class AccountEditDialog(FocusDialog):
         buttons.addButton("Abbrechen", QDialogButtonBox.ButtonRole.RejectRole)
         self.save_button.setDefault(True)
         self.test_button.clicked.connect(self.test_connection)
+        self.guide_button = None
+        if self.adapter_cls.account_guide:
+            self.add_guide_button()
         self.browser_button = None
         if self.has_browser_login():
             self.browser_button = buttons.addButton("Im &Browser anmelden …",
@@ -177,6 +180,47 @@ class AccountEditDialog(FocusDialog):
         for key in skip:
             values[key] = self.device_token             # aus der Anmeldung im Browser
         return name, values
+
+    # -- Anleitung ------------------------------------------------------------------------
+    def add_guide_button(self) -> None:
+        """Knopf direkt vor dem ersten Geheimnis-Feld (Test Phase 4: Wer das Konto ohne
+        Assistent anlegt, weiß sonst nicht, woher der Token kommt)."""
+        from PySide6.QtWidgets import QHBoxLayout as Row
+        from PySide6.QtWidgets import QWidget as Box
+        self.guide_button = QPushButton("&Anleitung für den Token …")
+        self.guide_button.clicked.connect(self.show_guide)
+        secret = next((f for f in self.form.fields.values()
+                       if isinstance(f.spec, sf.SecretText)), None)
+        holder = Box()
+        row = Row(holder)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.guide_button)
+        row.addStretch(1)
+        layout = self.form.layout_
+        if secret is None:
+            layout.addRow(holder)
+            return
+        position, _role = layout.getWidgetPosition(secret.widget)
+        layout.insertRow(position, holder)
+        order = self.form._order
+        index = order.index(secret.focus)
+        before = order[index - 1] if index > 0 else None
+        if before is not None:
+            QWidget.setTabOrder(before, self.guide_button)
+        QWidget.setTabOrder(self.guide_button, secret.focus)
+
+    def show_guide(self) -> None:
+        from cockpit.core import paths
+        cls = self.adapter_cls
+        try:
+            text = (paths.resource_dir() / cls.account_guide).read_text(encoding="utf-8")
+        except OSError as exc:
+            show_error(self, cls.account_guide_title, "Die Anleitung wurde nicht gefunden.",
+                       str(exc))
+            return
+        TextDialog(cls.account_guide_title, text, f"Anleitung {cls.account_guide_title}",
+                   self).exec()
+        self.guide_button.setFocus()
 
     # -- Anmeldung im Browser --------------------------------------------------------------
     def current_url(self) -> str:
