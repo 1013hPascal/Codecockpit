@@ -83,7 +83,7 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
     kind = "github"
     display_name = "GitHub"
     account_fields = (
-        AccountField("username", "Benutzername", required=False),
+        AccountField("username", "Benutzername", required=False, auto=True),
         AccountField("url", "Serveradresse", required=False, default=DEFAULT_URL),
         AccountField("token", "Token", secret=True),
     )
@@ -95,20 +95,19 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         lines = ["So verbinden Sie das Cockpit mit Ihrem GitHub-Konto."]
         if browser_login:
             lines += [
-                "Empfohlen: Im Browser anmelden. Das ist der nächste Knopf. GitHub öffnet sich, "
-                "Sie geben einen Code ein und bestätigen. Das Cockpit trägt alles selbst ein.",
-                "Oder: Token selbst erstellen. Die Felder dafür kommen nach dem Knopf. Die "
-                "Anleitung für den Token erklärt jeden Schritt.",
+                "Es gibt zwei Wege. Mit Tab kommen Sie zu den beiden Knöpfen.",
+                "Im Browser anmelden, empfohlen: GitHub öffnet sich, Sie geben einen Code ein und "
+                "bestätigen. Das Cockpit trägt alles selbst ein.",
+                "Mit Token anmelden: Sie erstellen auf GitHub selbst einen Token und fügen ihn "
+                "ein. Nötig zum Beispiel für einen GitHub-Server Ihrer Firma. Eine Anleitung "
+                "erklärt jeden Schritt.",
             ]
         else:
-            lines.append("Tragen Sie einen selbst erstellten Token ein. Die Anleitung für den "
-                         "Token erklärt jeden Schritt.")
+            lines.append("Sie erstellen auf GitHub selbst einen Token und fügen ihn ein. Die "
+                         "Anleitung für den Token erklärt jeden Schritt.")
         lines += [
-            "Für einen GitHub-Server Ihrer Firma tragen Sie dessen Adresse als Serveradresse "
-            "ein. Dort geht nur der Token.",
+            "Ihren Benutzernamen müssen Sie nicht eintragen. Das Cockpit holt ihn von GitHub.",
             "Der Zugang liegt verschlüsselt im Tresor.",
-            "Mit Tab kommen Sie zu " + ("Im Browser anmelden." if browser_login
-                                        else "den Feldern."),
         ]
         return lines
 

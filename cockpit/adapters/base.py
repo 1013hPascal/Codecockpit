@@ -17,6 +17,7 @@ class AccountField:
     secret: bool = False     # True: landet im Tresor, nie in der Datenbank
     required: bool = True
     default: str = ""
+    auto: bool = False       # True: trägt das Cockpit selbst ein (zum Beispiel den Benutzernamen)
 
 
 @dataclass(frozen=True)

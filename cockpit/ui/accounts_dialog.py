@@ -13,6 +13,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (QDialogButtonBox, QHBoxLayout, QListWidget, QPushButton,
+                               QStackedWidget,
                                QVBoxLayout, QWidget)
 
 from cockpit.adapters import registry as adapter_registry
@@ -118,6 +119,18 @@ class ChoiceDialog(FocusDialog):
 
 
 class AccountEditDialog(FocusDialog):
+    """Konto anlegen oder bearbeiten (Test Phase 4: erst wählen, dann nur das Nötige zeigen).
+
+    Neues Konto bei einer Plattform mit Anmeldung im Browser:
+    - Seite "Auswahl": Erklärung, dann "Im Browser anmelden …" und "Mit Token anmelden …".
+    - Nach der Anmeldung im Browser Seite "Angemeldet": Ergebnis, Anzeigename, Speichern.
+    - "Mit Token anmelden" führt zur Seite "Token": Anzeigename, Serveradresse, Anleitung, Token.
+    Ohne Anmeldung im Browser oder beim Bearbeiten gibt es nur die Seite "Token".
+
+    Felder mit auto=True (zum Beispiel der Benutzername) erscheinen nie. Das Cockpit holt sie
+    beim Anmelden bzw. beim Speichern mit einem Verbindungstest selbst.
+    """
+
     def __init__(self, services: Services, account_type: AccountType,
                  account: Account | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -128,95 +141,159 @@ class AccountEditDialog(FocusDialog):
         self.device_token: Secret | None = None           # aus der Anmeldung im Browser
         self.task: Task | None = None
         self.adapter_cls = adapter_registry.adapter_class(account_type.kind, account_type.adapter)
+        self.auto_keys = [f.key for f in account_type.fields if f.auto]
+        stored = services.accounts.values(account, with_secrets=False) if account else {}
+        self.auto_values: dict[str, Any] = {k: stored.get(k, "") for k in self.auto_keys}
         self.setWindowTitle(f"Konto bearbeiten: {account.display_name}" if account
                             else f"Neues Konto: {account_type.display_name}")
 
+        # -- Formular für den Weg mit Token ----------------------------------------------
         fields: list[sf.SettingField] = [sf.Text("display_name", "Anzeigename", required=True)]
         for f in account_type.fields:
+            if f.auto:
+                continue
             if f.secret:
                 fields.append(sf.SecretText(f.key, f.label, required=f.required,
                                             keep_if_empty=account is not None))
             else:
                 fields.append(sf.Text(f.key, f.label, f.default, required=f.required))
         values = {"display_name": account.display_name if account else account_type.display_name}
-        if account is not None:
-            values.update(services.accounts.values(account, with_secrets=False))
+        values.update({k: v for k, v in stored.items() if k not in self.auto_keys})
         self.form = SettingsForm(fields, values)
-
-        buttons = QDialogButtonBox()
-        self.test_button = buttons.addButton("&Verbindung testen",
-                                             QDialogButtonBox.ButtonRole.ActionRole)
-        self.save_button = buttons.addButton("&Speichern", QDialogButtonBox.ButtonRole.AcceptRole)
-        buttons.addButton("Abbrechen", QDialogButtonBox.ButtonRole.RejectRole)
-        self.save_button.setDefault(True)
-        self.test_button.clicked.connect(self.test_connection)
         self.guide_button = None
         if self.adapter_cls.account_guide:
             self.add_guide_button()
-        buttons.accepted.connect(self.save)
-        buttons.rejected.connect(self.reject)
+        self.test_button = QPushButton("&Verbindung testen")
+        self.test_button.clicked.connect(lambda: self.test_connection())
+        self.save_button = QPushButton("&Speichern")
+        self.save_button.clicked.connect(self.save)
+        self.back_button = QPushButton("&Zurück zur Auswahl")
+        self.back_button.clicked.connect(lambda: self.show_page(self.choice_page))
 
-        # Reihenfolge (Test Phase 4): Erklärung, Anmeldung im Browser, dann der Weg mit Token
-        browser = self.has_browser_login()
-        self.explanation = None
+        browser = account is None and self.has_browser_login()
         lines = self.adapter_cls.account_explanation(browser)
-        if lines:
-            self.explanation = QListWidget()
-            name_widget(self.explanation, "Erklärung")
-            self.explanation.addItems(lines)
-            self.explanation.setCurrentRow(0)
-            self.explanation.setWordWrap(True)
+        self.explanation = self._lines("Erklärung", lines) if lines else None
+
+        # -- Seite Auswahl -------------------------------------------------------------------
+        self.choice_page = QWidget()
         self.browser_button = None
+        self.token_button = None
         if browser:
+            choice = QVBoxLayout(self.choice_page)
+            choice.addWidget(self.explanation, 1)
             self.browser_button = QPushButton("Im &Browser anmelden …")
             self.browser_button.clicked.connect(self.browser_login)
-
-        layout = QVBoxLayout(self)
-        if self.explanation is not None:
-            layout.addWidget(self.explanation, 2)
-        if self.browser_button is not None:
+            self.token_button = QPushButton("Mit &Token anmelden …")
+            self.token_button.clicked.connect(lambda: self.show_page(self.token_page))
             row = QHBoxLayout()
             row.addWidget(self.browser_button)
+            row.addWidget(self.token_button)
             row.addStretch(1)
-            layout.addLayout(row)
-        layout.addWidget(self.form)
-        layout.addWidget(buttons)
-        chain = [w for w in (self.explanation, self.browser_button) if w is not None]
-        chain.append(self.form.first_focus())
-        for first, second in zip(chain, chain[1:]):
-            QWidget.setTabOrder(first, second)
-        self.resize(620, 480 if self.explanation is not None else 280)
-        # Neues Konto: zuerst die Erklärung. Bearbeiten: gleich ins erste Feld.
-        self.initial_focus_widget = (self.explanation if account is None and
-                                     self.explanation is not None else self.form.first_focus())
-        self.initial_focus_widget.setFocus()
+            choice.addLayout(row)
 
+        # -- Seite Token ---------------------------------------------------------------------
+        self.token_page = QWidget()
+        token = QVBoxLayout(self.token_page)
+        self.token_explanation = None
+        if not browser and self.explanation is not None and account is None:
+            token.addWidget(self.explanation, 1)
+            self.token_explanation = self.explanation
+        token.addWidget(self.form)
+        row = QHBoxLayout()
+        if browser:
+            row.addWidget(self.back_button)
+        row.addStretch(1)
+        row.addWidget(self.test_button)
+        row.addWidget(self.save_button)
+        token.addLayout(row)
+
+        # -- Seite Angemeldet (nach der Anmeldung im Browser) ------------------------------
+        self.done_page = QWidget()
+        done = QVBoxLayout(self.done_page)
+        self.done_info = self._lines("Ergebnis", [])
+        self.done_form = SettingsForm([sf.Text("display_name", "Anzeigename", required=True)],
+                                      {"display_name": account_type.display_name})
+        self.done_save_button = QPushButton("&Speichern")
+        self.done_save_button.clicked.connect(self.save_browser_account)
+        done.addWidget(self.done_info, 1)
+        done.addWidget(self.done_form)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(self.done_save_button)
+        done.addLayout(row)
+
+        self.stack = QStackedWidget()
+        for page in (self.choice_page, self.token_page, self.done_page):
+            self.stack.addWidget(page)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        bottom = QHBoxLayout()
+        bottom.addStretch(1)
+        bottom.addWidget(cancel)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.stack, 1)
+        layout.addLayout(bottom)
+        self.resize(640, 460)
+        self.show_page(self.choice_page if browser else self.token_page, speak=False)
+
+    @staticmethod
+    def _lines(name: str, lines: list[str]) -> QListWidget:
+        widget = QListWidget()
+        name_widget(widget, name)
+        widget.addItems(lines)
+        widget.setCurrentRow(0)
+        widget.setWordWrap(True)
+        return widget
+
+    def show_page(self, page: QWidget, speak: bool = True) -> None:
+        self.stack.setCurrentWidget(page)
+        if page is self.choice_page:
+            first, title = self.explanation, "Auswahl"
+        elif page is self.token_page:
+            first = self.token_explanation or self.form.first_focus()
+            title = "Mit Token anmelden"
+            self.save_button.setDefault(True)
+        else:
+            first, title = self.done_info, "Angemeldet"
+            self.done_save_button.setDefault(True)
+        self.initial_focus_widget = first
+        first.setFocus()
+        if speak:
+            announce(title)
+
+    # -- Werte -----------------------------------------------------------------------------
     def _values(self) -> tuple[str, dict[str, Any]] | None:
-        secret_keys = {k for k, f in self.form.fields.items() if isinstance(f.spec, sf.SecretText)}
-        skip = {k for k in secret_keys if not self.form.fields[k].get()}             if self.device_token is not None else set()
         try:
-            values = self.form.values(skip)
+            values = self.form.values()
         except FormError as exc:
             show_error(self, self.windowTitle(), exc.message)
             self.form.focus_field(exc.key)
             return None
         name = values.pop("display_name")
-        for key in skip:
-            values[key] = self.device_token             # aus der Anmeldung im Browser
+        values.update(self.auto_values)
         return name, values
+
+    def _with_stored_secrets(self, values: dict[str, Any]) -> dict[str, Any] | None:
+        """Beim Bearbeiten: leere Geheimnisse durch die gespeicherten ersetzen."""
+        if self.account is None:
+            return values
+        if not vault_ui.ensure_unlocked(self.services, self):
+            return None
+        stored = self.services.accounts.values(self.account)
+        for key, value in values.items():
+            if isinstance(value, Secret) and not value.reveal():
+                values[key] = stored.get(key) or value
+        return values
 
     # -- Anleitung ------------------------------------------------------------------------
     def add_guide_button(self) -> None:
-        """Knopf direkt vor dem ersten Geheimnis-Feld (Test Phase 4: Wer das Konto ohne
-        Assistent anlegt, weiß sonst nicht, woher der Token kommt)."""
-        from PySide6.QtWidgets import QHBoxLayout as Row
-        from PySide6.QtWidgets import QWidget as Box
+        """Knopf direkt vor dem ersten Geheimnis-Feld (Test Phase 4)."""
         self.guide_button = QPushButton("&Anleitung für den Token …")
         self.guide_button.clicked.connect(self.show_guide)
         secret = next((f for f in self.form.fields.values()
                        if isinstance(f.spec, sf.SecretText)), None)
-        holder = Box()
-        row = Row(holder)
+        holder = QWidget()
+        row = QHBoxLayout(holder)
         row.setContentsMargins(0, 0, 0, 0)
         row.addWidget(self.guide_button)
         row.addStretch(1)
@@ -228,9 +305,8 @@ class AccountEditDialog(FocusDialog):
         layout.insertRow(position, holder)
         order = self.form._order
         index = order.index(secret.focus)
-        before = order[index - 1] if index > 0 else None
-        if before is not None:
-            QWidget.setTabOrder(before, self.guide_button)
+        if index > 0:
+            QWidget.setTabOrder(order[index - 1], self.guide_button)
         QWidget.setTabOrder(self.guide_button, secret.focus)
 
     def show_guide(self) -> None:
@@ -258,57 +334,81 @@ class AccountEditDialog(FocusDialog):
     def browser_login(self) -> None:
         dialog = browser_login_dialog.BrowserLoginDialog(self.adapter_cls, self.current_url(),
                                                          self)
-        if dialog.exec() and dialog.token is not None:
-            self.device_token = dialog.token
-            token_field = next((f for f in self.form.fields.values()
-                                if isinstance(f.spec, sf.SecretText)), None)
-            if token_field is not None:
-                token_field.focus.clear()
-                token_field.focus.setPlaceholderText("Über die Anmeldung im Browser erhalten")
-            if "username" in self.form.fields and dialog.username:
-                self.form.fields["username"].set(dialog.username)
-            display = self.form.fields["display_name"]
-            if display.get() == self.account_type.display_name and dialog.username:
-                display.set(f"{self.account_type.display_name} {dialog.username}")
-        self.save_button.setFocus()
+        if not dialog.exec() or dialog.token is None:
+            self.browser_button.setFocus()
+            return
+        self.device_token = dialog.token
+        if "username" in self.auto_values:
+            self.auto_values["username"] = dialog.username
+        self.done_form.fields["display_name"].set(
+            f"{self.account_type.display_name} {dialog.username}".strip())
+        self.done_info.clear()
+        self.done_info.addItems([
+            f"Angemeldet als {dialog.username}.",
+            "Mit Speichern ist das Konto fertig. Der Zugang kommt verschlüsselt in den Tresor.",
+            "Den Anzeigenamen können Sie vorher ändern, zum Beispiel in GitHub privat.",
+        ])
+        self.done_info.setCurrentRow(0)
+        self.show_page(self.done_page)
 
-    # -- Verbindung testen -----------------------------------------------------------------
-    def test_connection(self) -> None:
+    def save_browser_account(self) -> None:
+        try:
+            name = self.done_form.values()["display_name"]
+        except FormError as exc:
+            show_error(self, self.windowTitle(), exc.message)
+            self.done_form.focus_field(exc.key)
+            return
+        values: dict[str, Any] = {f.key: f.default for f in self.account_type.fields
+                                  if not f.secret}
+        values.update(self.auto_values)
+        for f in self.account_type.fields:
+            if f.secret:
+                values[f.key] = self.device_token
+        self._store(name, values)
+
+    # -- Verbindung testen und speichern --------------------------------------------------
+    def test_connection(self, then_save: bool = False) -> None:
         checked = self._values()
         if checked is None:
             return
-        _, values = checked
-        if self.account is not None:
-            if not vault_ui.ensure_unlocked(self.services, self):
-                return
-            stored = self.services.accounts.values(self.account)
-            for key, value in values.items():
-                if isinstance(value, Secret) and not value.reveal():
-                    values[key] = stored.get(key) or value
+        name, values = checked
+        values = self._with_stored_secrets(values)
+        if values is None:
+            return
         cls = self.adapter_cls
 
         def work(task: Task):
             adapter = cls.from_account(values)
             return adapter.test_connection(), getattr(adapter, "username", "")
 
-        self.task = run_in_background(self, work, self.test_finished, self.test_button)
+        def finished(outcome) -> None:
+            result, username = outcome
+            self.task = None
+            if result.ok and username and "username" in self.auto_values:
+                self.auto_values["username"] = username      # Benutzername selbst eintragen
+            if then_save and result.ok:
+                values.update(self.auto_values)
+                self._store(name, values)
+                return
+            show_test_result(self, result)
 
-    def test_finished(self, outcome) -> None:
-        result, username = outcome
-        self.task = None
-        if result.ok and username and "username" in self.form.fields                 and not self.form.fields["username"].get():
-            self.form.fields["username"].set(username)     # Benutzername selbst eintragen
-        show_test_result(self, result)
-
-    def done(self, code: int) -> None:
-        wait_for(self.task)
-        super().done(code)
+        self.task = run_in_background(self, work, finished,
+                                      self.save_button if then_save else self.test_button)
 
     def save(self) -> None:
-        checked = self._values()
-        if checked is None:
+        """Fehlt ein Wert, den das Cockpit selbst einträgt, oder ist der Token neu, wird vorher
+        die Verbindung getestet. Klappt der Test nicht, wird nichts gespeichert."""
+        missing_auto = [k for k in self.auto_keys if not self.auto_values.get(k)]
+        token_changed = any(isinstance(f.spec, sf.SecretText) and f.get()
+                            for f in self.form.fields.values())
+        if missing_auto or (self.auto_keys and token_changed):
+            self.test_connection(then_save=True)
             return
-        name, values = checked
+        checked = self._values()
+        if checked is not None:
+            self._store(*checked)
+
+    def _store(self, name: str, values: dict[str, Any]) -> None:
         if not vault_ui.ensure_unlocked(self.services, self):
             return
         try:
@@ -320,6 +420,10 @@ class AccountEditDialog(FocusDialog):
             show_error(self, self.windowTitle(), exc.message, exc.details)
             return
         self.accept()
+
+    def done(self, code: int) -> None:
+        wait_for(self.task)
+        super().done(code)
 
 
 class AccountsDialog(FocusDialog):

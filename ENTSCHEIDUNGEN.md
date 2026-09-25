@@ -260,3 +260,4 @@ Neue Einträge kommen ans Ende.
 
 - Git bekommt den Token später über Umgebungsvariablen (GIT_CONFIG_COUNT und http.extraheader), nie über die Befehlszeile. Der Log-Filter maskiert auch diese kodierte Form.
 - Konto-Fenster nach dem NVDA-Test: zuerst eine Erklärung als Liste, dann „Im Browser anmelden …“, dann die Felder für den Weg mit Token samt „Anleitung für den Token …“. Gleich im Assistenten und in der Kontenverwaltung. Beim Bearbeiten eines vorhandenen Kontos beginnt der Fokus im ersten Feld. Jeder Adapter kann seine Erklärung mitbringen (account_explanation).
+- Konto-Fenster, zweite Fassung nach dem NVDA-Test: Nach der Erklärung wählt man zwischen „Im Browser anmelden …“ und „Mit Token anmelden …“. Jeder Weg zeigt danach nur seine Felder. Felder, die das Cockpit selbst füllt (auto, bei GitHub der Benutzername), erscheinen nie. Beim Speichern mit neuem Token testet das Cockpit erst die Verbindung und speichert nur, wenn sie klappt.

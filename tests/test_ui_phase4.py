@@ -99,7 +99,7 @@ def test_browser_button_only_with_client_id(qtbot, make_services, monkeypatch):
     assert dialog.browser_button.text() == "Im &Browser anmelden …"
 
 
-def test_browser_login_fills_the_account(qtbot, make_services, monkeypatch):
+def test_browser_login_leads_to_done_page_and_saves(qtbot, make_services, monkeypatch):
     services = make_services(vault=FakeVault())
     monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
@@ -114,23 +114,37 @@ def test_browser_login_fills_the_account(qtbot, make_services, monkeypatch):
 
     monkeypatch.setattr(bld, "BrowserLoginDialog", Done)
     dialog.browser_login()
-    assert dialog.form.fields["username"].get() == "1013hPascal"
-    assert dialog.form.fields["display_name"].get() == "GitHub 1013hPascal"
-    token_field = dialog.form.fields["token"].focus
-    assert token_field.text() == ""                          # Token nie sichtbar im Feld
-    assert token_field.placeholderText() == "Über die Anmeldung im Browser erhalten"
-    dialog.save()
-    assert services.accounts.values(dialog.saved)["token"].reveal() == TOKEN
+    assert dialog.stack.currentWidget() is dialog.done_page
+    assert dialog.done_info.item(0).text() == "Angemeldet als 1013hPascal."
+    assert dialog.done_form.fields["display_name"].get() == "GitHub 1013hPascal"
+    assert dialog.initial_focus_widget is dialog.done_info
+    dialog.save_browser_account()
+    values = services.accounts.values(dialog.saved)
+    assert values["token"].reveal() == TOKEN
+    assert values["username"] == "1013hPascal"
+    assert values["url"] == "https://github.com"
 
 
-def test_connection_test_fills_username(qtbot, make_services, server):
+def test_token_way_has_no_username_field_and_fills_it_on_save(qtbot, make_services, server):
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
+    assert "username" not in dialog.form.fields                 # trägt das Cockpit selbst ein
     dialog.form.fields["token"].focus.setText(TOKEN)
-    dialog.test_connection()
-    qtbot.waitUntil(lambda: dialog.form.fields["username"].get() == "1013hPascal", timeout=5000)
-    assert said("Verbindung in Ordnung. Angemeldet als 1013hPascal.")
+    dialog.save()                                               # testet erst, dann speichern
+    qtbot.waitUntil(lambda: dialog.saved is not None, timeout=5000)
+    assert services.accounts.values(dialog.saved)["username"] == "1013hPascal"
+
+
+def test_token_way_does_not_save_a_rejected_token(qtbot, make_services, server):
+    server.route("GET", "/user", 401, {"message": "Bad credentials"})
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    dialog.form.fields["token"].focus.setText("falsch")
+    dialog.save()
+    qtbot.waitUntil(dialog.save_button.isEnabled, timeout=5000)
+    assert dialog.saved is None and services.accounts.all() == []
 
 
 def test_sso_result_offers_the_link(qtbot, monkeypatch, no_blocking_dialogs):
@@ -223,15 +237,16 @@ def test_wizard_mnemonics_still_unique(wizard):
 
 
 def test_token_guide_button_sits_before_the_token(qtbot, make_services, monkeypatch):
+    from PySide6.QtCore import Qt
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
     show_active(qtbot, dialog)
+    if dialog.token_button is not None:
+        dialog.token_button.click()                          # Weg mit Token wählen
     assert dialog.guide_button.text() == "&Anleitung für den Token …"
     url = dialog.form.fields["url"].focus
     token = dialog.form.fields["token"].focus
-    assert url.nextInFocusChain() is dialog.guide_button or \
-        dialog.guide_button.previousInFocusChain() is url
     opened = []
 
     class FakeText:
@@ -246,9 +261,9 @@ def test_token_guide_button_sits_before_the_token(qtbot, make_services, monkeypa
     assert opened[0][0] == "GitHub-Token erstellen"
     assert "personal-access-tokens/new" in opened[0][1]
     url.setFocus()
-    qtbot.keyClick(url, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key.Key_Tab)
+    qtbot.keyClick(url, Qt.Key.Key_Tab)
     assert dialog.guide_button.hasFocus()
-    qtbot.keyClick(dialog.guide_button, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key.Key_Tab)
+    qtbot.keyClick(dialog.guide_button, Qt.Key.Key_Tab)
     assert token.hasFocus()
 
 
@@ -260,23 +275,32 @@ def test_login_steps_mention_authorize(qtbot):
     assert any("Authorize" in line for line in lines)
 
 
-def test_new_github_account_starts_with_explanation_then_browser_then_token(qtbot, make_services,
-                                                                           monkeypatch):
-    """Test Phase 4: Erst die Erklärung, dann Im Browser anmelden, dann der Weg mit Token."""
+def test_new_github_account_offers_two_ways_after_the_explanation(qtbot, make_services,
+                                                                  monkeypatch):
+    """Test Phase 4: Erst die Erklärung, dann die Wahl: Im Browser oder mit Token."""
     from PySide6.QtCore import Qt
     monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
     show_active(qtbot, dialog)
+    assert dialog.stack.currentWidget() is dialog.choice_page
     qtbot.waitUntil(dialog.explanation.hasFocus, timeout=2000)
     lines = [dialog.explanation.item(r).text() for r in range(dialog.explanation.count())]
-    assert lines[1].startswith("Empfohlen: Im Browser anmelden.")
-    assert lines[-1] == "Mit Tab kommen Sie zu Im Browser anmelden."
+    assert lines[1] == "Es gibt zwei Wege. Mit Tab kommen Sie zu den beiden Knöpfen."
+    assert any(line.startswith("Ihren Benutzernamen müssen Sie nicht") for line in lines)
     qtbot.keyClick(dialog.explanation, Qt.Key.Key_Tab)
     assert dialog.browser_button.hasFocus()
     qtbot.keyClick(dialog.browser_button, Qt.Key.Key_Tab)
+    assert dialog.token_button.hasFocus()
+    assert dialog.token_button.text() == "Mit &Token anmelden …"
+    dialog.token_button.click()
+    assert dialog.stack.currentWidget() is dialog.token_page
     assert dialog.form.fields["display_name"].focus.hasFocus()
+    names = [dialog.form.fields[k].focus.accessibleName() for k in dialog.form.fields]
+    assert names == ["Anzeigename", "Serveradresse", "Token"]
+    dialog.back_button.click()
+    assert dialog.stack.currentWidget() is dialog.choice_page
 
 
 def test_explanation_without_browser_login(qtbot, make_services, monkeypatch):
@@ -284,9 +308,10 @@ def test_explanation_without_browser_login(qtbot, make_services, monkeypatch):
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
+    assert dialog.stack.currentWidget() is dialog.token_page   # keine Wahl nötig
+    assert dialog.initial_focus_widget is dialog.explanation
     lines = [dialog.explanation.item(r).text() for r in range(dialog.explanation.count())]
-    assert not any("Empfohlen" in line for line in lines)
-    assert lines[-1] == "Mit Tab kommen Sie zu den Feldern."
+    assert not any("zwei Wege" in line for line in lines)
 
 
 def test_editing_an_account_starts_in_the_first_field(qtbot, make_services):

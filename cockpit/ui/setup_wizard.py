@@ -228,10 +228,9 @@ class PlatformPage(Page):
         self.text = _lines("Erklärung", [
             "Das Cockpit braucht Zugang zu Ihrem GitHub-Konto, um Code hochzuladen und "
             "Repositories anzulegen.",
-            "Empfohlen: Im Browser anmelden. Sie bekommen einen Code, den Sie auf github.com "
-            "eingeben. Ein Passwort gibt das Cockpit nie weiter.",
-            "Alternativ tragen Sie einen selbst erstellten Token ein. Die Anleitung steht im "
-            "Menü Hilfe.",
+            "Im nächsten Fenster wählen Sie den Weg: Im Browser anmelden, empfohlen, oder Mit "
+            "Token anmelden.",
+            "Ihr Passwort gibt das Cockpit nie weiter. Den Benutzernamen holt es selbst.",
             "Der Zugang liegt verschlüsselt im Tresor.",
             "Mit Tab kommen Sie zu GitHub-Konto einrichten.",
         ])

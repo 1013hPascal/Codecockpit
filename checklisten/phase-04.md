@@ -134,3 +134,31 @@ Ergebnis:
 Tasten: Nach dem Assistenten Alt+O, Kontenverwaltung, „Neues Konto anlegen …“, Kontoart „GitHub, Plattform“, Enter.
 Erwartet: Genau dieselbe Reihenfolge wie in Punkt 16, mit der Erklärung zuerst. Beim Bearbeiten eines vorhandenen Kontos steht der Fokus dagegen gleich im Feld Anzeigename.
 Ergebnis:
+
+Ihr Kommentar: Besser zwei Knöpfe, Im Browser oder mit Token, und danach nur das Nötige. Sonst weiß man nicht, ob man den Benutzernamen eintragen muss.
+Antwort von Claude: Umgebaut. Die Punkte 16 und 17 sind damit überholt, bitte stattdessen 18 bis 21 prüfen. Den Benutzernamen trägt jetzt niemand mehr ein, das Cockpit holt ihn immer selbst von GitHub.
+
+
+## G. Dritter Nachtest: zwei Wege zur Anmeldung (25.09.2026)
+
+Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten.
+
+[ ] 18. Auswahl nach der Erklärung
+Tasten: Im Assistenten bis „GitHub-Konto“, Tab, Enter auf „GitHub-Konto einrichten …“. Pfeiltasten in der Erklärung, dann zweimal Tab.
+Erwartet: Der Fokus steht in der „Erklärung“. Die zweite Zeile lautet „Es gibt zwei Wege. Mit Tab kommen Sie zu den beiden Knöpfen.“ Eine Zeile sagt, dass Sie den Benutzernamen nicht eintragen müssen. Mit Tab folgen „Im Browser anmelden …“ und „Mit Token anmelden …“, dann „Abbrechen“.
+Ergebnis:
+
+[ ] 19. Weg im Browser
+Tasten: „Im Browser anmelden …“, im Browser Code eingeben und Authorize, zurück ins Cockpit.
+Erwartet: NVDA sagt „Angemeldet“. Der Fokus steht in der Liste „Ergebnis“ mit „Angemeldet als 1013hPascal.“ Mit Tab folgen das Feld „Anzeigename“ mit „GitHub 1013hPascal“ und „Speichern“. Speichern schließt das Fenster.
+Ergebnis:
+
+[ ] 20. Weg mit Token
+Tasten: In der Kontenverwaltung „Neues Konto anlegen …“, Kontoart GitHub, zweimal Tab, Enter auf „Mit Token anmelden …“, dann mehrmals Tab.
+Erwartet: NVDA sagt „Mit Token anmelden“. Der Fokus steht im Feld „Anzeigename“. Mit Tab folgen: Serveradresse, „Anleitung für den Token …“, Token, „Zurück zur Auswahl“, „Verbindung testen“, „Speichern“, „Abbrechen“. Es gibt kein Feld Benutzername.
+Ergebnis:
+
+[ ] 21. Speichern mit Token
+Tasten: Im Feld Token „falsch“ eintragen, Alt+S. Danach, falls Sie einen echten Token haben, diesen eintragen und Alt+S.
+Erwartet: Mit „falsch“: Meldung „Der Token wurde abgelehnt …“, es wird nichts gespeichert. Mit einem echten Token: Das Fenster schließt, in der Kontenliste steht das Konto mit Ihrem Benutzernamen.
+Ergebnis:

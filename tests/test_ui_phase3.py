@@ -265,7 +265,7 @@ def test_account_edit_dialog_builds_fields_and_saves(qtbot, accounts):
     dialog, services, account_type = accounts
     edit = ad.AccountEditDialog(services, account_type)
     qtbot.addWidget(edit)
-    names = [w.accessibleName() for w in edit.findChildren(QLineEdit)]
+    names = [w.accessibleName() for w in edit.form.findChildren(QLineEdit)]
     assert names == ["Anzeigename", "Benutzername", "Serveradresse", "Team", "Token"]
     token = edit.form.fields["token"].focus
     assert token.echoMode() == QLineEdit.EchoMode.Password
