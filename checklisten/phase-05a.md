@@ -73,7 +73,7 @@ Tasten: Öffnen Sie im Explorer `%LOCALAPPDATA%\CodeCockpit\Testdaten\Projekte\<
 Erwartet: Unter `[user]` stehen Ihr Name und Ihre E-Mail-Adresse aus dem Einrichtungsassistenten.
 Ergebnis: fWarum kann man das nicht auch bei projekt mit tab bei Aktionen, das wor zur projektdatein acuh der diese Infos, sondren in der Datei, oder ist das nich treelvant., odrer kommt das später noch?
 
-Antwort von Claude: Gute Idee, ist eingebaut. Bei „Code“ gibt es jetzt die Aktion „Git-Identität …“. Sie zeigt die Identität des Projekts. Weicht sie von den Grundeinstellungen ab oder fehlt sie, fragt sie, ob die aus den Grundeinstellungen übernommen werden soll. Bitte prüfen Sie Punkt 7a statt Punkt 7. Dafür das Cockpit neu starten.
+Antwort von Claude: Gute Idee, ist eingebaut. Bei „Code“ gibt es jetzt die Aktion „Git-Identität …“. Sie zeigt die Identität des Projekts. Weicht sie von den Grundeinstellungen ab oder fehlt sie, fragt sie, ob die aus den Grundeinstellungen übernommen werden soll. Bitte prüfen Sie Punkt 7a statt Punkt 7. Dafür das Cockpit mit `start_testdaten.bat` neu starten. Die Testdaten sind danach frisch, laden Sie also zuerst wie in Punkt 6 wieder ein kleines Repository herunter.
 
 [ ] 7a. Aktion Git-Identität
 Tasten: „Code“ unter dem heruntergeladenen Projekt, Tab, „Git-Identität …“, Enter. Danach dasselbe bei „Code“ unter Bildbeschreiber.
