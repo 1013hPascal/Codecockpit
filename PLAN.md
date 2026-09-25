@@ -21,7 +21,7 @@ Inhalt:
 - [x] Phase 1: Analyse der bestehenden Projekte, Plan, Regeln für Claude Code
 - [x] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Projektliste. Abgeschlossen am 25.09.2026: 105 Tests bestanden, NVDA-Test mit checklisten\phase-02.md bestanden
 - [x] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git. Abgeschlossen am 25.09.2026, außer der Sprachausgabe in Dialogen (siehe TODO.md)
-- [ ] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Stand 25.09.2026: gebaut, 207 Tests bestanden, wartet auf die Client-ID der OAuth-App und den NVDA-Test mit checklisten\phase-04.md
+- [ ] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Stand 25.09.2026: gebaut, 207 Tests bestanden, OAuth-App registriert, wartet auf den NVDA-Test mit checklisten\phase-04.md
 - [ ] Phase 5: Grundfunktionen: Git-Identität, Projektaufbau, Projektbaum, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, Hochladen, Holen, Verlauf, Rückgängig, Links, Repository verwalten, Sicherheitsprüfung
 - [ ] Phase 6: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
 - [ ] Phase 7: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent

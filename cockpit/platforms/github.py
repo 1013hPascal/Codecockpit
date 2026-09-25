@@ -36,7 +36,7 @@ from cockpit.platforms.base import (BrowserLogin, Capability, GitCredentials, Ne
 log = logging.getLogger(__name__)
 
 # Öffentliche Client-ID der OAuth-App "CodeCockpit". Leer: Anmeldung im Browser nicht verfügbar.
-CLIENT_ID = ""
+CLIENT_ID = "Ov23li0mUwBCvUxIX2sT"
 # Rechte bei der Anmeldung im Browser. delete_repo fehlt bewusst: Löschen fragt es eigens an.
 SCOPES = "repo read:org workflow"
 DEFAULT_URL = "https://github.com"

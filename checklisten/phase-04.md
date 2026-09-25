@@ -16,8 +16,8 @@ Hinweis: Ansagen in Dialogen sind noch ein offener Punkt (TODO.md). Wo hier eine
 
 ## Vorbereitung
 
-1. Registrieren Sie die OAuth-App mit der Anleitung `anleitungen\github-oauth-app-registrieren.md` und geben Sie mir die Client-ID. Erst dann gibt es „Im Browser anmelden“. Die Punkte in Abschnitt B brauchen die Client-ID.
-2. Diese Phase testen Sie mit Ihrem echten GitHub-Konto. Starten Sie dafür `start_testdaten.bat`. Die Zugangsdaten landen dann unter dem Namen „CodeCockpit Testdaten“ und werden beim nächsten Start mit Testdaten gelöscht. Ihre echten Daten bleiben unberührt.
+1. Die OAuth-App ist registriert (25.09.2026). „Im Browser anmelden“ ist damit verfügbar.
+2. Die ganze Checkliste, alle Abschnitte A bis D, testen Sie mit `start_testdaten.bat`, nicht mit `start.bat`. Nur dort erscheint der Einrichtungsassistent bei jedem Start neu, den Abschnitt B braucht. Sie melden sich dabei mit Ihrem echten GitHub-Konto an. Die Zugangsdaten landen dann unter dem Namen „CodeCockpit Testdaten“ und werden beim nächsten Start mit Testdaten gelöscht. Ihre echten Daten bleiben unberührt.
 3. Das Cockpit legt in dieser Phase nichts auf GitHub an und löscht nichts. Es liest nur Ihr Konto und Ihre Organisationen.
 
 
