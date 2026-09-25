@@ -734,7 +734,7 @@ def test_connect_action_runs_in_background(live, qtbot, account, projects_root, 
     win.run_entry(entry)
     wait_idle(qtbot, win)
     qtbot.waitUntil(lambda: said("OhneGit ist verbunden, Branch main."), timeout=10000)
-    assert chosen[0] == (["OhneGit, tester", "Adresse eingeben …"], 0)
+    assert chosen[0] == (["Adresse eingeben …", "OhneGit, tester"], 1)
     assert git.is_repo(project.code_dir)
 
 

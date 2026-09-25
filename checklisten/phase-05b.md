@@ -111,72 +111,94 @@ Antwort von Claude: Umgebaut wie oben beschrieben. Die alten Punkte 9 bis 16 ent
 
 Bitte alle Fenster des Cockpits schließen und `start_testdaten.bat` neu starten. Im Assistenten wie in der Vorbereitung oben.
 
-[ ] 17. Zwei Einträge oben
+[x] 17. Zwei Einträge oben
 Tasten: In der Projektliste Pos1, dann Pfeil runter. Danach Alt+D.
 Erwartet: Die ersten Zeilen heißen „Projekt vom Rechner hinzufügen“ und „Projekt von GitHub herunterladen“. „Neues Projekt hochladen“ gibt es nicht mehr. Im Menü Datei stehen „Projekt vom Rechner hinzufügen …“ und „Projekt von GitHub herunterladen …“. „Vorhandenes Projekt hinzufügen“ gibt es nicht mehr.
 Ergebnis:
 
-[ ] 18. Ordner am Ort lassen
+[x] 18. Ordner am Ort lassen
 Tasten: Enter auf „Projekt vom Rechner hinzufügen“. Ordner `C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Andere Ordner\codecockpit-test` wählen. In der Frage „Am Ort lassen …“, bei der Frage nach dem Exe-Ordner „Ohne Exe-Ordner“.
 Erwartet: Die erste Frage hat die Knöpfe „In den Projekte-Hauptordner verschieben …“, „Am Ort lassen …“ und „Abbrechen“. Vorgabe ist „Abbrechen“. Danach sagt NVDA „codecockpit-test hinzugefügt.“
 Ergebnis:
 
-[ ] 19. Angebot zum Hochladen
+[x] 19. Angebot zum Hochladen
 Tasten: Die nächste Frage lesen, dann Escape.
 Erwartet: Die Frage lautet „codecockpit-test ist noch nicht auf GitHub. Jetzt hochladen? Sie können das auch später bei Code mit der Aktion Auf GitHub hochladen machen.“ Die Knöpfe heißen „Jetzt hochladen …“ und „Später“. Vorgabe ist „Später“. Nach Escape steht der Fokus auf „codecockpit-test, noch nicht auf GitHub“. Der Ordner liegt weiter in `Andere Ordner`.
 Ergebnis:
 
-[ ] 20. Meldung bei Leerzeichen im Namen
+[x] 20. Meldung bei Leerzeichen im Namen
 Tasten: codecockpit-test ausklappen, Enter auf „Code“. Im Feld „Name auf GitHub“ „Mein Test“ eintippen, Alt+W.
 Erwartet: Die Meldung lautet „Der Name darf keine Leerzeichen enthalten. Nehmen Sie stattdessen einen Bindestrich, zum Beispiel Mein-Test.“ Danach steht der Fokus wieder im Feld. Tragen Sie wieder „codecockpit-test“ ein.
 Ergebnis:
 
-[ ] 21. Rückfrage ohne Kopieren
+[x] 21. Rückfrage ohne Kopieren
 Tasten: Alt+W, die Frage lesen, „Hochladen“.
 Erwartet: Die Frage beginnt mit „Das Cockpit prüft den Code auf Geheimnisse, legt auf GitHub das private Repository 1013hPascal/codecockpit-test an und lädt alles hoch.“ Vom Kopieren steht nichts darin.
 Ergebnis:
 
-[ ] 22. Fenster Sicherheitsprüfung
+[x] 22. Fenster Sicherheitsprüfung
 Tasten: Warten, dann Pfeiltasten in der Liste.
 Erwartet: Das Fenster heißt „Sicherheitsprüfung: 2 Funde stoppen das Hochladen“. Die Liste enthält „Geheimnis: config.py, Zeile 1, GitHub-Token. Stoppt das Hochladen“ und „Geheimnis: config.py, Zeile 2, Passwort oder Schlüssel im Code. Stoppt das Hochladen“. .env und daten.db fehlen, weil sie schon in .gitignore stehen.
 Ergebnis:
 
-[ ] 23. Token in der Datei entfernen
+[!] 23. Token in der Datei entfernen
 Tasten: Auf der Zeile mit dem GitHub-Token Alt+F („Datei öffnen“). Im Editor die erste Zeile löschen, speichern, Editor schließen. Zurück im Cockpit Alt+E („Erneut prüfen“).
 Erwartet: NVDA sagt „Geprüft: 1 Fund stoppt das Hochladen“. Übrig ist „Geheimnis: config.py, Zeile 1, Passwort oder Schlüssel im Code“. Es ist jetzt Zeile 1, weil Sie die erste Zeile gelöscht haben.
-Ergebnis:
+Ergebnis: Di Schaltflächen hier können gerade nicht mit enter aktiviert werden, bitte ändern. Außerdem, wenn man auf erneut prüfen klickt, soll sprachausgabe sagen, Fehler behoben, oder fehler bleibt besteh. und der Fokus soll auf die liste wechseln. wenn behoben, dann auf den nächsten eintrag in der liste, sonst auf dem selben.
 
-[ ] 24. Kein Geheimnis
+Antwort von Claude: Beides umgesetzt. Enter löst jetzt den Knopf aus, auf dem der Fokus steht. Enter in der Liste selbst tut nichts, damit nicht aus Versehen etwas passiert. „Erneut prüfen“ sagt „Behoben“ oder „Besteht weiter“ und danach, was noch übrig ist. Der Fokus geht in die Liste: bei behoben auf den nächsten Fund, sonst auf denselben. Bitte Punkt 31 prüfen.
+
+[x] 24. Kein Geheimnis
 Tasten: Alt+K („Kein Geheimnis“).
 Erwartet: NVDA sagt „Als kein Geheimnis markiert.“ Das Fenster heißt „Sicherheitsprüfung: alles in Ordnung“. Die Liste zeigt „Keine Funde mehr.“ „Weiter“ ist verfügbar.
-Ergebnis:
+Ergebnis: hier selbiger fehler wie obne beschrieben, kein Geheimnis kann nur mit Leertaste undnicht mit enter ausgewählt werden.
 
-[ ] 25. Hochladen
+[x] 25. Hochladen
 Tasten: Alt+W („Weiter“) und warten.
 Erwartet: NVDA sagt nacheinander „Schritt 1 von 4: Sicherheitsprüfung …“ bis „Schritt 4 von 4: Wird hochgeladen …“. Dann kommt eine Meldung mit OK: „Fertig. Neues privates Repository 1013hPascal/codecockpit-test. Branch main ist hochgeladen. Der Link https://github.com/1013hPascal/codecockpit-test ist in der Zwischenablage.“
-Ergebnis:
+Ergebnis: Perfekt
 
-[ ] 26. Projektliste
+[x] 26. Projektliste
 Tasten: Nach OK die Projektliste ansehen, codecockpit-test ausklappen.
 Erwartet: „codecockpit-test, aktualisiert am“ mit dem heutigen Datum. Darunter „Code, alles hochgeladen“. Es gibt keine zweite Zeile „codecockpit-test, nur auf GitHub“.
 Ergebnis:
 
-[ ] 27. Auf GitHub
+[x] 27. Auf GitHub
 Tasten: Im Browser den Link aus der Zwischenablage öffnen.
 Erwartet: Das Repository ist privat. Es enthält main.py, config.py, LICENSE, .gitignore und cockpit.toml, aber nicht .env und nicht daten.db. Der Commit heißt „Erste Version“ und ist von Ihnen. LICENSE ist die MIT-Lizenz mit Ihrem Namen und 2026.
 Ergebnis:
 
-[ ] 28. Projekt von GitHub herunterladen
+[x] 28. Projekt von GitHub herunterladen
 Tasten: Enter auf „Projekt von GitHub herunterladen“. Warten, dann Pfeiltasten in der Liste „Repositories“.
 Erwartet: NVDA sagt „Repositories werden abgefragt.“ Die Liste zeigt Ihre Repositories und die Ihrer Organisationen, neueste oben, zum Beispiel „Tagebuch, 1013hPascal, privat, aktualisiert am …“. codecockpit-test fehlt, weil es schon in der Liste ist. Der letzte Eintrag heißt „Adresse eingeben …“. Escape schließt, ohne etwas zu tun.
 Ergebnis:
 
-[ ] 29. Herunterladen aus der Liste
+[!] 29. Herunterladen aus der Liste
 Tasten: Wie in Punkt 28, ein kleines Repository wählen, Enter.
 Erwartet: NVDA sagt „… wird heruntergeladen.“ und dann „… heruntergeladen.“ Der Fokus steht auf dem neuen Projekt.
-Ergebnis:
+Ergebnis: Adresse eingeben, sollte der oberste eintrag sein,
 
-[ ] 30. Herunterladen mit Adresse
+Antwort von Claude: Geändert. „Adresse eingeben …“ steht jetzt oben, auch in der Liste bei „Mit vorhandenem Repository verbinden …“. Bitte Punkt 32 prüfen.
+
+[x] 30. Herunterladen mit Adresse
 Tasten: Wie in Punkt 28, „Adresse eingeben …“, Enter. `https://github.com/octocat/Hello-World` eintippen, Enter.
 Erwartet: NVDA sagt „Hello-World wird heruntergeladen.“ und dann „Hello-World heruntergeladen.“ Das ist ein kleines öffentliches Beispiel-Repository von GitHub.
+Ergebnis:
+
+
+## F. Nachtest
+
+Bitte `start_testdaten.bat` neu starten. Die Testdaten sind danach frisch, der Testordner hat wieder Token und Passwort. So kommen Sie zum Fenster Sicherheitsprüfung:
+1. „Projekt vom Rechner hinzufügen“, Ordner `C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Andere Ordner\codecockpit-test`, „Am Ort lassen …“, „Ohne Exe-Ordner“.
+2. Bei „Jetzt hochladen?“ „Jetzt hochladen …“ wählen, den Namen lassen, Alt+W, „Hochladen“.
+Am Ende brechen Sie im Fenster Sicherheitsprüfung mit Escape ab. Dann entsteht auf GitHub nichts, und Ihr codecockpit-test auf GitHub bleibt unverändert.
+
+[ ] 31. Enter auf Knöpfen und Erneut prüfen
+Tasten: Im Fenster Sicherheitsprüfung auf der Zeile mit dem GitHub-Token Enter. Dann mit Tab zu „Erneut prüfen“, Enter. Danach „Datei öffnen“ mit Tab und Enter, die Zeile mit dem Token im Editor löschen, speichern, schließen. Zurück zu „Erneut prüfen“, Enter. Dann Tab bis „Kein Geheimnis“, Enter. Am Ende Escape.
+Erwartet: Enter in der Liste tut nichts. Das erste „Erneut prüfen“ sagt „Besteht weiter. Noch: 2 Funde stoppen das Hochladen“, der Fokus steht in der Liste auf demselben Fund. Das zweite sagt „Behoben. Noch: 1 Fund stoppt das Hochladen“, der Fokus steht auf dem nächsten Fund. „Kein Geheimnis“ mit Enter markiert ihn. Escape bricht ab.
+Ergebnis:
+
+[ ] 32. Adresse eingeben oben
+Tasten: Enter auf „Projekt von GitHub herunterladen“.
+Erwartet: Der erste Eintrag der Liste ist „Adresse eingeben …“, danach kommen Ihre Repositories. Escape schließt.
 Ergebnis:

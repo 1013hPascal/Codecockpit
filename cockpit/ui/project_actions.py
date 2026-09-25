@@ -303,13 +303,14 @@ class ProjectController:
                 pass
             return ", ".join(parts)
 
-        items = [line(r) for r in repos] + [ENTER_ADDRESS]
+        # "Adresse eingeben …" steht oben (Wunsch aus dem Test von 5b)
+        items = [ENTER_ADDRESS] + [line(r) for r in repos]
         index = choose_from_list(self.window, f"Projekt von {name} herunterladen",
                                  "Repositories", items)
         if index is None:
             return
-        if index < len(repos):
-            repo = repos[index]
+        if index > 0:
+            repo = repos[index - 1]
             host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
             stored = StoredRepo(0, account.id, host, repo.ref.owner, repo.ref.name,
                                 repo.private, repo.clone_url, repo.web_url, repo.pushed_at)
@@ -396,15 +397,15 @@ class ProjectController:
     def connect_action(self, context: ActionContext) -> None:
         project = context.project
         repos = self.services.remote_repos.all()
-        items = [f"{r.name}, {r.owner}" for r in repos] + [ENTER_ADDRESS]
-        current = next((i for i, r in enumerate(repos) if r.name.lower() ==
+        items = [ENTER_ADDRESS] + [f"{r.name}, {r.owner}" for r in repos]
+        current = next((i + 1 for i, r in enumerate(repos) if r.name.lower() ==
                         project.name.lower()), 0)
         index = choose_from_list(self.window, f"{project.name} verbinden", "Repositories",
                                  items, current)
         if index is None:
             return
-        if index < len(repos):
-            repo = repos[index]
+        if index > 0:
+            repo = repos[index - 1]
             url, account_id, label = repo.clone_url, repo.account_id, f"{repo.owner}/{repo.name}"
         else:
             from PySide6.QtWidgets import QInputDialog

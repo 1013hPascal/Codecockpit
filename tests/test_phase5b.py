@@ -477,13 +477,13 @@ def test_download_from_list_with_organizations(live, qtbot, account, projects_ro
     win = live(services)
     shown = []
     monkeypatch.setattr(project_actions, "choose_from_list",
-                        lambda parent, title, name, items, current=0: shown.append(items) or 0)
+                        lambda parent, title, name, items, current=0: shown.append(items) or 1)
     win.project_list.setCurrentRow(1)
     win.run_entry(win.current_entries()[0])
     qtbot.waitUntil(lambda: said("Vereinsseite heruntergeladen."), timeout=15000)
-    assert shown[0] == ["Vereinsseite, verein, öffentlich, aktualisiert am 20.09.2026",
-                        "Eigenes, tester, privat, aktualisiert am 01.09.2026",
-                        "Adresse eingeben …"]
+    assert shown[0] == ["Adresse eingeben …",
+                        "Vereinsseite, verein, öffentlich, aktualisiert am 20.09.2026",
+                        "Eigenes, tester, privat, aktualisiert am 01.09.2026"]
     assert (projects_root / "Vereinsseite" / "Code" / "main.py").exists()
 
 
@@ -497,3 +497,40 @@ def test_upload_existing_project_is_offered_only_when_not_on_platform(live, qtbo
     win.project_list.select(Target.CODE, project.id)
     entry = win.current_entries()[0]
     assert entry.label == "Auf GitHub hochladen …" and entry.action.is_default
+
+
+def test_recheck_says_fixed_and_moves_to_next(qtbot, tmp_path):
+    """Rückmeldung aus dem Test von 5b: Erneut prüfen sagt "Behoben" oder "Besteht weiter",
+    der Fokus geht in die Liste."""
+    code = tmp_path / "Code"
+    write(code, "config.py", f'TOKEN = "{GITHUB_TOKEN}"\npassword = "Sommer2026!"\n')
+    dialog = safety_dialog(qtbot, code)
+    dialog.list.setCurrentRow(1)                               # Passwort
+    dialog.recheck()
+    assert said("Besteht weiter. Noch: 2 Funde stoppen das Hochladen")
+    assert dialog.list.currentRow() == 1
+    dialog.list.setCurrentRow(0)                               # Token entfernen
+    write(code, "config.py", 'password = "Sommer2026!"\n')
+    dialog.recheck()
+    assert said("Behoben. Noch: 1 Fund stoppt das Hochladen")
+    assert dialog.current().rule == "Passwort oder Schlüssel im Code"
+    write(code, "config.py", "x = 1\n")
+    dialog.recheck()
+    assert said("Behoben. Keine Funde mehr.")
+
+
+def test_enter_activates_the_focused_button_not_in_the_list(qtbot, tmp_path):
+    from PySide6.QtCore import Qt
+    from tests.test_ui import show_active
+    code = tmp_path / "Code"
+    write(code, "config.py", f'TOKEN = "{GITHUB_TOKEN}"\n')
+    dialog = safety_dialog(qtbot, code)
+    show_active(qtbot, dialog)
+    assert all(b.autoDefault() for b in (dialog.ignore_button, dialog.not_secret_button,
+                                         dialog.recheck_button))
+    dialog.list.setFocus()
+    qtbot.keyClick(dialog.list, Qt.Key.Key_Return)             # nichts passiert
+    assert len(dialog.report.findings) == 1 and dialog.isVisible()
+    dialog.not_secret_button.setFocus()
+    qtbot.keyClick(dialog.not_secret_button, Qt.Key.Key_Return)
+    assert dialog.report.findings == []

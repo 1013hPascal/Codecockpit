@@ -113,7 +113,6 @@ class SafetyDialog(FocusDialog):
         actions = QHBoxLayout()
         for button in (self.ignore_button, self.not_secret_button, self.accept_button,
                        self.open_button, self.recheck_button):
-            button.setAutoDefault(False)
             actions.addWidget(button)
         actions.addStretch(1)
         bottom = QHBoxLayout()
@@ -126,6 +125,9 @@ class SafetyDialog(FocusDialog):
         layout.addLayout(bottom)
         self.resize(760, 400)
         self.initial_focus_widget = self.list
+        # Enter in der Liste löst keinen Knopf aus. Auf einem Knopf löst Enter genau diesen
+        # aus (Rückmeldung aus dem Test von 5b), dafür sorgt autoDefault der Knöpfe.
+        self.list.installEventFilter(self)
         self.fill()
 
     # -- Anzeige ---------------------------------------------------------------------------
@@ -222,12 +224,34 @@ class SafetyDialog(FocusDialog):
         if finding is not None and finding.path:
             core_actions.open_path(self.code_dir / finding.path)
 
+    def eventFilter(self, watched, event) -> bool:
+        from PySide6.QtCore import QEvent, Qt
+        if watched is self.list and event.type() == QEvent.Type.KeyPress and event.key() in (
+                Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            return True
+        return super().eventFilter(watched, event)
+
     def recheck(self, speak: bool = True) -> None:
+        """Erneut prüfen. Sagt, ob der markierte Fund behoben ist. Der Fokus geht in die Liste:
+        bei behoben auf den nächsten Fund, sonst auf denselben."""
+        before = self.current()
+        row = self.list.currentRow()
         if self.rescan is not None:
             self.report = self.rescan()
-        self.fill()
+        def same(finding: Finding) -> tuple:
+            return finding.kind, finding.path, finding.rule, finding.fingerprint
+
+        keys = [same(f) for f in self.report.findings]
+        still = before is not None and same(before) in keys
+        self.fill(keys.index(same(before)) if still else max(row, 0))
+        self.list.setFocus()
         if speak:
-            announce(self.windowTitle().replace("Sicherheitsprüfung: ", "Geprüft: "))
+            summary = self.windowTitle().replace("Sicherheitsprüfung: ", "")
+            if before is None:
+                announce(f"Geprüft: {summary}")
+            else:
+                announce(f"{'Besteht weiter' if still else 'Behoben'}. Noch: {summary}"
+                         if self.report.findings else "Behoben. Keine Funde mehr.")
 
     def finish(self) -> None:
         """Weiter: Warnungen ohne Entscheidung kommen in .gitignore (sichere Vorgabe)."""
