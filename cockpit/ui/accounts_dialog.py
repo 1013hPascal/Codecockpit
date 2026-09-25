@@ -153,18 +153,42 @@ class AccountEditDialog(FocusDialog):
         self.guide_button = None
         if self.adapter_cls.account_guide:
             self.add_guide_button()
-        self.browser_button = None
-        if self.has_browser_login():
-            self.browser_button = buttons.addButton("Im &Browser anmelden …",
-                                                    QDialogButtonBox.ButtonRole.ActionRole)
-            self.browser_button.clicked.connect(self.browser_login)
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
+
+        # Reihenfolge (Test Phase 4): Erklärung, Anmeldung im Browser, dann der Weg mit Token
+        browser = self.has_browser_login()
+        self.explanation = None
+        lines = self.adapter_cls.account_explanation(browser)
+        if lines:
+            self.explanation = QListWidget()
+            name_widget(self.explanation, "Erklärung")
+            self.explanation.addItems(lines)
+            self.explanation.setCurrentRow(0)
+            self.explanation.setWordWrap(True)
+        self.browser_button = None
+        if browser:
+            self.browser_button = QPushButton("Im &Browser anmelden …")
+            self.browser_button.clicked.connect(self.browser_login)
+
         layout = QVBoxLayout(self)
+        if self.explanation is not None:
+            layout.addWidget(self.explanation, 2)
+        if self.browser_button is not None:
+            row = QHBoxLayout()
+            row.addWidget(self.browser_button)
+            row.addStretch(1)
+            layout.addLayout(row)
         layout.addWidget(self.form)
         layout.addWidget(buttons)
-        self.resize(560, 280)
-        self.initial_focus_widget = self.form.first_focus()
+        chain = [w for w in (self.explanation, self.browser_button) if w is not None]
+        chain.append(self.form.first_focus())
+        for first, second in zip(chain, chain[1:]):
+            QWidget.setTabOrder(first, second)
+        self.resize(620, 480 if self.explanation is not None else 280)
+        # Neues Konto: zuerst die Erklärung. Bearbeiten: gleich ins erste Feld.
+        self.initial_focus_widget = (self.explanation if account is None and
+                                     self.explanation is not None else self.form.first_focus())
         self.initial_focus_widget.setFocus()
 
     def _values(self) -> tuple[str, dict[str, Any]] | None:

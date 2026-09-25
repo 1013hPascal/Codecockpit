@@ -258,3 +258,42 @@ def test_login_steps_mention_authorize(qtbot):
     qtbot.waitUntil(lambda: dialog.token is not None, timeout=5000)
     lines = [dialog.steps.item(r).text() for r in range(dialog.steps.count())]
     assert any("Authorize" in line for line in lines)
+
+
+def test_new_github_account_starts_with_explanation_then_browser_then_token(qtbot, make_services,
+                                                                           monkeypatch):
+    """Test Phase 4: Erst die Erklärung, dann Im Browser anmelden, dann der Weg mit Token."""
+    from PySide6.QtCore import Qt
+    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    qtbot.waitUntil(dialog.explanation.hasFocus, timeout=2000)
+    lines = [dialog.explanation.item(r).text() for r in range(dialog.explanation.count())]
+    assert lines[1].startswith("Empfohlen: Im Browser anmelden.")
+    assert lines[-1] == "Mit Tab kommen Sie zu Im Browser anmelden."
+    qtbot.keyClick(dialog.explanation, Qt.Key.Key_Tab)
+    assert dialog.browser_button.hasFocus()
+    qtbot.keyClick(dialog.browser_button, Qt.Key.Key_Tab)
+    assert dialog.form.fields["display_name"].focus.hasFocus()
+
+
+def test_explanation_without_browser_login(qtbot, make_services, monkeypatch):
+    monkeypatch.setattr(github, "CLIENT_ID", "")
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    lines = [dialog.explanation.item(r).text() for r in range(dialog.explanation.count())]
+    assert not any("Empfohlen" in line for line in lines)
+    assert lines[-1] == "Mit Tab kommen Sie zu den Feldern."
+
+
+def test_editing_an_account_starts_in_the_first_field(qtbot, make_services):
+    services = make_services(vault=FakeVault())
+    account_type = find_type("platform", "github")
+    account = services.accounts.create(account_type, "GitHub privat",
+                                       {"username": "a", "token": Secret(TOKEN)})
+    dialog = ad.AccountEditDialog(services, account_type, account)
+    qtbot.addWidget(dialog)
+    assert dialog.initial_focus_widget is dialog.form.fields["display_name"].focus

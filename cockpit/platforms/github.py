@@ -90,6 +90,28 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
     account_guide = "anleitungen/github-token-erstellen.md"
     account_guide_title = "GitHub-Token erstellen"
 
+    @classmethod
+    def account_explanation(cls, browser_login: bool) -> list[str]:
+        lines = ["So verbinden Sie das Cockpit mit Ihrem GitHub-Konto."]
+        if browser_login:
+            lines += [
+                "Empfohlen: Im Browser anmelden. Das ist der nächste Knopf. GitHub öffnet sich, "
+                "Sie geben einen Code ein und bestätigen. Das Cockpit trägt alles selbst ein.",
+                "Oder: Token selbst erstellen. Die Felder dafür kommen nach dem Knopf. Die "
+                "Anleitung für den Token erklärt jeden Schritt.",
+            ]
+        else:
+            lines.append("Tragen Sie einen selbst erstellten Token ein. Die Anleitung für den "
+                         "Token erklärt jeden Schritt.")
+        lines += [
+            "Für einen GitHub-Server Ihrer Firma tragen Sie dessen Adresse als Serveradresse "
+            "ein. Dort geht nur der Token.",
+            "Der Zugang liegt verschlüsselt im Tresor.",
+            "Mit Tab kommen Sie zu " + ("Im Browser anmelden." if browser_login
+                                        else "den Feldern."),
+        ]
+        return lines
+
     # In Tests ersetzbar: httpx.MockTransport und eine Warte-Funktion ohne echtes Warten
     transport: httpx.BaseTransport | None = None
     sleep = staticmethod(time.sleep)

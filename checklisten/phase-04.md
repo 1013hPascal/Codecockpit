@@ -116,3 +116,21 @@ Ergebnis:
 Tasten: Im Konto-Fenster mit Tab durch die Felder.
 Erwartet: Nach „Serveradresse“ kommt der Knopf „Anleitung für den Token …“, danach das Feld „Token“. Enter auf dem Knopf öffnet die Anleitung als Liste. Escape führt zurück, der Fokus steht wieder auf dem Knopf. Alt+A öffnet die Anleitung von überall im Fenster.
 Ergebnis:
+
+Ihr Kommentar zum Nachtest: Die Erklärung empfiehlt die Anmeldung im Browser, der Knopf dafür kam aber zuletzt. In der Kontenverwaltung fehlte die Erklärung ganz.
+Antwort von Claude: Umgebaut. Das Konto-Fenster ist jetzt im Assistenten und in der Kontenverwaltung gleich: zuerst die Erklärung, mit Tab dann „Im Browser anmelden …“, danach die Felder für den Weg mit Token. Siehe Punkte 16 und 17.
+
+
+## F. Zweiter Nachtest (25.09.2026)
+
+Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten.
+
+[ ] 16. Reihenfolge im Konto-Fenster
+Tasten: Im Assistenten bis „GitHub-Konto“, Tab, Enter auf „GitHub-Konto einrichten …“. Dann mehrmals Tab.
+Erwartet: Der Fokus steht zuerst in der Liste „Erklärung“. Die zweite Zeile beginnt mit „Empfohlen: Im Browser anmelden.“, die letzte lautet „Mit Tab kommen Sie zu Im Browser anmelden.“ Mit Tab folgen: „Im Browser anmelden …“, Anzeigename, Benutzername, Serveradresse, „Anleitung für den Token …“, Token, „Verbindung testen“, „Speichern“, „Abbrechen“.
+Ergebnis:
+
+[ ] 17. Gleich in der Kontenverwaltung
+Tasten: Nach dem Assistenten Alt+O, Kontenverwaltung, „Neues Konto anlegen …“, Kontoart „GitHub, Plattform“, Enter.
+Erwartet: Genau dieselbe Reihenfolge wie in Punkt 16, mit der Erklärung zuerst. Beim Bearbeiten eines vorhandenen Kontos steht der Fokus dagegen gleich im Feld Anzeigename.
+Ergebnis:

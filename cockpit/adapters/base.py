@@ -41,6 +41,12 @@ class Adapter(ABC):
         """Prüft Verbindung und Zugangsdaten. Wirft keine Ausnahme, sondern meldet im Ergebnis."""
 
     @classmethod
+    def account_explanation(cls, browser_login: bool) -> list[str]:
+        """Erklärung oben im Konto-Fenster, eine Zeile pro Satz. Leer: keine Erklärung.
+        browser_login sagt, ob die Anmeldung im Browser angeboten wird."""
+        return []
+
+    @classmethod
     def from_account(cls, values: Mapping[str, Any]) -> "Adapter":
         """Adapter mit den Angaben eines Kontos erzeugen. Geheimnisse kommen als Secret.
         Jeder Adapter mit account_fields muss das umsetzen."""
