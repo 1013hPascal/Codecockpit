@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -38,6 +37,7 @@ from pathlib import Path
 
 from cockpit import APP_NAME
 from cockpit.core import git
+from cockpit.core.backups import remove_tree
 from cockpit.core.errors import CockpitError
 from cockpit.core.paths import HOME_VARIABLE
 
@@ -63,13 +63,15 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
         # Erst umbenennen: Das klappt nur, wenn kein offenes Cockpit Dateien darin benutzt.
         # So wird nie ein halber Ordner gelöscht, während ein anderes Fenster ihn noch braucht.
         old = base.with_name(base.name + "-alt")
-        shutil.rmtree(old, ignore_errors=True)
+        remove_tree(old)                    # Rest eines früheren Starts
+        if old.exists():
+            raise CockpitError(IN_USE, f"{old} ließ sich nicht löschen.")
         try:
             base.rename(old)
-        except PermissionError as exc:
+        except OSError as exc:
             raise CockpitError(IN_USE, str(exc)) from None
         remove_old_vault_entries(old / "Daten" / "cockpit.db")
-        shutil.rmtree(old, ignore_errors=True)
+        remove_tree(old)
     home = base / "Daten"
     root = base / "Projekte"
     home.mkdir(parents=True)
@@ -169,7 +171,7 @@ def add_git(base: Path, root: Path) -> None:
 
 def remove_missing_example(root: Path) -> None:
     """Nach dem ersten Einlesen den Ordner von Notizen löschen, damit er als fehlend erscheint."""
-    shutil.rmtree(root / "Notizen", ignore_errors=True)
+    remove_tree(root / "Notizen")
 
 
 def remove_old_vault_entries(database: Path, backend=None) -> int:

@@ -756,3 +756,27 @@ def test_action_list_keeps_selection_on_background_change(live, qtbot, make_serv
     win.actions_list.setCurrentRow(len(before) - 1)
     win.refresh_actions(keep_selection=True)
     assert win.actions_list.currentRow() == len(before) - 1
+
+
+def test_remove_tree_deletes_read_only_files(tmp_path):
+    """Git legt schreibgeschützte Dateien an. Früher blieb deshalb der alte Ordner der Testdaten
+    liegen, und start_testdaten.bat startete nicht mehr."""
+    import stat
+    folder = tmp_path / "alt" / ".git" / "objects"
+    folder.mkdir(parents=True)
+    locked = folder / "ab12"
+    locked.write_text("x", encoding="utf-8")
+    os.chmod(locked, stat.S_IREAD)
+    backups.remove_tree(tmp_path / "alt")
+    assert not (tmp_path / "alt").exists()
+
+
+def test_testdata_can_be_prepared_twice(tmp_path, monkeypatch):
+    from cockpit import testdata
+    monkeypatch.setenv("CODECOCKPIT_HOME", str(tmp_path / "home"))
+    base = tmp_path / "Testdaten"
+    testdata.prepare(base)
+    assert (base / "Projekte" / "Tagebuch" / "Code" / ".git").is_dir()
+    testdata.prepare(base)
+    assert not base.with_name("Testdaten-alt").exists()
+    assert (base / "Andere Ordner" / "Vereinsseite" / "Code" / ".git").is_dir()

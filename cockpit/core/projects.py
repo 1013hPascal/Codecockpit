@@ -182,7 +182,8 @@ class ProjectStore:
                 shutil.copytree(folder, code_dir, symlinks=True)
         except OSError as exc:
             if not moved:
-                shutil.rmtree(code_dir, ignore_errors=True)
+                from cockpit.core.backups import remove_tree
+                remove_tree(code_dir)
             try:
                 target.rmdir()
             except OSError:

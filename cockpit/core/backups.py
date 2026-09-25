@@ -7,8 +7,11 @@ als 30 Tage sind, löscht das Cockpit beim Start.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
+import stat
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +22,22 @@ log = logging.getLogger(__name__)
 KEEP_DAYS = 30
 _STAMP = "%Y-%m-%d_%H-%M-%S"
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def remove_tree(path: Path) -> None:
+    """Ordner löschen, auch mit schreibgeschützten Dateien (Git legt solche an). Fehler bleiben
+    still, der Aufrufer prüft bei Bedarf selbst, ob der Ordner weg ist."""
+    def retry(function, name, _error) -> None:
+        try:
+            os.chmod(name, stat.S_IWRITE)
+            function(name)
+        except OSError:
+            pass
+    if path.exists():
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=retry)
+        else:
+            shutil.rmtree(path, onerror=retry)
 
 
 def backups_dir() -> Path:
@@ -57,6 +76,6 @@ def remove_old(now: datetime | None = None) -> int:
         except ValueError:
             continue                                   # fremder Ordner: nie anfassen
         if created < limit:
-            shutil.rmtree(folder, ignore_errors=True)
+            remove_tree(folder)
             removed += 1
     return removed
