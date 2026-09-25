@@ -626,11 +626,11 @@ def test_add_existing_project_folder(live, qtbot, make_services, projects_root, 
     win = live(services)
     folder = make_project(tmp_path, "Extern")
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder / "Code")
-    win.controller.add_existing()
+    win.controller.add_local()
     assert said("Extern hinzugefügt.")
     project = services.projects.find_by_dir(folder)
     assert win.project_list.current_target() == (Target.PROJECT, project.id)
-    win.controller.add_existing()
+    win.controller.add_local()
     assert said("Extern ist schon in der Liste.")
 
 
@@ -650,14 +650,15 @@ def test_add_other_folder_offers_convert_link_and_cancel(live, qtbot, make_servi
     monkeypatch.setattr(project_actions, "ask_buttons", buttons)
     monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
     answers = [2]
-    win.controller.add_existing()                              # Abbrechen
+    win.controller.add_local()                              # Abbrechen
     assert services.projects.all() == [] and folder.exists()
     labels, default, escape, text = asked[0]
-    assert labels == ["Umstellen …", "Nur verknüpfen …", "Abbrechen"]
+    assert labels == ["In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
+                      "Abbrechen"]
     assert default == escape == 2                              # sichere Vorgabe
     assert text.startswith("Der Ordner Rechner hat keinen Unterordner Code.")
     answers = [0]
-    win.controller.add_existing()                              # Umstellen
+    win.controller.add_local()                              # Umstellen
     assert (projects_root / "Rechner" / "Code").is_dir() and not folder.exists()
     assert said("Rechner hinzugefügt.")
 
@@ -670,7 +671,7 @@ def test_link_without_exe(live, qtbot, make_services, tmp_path, monkeypatch):
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
     monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 1)
     monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # ohne Exe-Ordner
-    win.controller.add_existing()
+    win.controller.add_local()
     project = services.projects.all()[0]
     assert project.linked and project.exe_dir is None and project.code_dir == folder
 

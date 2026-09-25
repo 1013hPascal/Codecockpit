@@ -1,9 +1,12 @@
-"""Ablauf "Neues Projekt hochladen" und "Auf GitHub hochladen" in der Oberfläche (Konzept 9.1).
+"""Ablauf "Auf GitHub hochladen" in der Oberfläche (Konzept 9.1).
+
+Das Projekt ist schon in der Liste. Hinzufügen und Hochladen sind getrennt, es wird nie kopiert
+(ENTSCHEIDUNGEN.md).
 
 1. Konto wählen (bei mehreren), Tresor entsperren, Konto und Organisationen abfragen.
 2. Angaben im UploadDialog.
 3. Rückfrage, die genau beschreibt, was passiert.
-4. Im Hintergrund: kopieren (nur neues Projekt), Git, .gitignore, LICENSE, Identität, Prüfung.
+4. Im Hintergrund: Git, .gitignore, LICENSE, Identität, Prüfung.
 5. SafetyDialog, falls die Sicherheitsprüfung etwas findet.
 6. Im Hintergrund der Ablauf NEW_PROJECT mit "Schritt 1 von 4: …".
 7. Link in die Zwischenablage und eine Meldung mit OK.
@@ -14,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtGui import QGuiApplication
@@ -22,7 +24,7 @@ from PySide6.QtGui import QGuiApplication
 from cockpit.core import git, upload
 from cockpit.core.errors import CockpitError
 from cockpit.core.flows.engine import FlowContext
-from cockpit.core.projects import CODE_DIR, Project
+from cockpit.core.projects import Project
 from cockpit.core.upload import UploadSpec
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
@@ -41,14 +43,12 @@ NO_ACCOUNT = ("Es ist noch kein Konto bei einer Plattform eingerichtet. Sie rich
 
 
 class UploadRunner:
-    """Ein Durchlauf. source: Ordner mit dem Code (neues Projekt). project: vorhandenes Projekt."""
+    """Ein Durchlauf für ein Projekt, das noch nicht auf der Plattform ist."""
 
-    def __init__(self, controller: "ProjectController", source: Path | None = None,
-                 project: Project | None = None) -> None:
+    def __init__(self, controller: "ProjectController", project: Project) -> None:
         self.controller = controller
         self.window = controller.window
         self.services = controller.services
-        self.source = source
         self.project = project
         self.account = None
         self.platform = None
@@ -56,8 +56,7 @@ class UploadRunner:
         # Qt hält Verbindungen zu Methoden nur schwach. Ohne diesen Verweis würde der Durchlauf
         # gelöscht, bevor die Antwort aus dem Hintergrund kommt.
         controller.upload = self
-        self.title = "Neues Projekt hochladen" if project is None else \
-            f"{project.name} hochladen"
+        self.title = f"{project.name} auf {self.window.project_list.platform_name} hochladen"
 
     # -- 1. Konto -------------------------------------------------------------------------
     def start(self) -> None:
@@ -65,7 +64,7 @@ class UploadRunner:
         if not accounts:
             show_error(self.window, self.title, NO_ACCOUNT)
             return
-        if self.project is not None and self.project.account_id is not None:
+        if self.project.account_id is not None:
             accounts = [a for a in accounts if a.id == self.project.account_id] or accounts
         if len(accounts) > 1:
             index = choose_from_list(self.window, self.title, "Konten",
@@ -94,9 +93,8 @@ class UploadRunner:
     def ask_details(self, outcome) -> None:
         self.platform, user, organizations = outcome
         settings = self.services.settings.load()
-        folder_name = self.source.name if self.source is not None else self.project.name
         dialog = upload_dialogs.UploadDialog(
-            self.title, upload.suggest_name(folder_name), self.window.project_list.platform_name,
+            self.title, upload.suggest_name(self.project.name), self.window.project_list.platform_name,
             user, organizations, settings.default_private, settings.default_license,
             self.window)
         if not dialog.exec() or dialog.spec is None:
@@ -104,41 +102,27 @@ class UploadRunner:
         self.spec = dialog.spec
         self.spec.account_id = self.account.id
         owner = self.spec.organization or user
-        root = Path(settings.projects_root)
         kind = "private" if self.spec.private else "öffentliche"
-        parts = []
-        if self.source is not None:
-            target = root / self.spec.name / CODE_DIR
-            if target.parent.exists():
-                show_error(self.window, self.title, f"Den Ordner {target.parent} gibt es schon. "
-                           "Bitte wählen Sie einen anderen Namen.")
-                return
-            parts.append(f"Das Cockpit kopiert {self.source} nach {target}. Die virtuelle "
-                         f"Umgebung und Caches kommen nicht mit. Der Ordner {self.source} bleibt "
-                         "unverändert.")
-        parts.append(f"Es prüft den Code auf Geheimnisse, legt auf "
+        parts = [f"Das Cockpit prüft den Code auf Geheimnisse, legt auf "
                      f"{self.window.project_list.platform_name} das {kind} Repository "
-                     f"{owner}/{self.spec.name} an und lädt alles hoch.")
+                     f"{owner}/{self.spec.name} an und lädt alles hoch. Vorher legt es bei Bedarf "
+                     "die Dateien .gitignore und LICENSE an."]
         if not self.spec.private:
             parts.append("Öffentlich heißt: Jeder im Internet kann den Code sehen.")
         if not confirm(self.window, self.title, " ".join(parts) + " Hochladen?",
                        yes="Hochladen", no="Abbrechen"):
             return
-        self.prepare(root)
+        self.prepare()
 
     # -- 4. Vorbereiten ------------------------------------------------------------------------
-    def prepare(self, root: Path) -> None:
-        services, spec, platform, source = self.services, self.spec, self.platform, self.source
+    def prepare(self) -> None:
+        services, spec, platform = self.services, self.spec, self.platform
         project = self.project
         settings = services.settings.load()
         asker = self.window.asker
         announce("Wird vorbereitet.")
 
         def work(task: Task):
-            nonlocal project
-            if source is not None:
-                upload.copy_source(source, root / spec.name / CODE_DIR)
-                project = services.projects.add(root / spec.name)
             notes = upload.prepare(project.code_dir, project.name, spec, platform,
                                    settings.git_name, settings.git_email, asker)
             report = upload.scan(project.code_dir, spec, settings.git_email)
@@ -152,7 +136,7 @@ class UploadRunner:
                 announce(note, speak=False)
             self.check(report)
 
-        self.controller.run_task(f"upload:{spec.name}".lower(), work, done, self.title)
+        self.controller.run_task(f"project:{project.id}", work, done, self.title)
 
     # -- 5. Sicherheitsprüfung ---------------------------------------------------------------
     def check(self, report) -> None:

@@ -373,3 +373,13 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Die Prüfung sieht auch in Commits, die noch nicht hochgeladen sind. Ein Geheimnis dort stoppt das Hochladen, auch wenn die Datei es heute nicht mehr enthält. Einen bequemen Weg, solche Commits zu bereinigen, gibt es noch nicht (TODO.md).
 - „In .gitignore aufnehmen“ nimmt eine Datei, die schon in Git ist, dort heraus (git rm --cached). Die Datei bleibt auf der Festplatte.
 - Platzhalter wie „changeme“, „<…>“ oder Werte, die mit „test“ oder „example“ beginnen, gelten nicht als Passwort.
+
+### Hinzufügen und Hochladen getrennt (nach dem NVDA-Test von 5b)
+
+- Wunsch des Nutzers. Oben in der Projektliste stehen „Projekt vom Rechner hinzufügen“ und „Projekt von GitHub herunterladen“. Im Menü Datei stehen dieselben zwei Einträge.
+- „Projekt vom Rechner hinzufügen“: Ein Ordner mit dem Unterordner Code kommt sofort in die Liste. Sonst wählt man „In den Projekte-Hauptordner verschieben“ oder „Am Ort lassen“ (nur verknüpfen). Vorgabe ist „Abbrechen“.
+- Ist das Projekt danach noch nicht auf GitHub, fragt das Cockpit „Jetzt hochladen?“. Vorgabe ist „Später“.
+- Hochgeladen wird nur noch mit der Projekt-Aktion „Auf GitHub hochladen …“ bei Code.
+- „Neues Projekt hochladen“ mit Kopieren entfällt (Abweichung von Konzept 9.1). So gibt es nie zwei Ausgaben desselben Codes auf dem Rechner. Der Menüpunkt „Vorhandenes Projekt hinzufügen“ entfällt ebenfalls.
+- „Projekt von GitHub herunterladen“ kommt aus 5c nach vorne: eigene Repositories und die der Organisationen, neueste oben, ohne die, die schon in der Liste sind, dazu „Adresse eingeben …“.
+- Der Name auf GitHub wird mit einer genauen Meldung geprüft, zum Beispiel „Der Name darf keine Leerzeichen enthalten.“

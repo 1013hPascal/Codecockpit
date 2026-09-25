@@ -23,7 +23,7 @@ Ab Phase 5a mit Git (nur, wenn Git installiert ist):
 - Bildbeschreiber hat keinen Git-Ordner ("noch nicht auf GitHub").
 - Im Ordner Testdaten\\Andere Ordner liegen Ordner zum Prüfen von "Vorhandenes Projekt
   hinzufügen": "Wetter" (Projektordner mit Code), "Rechner" und "Firmenprojekt" (ohne Code),
-  "Vereinsseite" (mit anderer Git-Identität) und "Notizen" (neuer Ort für das fehlende Projekt).
+  "Vereinsseite" (mit anderer Git-Identität), "codecockpit-test" (mit erfundenen Geheimnissen) und "Notizen" (neuer Ort für das fehlende Projekt).
 """
 from __future__ import annotations
 
@@ -108,7 +108,7 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     for name in ("Rechner", "Firmenprojekt"):
         (others / name).mkdir(parents=True)
         (others / name / "main.py").write_text(f"print('{name}')\n", encoding="utf-8")
-    # Für "Neues Projekt hochladen" (Phase 5b): mit erfundenem Token, Passwort-Zeile, .env und
+    # Für "Auf GitHub hochladen" (Phase 5b): mit erfundenem Token, Passwort-Zeile, .env und
     # Datenbank. Der Token wird erst hier zusammengesetzt und ist nicht echt.
     test = others / "codecockpit-test"
     test.mkdir(parents=True)

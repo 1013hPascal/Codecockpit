@@ -180,18 +180,16 @@ def test_suggest_name():
     assert upload.suggest_name("§$%") == "projekt"
 
 
-def test_copy_skips_virtual_environment(tmp_path):
-    source = tmp_path / "quelle"
-    write(source, "main.py", "x\n")
-    write(source, ".venv/pyvenv.cfg", "x\n")
-    write(source, "pkg/__pycache__/a.pyc", "x")
-    target = tmp_path / "Projekte" / "Neu" / "Code"
-    upload.copy_source(source, target)
-    assert (target / "main.py").exists()
-    assert not (target / ".venv").exists() and not (target / "pkg" / "__pycache__").exists()
-    assert (source / ".venv" / "pyvenv.cfg").exists()           # Quelle unverändert
-    with pytest.raises(Exception, match="gibt es schon"):
-        upload.copy_source(source, target)
+def test_name_problem_says_what_is_wrong():
+    """Rückmeldung aus dem Test von 5b: Bei "Mein Test" war das Leerzeichen das Problem."""
+    assert upload.name_problem("codecockpit-test") == ""
+    assert upload.name_problem("Mein Test") == ("Der Name darf keine Leerzeichen enthalten. "
+                                                "Nehmen Sie stattdessen einen Bindestrich, zum "
+                                                "Beispiel Mein-Test.")
+    assert upload.name_problem("Größe") == ("Der Name darf keine Umlaute enthalten, zum "
+                                            "Beispiel Groesse.")
+    assert upload.name_problem("a/b").startswith("Der Name darf nur Buchstaben, Ziffern")
+    assert upload.name_problem("") == "Bitte einen Namen eingeben."
 
 
 def test_prepare_creates_git_gitignore_license_and_identity(tmp_path):
@@ -357,7 +355,7 @@ def test_upload_dialog_checks_name_and_builds_spec(qtbot, monkeypatch):
     assert names == ["Name auf GitHub", "Kurzbeschreibung", "Sichtbarkeit", "Lizenz", "Ziel"]
     assert dialog.initial_focus_widget is dialog.form.fields["name"].focus
     dialog.check()
-    assert errors and "Buchstaben ohne Umlaute" in errors[0]
+    assert errors and errors[0].startswith("Der Name darf keine Leerzeichen enthalten.")
     dialog.form.fields["name"].set("Mein-Projekt")
     dialog.form.fields["visibility"].set("Öffentlich")
     dialog.form.fields["target"].set("verein")
@@ -367,28 +365,34 @@ def test_upload_dialog_checks_name_and_builds_spec(qtbot, monkeypatch):
 
 
 # -- Oberfläche: ganzer Ablauf ----------------------------------------------------------------
-def test_new_project_needs_an_account(live, qtbot, make_services):
+def test_download_needs_an_account(live, qtbot, make_services):
     services = make_services()
     win = live(services)
+    win.project_list.setCurrentRow(1)
     entries = win.current_entries()
-    assert entries[0].label == ("Neues Projekt hochladen …, nicht verfügbar: Es ist noch kein "
-                                "Konto bei einer Plattform eingerichtet.")
+    assert entries[0].label == ("Projekt von GitHub herunterladen …, nicht verfügbar: Es ist "
+                                "noch kein Konto bei einer Plattform eingerichtet.")
+    win.project_list.setCurrentRow(0)
+    assert [e.label for e in win.current_entries()] == ["Projekt vom Rechner hinzufügen …"]
 
 
-def test_new_project_end_to_end(live, qtbot, account, projects_root, tmp_path, monkeypatch):
+def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, tmp_path,
+                                          monkeypatch):
+    """Rückmeldung aus dem Test von 5b: Hinzufügen und Hochladen sind getrennt. Nach dem
+    Hinzufügen bietet das Cockpit das Hochladen an, Vorgabe ist "Später"."""
     services, acc, platform = account
     platform.base_dir = tmp_path / "plattform"
     platform.base_dir.mkdir()
     services.settings.update(git_name=NAME, git_email=EMAIL)
     source = tmp_path / "Quelle" / "Mein Rechner"
     write(source, "main.py", "print(1)\n")
-    write(source, "daten.db", "x")
+    write(source, "alt.bak", "x")
     win = live(services)
-    assert win.current_entries()[0].label == "Neues Projekt hochladen …"
 
     class FakeUploadDialog:
         def __init__(self, title, name, platform_name, user, organizations, private, license,
                      parent=None):
+            assert title == "Mein Rechner auf GitHub hochladen"
             assert (name, user, private, license) == ("Mein-Rechner", "tester", True, "MIT")
             self.spec = UploadSpec(name, "Rechnet", private, license)
 
@@ -401,36 +405,86 @@ def test_new_project_end_to_end(live, qtbot, account, projects_root, tmp_path, m
             self.accepted = set()
 
         def exec(self):
-            assert [f.path for f in self.report.findings] == ["daten.db"]
-            safety_check.ignore_file(self.code_dir, "daten.db")
+            assert [f.path for f in self.report.findings] == ["alt.bak"]
+            safety_check.ignore_file(self.code_dir, "alt.bak")
             return True
 
-    questions = []
-    infos = []
-    errors = []
+    asked, questions, infos, errors = [], [], [], []
     monkeypatch.setattr(project_actions, "show_error", lambda *a: errors.append(a[2:]))
     monkeypatch.setattr(upload_flow, "show_error", lambda *a: errors.append(a[2:]))
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: source)
+    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 0)     # verschieben
+    monkeypatch.setattr(project_actions, "confirm",
+                        lambda p, t, text, **k: asked.append((text, k)) or True)
     monkeypatch.setattr(upload_dialogs, "UploadDialog", FakeUploadDialog)
     monkeypatch.setattr(upload_dialogs, "SafetyDialog", FakeSafety)
     monkeypatch.setattr(upload_flow, "confirm", lambda p, t, text, **k: questions.append(text)
                         or True)
     monkeypatch.setattr(upload_flow, "show_info", lambda p, t, text: infos.append(text))
-    win.run_entry(win.current_entries()[0])
+    win.run_entry(win.current_entries()[0])                    # Projekt vom Rechner hinzufügen
     qtbot.waitUntil(lambda: bool(infos) or bool(errors), timeout=20000)
     assert errors == []
     wait_idle(qtbot, win)
-    target = projects_root / "Mein-Rechner" / "Code"
-    assert questions[0].startswith(f"Das Cockpit kopiert {source} nach {target}.")
-    assert "das private Repository tester/Mein-Rechner an" in questions[0]
+    target = projects_root / "Mein Rechner" / "Code"
+    assert not source.exists() and (target / "main.py").exists()          # verschoben
+    offer, buttons = asked[-1]
+    assert offer.startswith("Mein Rechner ist noch nicht auf GitHub. Jetzt hochladen?")
+    assert buttons == {"yes": "Jetzt hochladen …", "no": "Später"}
+    assert questions[0].startswith("Das Cockpit prüft den Code auf Geheimnisse, legt auf "
+                                   "GitHub das private Repository tester/Mein-Rechner an")
+    assert "kopiert" not in questions[0]
     assert infos[0].startswith("Fertig. Neues privates Repository tester/Mein-Rechner.")
     assert "ist in der Zwischenablage" in infos[0]
-    assert (source / "daten.db").exists() and (target / "daten.db").exists()
     files = sh(platform.base_dir / "Mein-Rechner.git", "ls-tree", "--name-only", "main")
-    assert "main.py" in files and "LICENSE" in files and "daten.db" not in files
+    assert "main.py" in files and "LICENSE" in files and "alt.bak" not in files
     project = services.projects.find_by_dir(target.parent)
     assert project.account_id == acc.id
     assert said("Schritt 4 von 4: Wird hochgeladen …")
+
+
+def test_upload_offer_defaults_to_later(live, qtbot, account, projects_root, tmp_path,
+                                        monkeypatch):
+    services, acc, platform = account
+    folder = make_project(tmp_path, "Spaeter")
+    win = live(services)
+    started = []
+    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
+    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # Escape: Später
+    monkeypatch.setattr(upload_flow.UploadRunner, "start", lambda self: started.append(1))
+    win.controller.add_local()
+    assert said("Spaeter hinzugefügt.") and started == []
+
+
+def test_download_from_list_with_organizations(live, qtbot, account, projects_root, tmp_path,
+                                               monkeypatch):
+    from cockpit.platforms.base import GitCredentials, RemoteRepo, RepoRef
+    from tests.test_phase5a import make_remote
+    services, acc, platform = account
+    bare = make_remote(tmp_path, "Vereinsseite")
+    platform.git_credentials = lambda: GitCredentials(False, {
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": f"url.{bare.parent.as_uri()}/.insteadOf",
+        "GIT_CONFIG_VALUE_0": "https://github.com/verein/"})
+    own = RemoteRepo(RepoRef("tester", "Eigenes"), True, "https://github.com/tester/Eigenes.git",
+                     "https://github.com/tester/Eigenes", "2026-09-01T00:00:00Z")
+    club = RemoteRepo(RepoRef("verein", "Vereinsseite"), False,
+                      "https://github.com/verein/Vereinsseite.git",
+                      "https://github.com/verein/Vereinsseite", "2026-09-20T00:00:00Z")
+    platform.remote = [own]
+    platform.organizations = lambda: ["verein"]
+    original = platform.repositories
+    platform.repositories = lambda owner="": [club] if owner == "verein" else original()
+    win = live(services)
+    shown = []
+    monkeypatch.setattr(project_actions, "choose_from_list",
+                        lambda parent, title, name, items, current=0: shown.append(items) or 0)
+    win.project_list.setCurrentRow(1)
+    win.run_entry(win.current_entries()[0])
+    qtbot.waitUntil(lambda: said("Vereinsseite heruntergeladen."), timeout=15000)
+    assert shown[0] == ["Vereinsseite, verein, öffentlich, aktualisiert am 20.09.2026",
+                        "Eigenes, tester, privat, aktualisiert am 01.09.2026",
+                        "Adresse eingeben …"]
+    assert (projects_root / "Vereinsseite" / "Code" / "main.py").exists()
 
 
 def test_upload_existing_project_is_offered_only_when_not_on_platform(live, qtbot, account,

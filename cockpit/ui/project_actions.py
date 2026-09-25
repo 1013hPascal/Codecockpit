@@ -4,7 +4,9 @@ Der Kern (cockpit.core) kennt kein Qt. Deshalb stehen Aktionen mit Rückfragen, 
 Hintergrund-Aufgaben hier in der Oberfläche. Sie kommen auf demselben Weg in die Aktionsliste wie
 die Aktionen des Kerns und der Features.
 
-- Vorhandenes Projekt hinzufügen (Menü Datei): Projektordner, Umstellen oder Nur verknüpfen.
+- Projekt vom Rechner hinzufügen: Projektordner, in den Hauptordner verschieben oder am Ort
+  lassen. Danach auf Wunsch gleich auf GitHub hochladen.
+- Projekt von GitHub herunterladen: eigene Repositories, die der Organisationen oder eine Adresse.
 - Neuen Ort angeben (Projekt, nur wenn der Ordner fehlt).
 - Mit vorhandenem Repository verbinden (Code, nur wenn der Git-Ordner fehlt).
 - Virtuelle Umgebung neu anlegen (Code, nur wenn sie nach dem Verschieben kaputt ist).
@@ -53,9 +55,11 @@ class ProjectController:
     def actions(self) -> list[Action]:
         platform_name = self.window.project_list.platform_name
         return [
-            Action("new_project", "Neues Projekt hochladen …", Target.NEW_PROJECT,
-                   lambda c: self.new_project(), availability=self._upload_availability,
-                   is_default=True, order=10),
+            Action("add_local", "Projekt vom Rechner hinzufügen …", Target.ADD_LOCAL,
+                   lambda c: self.add_local(), is_default=True, order=10),
+            Action("add_remote", f"Projekt von {platform_name} herunterladen …",
+                   Target.ADD_REMOTE, lambda c: self.add_remote(),
+                   availability=self._upload_availability, is_default=True, order=10),
             Action("upload_existing", f"Auf {platform_name} hochladen …", Target.CODE,
                    self.upload_action, availability=self._upload_availability,
                    visible=_not_on_platform, is_default=True, order=10),
@@ -92,10 +96,15 @@ class ProjectController:
             task.deleteLater()
 
         def failed(message: str, details: str) -> None:
+            self.busy.discard(key)
             announce(message, urgent=True)
             show_error(self.window, failed_title, message, details)
 
-        task.result.connect(done)
+        def result(value) -> None:
+            self.busy.discard(key)          # done darf gleich den nächsten Schritt starten
+            done(value)
+
+        task.result.connect(result)
         task.error.connect(failed)
         if on_status is not None:
             task.status.connect(on_status)
@@ -110,10 +119,10 @@ class ProjectController:
             task.cancel()
             task.wait(5000)
 
-    # -- Vorhandenes Projekt hinzufügen ------------------------------------------------------
-    def add_existing(self) -> None:
+    # -- Projekt vom Rechner hinzufügen ------------------------------------------------------
+    def add_local(self) -> None:
         root = self.services.settings.load().projects_root
-        folder = pick_folder(self.window, "Vorhandenes Projekt hinzufügen", root)
+        folder = pick_folder(self.window, "Projekt vom Rechner hinzufügen", root)
         if folder is None:
             return
         kind, project_dir = classify_folder(folder)
@@ -128,14 +137,14 @@ class ProjectController:
         self._add_other(folder, Path(root))
 
     def _add_other(self, folder: Path, root: Path) -> None:
-        text = (f"Der Ordner {folder.name} hat keinen Unterordner Code. Das Cockpit erwartet "
-                f"den Aufbau Projektordner mit Unterordner Code. "
-                f"Umstellen: Das Cockpit legt den Projektordner {root / folder.name} an und "
-                f"verschiebt den gewählten Ordner dorthin als Code. "
-                f"Nur verknüpfen: Die Ordner bleiben, wo sie sind. Das ist gedacht für "
-                f"Repositories, deren Aufbau Sie nicht ändern dürfen.")
-        choice = ask_buttons(self.window, "Vorhandenes Projekt hinzufügen", text,
-                             ["Umstellen …", "Nur verknüpfen …", "Abbrechen"], default=2, escape=2)
+        text = (f"Der Ordner {folder.name} hat keinen Unterordner Code. "
+                f"In den Projekte-Hauptordner verschieben: Das Cockpit legt den Projektordner "
+                f"{root / folder.name} an und verschiebt den gewählten Ordner dorthin als Code. "
+                f"Am Ort lassen: Der Ordner bleibt, wo er ist. Das Cockpit merkt sich nur, wo er "
+                f"liegt. Das passt auch für Repositories, deren Aufbau Sie nicht ändern dürfen.")
+        choice = ask_buttons(self.window, "Projekt vom Rechner hinzufügen", text,
+                             ["In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
+                              "Abbrechen"], default=2, escape=2)
         if choice == 0:
             self._convert(folder, root)
         elif choice == 1:
@@ -150,26 +159,26 @@ class ProjectController:
             how = (f"Der Ordner liegt auf einem anderen Laufwerk. Deshalb wird er nach "
                    f"{target / CODE_DIR} kopiert. Der alte Ordner {folder} bleibt unverändert, "
                    "Sie können ihn später selbst löschen.")
-        if not confirm(self.window, "Umstellen", f"{how} Umstellen?", yes="Umstellen",
+        if not confirm(self.window, "Verschieben", f"{how} Verschieben?", yes="Verschieben",
                        no="Abbrechen"):
             return
         try:
             project, moved = self.services.projects.convert(folder, root)
         except CockpitError as exc:
-            show_error(self.window, "Umstellen", exc.message, exc.details)
+            show_error(self.window, "Verschieben", exc.message, exc.details)
             return
         self._added(project)
 
     def _link(self, folder: Path) -> None:
         exe_dir = None
-        if confirm(self.window, "Nur verknüpfen", f"Der Code-Ordner ist {folder}. Gibt es "
+        if confirm(self.window, "Am Ort lassen", f"Der Code-Ordner ist {folder}. Gibt es "
                    "zu diesem Projekt auch einen Exe-Ordner?", yes="Exe-Ordner wählen …",
                    no="Ohne Exe-Ordner"):
             exe_dir = pick_folder(self.window, "Exe-Ordner wählen", str(folder.parent))
         try:
             project = self.services.projects.add_linked(folder, exe_dir)
         except CockpitError as exc:
-            show_error(self.window, "Nur verknüpfen", exc.message, exc.details)
+            show_error(self.window, "Am Ort lassen", exc.message, exc.details)
             return
         self._added(project)
 
@@ -179,6 +188,22 @@ class ProjectController:
         self.window.show_project(project.id)
         self.window.refresh_status([project.id])
         announce(f"{project.name} hinzugefügt.")
+        self.offer_upload(project)
+
+    def offer_upload(self, project: Project) -> None:
+        """Liegt das Projekt noch nicht auf der Plattform, gleich das Hochladen anbieten.
+        Vorgabe ist "Später"."""
+        on_platform = git.is_repo(project.code_dir) and bool(
+            git.config_get(project.code_dir, "remote.origin.url"))
+        if on_platform or not self._upload_availability(None).available:
+            return
+        name = self.window.project_list.platform_name
+        if confirm(self.window, f"Auf {name} hochladen",
+                   f"{project.name} ist noch nicht auf {name}. Jetzt hochladen? Sie können das "
+                   f"auch später bei Code mit der Aktion Auf {name} hochladen machen.",
+                   yes="Jetzt hochladen …", no="Später"):
+            from cockpit.ui.upload_flow import UploadRunner
+            UploadRunner(self, project).start()
 
     def ensure_identity(self, project: Project) -> None:
         settings = self.services.settings.load()
@@ -226,24 +251,86 @@ class ProjectController:
             return Availability.no("Es ist noch kein Konto bei einer Plattform eingerichtet.")
         return Availability.yes()
 
-    def new_project(self) -> None:
-        from cockpit.ui.upload_flow import UploadRunner
-        folder = pick_folder(self.window, "Ordner mit dem Code wählen")
-        if folder is None:
+    def add_remote(self) -> None:
+        """Projekt von der Plattform herunterladen: eigene Repositories und die der
+        Organisationen, neueste oben, dazu "Adresse eingeben …"."""
+        accounts = self.services.platform_accounts()
+        if not accounts:
             return
-        kind, project_dir = classify_folder(folder)
-        existing = self.services.projects.find_by_dir(project_dir) if kind == "project"             else self.services.projects.find_by_code_dir(folder)
-        if existing is not None:
-            self.window.show_project(existing.id)
-            show_error(self.window, "Neues Projekt hochladen", f"Der Ordner gehört schon zum "
-                       f"Projekt {existing.name}. Wählen Sie dort bei Code die Aktion Auf "
-                       f"{self.window.project_list.platform_name} hochladen.")
+        if len(accounts) > 1:
+            index = choose_from_list(self.window, "Konto wählen", "Konten",
+                                     [a.label for a in accounts])
+            if index is None:
+                return
+            accounts = [accounts[index]]
+        account = accounts[0]
+        if not vault_ui.ensure_unlocked(self.services, self.window):
             return
-        UploadRunner(self, source=folder).start()
+        services = self.services
+        local = {p.remote.key for p in services.projects.all() if p.remote is not None}
+        announce("Repositories werden abgefragt.")
+
+        def work(task: Task) -> list:
+            platform = services.platform(account.id)
+            repos = list(platform.repositories())
+            try:
+                organizations = platform.organizations()
+            except CockpitError:
+                organizations = []
+            for organization in organizations:
+                try:
+                    repos.extend(platform.repositories(organization))
+                except CockpitError as exc:
+                    log.warning("Repositories von %s: %s", organization, exc.message)
+            return sorted(repos, key=lambda r: r.pushed_at, reverse=True)
+
+        def done(repos: list) -> None:
+            self.choose_remote(account, [r for r in repos if _key(r) not in local])
+
+        self.run_task(f"remote-list:{account.id}", work, done, "Herunterladen")
+
+    def choose_remote(self, account, repos: list) -> None:
+        from datetime import datetime
+        from urllib.parse import urlparse
+        name = self.window.project_list.platform_name
+
+        def line(repo) -> str:
+            parts = [repo.ref.name, repo.ref.owner, "privat" if repo.private else "öffentlich"]
+            try:
+                pushed = datetime.fromisoformat(repo.pushed_at.replace("Z", "+00:00"))
+                parts.append(f"aktualisiert am {pushed:%d.%m.%Y}")
+            except ValueError:
+                pass
+            return ", ".join(parts)
+
+        items = [line(r) for r in repos] + [ENTER_ADDRESS]
+        index = choose_from_list(self.window, f"Projekt von {name} herunterladen",
+                                 "Repositories", items)
+        if index is None:
+            return
+        if index < len(repos):
+            repo = repos[index]
+            host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
+            stored = StoredRepo(0, account.id, host, repo.ref.owner, repo.ref.name,
+                                repo.private, repo.clone_url, repo.web_url, repo.pushed_at)
+        else:
+            from PySide6.QtWidgets import QInputDialog
+            url, ok = QInputDialog.getText(self.window, f"Projekt von {name} herunterladen",
+                                           "Adresse des Repositories:")
+            address = git.parse_remote(url) if ok else None
+            if address is None:
+                if ok:
+                    show_error(self.window, "Herunterladen", "Die Adresse wurde nicht erkannt. "
+                               "Beispiel: https://github.com/Name/Projekt")
+                return
+            match = self.services.account_for_host(address.host)
+            stored = StoredRepo(0, match.id if match else None, address.host, address.owner,
+                                address.name, True, url.strip(), "", "")
+        self.download(stored)
 
     def upload_action(self, context: ActionContext) -> None:
         from cockpit.ui.upload_flow import UploadRunner
-        UploadRunner(self, project=context.project).start()
+        UploadRunner(self, context.project).start()
 
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
@@ -383,6 +470,12 @@ class ProjectController:
 
         self.run_task(f"project:{project.id}", work, done, "Virtuelle Umgebung",
                       on_status=announce)
+
+
+def _key(repo) -> str:
+    from urllib.parse import urlparse
+    host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
+    return git.RemoteAddress(host, repo.ref.owner, repo.ref.name).key
 
 
 def _not_on_platform(context: ActionContext) -> bool:

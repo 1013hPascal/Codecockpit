@@ -1,8 +1,9 @@
-"""Neues Projekt hochladen und Auf GitHub hochladen (Konzept 9.1).
+"""Auf GitHub hochladen (Konzept 9.1, geändert: Hinzufügen und Hochladen sind getrennt).
 
 Ablauf:
-1. Vorbereiten (prepare): Bei einem neuen Projekt den Code in den Projekte-Hauptordner kopieren.
-   Git-Repository anlegen, .gitignore anlegen oder ergänzen, LICENSE anlegen, Git-Identität.
+1. Vorbereiten (prepare): Git-Repository anlegen, .gitignore anlegen oder ergänzen, LICENSE
+   anlegen, Git-Identität. Das Projekt ist schon in der Liste (ENTSCHEIDUNGEN.md: Hinzufügen und
+   Hochladen sind getrennt, es wird nie kopiert).
 2. Sicherheitsprüfung mit Rückfragen in der Oberfläche.
 3. Der Ablauf NEW_PROJECT mit den Schritten des Kerns und der aktiven Features:
    Sicherheitsprüfung, Commit "Erste Version", Repository anlegen, Hochladen.
@@ -13,7 +14,7 @@ origin), wird es nicht noch einmal angelegt.
 from __future__ import annotations
 
 import logging
-import shutil
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -28,8 +29,7 @@ log = logging.getLogger(__name__)
 
 NO_LICENSE = "Keine Lizenz / firmenintern"
 FIRST_MESSAGE = "Erste Version"
-# Wird beim Kopieren nicht mitgenommen: lässt sich nicht verschieben oder entsteht neu
-COPY_SKIP = (".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache")
+NAME_PATTERN = re.compile(r"[A-Za-z0-9._-]+")
 
 
 @dataclass
@@ -53,12 +53,20 @@ def suggest_name(folder_name: str) -> str:
     return "".join(c for c in name if (c.isascii() and c.isalnum()) or c in "-_.") or "projekt"
 
 
-def copy_source(source: Path, code_dir: Path) -> None:
-    """Code in den neuen Ordner Code kopieren. Der ursprüngliche Ordner bleibt unverändert."""
-    if code_dir.exists():
-        raise CockpitError(f"Den Ordner {code_dir} gibt es schon. Nichts wurde verändert.")
-    shutil.copytree(source, code_dir, symlinks=True,
-                    ignore=shutil.ignore_patterns(*COPY_SKIP))
+def name_problem(name: str) -> str:
+    """Was am Namen für die Plattform nicht passt, als Satz. Leer, wenn alles passt."""
+    name = name.strip()
+    if not name:
+        return "Bitte einen Namen eingeben."
+    if NAME_PATTERN.fullmatch(name):
+        return ""
+    if " " in name:
+        return ("Der Name darf keine Leerzeichen enthalten. Nehmen Sie stattdessen einen "
+                f"Bindestrich, zum Beispiel {suggest_name(name)}.")
+    if any(c in "äöüÄÖÜß" for c in name):
+        return f"Der Name darf keine Umlaute enthalten, zum Beispiel {suggest_name(name)}."
+    return ("Der Name darf nur Buchstaben, Ziffern, Punkt, Bindestrich und Unterstrich "
+            f"enthalten, zum Beispiel {suggest_name(name)}.")
 
 
 def history_range(code_dir: Path) -> str:

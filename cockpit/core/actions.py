@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class Target(Enum):
-    NEW_PROJECT = "new_project"      # der oberste Eintrag "Neues Projekt hochladen"
+    ADD_LOCAL = "add_local"          # oberster Eintrag "Projekt vom Rechner hinzufügen"
+    ADD_REMOTE = "add_remote"        # zweiter Eintrag "Projekt von GitHub herunterladen"
     PROJECT = "project"
     CODE = "code"
     EXE = "exe"

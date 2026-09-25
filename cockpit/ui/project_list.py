@@ -4,7 +4,8 @@ Der Qt-Baum (QTreeView) meldete NVDA den Zustand "ausgeklappt" nicht zuverlässi
 Zuklappen waren Einträge nicht mehr erreichbar. Deshalb ist die Projektliste eine normale Liste,
 in die beim Ausklappen die Unterordner eingefügt werden.
 
-Oberste Zeile: "Neues Projekt hochladen", darunter die Projekte, zuletzt aktualisierte oben.
+Oben stehen "Projekt vom Rechner hinzufügen" und "Projekt von GitHub herunterladen", darunter
+die Projekte, zuletzt aktualisierte oben.
 Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt", darunter stehen "Code" und "Exe, ...".
 Repositories des Kontos, die noch nicht auf dem Rechner liegen, stehen dazwischen als
 "Rechner, nur auf GitHub". Enter lädt sie herunter.
@@ -19,8 +20,8 @@ Tastatur:
 - Leertaste oder Enter auf einem ausgeklappten Projekt: zuklappen.
 - Pfeil links auf Code oder Exe: zuklappen, der Fokus springt zurück auf das Projekt.
 - Pfeil links auf einem ausgeklappten Projekt: zuklappen.
-- Enter oder Leertaste auf Code, Exe, "Neues Projekt hochladen" oder einem Repository, das nur
-  auf der Plattform liegt: wichtigste Aktion (Signal defaultActionRequested).
+- Enter oder Leertaste auf Code, Exe, den beiden obersten Einträgen oder einem Repository, das
+  nur auf der Plattform liegt: wichtigste Aktion (Signal defaultActionRequested).
 - Menütaste oder Umschalt+F10: Signal contextMenuRequested.
 """
 from __future__ import annotations
@@ -42,7 +43,11 @@ from cockpit.ui.common import name_widget
 ROLE_TARGET = Qt.ItemDataRole.UserRole + 1
 ROLE_PROJECT = Qt.ItemDataRole.UserRole + 2
 
-NEW_PROJECT_TEXT = "Neues Projekt hochladen"
+ADD_LOCAL_TEXT = "Projekt vom Rechner hinzufügen"
+
+
+def add_remote_text(platform_name: str) -> str:
+    return f"Projekt von {platform_name} herunterladen"
 EXPANDED_SUFFIX = ", ausgeklappt"
 
 
@@ -108,7 +113,8 @@ class ProjectList(QListWidget):
         self._status = {k: v for k, v in self._status.items() if k in self._projects}
         self._expanded = None
         self.clear()
-        self.addItem(self._item(NEW_PROJECT_TEXT, Target.NEW_PROJECT, None))
+        self.addItem(self._item(ADD_LOCAL_TEXT, Target.ADD_LOCAL, None))
+        self.addItem(self._item(add_remote_text(self.platform_name), Target.ADD_REMOTE, None))
         entries: list[Project | StoredRepo] = [*projects, *(remote_repos or [])]
         entries.sort(key=_sort_key, reverse=True)
         for entry in entries:
@@ -171,7 +177,7 @@ class ProjectList(QListWidget):
     def current_target(self) -> tuple[Target, int | None]:
         item = self.currentItem()
         if item is None:
-            return Target.NEW_PROJECT, None
+            return Target.ADD_LOCAL, None
         return item.data(ROLE_TARGET), item.data(ROLE_PROJECT)
 
     def row_of(self, target: Target, project_id: int | None) -> int:

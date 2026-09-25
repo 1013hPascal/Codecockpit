@@ -12,7 +12,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QHBoxLayout, QListWidget, QPushButton, QVBoxLayout, QWidget
 
-from cockpit.core import core_actions, safety_check
+from cockpit.core import core_actions, safety_check, upload
 from cockpit.core.errors import CockpitError
 from cockpit.core.features import settings_fields as sf
 from cockpit.core.safety_check import Finding, Kind, Report
@@ -25,7 +25,6 @@ from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
 
 PRIVATE, PUBLIC = "Privat", "Öffentlich"
-NAME_PATTERN = r"[A-Za-z0-9._-]+"
 
 
 class UploadDialog(FocusDialog):
@@ -38,10 +37,7 @@ class UploadDialog(FocusDialog):
         self.targets = [f"Eigenes Konto {user}".strip(), *organizations]
         self.organizations = organizations
         fields = [
-            sf.Text("name", f"Name auf {platform_name}", name, required=True,
-                    pattern=NAME_PATTERN,
-                    pattern_hint="Der Name darf nur Buchstaben ohne Umlaute, Ziffern, Punkt, "
-                                 "Bindestrich und Unterstrich enthalten."),
+            sf.Text("name", f"Name auf {platform_name}", name, required=True),
             sf.Text("description", "Kurzbeschreibung", ""),
             sf.Choice("visibility", "Sichtbarkeit", PRIVATE if private else PUBLIC,
                       options=(PRIVATE, PUBLIC)),
@@ -71,6 +67,11 @@ class UploadDialog(FocusDialog):
         except FormError as exc:
             show_error(self, self.windowTitle(), exc.message)
             self.form.focus_field(exc.key)
+            return
+        problem = upload.name_problem(values["name"])
+        if problem:
+            show_error(self, self.windowTitle(), problem)
+            self.form.focus_field("name")
             return
         index = self.targets.index(values["target"])
         self.spec = UploadSpec(values["name"], values["description"],

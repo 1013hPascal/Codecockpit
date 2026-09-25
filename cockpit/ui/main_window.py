@@ -158,8 +158,10 @@ class MainWindow(QMainWindow):
         bar = self.menuBar()
         file_menu = AccessibleMenu("&Datei", self)
         bar.addMenu(file_menu)
-        self._action(file_menu, "Vorhandenes Projekt &hinzufügen …",
-                     self.controller.add_existing)
+        self._action(file_menu, "Projekt vom &Rechner hinzufügen …", self.controller.add_local)
+        self.act_download = self._action(file_menu, "Projekt von GitHub &herunterladen …",
+                                         self.controller.add_remote)
+        file_menu.aboutToShow.connect(self.update_file_menu)
         self._action(file_menu, "Projekte &neu einlesen", self.rescan, "Ctrl+R")
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
@@ -188,6 +190,9 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
+
+    def update_file_menu(self) -> None:
+        self.act_download.setText(f"Projekt von {self.platform_name()} &herunterladen …")
 
     def _build_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+1"), self, activated=self.focus_project_list)

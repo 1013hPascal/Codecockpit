@@ -17,7 +17,7 @@ from cockpit.ui.announcer import announcer
 from cockpit.ui.error_dialog import ErrorDialog
 from cockpit.ui.form_builder import FormError, SettingsForm
 from cockpit.ui.main_window import MainWindow
-from cockpit.ui.project_list import NEW_PROJECT_TEXT
+from cockpit.ui.project_list import ADD_LOCAL_TEXT
 from cockpit.ui.settings_dialog import SettingsDialog
 from tests.conftest import FAKE_TOKEN, make_project, said
 
@@ -167,9 +167,9 @@ def test_area_shortcuts(window, qtbot):
 def test_list_starts_with_new_project_and_lists_projects(window):
     win = window()
     texts = win.project_list.texts()
-    assert texts[0] == NEW_PROJECT_TEXT
-    assert sorted(texts[1:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
-    assert current_text(win) == NEW_PROJECT_TEXT
+    assert texts[:2] == [ADD_LOCAL_TEXT, "Projekt von GitHub herunterladen"]
+    assert sorted(texts[2:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
+    assert current_text(win) == ADD_LOCAL_TEXT
     assert win.project_list.accessibleName() == "Projekte"
 
 
@@ -235,7 +235,7 @@ def test_every_project_stays_reachable_after_collapsing(window, qtbot):
     for _ in range(5):
         press(qtbot, win.project_list, Qt.Key.Key_Down)
         seen.append(current_text(win))
-    assert {NEW_PROJECT_TEXT, "A", "B", "C"} <= set(seen)
+    assert {ADD_LOCAL_TEXT, "A", "B", "C"} <= set(seen)
 
 
 def test_left_on_expanded_project_collapses(window, qtbot):
@@ -283,8 +283,10 @@ def test_exe_label_names_file_and_date(window, projects_root):
 # -- Aktionen -------------------------------------------------------------------------------
 def test_actions_follow_the_tree_selection(window):
     win = window()
+    assert win.actions_list.texts() == ["Projekt vom Rechner hinzufügen …"]
+    win.project_list.setCurrentRow(1)
     assert win.actions_list.texts() == [
-        "Neues Projekt hochladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
+        "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
     assert win.actions_list.texts() == ["Projektordner öffnen"]
@@ -296,9 +298,10 @@ def test_actions_follow_the_tree_selection(window):
 
 def test_unavailable_action_announces_reason(window, qtbot):
     win = window()
+    win.project_list.setCurrentRow(1)
     win.focus_actions()
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
-    assert announcer.last_text == ("Neues Projekt hochladen … ist nicht verfügbar. "
+    assert announcer.last_text == ("Projekt von GitHub herunterladen … ist nicht verfügbar. "
                                    "Es ist noch kein Konto bei einer Plattform eingerichtet.")
 
 
