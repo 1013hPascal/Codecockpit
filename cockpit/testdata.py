@@ -21,6 +21,10 @@ Ab Phase 5a mit Git (nur, wenn Git installiert ist):
 - Tagebuch hat eine virtuelle Umgebung, die angeblich an einem anderen Ort angelegt wurde. So lässt
   sich "Virtuelle Umgebung neu anlegen" prüfen.
 - Bildbeschreiber hat keinen Git-Ordner ("noch nicht auf GitHub").
+- Ab Phase 5c: Ein "anderer Rechner" (Testdaten\\Anderer Rechner) hat Änderungen zu PDF-Chat,
+  Tagebuch und Rezepte hochgeladen. Rezepte hat dazu einen eigenen Commit, der dieselbe Zeile
+  ändert (Konflikt beim Zusammenführen). Bei Tagebuch gibt es einen Konflikt mit der Änderung,
+  die noch nicht hochgeladen ist.
 - Im Ordner Testdaten\\Andere Ordner liegen Ordner zum Prüfen von "Vorhandenes Projekt
   hinzufügen": "Wetter" (Projektordner mit Code), "Rechner" und "Firmenprojekt" (ohne Code),
   "Vereinsseite" (mit anderer Git-Identität), "codecockpit-test" (mit erfundenen Geheimnissen) und "Notizen" (neuer Ort für das fehlende Projekt).
@@ -91,6 +95,7 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
 
     # Reihenfolge der Änderungszeit: zuletzt angelegte stehen oben
     project("Notizen", {"notizen.py": "print('Notizen')\n"})
+    project("Rezepte", {"rezepte.py": "REZEPT = 'Pfannkuchen'\n"})
     project("Bildbeschreiber", {"main.py": "print('Bildbeschreiber')\n"}, empty_exe=True)
     time.sleep(0.02)
     project("Tagebuch", {"main.py": "print('Tagebuch')\n", "README.md": "# Tagebuch\n"})
@@ -152,7 +157,7 @@ def add_git(base: Path, root: Path) -> None:
     """PDF-Chat und Tagebuch zu Git-Repositories mit einer "Plattform" im Dateisystem machen."""
     platform = base / "Plattform"
     platform.mkdir()
-    for name in ("PDF-Chat", "Tagebuch"):
+    for name in ("PDF-Chat", "Tagebuch", "Rezepte"):
         code = root / name / "Code"
         _git(code, "init", "-q")
         _git(code, "add", "-A")
@@ -179,6 +184,37 @@ def add_git(base: Path, root: Path) -> None:
     _git(root / "Tagebuch" / "Code", "add", ".gitignore")
     _git(root / "Tagebuch" / "Code", "commit", "-q", "-m", ".gitignore")
     _git(root / "Tagebuch" / "Code", "push", "-q")
+    add_other_computer(base, root)
+
+
+def add_other_computer(base: Path, root: Path) -> None:
+    """Phase 5c: Ein "anderer Rechner" lädt Änderungen hoch, damit man Holen prüfen kann.
+
+    - PDF-Chat: eine neue Datei. Holen geht ohne Rückfrage nach Beiseitelegen.
+    - Tagebuch: main.py ist hier geändert und auf der Plattform anders geändert. Holen fragt nach
+      Beiseitelegen, danach gibt es einen Konflikt beim Zurücklegen.
+    - Rezepte: Hier und auf der Plattform gibt es je einen Commit, der dieselbe Zeile ändert.
+      Holen führt zu einem Konflikt beim Zusammenführen.
+    Danach holt das Cockpit den Stand (git fetch), damit die Liste "noch nicht geholt" zeigt."""
+    platform = base / "Plattform"
+    other = base / "Anderer Rechner"
+    other.mkdir()
+    changes = {
+        "PDF-Chat": ("suche.py", "print('Suche in mehreren PDFs')\n", "Suche ergänzt"),
+        "Tagebuch": ("main.py", "print('Tagebuch vom anderen Rechner')\n", "Ausgabe geändert"),
+        "Rezepte": ("rezepte.py", "REZEPT = 'Apfelstrudel'\n", "Rezept vom anderen Rechner"),
+    }
+    for name, (filename, content, message) in changes.items():
+        _git(other, "clone", "-q", (platform / f"{name}.git").as_uri(), name)
+        (other / name / filename).write_text(content, encoding="utf-8")
+        _git(other / name, "add", "-A")
+        _git(other / name, "commit", "-q", "-m", message)
+        _git(other / name, "push", "-q")
+    code = root / "Rezepte" / "Code"
+    (code / "rezepte.py").write_text("REZEPT = 'Kartoffelsuppe'\n", encoding="utf-8")
+    _git(code, "commit", "-q", "-am", "Rezept geändert")
+    for name in changes:
+        _git(root / name / "Code", "fetch", "-q")
 
 
 def remove_missing_example(root: Path) -> None:

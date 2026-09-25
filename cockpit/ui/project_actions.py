@@ -11,6 +11,7 @@ die Aktionen des Kerns und der Features.
 - Mit vorhandenem Repository verbinden (Code, nur wenn der Git-Ordner fehlt).
 - Virtuelle Umgebung neu anlegen (Code, nur wenn sie nach dem Verschieben kaputt ist).
 - Herunterladen und Auf GitHub öffnen (Repository, das nur auf der Plattform liegt).
+- Änderungen hochladen, Änderungen holen und Konflikte lösen (Code, ab Phase 5c, sync_flow.py).
 
 Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine Bestätigung.
 """
@@ -63,6 +64,14 @@ class ProjectController:
             Action("upload_existing", f"Auf {platform_name} hochladen …", Target.CODE,
                    self.upload_action, availability=self._upload_availability,
                    visible=_not_on_platform, is_default=True, order=10),
+            Action("resolve_conflicts", "Konflikte lösen …", Target.CODE, self.resolve_action,
+                   visible=_unfinished_merge, is_default=True, order=5),
+            Action("push_changes", "Änderungen hochladen …", Target.CODE, self.push_action,
+                   availability=_git_availability, visible=_on_platform, is_default=True,
+                   order=10),
+            Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
+                   self.pull_action, availability=_git_availability, visible=_on_platform,
+                   order=20),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
                    visible=lambda c: c.project is not None and not c.project.folder_found,
                    order=5),
@@ -333,6 +342,25 @@ class ProjectController:
         from cockpit.ui.upload_flow import UploadRunner
         UploadRunner(self, context.project).start()
 
+    # -- Änderungen hochladen und holen (Konzept 9.2 und 9.3) ---------------------------------
+    def push_action(self, context: ActionContext) -> None:
+        from cockpit.ui.sync_flow import PushRunner
+        PushRunner(self, context.project).start()
+
+    def pull_action(self, context: ActionContext) -> None:
+        from cockpit.ui.sync_flow import PullRunner
+        PullRunner(self, context.project).start()
+
+    def resolve_action(self, context: ActionContext) -> None:
+        from cockpit.core import sync
+        from cockpit.ui.sync_flow import PullRunner
+        kind = sync.conflict_kind(context.project.code_dir)
+        if kind is sync.ConflictKind.NONE:
+            self.window.refresh_status([context.project.id])
+            announce("Es gibt keine Konflikte mehr.")
+            return
+        PullRunner(self, context.project).resolve(kind)
+
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
         project = context.project
@@ -483,6 +511,21 @@ def _not_on_platform(context: ActionContext) -> bool:
     status = context.status
     return (context.project is not None and context.project.folder_found
             and status is not None and status.repo is not None and not status.on_platform)
+
+
+def _on_platform(context: ActionContext) -> bool:
+    return (context.project is not None and context.project.folder_found
+            and context.status is not None and context.status.on_platform)
+
+
+def _unfinished_merge(context: ActionContext) -> bool:
+    return context.status is not None and bool(context.status.unfinished_merge)
+
+
+def _git_availability(context: ActionContext) -> Availability:
+    if git.find_git() is None:
+        return Availability.no("Git ist nicht installiert.")
+    return Availability.yes()
 
 
 def _is_repo(context: ActionContext) -> bool:

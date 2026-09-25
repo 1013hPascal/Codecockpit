@@ -189,6 +189,8 @@ class RepoStatus:
     remote_url: str = ""
     default_branch: str = MAIN_BRANCH      # Haupt-Branch auf der Plattform, soweit bekannt
     last_upload: str = ""                  # Datum des letzten hochgeladenen Commits, ISO
+    conflicts: list[str] = field(default_factory=list)     # Dateien mit Konflikt
+    merging: bool = False                  # Zusammenführen noch nicht abgeschlossen
 
     @property
     def remote(self) -> RemoteAddress | None:
@@ -217,13 +219,17 @@ def status(code_dir: Path) -> RepoStatus:
             ahead, behind = entry[len("# branch.ab "):].split()
             state.ahead, state.behind = abs(int(ahead)), abs(int(behind))
         elif entry[:2] in ("1 ", "u "):
-            state.changed.append(entry.split(" ", 8 if entry[0] == "1" else 10)[-1])
+            path = entry.split(" ", 8 if entry[0] == "1" else 10)[-1]
+            state.changed.append(path)
+            if entry[0] == "u":
+                state.conflicts.append(path)
         elif entry.startswith("2 "):
             state.changed.append(entry.split(" ", 9)[-1])
             next(entries, None)            # alter Name der umbenannten Datei, zählt nicht
         elif entry.startswith("? "):
             state.changed.append(entry[2:])
     state.remote_url = config_get(code_dir, "remote.origin.url")
+    state.merging = (code_dir / ".git" / "MERGE_HEAD").exists()
     head = run(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], code_dir,
                check=False).stdout.strip()
     state.default_branch = head.partition("/")[2] or MAIN_BRANCH

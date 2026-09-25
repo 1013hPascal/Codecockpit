@@ -38,6 +38,16 @@ class ProjectStatus:
         return self.repo is not None and self.repo.is_repo and bool(self.repo.remote_url)
 
     @property
+    def unfinished_merge(self) -> str:
+        """Kurzer Text, wenn ein Zusammenführen offen ist, sonst leer."""
+        if self.repo is None or not self.repo.is_repo:
+            return ""
+        if self.repo.conflicts:
+            return (f"{count(len(self.repo.conflicts), 'Konflikt', 'Konflikte')} beim "
+                    "Zusammenführen")
+        return "Zusammenführen nicht abgeschlossen" if self.repo.merging else ""
+
+    @property
     def other_branch(self) -> str:
         """Name des Branches, wenn es nicht der Haupt-Branch ist, sonst leer."""
         if self.repo is None or not self.repo.is_repo or not self.repo.branch:
@@ -91,6 +101,8 @@ def project_line(project: Project, status: ProjectStatus | None,
         parts.append(f"noch nicht auf {platform_name}")
     elif project.last_updated:
         parts.append(f"aktualisiert am {_date(project.last_updated)}")
+    if status is not None and status.unfinished_merge:
+        parts.append(status.unfinished_merge)
     if status is not None and status.on_platform:
         if status.pending:
             parts.append(f"{count(status.pending, 'Datei', 'Dateien')} noch nicht hochgeladen")
@@ -108,6 +120,8 @@ def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> st
         return parts[0]
     if status.other_branch:
         parts.append(f"Branch {status.other_branch}")
+    if status.unfinished_merge:
+        parts.append(status.unfinished_merge)
     if not status.on_platform:
         parts.append(f"noch nicht auf {platform_name}")
     elif status.pending:

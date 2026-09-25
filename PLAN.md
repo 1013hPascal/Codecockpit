@@ -24,8 +24,8 @@ Inhalt:
 - [x] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Abgeschlossen am 25.09.2026: 213 Tests bestanden, NVDA-Test mit checklisten\phase-04.md bestanden
 - [ ] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md)
   - [x] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
-  - [ ] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
-  - [ ] 5c: Änderungen hochladen, Änderungen holen, Projekt von der Plattform herunterladen
+  - [x] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
+  - [ ] 5c: Änderungen hochladen, Änderungen holen mit Konflikten und Beiseitelegen (Herunterladen kam schon in 5b)
   - [ ] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
   - [ ] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
   - [ ] 5f: Übersicht „Branches“ und Stash
@@ -101,6 +101,7 @@ Die Namen im Code sind englisch, Kommentare und Texte deutsch.
   - `actions.py`: Beschreibung einer Aktion für die Aktionsliste.
   - `git.py`: Aufruf von Git. Ausgebaut in Phase 5.
   - `safety_check.py`: die Sicherheitsprüfung, ab Phase 5.
+  - `sync.py`: Änderungen hochladen und holen, Konflikte, ab Phase 5c.
 - `cockpit\adapters\`: gemeinsame Grundlagen aller Adapter.
   - `base.py`: Basisklasse, Kontofelder, Testergebnis.
   - `registry.py`: Tabelle aller Adapter pro Art.

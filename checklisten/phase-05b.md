@@ -195,7 +195,7 @@ Bitte `start_testdaten.bat` neu starten. So kommen Sie zum Fenster Sicherheitspr
 2. Bei „Jetzt hochladen?“ „Jetzt hochladen …“ wählen, den Namen „sicherheitstest“ lassen, Alt+W, „Hochladen“.
 Am Ende brechen Sie im Fenster Sicherheitsprüfung mit Escape ab. Dann entsteht auf GitHub nichts.
 
-[ ] 31. Enter auf Knöpfen und Erneut prüfen
+[x] 31. Enter auf Knöpfen und Erneut prüfen
 Tasten: Im Fenster Sicherheitsprüfung auf der Zeile mit dem GitHub-Token Enter. Dann mit Tab zu „Erneut prüfen“, Enter. Danach „Datei öffnen“ mit Tab und Enter, die Zeile mit dem Token im Editor löschen, speichern, schließen. Zurück zu „Erneut prüfen“, Enter. Dann Tab bis „Kein Geheimnis“, Enter. Am Ende Escape.
 Erwartet: Enter in der Liste tut nichts. Das erste „Erneut prüfen“ sagt „Besteht weiter. Noch: 2 Funde stoppen das Hochladen“, der Fokus steht in der Liste auf demselben Fund. Das zweite sagt „Behoben. Noch: 1 Fund stoppt das Hochladen“, der Fokus steht auf dem nächsten Fund. „Kein Geheimnis“ mit Enter markiert ihn. Escape bricht ab.
 Ergebnis:

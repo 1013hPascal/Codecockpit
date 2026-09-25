@@ -383,3 +383,34 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - „Neues Projekt hochladen“ mit Kopieren entfällt (Abweichung von Konzept 9.1). So gibt es nie zwei Ausgaben desselben Codes auf dem Rechner. Der Menüpunkt „Vorhandenes Projekt hinzufügen“ entfällt ebenfalls.
 - „Projekt von GitHub herunterladen“ kommt aus 5c nach vorne: eigene Repositories und die der Organisationen, neueste oben, ohne die, die schon in der Liste sind, dazu „Adresse eingeben …“.
 - Der Name auf GitHub wird mit einer genauen Meldung geprüft, zum Beispiel „Der Name darf keine Leerzeichen enthalten.“
+
+
+## 25.09.2026: Entscheidungen in Phase 5c
+
+### Änderungen hochladen
+
+- Das Fenster fragt „Was haben Sie geändert?“ und bietet ein zweites Feld „Beschreibung, freiwillig“, wie Zusammenfassung und Beschreibung in GitHub Desktop. Darunter stehen die geänderten Dateien als Liste. Der Titel nennt die Änderungen kurz, zum Beispiel „1 Datei geändert, 1 neue Datei“.
+- „Hochladen“ im Fenster ist die Bestätigung. Es gibt keine zweite Rückfrage, weil Commit und Hochladen keine Dateien auf dem Rechner verändern.
+- Gibt es keine neuen Änderungen, aber Commits, die noch nicht hochgeladen sind, fragt das Cockpit nur „Jetzt hochladen?“. Vorgabe ist „Abbrechen“.
+- Die Sicherheitsprüfung sieht nur die geänderten Dateien und die Commits, die noch nicht hochgeladen sind. Was schon auf der Plattform liegt, prüft sie nicht noch einmal.
+- Ob ein Repository öffentlich ist, weiß das Cockpit aus der Liste der Repositories des Kontos. Unbekannt gilt als privat. Das betrifft nur die Warnung zur privaten E-Mail-Adresse.
+- Vor jedem Commit trägt das Cockpit die Git-Identität aus den Grundeinstellungen ein, wenn im Repository keine steht. Eine andere Identität bleibt ohne Rückfrage. Sonst käme die Frage vor jedem Hochladen.
+- Vor dem Hochladen holt das Cockpit den Stand (git fetch). Ist die Plattform weiter, lädt es nicht hoch. Der Commit bleibt gespeichert. Das Cockpit fragt „Jetzt holen und danach hochladen?“, Vorgabe „Später“. Das entspricht Git und GitHub Desktop, nur ohne Fehlermeldung „rejected“.
+
+### Änderungen holen
+
+- Holen fragt immer vorher, weil es Dateien verändert. Vorgabe ist „Abbrechen“.
+- Die Sicherheitskopie enthält nur die Dateien, die das Holen ändern kann, und die eigenen Änderungen. Dazu kommt Stand.txt mit dem Commit vor dem Holen. Eine Kopie des ganzen Ordners wäre mit virtueller Umgebung oft sehr groß.
+- Zusammengeführt wird mit git merge, wie git pull und GitHub Desktop. Die Nachricht des Merge-Commits ist die von Git.
+- Beiseitelegen (Stash) fragt das Cockpit nur, wenn eigene Änderungen und neue Commits dieselbe Datei betreffen. Sonst führt Git ohne Stash zusammen, wie GitHub Desktop. Der Stash heißt „CodeCockpit: vor dem Holen“.
+
+### Konflikte
+
+- Es gibt zwei Arten: beim Zusammenführen der Commits und beim Zurücklegen der beiseitegelegten Änderungen. Das Fenster ist für beide gleich. „Meine Fassung“ ist immer Ihre Fassung, auch wenn Git dafür intern „ours“ oder „theirs“ sagt.
+- „Im Editor öffnen“ öffnet die Datei mit den Konfliktmarken. „Erneut prüfen“ erkennt eine gelöste Datei daran, dass keine Konfliktmarken mehr darin stehen.
+- „Zusammenführen abbrechen“ führt in beiden Fällen zurück zum Stand vor dem Holen, samt Ihren Änderungen. Dafür merkt sich das Cockpit den Commit vor dem Holen unter refs/codecockpit/vor-dem-holen.
+- Wird das Cockpit mitten im Zusammenführen geschlossen, zeigt Code „1 Konflikt beim Zusammenführen“ oder „Zusammenführen nicht abgeschlossen“. Die Aktion „Konflikte lösen …“ steht dann oben und ist die Vorgabe für Enter.
+
+### Testdaten
+
+- Ein „anderer Rechner“ hat Änderungen zu PDF-Chat, Tagebuch und Rezepte hochgeladen. Das neue Beispielprojekt Rezepte hat einen Konflikt beim Zusammenführen, Tagebuch einen beim Zurücklegen.

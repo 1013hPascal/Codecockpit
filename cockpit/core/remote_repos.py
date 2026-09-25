@@ -51,6 +51,10 @@ class RemoteRepoStore:
         row = self.database.query_one("SELECT * FROM remote_repos WHERE id = ?", (repo_id,))
         return self._from_row(row) if row else None
 
+    def find(self, address: RemoteAddress) -> StoredRepo | None:
+        """Repository zu einer Adresse, ohne Groß- und Kleinschreibung."""
+        return next((r for r in self.all() if r.address.key == address.key), None)
+
     def replace(self, account_id: int, repos: list) -> list[StoredRepo]:
         """Die Liste eines Kontos durch die aktuelle der Plattform ersetzen (repos: RemoteRepo).
         Gibt die Repositories zurück, die vorher nicht bekannt waren. Beim allerersten Abruf eines
