@@ -172,6 +172,8 @@ def _step_commit(context: FlowContext) -> StepResult:
         if paragraph.strip():
             args += ["-m", paragraph.strip()]
     git.run(args, code_dir, action="Commit")
+    context.data["commit"] = git.run(["rev-parse", "HEAD"], code_dir,
+                                     action="Commit").stdout.strip()
     first = message.strip().splitlines()[0]
     return StepResult(True, f"Commit „{first}“.")
 

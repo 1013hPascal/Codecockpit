@@ -102,6 +102,8 @@ Die Namen im Code sind englisch, Kommentare und Texte deutsch.
   - `git.py`: Aufruf von Git. Ausgebaut in Phase 5.
   - `safety_check.py`: die Sicherheitsprüfung, ab Phase 5.
   - `sync.py`: Änderungen hochladen und holen, Konflikte, ab Phase 5c.
+  - `history.py`: Verlauf, Rückgängig machen und Änderungen verwerfen, ab Phase 5d.
+  - `trash.py`: Dateien in den Papierkorb von Windows, ab Phase 5d.
 - `cockpit\adapters\`: gemeinsame Grundlagen aller Adapter.
   - `base.py`: Basisklasse, Kontofelder, Testergebnis.
   - `registry.py`: Tabelle aller Adapter pro Art.

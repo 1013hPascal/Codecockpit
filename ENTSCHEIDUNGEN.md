@@ -426,3 +426,33 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Neu im Menü Datei: „Sicherheitskopien …“. Jede Kopie hat die Datei Sicherheitskopie.txt mit Projekt, Anlass und Herkunftsordner. Einzelne Dateien lassen sich öffnen und wiederherstellen. Vor dem Wiederherstellen kommt die jetzige Datei selbst in eine neue Sicherheitskopie. Löschen einer Kopie braucht eine Bestätigung, eine Kopie der Kopie gibt es nicht. Das greift einem Teil von 5d vor.
 - Der Anlass der Sicherheitskopie beim Neuanlegen der virtuellen Umgebung heißt jetzt „virtuelle Umgebung“ statt „venv“.
 
+
+## 25.09.2026: Entscheidungen in Phase 5d
+
+### Verlauf
+
+- „Verlauf …“ ist eine Aktion bei Code. Das Fenster zeigt alle Commits des aktuellen Branches, neueste oben, wie git log. Zum Beispiel „21.09.2026, Version 1.0.0: Hilfe ergänzt“. Die Version kommt aus einem Git-Tag wie v1.0.0.
+- Commits, die noch nicht auf der Plattform sind, enden mit „noch nicht hochgeladen“, wie der Pfeil in GitHub Desktop.
+- Enter oder „Details anzeigen …“ öffnet die Details. Oben stehen die Angaben als Liste: Nachricht, Autor und Datum, Version, Commit. Darunter die geänderten Dateien. Eine Liste liest sich mit der Braillezeile besser als ein Textfeld.
+- Die Schritte der Features pro Commit stehen in der neuen Tabelle commit_steps. Solange es keine Features gibt, bleibt sie leer.
+
+### Rückgängig machen
+
+- „Datei wiederherstellen …“ setzt nur die Datei im Ordner zurück (git restore). Der Verlauf bleibt. Wurde die Datei in dieser Version gelöscht, kommt sie mit dem Stand direkt davor zurück.
+- „Version rückgängig machen …“ erstellt einen neuen Commit „Rückgängig: …“ (git revert). Er ist danach noch nicht hochgeladen.
+- Geht das nicht von selbst, weil spätere Versionen dieselben Stellen geändert haben, bricht das Cockpit ab und ändert nichts. Es schlägt vor, einzelne Dateien wiederherzustellen. Ein Konfliktfenster wie beim Holen wäre hier verwirrend.
+- Ein Zusammenführen (Merge-Commit) und die erste Version lassen sich nicht als Ganzes rückgängig machen. Das Cockpit erklärt das ohne Rückfrage.
+- Hat eine betroffene Datei eigene Änderungen ohne Commit, macht das Cockpit nichts und bittet, sie zuerst hochzuladen oder zu verwerfen.
+- Neu, wie „Undo“ in GitHub Desktop: „Commit zurücknehmen …“ beim neuesten Commit, solange er nicht hochgeladen ist. Seine Änderungen bleiben in den Dateien und erscheinen wieder als Änderungen ohne Commit. Weil sich keine Datei ändert, gibt es dafür keine Sicherheitskopie.
+
+### Änderungen verwerfen
+
+- Verworfen werden nur Änderungen ohne Commit. Sie kommen auf den Stand des letzten Commits, wie „Discard changes“ in GitHub Desktop. Konzept 9.7 sagt „zuletzt hochgeladener Stand“. Für Commits, die noch nicht hochgeladen sind, gibt es dafür „Commit zurücknehmen“ oder „Version rückgängig machen“ im Verlauf.
+- In der Liste ist anfangs nichts ausgewählt. „Alle auswählen“ wählt alles. Ist nichts ausgewählt, sagt „Verwerfen …“, was fehlt.
+- Neue Dateien kommen über SHFileOperationW von Windows in den Papierkorb, ohne neue Bibliothek.
+- Die Aktion steht immer bei Code, auch ohne Änderungen. Dann ist sie „nicht verfügbar“ mit Grund.
+
+### Sicherheitskopien
+
+- Vor dem Wiederherstellen, Rückgängigmachen und Verwerfen kommen die betroffenen Dateien in eine Sicherheitskopie. Anlass: „vor dem Wiederherstellen“, „vor dem Rückgängigmachen“ oder „vor dem Verwerfen“. Sie erscheinen im Fenster „Sicherheitskopien“ aus 5c.
+

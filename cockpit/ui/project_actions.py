@@ -12,6 +12,7 @@ die Aktionen des Kerns und der Features.
 - Virtuelle Umgebung neu anlegen (Code, nur wenn sie nach dem Verschieben kaputt ist).
 - Herunterladen und Auf GitHub öffnen (Repository, das nur auf der Plattform liegt).
 - Änderungen hochladen, Änderungen holen und Konflikte lösen (Code, ab Phase 5c, sync_flow.py).
+- Verlauf und Änderungen verwerfen (Code, ab Phase 5d, history_dialogs.py).
 
 Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine Bestätigung.
 """
@@ -21,12 +22,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import core_actions, git, identity, project_setup, venv_repair
+from cockpit.core import core_actions, git, history, identity, project_setup, venv_repair
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import CODE_DIR, Project, classify_folder, same_drive
 from cockpit.core.remote_repos import StoredRepo
+from cockpit.core.text import count
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import (ask_buttons, choose_from_list, confirm, pick_folder,
@@ -75,6 +77,10 @@ class ProjectController:
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
                    self.pull_action, availability=_git_availability, visible=_on_platform,
                    order=20),
+            Action("history", "Verlauf …", Target.CODE, self.history_action,
+                   availability=_git_availability, visible=_is_repo, order=30),
+            Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
+                   availability=_discard_availability, visible=_is_repo, order=35),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
                    visible=lambda c: c.project is not None and not c.project.folder_found,
                    order=5),
@@ -372,6 +378,48 @@ class ProjectController:
             return
         PullRunner(self, context.project).resolve(kind)
 
+    # -- Verlauf und Rückgängig machen (Konzept 9.4 und 9.7) -------------------------------
+    def history_action(self, context: ActionContext) -> None:
+        project = context.project
+        services, window = self.services, self.window
+
+        def work(task: Task) -> list:
+            return history.log_commits(project.code_dir)
+
+        def done(commits: list) -> None:
+            from cockpit.ui.history_dialogs import HistoryDialog
+            dialog = HistoryDialog(services, project, commits, window)
+            dialog.exec()
+            if dialog.changed:
+                window.refresh_status([project.id])
+
+        self.run_task(f"project:{project.id}", work, done, "Verlauf")
+
+    def discard_action(self, context: ActionContext) -> None:
+        from cockpit.ui.history_dialogs import DiscardDialog
+        project = context.project
+        title = "Änderungen verwerfen"
+        try:
+            changes = history.local_changes(project.code_dir)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        if not changes:
+            self.window.refresh_status([project.id])
+            announce("Es gibt keine Änderungen ohne Commit.")
+            return
+        dialog = DiscardDialog(project.name, changes, self.window)
+        if not dialog.exec():
+            return
+        try:
+            history.discard(project.code_dir, project.name, dialog.chosen)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            self.window.refresh_status([project.id])
+            return
+        self.window.refresh_status([project.id])
+        announce(f"{count(len(dialog.chosen), 'Änderung', 'Änderungen')} verworfen.")
+
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
         project = context.project
@@ -537,6 +585,15 @@ def _git_availability(context: ActionContext) -> Availability:
     if git.find_git() is None:
         return Availability.no("Git ist nicht installiert.")
     return Availability.yes()
+
+
+def _discard_availability(context: ActionContext) -> Availability:
+    status = context.status
+    if status is not None and status.unfinished_merge:
+        return Availability.no("Bitte lösen Sie zuerst die Konflikte.")
+    if status is not None and status.repo is not None and not status.repo.changed:
+        return Availability.no("Es gibt keine Änderungen ohne Commit.")
+    return _git_availability(context)
 
 
 def _is_repo(context: ActionContext) -> bool:

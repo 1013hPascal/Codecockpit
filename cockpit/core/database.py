@@ -73,6 +73,15 @@ MIGRATIONS: list[str] = [
         UNIQUE (account_id, owner, name)
     );
     """,
+    # Phase 5d: ausgeführte Schritte der Features pro Commit, für die Details im Verlauf
+    """
+    CREATE TABLE commit_steps (
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        sha TEXT NOT NULL,
+        steps TEXT NOT NULL,
+        PRIMARY KEY (project_id, sha)
+    );
+    """,
 ]
 
 

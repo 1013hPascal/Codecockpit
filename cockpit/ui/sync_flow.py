@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import git, sync, upload
+from cockpit.core import git, history, sync, upload
 from cockpit.core.errors import CockpitError
 from cockpit.core.flows.engine import FlowContext
 from cockpit.core.projects import Project
@@ -165,6 +165,10 @@ class PushRunner(_Runner):
     def finished(self, outcome) -> None:
         summary, data = outcome
         self.refresh()
+        if data.get("commit"):
+            # Für die Details im Verlauf (ENTSCHEIDUNGEN.md)
+            history.record_steps(self.services.database, self.project.id, data["commit"],
+                                 history.feature_step_lines(summary))
         if summary.completed:
             announce(summary.text())
             return

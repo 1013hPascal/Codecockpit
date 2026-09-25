@@ -25,6 +25,9 @@ Ab Phase 5a mit Git (nur, wenn Git installiert ist):
   Tagebuch und Rezepte hochgeladen. Rezepte hat dazu einen eigenen Commit, der dieselbe Zeile
   ändert (Konflikt beim Zusammenführen). Bei Tagebuch gibt es einen Konflikt mit der Änderung,
   die noch nicht hochgeladen ist.
+- Ab Phase 5d: PDF-Chat hat einen Verlauf mit fünf Versionen, eine davon mit dem Tag v1.0.0. Dazu
+  kommen eine geänderte Datei (main.py) und eine neue Datei (versuch.py) zum Verwerfen. Der Commit
+  "Rezept geändert" in Rezepte ist noch nicht hochgeladen und lässt sich zurücknehmen.
 - Im Ordner Testdaten\\Andere Ordner liegen Ordner zum Prüfen von "Vorhandenes Projekt
   hinzufügen": "Wetter" (Projektordner mit Code), "Rechner" und "Firmenprojekt" (ohne Code),
   "Vereinsseite" (mit anderer Git-Identität), "codecockpit-test" (mit erfundenen Geheimnissen) und "Notizen" (neuer Ort für das fehlende Projekt).
@@ -100,7 +103,8 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     time.sleep(0.02)
     project("Tagebuch", {"main.py": "print('Tagebuch')\n", "README.md": "# Tagebuch\n"})
     time.sleep(0.02)
-    project("PDF-Chat", {"main.py": "print('PDF-Chat')\n", "README.md": "# PDF-Chat\n"},
+    project("PDF-Chat", {"main.py": "print('PDF-Chat')\n", "README.md": "# PDF-Chat\n",
+                         "alt.py": "# Diese Datei wird später gelöscht\n"},
             exe="PDF-Chat.exe")
     if git.find_git() is not None:
         try:
@@ -161,11 +165,12 @@ def add_git(base: Path, root: Path) -> None:
         code = root / name / "Code"
         _git(code, "init", "-q")
         _git(code, "add", "-A")
-        _git(code, "commit", "-q", "-m", "Erste Version")
+        _git(code, "commit", "-q", "-m", "Erste Version", "--date", "2026-09-19T09:00:00")
         bare = platform / f"{name}.git"
         _git(platform, "init", "-q", "--bare", str(bare))
         _git(code, "remote", "add", "origin", bare.as_uri())
         _git(code, "push", "-q", "-u", "origin", "main")
+    add_history(root / "PDF-Chat" / "Code")
     (root / "Tagebuch" / "Code" / "main.py").write_text("print('Tagebuch, geändert')\n",
                                                         encoding="utf-8")
     # Virtuelle Umgebung, die angeblich an einem anderen Ort angelegt wurde
@@ -185,6 +190,33 @@ def add_git(base: Path, root: Path) -> None:
     _git(root / "Tagebuch" / "Code", "commit", "-q", "-m", ".gitignore")
     _git(root / "Tagebuch" / "Code", "push", "-q")
     add_other_computer(base, root)
+
+
+def add_history(code: Path) -> None:
+    """Phase 5d: Verlauf für PDF-Chat, alles hochgeladen. Danach eine geänderte und eine neue
+    Datei, die noch nicht hochgeladen sind (zum Verwerfen)."""
+    versions = [
+        ("Hilfe ergänzt", {"hilfe.py": "print('Hilfe')\n"}, "2026-09-20T10:00:00"),
+        ("Einstellungen ergänzt", {"einstellungen.py": "SPRACHE = 'de'\n",
+                                   "main.py": "print('PDF-Chat mit Einstellungen')\n"},
+         "2026-09-21T11:30:00"),
+        ("Alte Datei entfernt", {"alt.py": None}, "2026-09-22T09:15:00"),
+        ("Hilfetext geändert", {"hilfe.py": "print('Hilfe, versehentlich kaputt')\n"},
+         "2026-09-23T16:45:00"),
+    ]
+    for message, files, date in versions:
+        for name, content in files.items():
+            if content is None:
+                (code / name).unlink()
+            else:
+                (code / name).write_text(content, encoding="utf-8")
+        _git(code, "add", "-A")
+        _git(code, "commit", "-q", "-m", message, "--date", date)
+        if message == "Hilfe ergänzt":
+            _git(code, "tag", "v1.0.0")
+    _git(code, "push", "-q", "--tags", "origin", "main")
+    (code / "main.py").write_text("print('PDF-Chat, nur ausprobiert')\n", encoding="utf-8")
+    (code / "versuch.py").write_text("print('Versuch')\n", encoding="utf-8")
 
 
 def add_other_computer(base: Path, root: Path) -> None:
