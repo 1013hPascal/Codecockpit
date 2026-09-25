@@ -24,3 +24,8 @@ Ideen für später:
 - Mit dem NVDA-Log oder der NVDA-Python-Konsole prüfen, ob die UIA-Benachrichtigung überhaupt ankommt.
 - Wichtige Rückmeldungen in Dialogen als Meldungsfenster mit OK, das funktioniert sicher.
 - Alternative: Text in ein Statusfeld im Dialog schreiben, das NVDA als Live-Region liest.
+
+
+## Geheimnis in einem früheren Commit (aus Phase 5b)
+
+Findet die Sicherheitsprüfung ein Geheimnis in einem Commit, der noch nicht hochgeladen ist, stoppt sie das Hochladen. Bereinigen geht bisher nur im Terminal. Idee für später: die noch nicht hochgeladenen Commits zu einem neuen Commit ohne das Geheimnis zusammenfassen. Das ist erlaubt, weil diese Commits noch nicht auf der Plattform sind. Es ist kein force push.

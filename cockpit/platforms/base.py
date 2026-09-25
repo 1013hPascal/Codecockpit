@@ -154,6 +154,14 @@ class Platform(Adapter):
     def links(self, repo: RepoRef) -> RepoLinks: ...
 
     @abstractmethod
+    def clone_url(self, repo: RepoRef) -> str:
+        """Adresse für Git (clone, push), ohne Zugangsdaten."""
+
+    def license_text(self, spdx: str, holder: str, year: int) -> str | None:
+        """Text einer Lizenz mit Name und Jahr, None wenn die Plattform keine Vorlagen hat."""
+        return None
+
+    @abstractmethod
     def git_credentials(self) -> GitCredentials: ...
 
 

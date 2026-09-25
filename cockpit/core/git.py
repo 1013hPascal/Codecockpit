@@ -122,6 +122,15 @@ def explain(result: subprocess.CompletedProcess, action: str = "") -> GitError:
     if "not found" in lowered and ("repository" in lowered or "remote" in lowered):
         return GitError("Das Repository wurde auf der Plattform nicht gefunden. Möglicherweise "
                         "fehlt der Zugriff.", details)
+    if "tell me who you are" in lowered or "empty ident" in lowered:
+        return GitError("Für Commits fehlen Name und E-Mail-Adresse. Bitte tragen Sie sie im "
+                        "Menü Einstellungen unter Grundeinstellungen ein.", details)
+    if "rejected" in lowered and ("fetch first" in lowered or "non-fast-forward" in lowered):
+        return GitError("Auf der Plattform gibt es Änderungen, die hier noch fehlen. Bitte holen "
+                        "Sie sie zuerst.", details)
+    if "protected branch" in lowered:
+        return GitError("Der Branch ist auf der Plattform geschützt. Direktes Hochladen ist dort "
+                        "nicht erlaubt.", details)
     if "not a git repository" in lowered:
         return GitError("Der Ordner ist kein Git-Repository.", details)
     if "already exists and is not an empty directory" in lowered:

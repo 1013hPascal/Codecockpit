@@ -1,7 +1,7 @@
 """Aktionen des Kerns für die Aktionsliste.
 
-Phase 2 enthält nur Aktionen, die schon funktionieren. Die übrigen Grundfunktionen (Hochladen,
-Verlauf, Repository verwalten ...) kommen in Phase 5 dazu.
+Hier stehen die einfachen Aktionen ohne Dialoge. Aktionen mit Rückfragen und Hintergrund-Arbeit
+(Hochladen, Herunterladen ...) stehen in der Oberfläche, siehe ui/project_actions.py.
 """
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ from pathlib import Path
 
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.availability import Availability
-
-PHASE_5 = "Diese Funktion kommt in Phase 5."
 
 
 def _open(path: Path) -> None:
@@ -74,13 +72,7 @@ def _run_exe(context: ActionContext) -> None:
     context.announce(f"{exe.name} wird gestartet.")
 
 
-def _not_yet(context: ActionContext) -> None:
-    context.announce(PHASE_5)
-
-
 CORE_ACTIONS: tuple[Action, ...] = (
-    Action("new_project", "Neues Projekt hochladen", Target.NEW_PROJECT, _not_yet,
-           availability=lambda c: Availability.no(PHASE_5), is_default=True, order=10),
     Action("open_project_dir", "Projektordner öffnen", Target.PROJECT, _open_project_dir,
            availability=_project_found, order=80),
     Action("open_code_dir", "Code-Ordner öffnen", Target.CODE, _open_code_dir,

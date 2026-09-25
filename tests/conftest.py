@@ -39,6 +39,7 @@ class FakePlatform(Platform):
         self.caps = set(Capability) if capabilities is None else capabilities
         self.repos: dict[RepoRef, RepoInfo] = {}
         self.remote: list = []                   # Antwort von repositories()
+        self.created: list = []                  # angelegte Repositories (NewRepo)
 
     def test_connection(self) -> TestResult:
         return TestResult(True, "Verbindung in Ordnung.")
@@ -62,8 +63,13 @@ class FakePlatform(Platform):
         return list(self.remote)
 
     def create_repo(self, spec: NewRepo) -> RepoRef:
-        ref = RepoRef("tester", spec.name)
+        ref = RepoRef(spec.organization or "tester", spec.name)
         self.repos[ref] = RepoInfo(ref, spec.private, False, "main", f"https://x/{spec.name}")
+        self.created.append(spec)
+        if self.base_dir is not None:              # echtes nacktes Repository für git push
+            import subprocess
+            subprocess.run(["git", "init", "-q", "--bare", str(self.base_dir / f"{spec.name}.git")],
+                           check=True, capture_output=True)
         return ref
 
     def repo_info(self, repo: RepoRef) -> RepoInfo:
@@ -78,6 +84,16 @@ class FakePlatform(Platform):
 
     def git_credentials(self) -> GitCredentials:
         return GitCredentials(False, {})
+
+    base_dir = None                               # Ordner für nackte Repositories (Tests)
+
+    def clone_url(self, repo: RepoRef) -> str:
+        if self.base_dir is not None:
+            return (self.base_dir / f"{repo.name}.git").as_uri()
+        return f"https://x/{repo.owner}/{repo.name}.git"
+
+    def license_text(self, spdx: str, holder: str, year: int) -> str | None:
+        return f"{spdx} License\n\nCopyright (c) {year} {holder}\n"
 
 
 class FakeAI(AIProvider):

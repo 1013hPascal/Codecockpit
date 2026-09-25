@@ -47,10 +47,18 @@ class ProjectController:
         self.services = window.services
         self.busy: set[str] = set()               # laufende Vorgänge, zum Beispiel "clone:3"
         self.tasks: list[Task] = []
+        self.upload = None                        # laufendes Hochladen (UploadRunner)
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
+        platform_name = self.window.project_list.platform_name
         return [
+            Action("new_project", "Neues Projekt hochladen …", Target.NEW_PROJECT,
+                   lambda c: self.new_project(), availability=self._upload_availability,
+                   is_default=True, order=10),
+            Action("upload_existing", f"Auf {platform_name} hochladen …", Target.CODE,
+                   self.upload_action, availability=self._upload_availability,
+                   visible=_not_on_platform, is_default=True, order=10),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
                    visible=lambda c: c.project is not None and not c.project.folder_found,
                    order=5),
@@ -62,7 +70,7 @@ class ProjectController:
                    self.repair_venv_action, visible=_venv_broken, order=45),
             Action("download", "Herunterladen", Target.REMOTE_REPO, self.download_action,
                    availability=self._download_availability, is_default=True, order=10),
-            Action("open_remote", f"Auf {self.window.project_list.platform_name} öffnen",
+            Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
         ]
 
@@ -210,6 +218,33 @@ class ProjectController:
             git.set_identity(project.code_dir, name, email)
             announce(f"Git-Identität von {project.name}: {name}, {email}.")
 
+    # -- Hochladen (Konzept 9.1) -------------------------------------------------------------
+    def _upload_availability(self, context: ActionContext) -> Availability:
+        if git.find_git() is None:
+            return Availability.no("Git ist nicht installiert.")
+        if not self.services.platform_accounts():
+            return Availability.no("Es ist noch kein Konto bei einer Plattform eingerichtet.")
+        return Availability.yes()
+
+    def new_project(self) -> None:
+        from cockpit.ui.upload_flow import UploadRunner
+        folder = pick_folder(self.window, "Ordner mit dem Code wählen")
+        if folder is None:
+            return
+        kind, project_dir = classify_folder(folder)
+        existing = self.services.projects.find_by_dir(project_dir) if kind == "project"             else self.services.projects.find_by_code_dir(folder)
+        if existing is not None:
+            self.window.show_project(existing.id)
+            show_error(self.window, "Neues Projekt hochladen", f"Der Ordner gehört schon zum "
+                       f"Projekt {existing.name}. Wählen Sie dort bei Code die Aktion Auf "
+                       f"{self.window.project_list.platform_name} hochladen.")
+            return
+        UploadRunner(self, source=folder).start()
+
+    def upload_action(self, context: ActionContext) -> None:
+        from cockpit.ui.upload_flow import UploadRunner
+        UploadRunner(self, project=context.project).start()
+
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
         project = context.project
@@ -348,6 +383,12 @@ class ProjectController:
 
         self.run_task(f"project:{project.id}", work, done, "Virtuelle Umgebung",
                       on_status=announce)
+
+
+def _not_on_platform(context: ActionContext) -> bool:
+    status = context.status
+    return (context.project is not None and context.project.folder_found
+            and status is not None and status.repo is not None and not status.on_platform)
 
 
 def _is_repo(context: ActionContext) -> bool:

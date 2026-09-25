@@ -300,6 +300,22 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         page = f"{web_base(self.url)}/{repo.owner}/{repo.name}"
         return RepoLinks(page, f"{page}#readme", f"{page}/releases/latest")
 
+    def clone_url(self, repo: RepoRef) -> str:
+        return f"{web_base(self.url)}/{repo.owner}/{repo.name}.git"
+
+    def license_text(self, spdx: str, holder: str, year: int) -> str | None:
+        """Lizenztext aus den Vorlagen von GitHub, mit Name und Jahr (Konzept 9.1)."""
+        try:
+            body = self.request("GET", f"/licenses/{spdx.lower()}", "Lizenztext lesen").json()
+        except NotFound:
+            return None
+        text = str(body.get("body", ""))
+        for placeholder in ("[year]", "[yyyy]"):
+            text = text.replace(placeholder, str(year))
+        for placeholder in ("[fullname]", "[name of copyright owner]"):
+            text = text.replace(placeholder, holder)
+        return text or None
+
     def git_credentials(self) -> GitCredentials:
         """Token für Git über Umgebungsvariablen, nie über die Befehlszeile (CLAUDE.md)."""
         basic = base64.b64encode(f"x-access-token:{self.token.reveal()}".encode()).decode()

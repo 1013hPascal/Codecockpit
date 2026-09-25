@@ -108,6 +108,16 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     for name in ("Rechner", "Firmenprojekt"):
         (others / name).mkdir(parents=True)
         (others / name / "main.py").write_text(f"print('{name}')\n", encoding="utf-8")
+    # Für "Neues Projekt hochladen" (Phase 5b): mit erfundenem Token, Passwort-Zeile, .env und
+    # Datenbank. Der Token wird erst hier zusammengesetzt und ist nicht echt.
+    test = others / "codecockpit-test"
+    test.mkdir(parents=True)
+    fake_token = "ghp" + "_" + "Erfunden" + "0123456789" * 3
+    (test / "main.py").write_text("print('Test für CodeCockpit')\n", encoding="utf-8")
+    (test / "config.py").write_text(f'TOKEN = "{fake_token}"\npassword = "Sommer2026!"\n',
+                                    encoding="utf-8")
+    (test / ".env").write_text("GEHEIM=erfunden\n", encoding="utf-8")
+    (test / "daten.db").write_bytes(b"SQLite format 3\0erfunden")
     # Neuer Ort für Notizen (das Projekt fehlt im Hauptordner)
     (others / "Notizen" / "Code").mkdir(parents=True)
     (others / "Notizen" / "Code" / "notizen.py").write_text("print('Notizen')\n",

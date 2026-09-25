@@ -81,6 +81,9 @@ class TestPlatform(Platform):
     def links(self, repo: RepoRef) -> RepoLinks:
         raise CockpitError(_NOT_REAL)
 
+    def clone_url(self, repo: RepoRef) -> str:
+        raise CockpitError(_NOT_REAL)
+
     def git_credentials(self) -> GitCredentials:
         return GitCredentials(False, {})
 

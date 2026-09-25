@@ -284,7 +284,8 @@ def test_exe_label_names_file_and_date(window, projects_root):
 def test_actions_follow_the_tree_selection(window):
     win = window()
     assert win.actions_list.texts() == [
-        "Neues Projekt hochladen, nicht verfügbar: Diese Funktion kommt in Phase 5."]
+        "Neues Projekt hochladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
+        "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
     assert win.actions_list.texts() == ["Projektordner öffnen"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
@@ -297,8 +298,8 @@ def test_unavailable_action_announces_reason(window, qtbot):
     win = window()
     win.focus_actions()
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
-    assert announcer.last_text == ("Neues Projekt hochladen ist nicht verfügbar. "
-                                   "Diese Funktion kommt in Phase 5.")
+    assert announcer.last_text == ("Neues Projekt hochladen … ist nicht verfügbar. "
+                                   "Es ist noch kein Konto bei einer Plattform eingerichtet.")
 
 
 def test_enter_and_space_run_actions(window, qtbot, monkeypatch):

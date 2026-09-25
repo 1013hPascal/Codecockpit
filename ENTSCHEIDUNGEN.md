@@ -351,3 +351,25 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 ### Testdaten
 
 - Die Testdaten haben jetzt Git-Repositories mit einer „Plattform“ aus Ordnern, eine kaputte virtuelle Umgebung und einen Ordner `Andere Ordner` zum Hinzufügen.
+
+
+## 25.09.2026: Entscheidungen in Phase 5b
+
+### Neues Projekt hochladen
+
+- Das Fenster fragt nach Name, Kurzbeschreibung, Sichtbarkeit, Lizenz und Ziel. Die Auswahl der Features für das Projekt (Konzept 9.1) kommt mit der Feature-Verwaltung in Phase 7, weil es vorher keine Features gibt.
+- Beim Kopieren bleiben die virtuelle Umgebung und Caches weg (.venv, venv, __pycache__ und ähnliche). Eine virtuelle Umgebung funktioniert nach dem Kopieren ohnehin nicht mehr.
+- Der Namensvorschlag ersetzt Leerzeichen durch Bindestriche und schreibt Umlaute um, zum Beispiel „Mein Übersetzer“ zu „Mein-Uebersetzer“.
+- Ist die Sichtbarkeit „Öffentlich“, sagt die Rückfrage ausdrücklich: „Jeder im Internet kann den Code sehen.“
+- Das Ergebnis kommt als Meldung mit OK, der Link liegt in der Zwischenablage.
+- Bricht etwas ab, bleibt das Projekt in der Liste. „Auf GitHub hochladen“ setzt dort wieder an. Ein schon angelegtes Repository wird nicht noch einmal angelegt.
+- Hat ein Projekt schon Commits, aber noch keinen Upload, und gibt es offene Änderungen, heißt der zusätzliche Commit „Änderungen vor dem ersten Hochladen“.
+
+### Sicherheitsprüfung
+
+- Geheimnisse, Schlüsseldateien, `.env`-Dateien und Dateien ab 100 MB stoppen das Hochladen. Gelöst wird das mit „In .gitignore aufnehmen“, „Kein Geheimnis“ oder durch Bearbeiten der Datei und „Erneut prüfen“.
+- Warnungen (private Daten, Dateien ab 50 MB) kommen beim Weiter in .gitignore, wenn nicht „Trotzdem hochladen“ gewählt wurde. Das ist die sichere Vorgabe aus den Fragen zu Phase 5.
+- Eine private E-Mail-Adresse in einem öffentlichen Repository lässt sich nicht mit .gitignore lösen. „Weiter“ geht dann erst nach „Trotzdem hochladen“.
+- Die Prüfung sieht auch in Commits, die noch nicht hochgeladen sind. Ein Geheimnis dort stoppt das Hochladen, auch wenn die Datei es heute nicht mehr enthält. Einen bequemen Weg, solche Commits zu bereinigen, gibt es noch nicht (TODO.md).
+- „In .gitignore aufnehmen“ nimmt eine Datei, die schon in Git ist, dort heraus (git rm --cached). Die Datei bleibt auf der Festplatte.
+- Platzhalter wie „changeme“, „<…>“ oder Werte, die mit „test“ oder „example“ beginnen, gelten nicht als Passwort.
