@@ -25,7 +25,7 @@ Inhalt:
 - [ ] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md)
   - [x] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
   - [x] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
-  - [ ] 5c: Änderungen hochladen, Änderungen holen mit Konflikten und Beiseitelegen (Herunterladen kam schon in 5b)
+  - [x] 5c: Änderungen hochladen, Änderungen holen mit Konflikten und Beiseitelegen (Herunterladen kam schon in 5b)
   - [ ] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
   - [ ] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
   - [ ] 5f: Übersicht „Branches“ und Stash

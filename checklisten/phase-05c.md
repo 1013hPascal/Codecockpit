@@ -208,17 +208,17 @@ Bitte `start_testdaten.bat` neu starten. Dann sind PDF-Chat, Tagebuch und Rezept
 
 Ihr Wunsch zu „Projekt neu einlesen“ ist auch umgesetzt. Bei Projekt, Code und Exe steht die Aktion jetzt ganz oben in der Aktionsliste, in der Einzahl. Im Menü Datei heißt es weiter „Projekte neu einlesen“. Neu ist auch: Nach einer Aktion bleibt die Markierung in der Aktionsliste auf dieser Aktion und springt nicht mehr nach oben.
 
-[ ] 25. Projekt neu einlesen
+[x] 25. Projekt neu einlesen
 Tasten: Auf PDF-Chat Tab. Umschalt+Tab, Pfeil rechts, Pfeil runter auf Code, Tab. Dasselbe bei Exe. Auf Code „Projekt neu einlesen“ mit Enter.
 Erwartet: Bei Projekt, Code und Exe ist „Projekt neu einlesen“ der erste Eintrag. Enter auf Code führt weiter „Änderungen hochladen …“ aus, nicht das Neueinlesen. Nach Enter auf „Projekt neu einlesen“ sagt NVDA „PDF-Chat neu eingelesen.“ Die Markierung bleibt auf „Projekt neu einlesen“.
 Ergebnis:
 
-[ ] 26. Hinweis bei Code
+[x] 26. Hinweis bei Code
 Tasten: Zu Code von Tagebuch.
 Erwartet: Die Zeile heißt „Code, 1 Datei noch nicht hochgeladen, 1 Änderung auf GitHub noch nicht geholt“.
 Ergebnis:
 
-[ ] 27. Beschriftung bei einem Konflikt in Tagebuch
+[x] 27. Beschriftung bei einem Konflikt in Tagebuch
 Tasten: Bei Code von Tagebuch holen, „Beiseitelegen und holen“. Im Fenster Konflikte „Konflikt im Editor anzeigen“. Die Datei lesen, ohne Änderung schließen. Dann Escape.
 Erwartet: Im Editor steht:
 - „<<<<<<< Fassung von GitHub, main.py Zeile 1“
@@ -234,22 +234,22 @@ Tasten: Bei Code von Rezepte holen, „Holen“. Im Fenster Konflikte „Konflik
 Erwartet: Oben steht „<<<<<<< Meine Fassung, rezepte.py Zeile 1“ mit „REZEPT = 'Kartoffelsuppe'“. Dann „======= Fassung von GitHub, rezepte.py Zeile 1“ mit „REZEPT = 'Apfelstrudel'“. Am Ende „>>>>>>> Ende des Konflikts“. Die Liste zeigt „rezepte.py, im Editor angezeigt, noch Konfliktmarken“. Lassen Sie den Editor offen.
 Ergebnis:
 
-[ ] 29. Zusammenführen abschließen
+[x] 29. Zusammenführen abschließen
 Tasten: Im Fenster Konflikte mit Tab zu „Zusammenführen abschließen“, Enter. Dann im Editor alle Zeilen durch `REZEPT = 'Kartoffelsuppe und Apfelstrudel'` ersetzen, speichern, schließen. Im Fenster Konflikte „Erneut prüfen“. Dann Enter.
 Erwartet: Das erste Enter sagt „Noch nicht fertig. Noch 1 Konflikt.“, der Fokus geht in die Liste auf rezepte.py. „Erneut prüfen“ sagt „Gelöst: rezepte.py. Alle Konflikte gelöst.“, und der Fokus steht auf „Zusammenführen abschließen“. Enter schließt ab, NVDA sagt „Zusammenführen abgeschlossen.“
 Ergebnis:
 
-[ ] 30. Hochladen nach dem Zusammenführen
+[x] 30. Hochladen nach dem Zusammenführen
 Tasten: Auf Code von Rezepte Enter, „Hochladen“.
 Erwartet: Die Frage heißt „2 Commits sind noch nicht auf GitHub. Jetzt hochladen?“. Danach „Fertig. Branch main ist hochgeladen.“
 Ergebnis:
 
-[ ] 31. Sicherheitskopien
+[x] 31. Sicherheitskopien
 Tasten: Alt+D, dann S. Pfeiltasten in der Liste. Tab zu „Dateien anzeigen …“, Enter. In der Liste der Dateien Tab zu „Datei öffnen“, Enter, Editor wieder schließen. Dann „Wiederherstellen …“, die Frage lesen, Escape. Mit Escape zurück in die Liste der Kopien.
 Erwartet: Das Fenster heißt „Sicherheitskopien: …“ mit der Anzahl. Die Zeilen beginnen mit Datum und Uhrzeit, dann Projekt, Anlass und Anzahl, zum Beispiel „25.09.2026 15:10, Tagebuch, vor dem Holen, 1 Datei“. Die neueste steht oben. Das Fenster der Dateien nennt im Titel die Kopie und den Ordner, aus dem die Dateien kommen. „Datei öffnen“ zeigt die gesicherte Fassung. Die Frage beim Wiederherstellen sagt, wohin die Datei kommt und dass die jetzige Datei vorher gesichert wird. Vorgabe ist „Abbrechen“, Escape ändert nichts.
 Ergebnis:
 
-[ ] 32. Wiederherstellen und Löschen
+[x] 32. Wiederherstellen und Löschen
 Tasten: Bei einer Kopie von Tagebuch „Dateien anzeigen …“, dann „Wiederherstellen …“ und „Wiederherstellen“. Escape. Dann in der Liste der Kopien „Löschen …“ auf der obersten Kopie, „Löschen“.
 Erwartet: NVDA sagt „main.py wiederhergestellt.“ In der Liste steht oben eine neue Kopie „…, Tagebuch, vor dem Wiederherstellen, 1 Datei“ mit der Fassung von vorher. Nach dem Löschen sagt NVDA „Sicherheitskopie gelöscht.“, und die Kopie ist weg. Der Fokus bleibt in der Liste.
 Ergebnis:
