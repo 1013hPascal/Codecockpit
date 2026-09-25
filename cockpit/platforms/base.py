@@ -204,6 +204,10 @@ class SupportsCollaborators:
         Beispiel Mitglieder derselben Organisation)."""
         raise NotImplementedError
 
+    def change_permission(self, repo: RepoRef, person: Collaborator, permission: str) -> None:
+        """Recht eines Mitarbeiters oder einer offenen Einladung ändern."""
+        raise NotImplementedError
+
     def remove_collaborator(self, repo: RepoRef, login: str) -> None:
         raise NotImplementedError
 

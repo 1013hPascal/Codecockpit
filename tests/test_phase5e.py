@@ -79,6 +79,11 @@ class RepoFake(FakePlatform, SupportsCollaborators):
         self.people.append(Collaborator(login, permission, 9))
         return True
 
+    def change_permission(self, repo, person, permission):
+        self.calls.append(("change", person.login, permission))
+        self.people = [Collaborator(p.login, permission, p.invitation_id)
+                       if p.login == person.login else p for p in self.people]
+
     def remove_collaborator(self, repo, login):
         self.calls.append(("remove", login))
         self.people = [p for p in self.people if p.login != login]
@@ -651,8 +656,12 @@ def test_collaborators_dialog(qtbot, answers, monkeypatch):
     qtbot.addWidget(dialog)
     idle(qtbot, dialog)
     assert dialog.windowTitle() == "Mitarbeiter von Tagebuch: 2 Einträge"
-    assert [dialog.list.item(i).text() for i in range(2)] == ["erika, schreiben",
-                                                              "max, eingeladen, lesen"]
+    # Wunsch aus dem Test von 5e: "Einladen …" oben, darunter die Mitarbeiter
+    assert [dialog.list.item(i).text() for i in range(3)] == [
+        "Einladen …", "erika, schreiben", "max, eingeladen, lesen"]
+    assert dialog.rights.accessibleName() == "Recht"
+    dialog.change_right()                                          # Zeile "Einladen …"
+    assert said("Bitte wählen Sie in der Liste zuerst einen Mitarbeiter.")
 
     class FakeInvite:
         def __init__(self, platform_name, parent=None):
@@ -662,21 +671,58 @@ def test_collaborators_dialog(qtbot, answers, monkeypatch):
             return 1
 
     monkeypatch.setattr(repo_dialogs, "InviteDialog", FakeInvite)
-    dialog.invite()
+    from PySide6.QtCore import Qt
+    dialog.list.setCurrentRow(0)
+    qtbot.keyClick(dialog.list, Qt.Key.Key_Return)                 # Enter auf "Einladen …"
     idle(qtbot, dialog)
     qtbot.waitUntil(lambda: said("Einladung an neu verschickt."), timeout=5000)
     assert ("invite", "neu", "admin") in fake.calls
-    dialog.list.setCurrentRow(1)                                   # max, eingeladen
+    assert dialog.list.currentItem().text() == "neu, eingeladen, verwalten"
+    assert dialog.rights.currentText() == "verwalten"
+
+    dialog.list.setCurrentRow(1)                                   # erika, schreiben
+    assert dialog.rights.currentText() == "schreiben"
+    dialog.rights.setCurrentIndex(0)                               # lesen
+    dialog.change_right()
+    idle(qtbot, dialog)
+    qtbot.waitUntil(lambda: said("Recht von erika: lesen."), timeout=5000)
+    assert fake.calls[-1] == ("change", "erika", "read")
+    assert dialog.list.currentItem().text() == "erika, lesen"
+    dialog.change_right()                                          # unverändert
+    assert said("erika hat schon das Recht lesen.")
+
+    dialog.list.setCurrentRow(2)                                   # max, eingeladen
     dialog.remove_current()
     assert answers.questions[-1][2] == {"yes": "Zurückziehen", "no": "Abbrechen"}
     idle(qtbot, dialog)
     qtbot.waitUntil(lambda: said("Einladung an max zurückgezogen."), timeout=5000)
-    dialog.list.setCurrentRow(0)                                   # erika
+    dialog.list.setCurrentRow(1)                                   # erika
     dialog.remove_current()
     assert "wird als Mitarbeiter entfernt" in answers.questions[-1][1]
     idle(qtbot, dialog)
     qtbot.waitUntil(lambda: said("erika entfernt."), timeout=5000)
     assert fake.calls[-2:] == [("cancel", 7), ("remove", "erika")]
+
+
+def test_rights_field_shows_other_github_rights(qtbot):
+    fake = RepoFake()
+    fake.people = [Collaborator("zora", "maintain")]
+    dialog = repo_dialogs.CollaboratorsDialog(fake, RepoRef("tester", "Tagebuch"))
+    qtbot.addWidget(dialog)
+    idle(qtbot, dialog)
+    dialog.list.setCurrentRow(1)
+    assert dialog.rights.currentText() == "pflegen"
+    assert dialog.rights.count() == 4
+
+
+def test_github_change_permission(server):
+    ref = RepoRef("o", "r")
+    server.route("PUT", "/repos/o/r/collaborators/erika", 204)
+    github_platform().change_permission(ref, Collaborator("erika", "write"), "read")
+    assert json.loads(server.requests[-1].content) == {"permission": "pull"}
+    server.route("PATCH", "/repos/o/r/invitations/42", 200, {})
+    github_platform().change_permission(ref, Collaborator("max", "read", 42), "admin")
+    assert json.loads(server.requests[-1].content) == {"permissions": "admin"}
 
 
 def test_invite_dialog(qtbot, monkeypatch):

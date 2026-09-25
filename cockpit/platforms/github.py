@@ -337,6 +337,18 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators):
                            "Repository ist nicht erreichbar.", exc.details) from None
         return response.status_code == 201
 
+    def change_permission(self, repo: RepoRef, person: Collaborator, permission: str) -> None:
+        value = INVITE_PERMISSIONS.get(permission, "push")
+        base = f"/repos/{repo.owner}/{repo.name}"
+        if person.invited:
+            # Bei Einladungen heißen die Werte read, write, admin ...
+            self.request("PATCH", f"{base}/invitations/{person.invitation_id}",
+                         "Recht ändern", Capability.COLLABORATORS,
+                         json={"permissions": permission})
+            return
+        self.request("PUT", f"{base}/collaborators/{person.login}", "Recht ändern",
+                     Capability.COLLABORATORS, json={"permission": value})
+
     def remove_collaborator(self, repo: RepoRef, login: str) -> None:
         self.request("DELETE", f"/repos/{repo.owner}/{repo.name}/collaborators/{login}",
                      "Mitarbeiter entfernen", Capability.COLLABORATORS)

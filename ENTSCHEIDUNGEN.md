@@ -479,6 +479,7 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Die Liste zeigt direkte Mitarbeiter und offene Einladungen, zum Beispiel „erika, schreiben“ und „max, eingeladen, lesen“.
 - Beim Einladen wählt man „lesen“, „schreiben“ oder „verwalten“. Vorgabe ist „schreiben“. GitHub kennt noch „sichten“ und „pflegen“. Sie werden angezeigt, aber beim Einladen nicht angeboten, damit die Auswahl kurz bleibt.
 - „Entfernen …“ zieht bei einer offenen Einladung die Einladung zurück.
+- Nach dem NVDA-Test von 5e: „Einladen …“ steht als oberste Zeile in der Liste, darunter die Mitarbeiter. Enter auf „Einladen …“ lädt ein. Mit Tab folgen das Feld „Recht“ mit dem Recht des markierten Mitarbeiters, „Zugriffsrecht ändern“ und „Entfernen …“. Das Recht ändern geht auch bei offenen Einladungen.
 
 ### Aus der Liste entfernen
 

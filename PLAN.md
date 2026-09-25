@@ -27,7 +27,7 @@ Inhalt:
   - [x] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
   - [x] 5c: Änderungen hochladen, Änderungen holen mit Konflikten und Beiseitelegen (Herunterladen kam schon in 5b)
   - [x] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
-  - [ ] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
+  - [x] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
   - [ ] 5f: Übersicht „Branches“ und Stash
 - [ ] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen)
 - [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten

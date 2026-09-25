@@ -452,6 +452,12 @@ def collaborator_line(person: Collaborator) -> str:
 
 
 class CollaboratorsDialog(FocusDialog):
+    """Wunsch aus dem Test von 5e: Oben in der Liste steht "Einladen …", darunter die Mitarbeiter.
+    Tab führt zum Recht des markierten Mitarbeiters, dann zu "Zugriffsrecht ändern" und
+    "Entfernen …". Enter auf "Einladen …" lädt ein, Enter auf einem Mitarbeiter tut nichts."""
+
+    INVITE_ROW = "Einladen …"
+
     def __init__(self, platform, ref, platform_name: str = "GitHub",
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -463,23 +469,31 @@ class CollaboratorsDialog(FocusDialog):
         self.setWindowTitle(f"Mitarbeiter von {ref.name}")
         self.list = QListWidget()
         name_widget(self.list, "Mitarbeiter")
-        self.list.addItem("Wird geladen …")
+        self.list.addItems([self.INVITE_ROW, "Wird geladen …"])
+        self.list.setCurrentRow(0)
         self.list.installEventFilter(self)
-        invite = QPushButton("&Einladen …")
-        invite.clicked.connect(self.invite)
+        self.list.currentRowChanged.connect(lambda _row: self.show_right())
+        self.rights = QComboBox()
+        name_widget(self.rights, "Recht")
+        self.change_button = QPushButton("Zugriffsrecht ä&ndern")
+        self.change_button.clicked.connect(self.change_right)
         self.remove_button = QPushButton("&Entfernen …")
         self.remove_button.clicked.connect(self.remove_current)
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 1)
-        layout.addLayout(_buttons(invite, self.remove_button, None, close))
+        layout.addLayout(_buttons(self.rights, self.change_button, self.remove_button, None,
+                                  close))
         self.resize(560, 360)
         self.initial_focus_widget = self.list
+        self.show_right()
         self.load()
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.list and _is_enter(event):
+            if self.list.currentRow() == 0:
+                self.invite()
             return True
         return super().eventFilter(watched, event)
 
@@ -487,28 +501,54 @@ class CollaboratorsDialog(FocusDialog):
         self.worker.wait()
         super().done(code)
 
-    def load(self, then: str = "") -> None:
+    def load(self, then: str = "", select: str = "") -> None:
         platform, ref = self.platform, self.ref
 
         def done(people) -> None:
-            self.fill(people)
+            self.fill(people, select)
             if then:
                 announce(then)
 
         self.worker.run(lambda: platform.collaborators(ref), done)
 
-    def fill(self, people: list[Collaborator]) -> None:
+    def fill(self, people: list[Collaborator], select: str = "") -> None:
         row = max(0, self.list.currentRow())
         self.people = people
         self.setWindowTitle(f"Mitarbeiter von {self.ref.name}: "
                             f"{count(len(people), 'Eintrag', 'Einträge')}")
         self.list.clear()
+        self.list.addItem(self.INVITE_ROW)
         self.list.addItems([collaborator_line(p) for p in people] or ["Noch keine Mitarbeiter."])
+        logins = [p.login.lower() for p in people]
+        if select.lower() in logins:
+            row = logins.index(select.lower()) + 1
         self.list.setCurrentRow(min(row, self.list.count() - 1))
+        self.show_right()
 
     def current(self) -> Collaborator | None:
-        row = self.list.currentRow()
+        row = self.list.currentRow() - 1               # Zeile 0 ist "Einladen …"
         return self.people[row] if 0 <= row < len(self.people) else None
+
+    def show_right(self) -> None:
+        """Das Feld Recht zeigt das Recht des markierten Mitarbeiters."""
+        person = self.current()
+        choices = list(INVITE_CHOICES)
+        if person is not None and person.permission not in choices:
+            choices.append(person.permission)          # zum Beispiel "pflegen" von GitHub
+        self.rights.blockSignals(True)
+        self.rights.clear()
+        self.rights.addItems([PERMISSION_NAMES.get(c, c) for c in choices])
+        self.rights.setCurrentIndex(choices.index(person.permission) if person else
+                                    choices.index("write"))
+        self.rights.blockSignals(False)
+        self._choices = choices
+
+    def _need_person(self) -> Collaborator | None:
+        person = self.current()
+        if person is None:
+            announce("Bitte wählen Sie in der Liste zuerst einen Mitarbeiter.")
+            self.list.setFocus()
+        return person
 
     def invite(self) -> None:
         dialog = InviteDialog(self.platform_name, self)
@@ -520,14 +560,30 @@ class CollaboratorsDialog(FocusDialog):
         def done(invited: bool) -> None:
             self.list.setFocus()
             self.load(f"Einladung an {login} verschickt." if invited
-                      else f"{login} ist jetzt Mitarbeiter.")
+                      else f"{login} ist jetzt Mitarbeiter.", select=login)
 
         self.worker.run(lambda: platform.invite(ref, login, permission), done)
 
-    def remove_current(self) -> None:
-        person = self.current()
+    def change_right(self) -> None:
+        person = self._need_person()
         if person is None:
-            announce("Es gibt keinen Mitarbeiter.")
+            return
+        permission = self._choices[self.rights.currentIndex()]
+        name = PERMISSION_NAMES.get(permission, permission)
+        if permission == person.permission:
+            announce(f"{person.login} hat schon das Recht {name}.")
+            return
+        platform, ref = self.platform, self.ref
+
+        def done(_value) -> None:
+            self.load(f"Recht von {person.login}: {name}.", select=person.login)
+            self.change_button.setFocus()
+
+        self.worker.run(lambda: platform.change_permission(ref, person, permission), done)
+
+    def remove_current(self) -> None:
+        person = self._need_person()
+        if person is None:
             return
         platform, ref = self.platform, self.ref
         if person.invited:
