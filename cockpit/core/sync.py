@@ -258,12 +258,13 @@ def fetch(code_dir: Path, env: dict[str, str] | None = None,
     return incoming
 
 
-def backup(code_dir: Path, project_name: str, incoming: Incoming) -> Path:
-    """Sicherheitskopie vor dem Holen: alle Dateien, die das Holen ändern könnte, und alle
-    eigenen Änderungen. Dazu der Commit vor dem Holen in Sicherheitskopie.txt."""
+def backup(code_dir: Path, project_name: str, incoming: Incoming,
+           reason: str = "vor dem Holen") -> Path:
+    """Sicherheitskopie vor dem Holen oder Übernehmen: alle Dateien, die das Zusammenführen ändern
+    könnte, und alle eigenen Änderungen. Dazu der Commit davor in Sicherheitskopie.txt."""
     head = git.run(["rev-parse", "HEAD"], code_dir, action="Sicherheitskopie").stdout.strip()
-    target = backups.new_backup_dir(project_name, "vor dem Holen", code_dir, [
-        f"Commit vor dem Holen: {head}", f"Branch: {incoming.branch}"])
+    target = backups.new_backup_dir(project_name, reason, code_dir, [
+        f"Commit {reason}: {head}", f"Branch: {incoming.branch}"])
     for relative in sorted(set(incoming.files) | set(incoming.local)):
         source = code_dir / relative
         if source.is_file():
@@ -281,13 +282,14 @@ class MergeOutcome:
     stash_kept: bool = False                            # Änderungen liegen noch im Stash
 
 
-def merge(code_dir: Path, stash: bool) -> MergeOutcome:
-    """git merge mit dem Stand der Plattform. stash: eigene Änderungen vorher beiseitelegen."""
+def merge(code_dir: Path, stash: bool, source: str = "@{u}") -> MergeOutcome:
+    """git merge mit dem Stand der Plattform (source "@{u}") oder einem anderen Branch.
+    stash: eigene Änderungen vorher beiseitelegen."""
     git.run(["update-ref", BEFORE_PULL_REF, "HEAD"], code_dir, action="Holen")
     if stash:
         git.run(["stash", "push", "--include-untracked", "-m", STASH_MESSAGE], code_dir,
                 action="Beiseitelegen")
-    result = git.run(["merge", "--no-edit", "@{u}"], code_dir, check=False)
+    result = git.run(["merge", "--no-edit", source], code_dir, check=False)
     if result.returncode != 0:
         found = conflicted(code_dir)
         if found:
@@ -313,6 +315,19 @@ def conflicted(code_dir: Path) -> list[str]:
     """Dateien mit einem offenen Konflikt."""
     result = git.run(["diff", "--name-only", "-z", "--diff-filter=U"], code_dir, check=False)
     return sorted({f for f in result.stdout.split("\0") if f})
+
+
+def merge_source_label(code_dir: Path, platform_name: str = "GitHub") -> str:
+    """Wessen Fassung beim Zusammenführen die zweite ist: die Plattform oder ein Branch. Git
+    schreibt den Branch in .git/MERGE_MSG, zum Beispiel "Merge branch 'suche-pdfs'"."""
+    try:
+        first = (code_dir / ".git" / "MERGE_MSG").read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError):
+        return platform_name
+    prefix = "Merge branch '"
+    if first.startswith(prefix) and "' of " not in first:
+        return f"Branch {first[len(prefix):].split(chr(39))[0]}"
+    return platform_name
 
 
 def merging(code_dir: Path) -> bool:

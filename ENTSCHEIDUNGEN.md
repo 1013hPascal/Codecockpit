@@ -486,3 +486,29 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Beim Projekt: Das Cockpit merkt sich den Ordner. Beim Durchsuchen des Hauptordners und mit Strg+R kommt er nicht wieder. „Projekt vom Rechner hinzufügen“ hebt das auf. Liegt das Projekt auf GitHub, erscheint es danach auch nicht als „nur auf GitHub“.
 - Bei „nur auf GitHub“: Das Repository verschwindet aus der Liste. Bei „Projekt von GitHub herunterladen“ steht es weiter zur Wahl. Nach dem Herunterladen ist es wieder normal in der Liste.
 
+
+## 26.09.2026: Entscheidungen in Phase 5f
+
+### Übersicht „Branches“
+
+- „Branches …“ ist eine Aktion bei Code, sobald es einen Commit gibt. Beim Öffnen holt das Cockpit den Stand der Plattform (git fetch --prune). Klappt das nicht, zeigt es den letzten bekannten Stand und sagt das kurz an.
+- Die Liste zeigt zuerst den aktuellen Branch, dann den Haupt-Branch, dann die übrigen mit dem neuesten Commit zuerst. Jede Zeile nennt den Namen vorne und dann den Stand, zum Beispiel „suche-pdfs, 2 Commits vor main, noch nicht auf GitHub“ oder „design, 1 Commit vor main, nur auf GitHub“.
+- Enter wechselt zum markierten Branch, wie ein Klick in GitHub Desktop. Wechseln ohne eigene Änderungen fragt nicht nach, weil dabei nichts verloren geht.
+- Gibt es Änderungen ohne Commit, fragt das Cockpit wie GitHub Desktop: „Beiseitelegen und wechseln“, „Mitnehmen und wechseln“ oder „Abbrechen“ (Vorgabe). Passen mitgenommene Änderungen nicht zum anderen Branch, wechselt Git nicht, und nichts ändert sich.
+- Beim Zurückwechseln fragt das Cockpit, ob es die dort beiseitegelegten Änderungen zurückholen soll. Vorgabe ist „Später“.
+- Ein neuer Branch beginnt beim aktuellen Stand. Änderungen ohne Commit kommen mit, wie bei git switch -c. Hochgeladen wird er mit „Änderungen hochladen“.
+- „In main übernehmen …“ wechselt bei Bedarf zu main und führt den markierten Branch dort zusammen (git merge). Vorher gibt es eine Sicherheitskopie. Konflikte löst man im selben Fenster wie beim Holen, die zweite Fassung heißt dort „Fassung von Branch …“. Danach ist main noch nicht hochgeladen.
+- Umbenennen auf der Plattform geht wie im Terminal: den neuen Namen hochladen, den alten löschen. Die Rückfrage sagt, dass offene Pull Requests zum alten Namen dabei geschlossen werden. Den Haupt-Branch benennt das Cockpit nicht um.
+- Löschen fragt, ob nur hier oder auch auf der Plattform. Vorgabe ist „Abbrechen“. Der aktuelle und der Haupt-Branch lassen sich nicht löschen. Der letzte Commit eines gelöschten Branches bleibt unter refs/codecockpit/geloescht/ erreichbar, damit nichts verloren geht.
+- Die Projektliste zeigt bei einem neuen Branch „Branch noch nicht auf GitHub“ statt „alles hochgeladen“.
+- Das Holen nennt den Branch, wenn es nicht der Haupt-Branch ist: „Geholt: 1 neuer Commit von GitHub in Branch suche.“
+- Branch wechseln bei „Änderungen hochladen“ und Pull Requests kommen mit Phase 6.
+
+### Beiseitegelegte Änderungen (Stash)
+
+- „Änderungen beiseitelegen …“ bei Code legt alle Änderungen ohne Commit beiseite, auch neue Dateien. Die Nachricht nennt den Branch: „CodeCockpit: beiseitegelegt auf main“. Vorher gibt es eine Sicherheitskopie.
+- „Beiseitegelegte Änderungen …“ erscheint bei Code nur, wenn es welche gibt. Code zeigt dann „Änderungen beiseitegelegt“.
+- Die Zeilen nennen Datum, Branch und Dateien, zum Beispiel „25.09.2026 14:03, auf main, 2 Dateien: main.py und neu.txt“. Was das Holen beiseitegelegt hat, endet mit „vor dem Holen“.
+- „Zurückholen …“ geht nur ohne eigene Änderungen. Passen die Änderungen nicht mehr zum Stand, stellt das Cockpit alles wieder her, und sie bleiben beiseitegelegt. Dann hilft „Als neuen Branch zurückholen …“ (git stash branch). Das passt immer, weil der Branch dort beginnt, wo beiseitegelegt wurde.
+- „Löschen …“ legt vorher die Dateien als Sicherheitskopie an.
+

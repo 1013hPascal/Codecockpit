@@ -28,6 +28,9 @@ Ab Phase 5a mit Git (nur, wenn Git installiert ist):
 - Ab Phase 5d: PDF-Chat hat einen Verlauf mit fünf Versionen, eine davon mit dem Tag v1.0.0. Dazu
   kommen eine geänderte Datei (main.py) und eine neue Datei (versuch.py) zum Verwerfen. Der Commit
   "Rezept geändert" in Rezepte ist noch nicht hochgeladen und lässt sich zurücknehmen.
+- Ab Phase 5f: PDF-Chat hat den Branch "suche-pdfs" mit 2 Commits (hochgeladen) und auf der
+  Plattform den Branch "neues-design", den es hier noch nicht gibt. In Rezepte liegt eine
+  beiseitegelegte Änderung (notiz.txt).
 - Im Ordner Testdaten\\Andere Ordner liegen Ordner zum Prüfen von "Vorhandenes Projekt
   hinzufügen": "Wetter" (Projektordner mit Code), "Rechner" und "Firmenprojekt" (ohne Code),
   "Vereinsseite" (mit anderer Git-Identität), "codecockpit-test" (mit erfundenen Geheimnissen) und "Notizen" (neuer Ort für das fehlende Projekt).
@@ -215,6 +218,14 @@ def add_history(code: Path) -> None:
         if message == "Hilfe ergänzt":
             _git(code, "tag", "v1.0.0")
     _git(code, "push", "-q", "--tags", "origin", "main")
+    # Phase 5f: ein Branch mit zwei Commits, hochgeladen
+    _git(code, "switch", "-q", "-c", "suche-pdfs")
+    for number, date in ((1, "2026-09-24T10:00:00"), (2, "2026-09-24T15:30:00")):
+        (code / "pdf_suche.py").write_text(f"SCHRITT = {number}\n", encoding="utf-8")
+        _git(code, "add", "-A")
+        _git(code, "commit", "-q", "-m", f"PDF-Suche, Schritt {number}", "--date", date)
+    _git(code, "push", "-q", "-u", "origin", "suche-pdfs")
+    _git(code, "switch", "-q", "main")
     (code / "main.py").write_text("print('PDF-Chat, nur ausprobiert')\n", encoding="utf-8")
     (code / "versuch.py").write_text("print('Versuch')\n", encoding="utf-8")
 
@@ -242,9 +253,20 @@ def add_other_computer(base: Path, root: Path) -> None:
         _git(other / name, "add", "-A")
         _git(other / name, "commit", "-q", "-m", message)
         _git(other / name, "push", "-q")
+    # Phase 5f: ein Branch, den es nur auf der Plattform gibt
+    design = other / "PDF-Chat"
+    _git(design, "switch", "-q", "-c", "neues-design")
+    (design / "design.css").write_text("body { font-size: 120%; }\n", encoding="utf-8")
+    _git(design, "add", "-A")
+    _git(design, "commit", "-q", "-m", "Größere Schrift")
+    _git(design, "push", "-q", "-u", "origin", "neues-design")
     code = root / "Rezepte" / "Code"
     (code / "rezepte.py").write_text("REZEPT = 'Kartoffelsuppe'\n", encoding="utf-8")
     _git(code, "commit", "-q", "-am", "Rezept geändert")
+    # Phase 5f: eine beiseitegelegte Änderung
+    (code / "notiz.txt").write_text("Mehr Salz probieren.\n", encoding="utf-8")
+    _git(code, "stash", "push", "-q", "--include-untracked", "-m",
+         "CodeCockpit: beiseitegelegt auf main")
     for name in changes:
         _git(root / name / "Code", "fetch", "-q")
 

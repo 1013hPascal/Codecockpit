@@ -637,3 +637,8 @@ class InviteDialog(FocusDialog):
         self.login = login
         self.permission = INVITE_CHOICES[self.rights.currentIndex()]
         self.accept()
+
+
+# Auch für andere Fenster mit Hintergrund-Arbeit (Branches, Phase 5f)
+DialogWorker = _Worker
+button_row = _buttons

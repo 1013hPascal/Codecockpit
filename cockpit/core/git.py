@@ -191,6 +191,8 @@ class RepoStatus:
     last_upload: str = ""                  # Datum des letzten hochgeladenen Commits, ISO
     conflicts: list[str] = field(default_factory=list)     # Dateien mit Konflikt
     merging: bool = False                  # Zusammenführen noch nicht abgeschlossen
+    stashes: int = 0                       # beiseitegelegte Änderungen (git stash)
+    has_commits: bool = False              # False: noch kein einziger Commit
 
     @property
     def remote(self) -> RemoteAddress | None:
@@ -210,7 +212,9 @@ def status(code_dir: Path) -> RepoStatus:
     state = RepoStatus(is_repo=True)
     entries = iter(result.stdout.split("\0"))
     for entry in entries:
-        if entry.startswith("# branch.head "):
+        if entry.startswith("# branch.oid "):
+            state.has_commits = entry[len("# branch.oid "):] != "(initial)"
+        elif entry.startswith("# branch.head "):
             head = entry[len("# branch.head "):]
             state.branch = "" if head == "(detached)" else head
         elif entry.startswith("# branch.upstream "):
@@ -230,6 +234,8 @@ def status(code_dir: Path) -> RepoStatus:
             state.changed.append(entry[2:])
     state.remote_url = config_get(code_dir, "remote.origin.url")
     state.merging = (code_dir / ".git" / "MERGE_HEAD").exists()
+    stash_list = run(["stash", "list"], code_dir, check=False).stdout
+    state.stashes = len([line for line in stash_list.splitlines() if line.strip()])
     head = run(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], code_dir,
                check=False).stdout.strip()
     state.default_branch = head.partition("/")[2] or MAIN_BRANCH

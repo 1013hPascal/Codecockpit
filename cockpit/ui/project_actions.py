@@ -14,6 +14,7 @@ die Aktionen des Kerns und der Features.
 - Änderungen hochladen, Änderungen holen und Konflikte lösen (Code, ab Phase 5c, sync_flow.py).
 - Verlauf und Änderungen verwerfen (Code, ab Phase 5d, history_dialogs.py).
 - Links, Repository verwalten und Aus der Liste entfernen (Projekt, ab Phase 5e, repo_dialogs.py).
+- Branches, Beiseitelegen und beiseitegelegte Änderungen (Code, ab Phase 5f, branch_dialogs.py).
 
 Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine Bestätigung.
 """
@@ -79,6 +80,12 @@ class ProjectController:
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
                    self.pull_action, availability=_git_availability, visible=_on_platform,
                    order=20),
+            Action("branches", "Branches …", Target.CODE, self.branches_action,
+                   availability=_git_availability, visible=_has_commits, order=25),
+            Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
+                   availability=_discard_availability, visible=_has_commits, order=36),
+            Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
+                   visible=_has_stashes, order=37),
             Action("history", "Verlauf …", Target.CODE, self.history_action,
                    availability=_git_availability, visible=_is_repo, order=30),
             Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
@@ -430,6 +437,75 @@ class ProjectController:
         self.window.refresh_status([project.id])
         announce(f"{count(len(dialog.chosen), 'Änderung', 'Änderungen')} verworfen.")
 
+    # -- Branches und beiseitegelegte Änderungen (Konzept 10.14) ----------------------------
+    def branches_action(self, context: ActionContext) -> None:
+        from cockpit.core import branches, sync
+        project = context.project
+        on_platform = bool(git.config_get(project.code_dir, "remote.origin.url"))
+        needs_account = project.account_id is not None or (
+            project.remote is not None
+            and self.services.account_for_host(project.remote.host) is not None)
+        if on_platform and needs_account and not vault_ui.ensure_unlocked(self.services,
+                                                                          self.window):
+            return
+        services, window = self.services, self.window
+        platform_name = window.project_list.platform_name
+
+        def work(task: Task):
+            env = sync.environment(services, project) if on_platform else {}
+            note = ""
+            try:
+                branches.refresh(project.code_dir, env, task.cancel_event)
+            except CockpitError as exc:
+                log.warning("Branches von %s nicht abgefragt: %s", project.name, exc.message)
+                note = f"Stand von {platform_name} nicht abgefragt. {exc.message}"
+            return env, branches.list_branches(project.code_dir), note
+
+        def done(outcome) -> None:
+            from cockpit.ui.branch_dialogs import BranchesDialog
+            env, items, note = outcome
+            if note:
+                announce(note)
+            dialog = BranchesDialog(project, items, env, platform_name, window)
+            dialog.exec()
+            window.refresh_status([project.id])
+
+        self.run_task(f"project:{project.id}", work, done, "Branches")
+
+    def stash_push_action(self, context: ActionContext) -> None:
+        from cockpit.core import branches, sync
+        project = context.project
+        title = "Änderungen beiseitelegen"
+        try:
+            changes = sync.changes(project.code_dir)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        if not changes:
+            announce("Es gibt keine Änderungen ohne Commit.")
+            return
+        text = (f"Alle Änderungen ohne Commit werden beiseitegelegt: {changes.summary()}. Die "
+                "Dateien kommen danach auf den Stand des letzten Commits. Mit „Beiseitegelegte "
+                "Änderungen“ holen Sie sie zurück. Vorher kommen die Dateien auch als "
+                "Sicherheitskopie in den Ordner backups. Beiseitelegen?")
+        if not confirm(self.window, title, text, yes="Beiseitelegen", no="Abbrechen"):
+            return
+        try:
+            branches.stash_push(project.code_dir, project.name)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        self.window.refresh_status([project.id])
+        announce("Änderungen beiseitegelegt.")
+
+    def stashes_action(self, context: ActionContext) -> None:
+        from cockpit.ui.branch_dialogs import StashDialog
+        project = context.project
+        dialog = StashDialog(project, self.window)
+        dialog.exec()
+        if dialog.changed:
+            self.window.refresh_status([project.id])
+
     # -- Links, Repository verwalten, Aus der Liste entfernen (Konzept 9.5) --------------------
     def _account_availability(self, context: ActionContext) -> Availability:
         if context.project is None or repo_admin.account_for(self.services,
@@ -649,6 +725,18 @@ def _key(repo) -> str:
     from urllib.parse import urlparse
     host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
     return git.RemoteAddress(host, repo.ref.owner, repo.ref.name).key
+
+
+def _has_commits(context: ActionContext) -> bool:
+    """Branches gibt es erst ab dem ersten Commit."""
+    status = context.status
+    return (status is not None and status.repo is not None and status.repo.is_repo
+            and status.repo.has_commits)
+
+
+def _has_stashes(context: ActionContext) -> bool:
+    status = context.status
+    return status is not None and status.repo is not None and status.repo.stashes > 0
 
 
 def _has_remote(context: ActionContext) -> bool:

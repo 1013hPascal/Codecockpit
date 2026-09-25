@@ -255,18 +255,21 @@ class PullRunner(_Runner):
             return sync.merge(project.code_dir, stash)
 
         def done(outcome: MergeOutcome) -> None:
-            self.after_merge(outcome, incoming.behind)
+            self.after_merge(outcome, incoming.behind, incoming.branch)
 
         self.controller.run_task(self.key, work, done, self.title)
 
-    def after_merge(self, outcome: MergeOutcome, behind: int = 0) -> None:
+    def after_merge(self, outcome: MergeOutcome, behind: int = 0, branch: str = "") -> None:
         self.refresh()
         if outcome.kind is not ConflictKind.NONE:
             self.resolve(outcome.kind)
             return
         if behind:
+            # Ansagen nennen den Branch, wenn es nicht der Haupt-Branch ist (Konzept 10.14)
+            where = "" if not branch or branch == git.status(self.project.code_dir).default_branch \
+                else f" in Branch {branch}"
             announce(f"Geholt: {count(behind, 'neuer Commit', 'neue Commits')} von "
-                     f"{self.platform_name}.")
+                     f"{self.platform_name}{where}.")
         else:
             announce("Zusammenführen abgeschlossen.")
         self._continue()
@@ -282,7 +285,10 @@ class PullRunner(_Runner):
         geschlossen wurde."""
         code_dir = self.project.code_dir
         announce(f"Konflikte beim Zusammenführen in {self.project.name}.")
-        dialog = sync_dialogs.ConflictDialog(code_dir, kind, self.platform_name, self.window)
+        # Beim Übernehmen eines Branches ist die zweite Fassung die des Branches (Phase 5f)
+        label = (sync.merge_source_label(code_dir, self.platform_name)
+                 if kind is ConflictKind.MERGE else self.platform_name)
+        dialog = sync_dialogs.ConflictDialog(code_dir, kind, label, self.window)
         if dialog.exec():
             try:
                 outcome = sync.finish(code_dir, kind)

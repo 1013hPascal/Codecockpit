@@ -124,6 +124,8 @@ def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> st
         parts.append(status.unfinished_merge)
     if not status.on_platform:
         parts.append(f"noch nicht auf {platform_name}")
+    elif status.repo.branch and not status.repo.upstream:
+        parts.append(f"Branch noch nicht auf {platform_name}")   # neuer Branch (Phase 5f)
     elif status.pending:
         parts.append(f"{count(status.pending, 'Datei', 'Dateien')} noch nicht hochgeladen")
     else:
@@ -132,6 +134,8 @@ def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> st
         # Wie beim Projekt, damit man an Code sieht, dass hier geholt werden muss
         parts.append(f"{count(status.repo.behind, 'Änderung', 'Änderungen')} auf "
                      f"{platform_name} noch nicht geholt")
+    if status.repo.stashes:
+        parts.append("Änderungen beiseitegelegt")
     return ", ".join(parts)
 
 
