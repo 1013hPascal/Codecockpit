@@ -226,3 +226,36 @@ Neue Einträge kommen ans Ende.
 - Ansagen hängen am Steuerelement mit dem Fokus, nicht mehr fest am Hauptfenster. NVDA liest nur Ansagen aus dem Fenster, das vorne ist. Aus Dialogen kam deshalb vorher nichts an. Ansagen, während das Cockpit nicht vorne ist, werden beim Zurückkehren nachgeholt.
 - Wichtige Bestätigungen kommen als Meldung mit OK: Master-Passwort geändert, Speicherart gewechselt, Tresor automatisch gesperrt. Wunsch des Nutzers.
 - Jede Ansage wird etwa eine halbe Sekunde verzögert gesendet, an das Steuerelement, das dann den Fokus hat. Ein Fokuswechsel direkt nach einer Ansage hat sie in NVDA sonst abgebrochen.
+
+
+## 25.09.2026: Entscheidungen in Phase 4
+
+### Bibliotheken
+
+- `httpx` für alle Verbindungen, wie schon festgelegt. `truststore`, damit Zertifikate aus dem Windows-Zertifikatsspeicher gelten (Konzept 6.2).
+
+### Anmeldung im Browser
+
+- Device Flow einer OAuth-App mit öffentlicher Client-ID, ohne Client Secret. Anleitung zur Registrierung: `anleitungen\github-oauth-app-registrieren.md`.
+- Rechte bei der Anmeldung: repo, read:org und workflow. Das Recht zum Löschen (delete_repo) fragt das Cockpit erst an, wenn wirklich gelöscht werden soll (Phase 5).
+- Nur für github.com. GitHub Enterprise Server bräuchte eine eigene OAuth-App auf dem Firmenserver. Dort bleibt der selbst erstellte Token.
+- Der Token aus dem Browser erscheint nie im Eingabefeld. Er geht direkt in den Tresor.
+
+### Selbst erstellter Token
+
+- Empfohlen ist ein Fine-grained Token. Anleitung mit den nötigen Rechten: `anleitungen\github-token-erstellen.md`, auch im Menü Hilfe.
+- Bei Fine-grained Tokens meldet GitHub keine Rechte im Voraus. Das Cockpit erklärt fehlende Rechte deshalb erst beim ersten Versuch.
+
+### Verbindungstest
+
+- Läuft im Hintergrund, die Oberfläche bleibt bedienbar. Das Ergebnis erscheint als Meldungsfenster, weil Ansagen in Dialogen noch nicht zuverlässig sind (TODO.md).
+- Nennt Benutzername und Organisationen und trägt den Benutzernamen selbst ein.
+- Bei Single Sign-On bietet das Cockpit an, die Freigabeseite im Browser zu öffnen.
+
+### Einrichtungsassistent
+
+- Neue Seite „GitHub-Konto“ nach dem Tresor. Die Seite Git-Identität kann die anonyme noreply-Adresse vom GitHub-Konto übernehmen.
+
+### Git und Token
+
+- Git bekommt den Token später über Umgebungsvariablen (GIT_CONFIG_COUNT und http.extraheader), nie über die Befehlszeile. Der Log-Filter maskiert auch diese kodierte Form.

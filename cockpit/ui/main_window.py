@@ -174,6 +174,7 @@ class MainWindow(QMainWindow):
                      "Ctrl+Shift+M")
         self._action(help_menu, "&Meldungen …", self.show_messages, "Ctrl+Shift+L")
         self._action(help_menu, "&Git installieren …", self.show_git_guide)
+        self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
 
@@ -301,14 +302,20 @@ class MainWindow(QMainWindow):
     def show_messages(self) -> None:
         MessagesDialog(announcer.newest_first(), self).exec()
 
-    def show_git_guide(self) -> None:
-        path = paths.resource_dir() / git.GUIDE
+    def show_guide(self, relative_path: str, title: str) -> None:
+        """Anleitung aus dem Ordner anleitungen als Liste zeigen."""
         try:
-            text = path.read_text(encoding="utf-8")
+            text = (paths.resource_dir() / relative_path).read_text(encoding="utf-8")
         except OSError as exc:
-            show_error(self, "Git installieren", "Die Anleitung wurde nicht gefunden.", str(exc))
+            show_error(self, title, "Die Anleitung wurde nicht gefunden.", str(exc))
             return
-        TextDialog("Git installieren", text, "Anleitung Git installieren", self).exec()
+        TextDialog(title, text, f"Anleitung {title}", self).exec()
+
+    def show_git_guide(self) -> None:
+        self.show_guide(git.GUIDE, "Git installieren")
+
+    def show_token_guide(self) -> None:
+        self.show_guide("anleitungen/github-token-erstellen.md", "GitHub-Token erstellen")
 
     def show_about(self) -> None:
         text = [f"{APP_NAME} Version {__version__}",

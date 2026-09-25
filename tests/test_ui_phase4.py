@@ -1,0 +1,222 @@
+"""Oberfläche Phase 4: Anmeldung im Browser, GitHub-Konto im Assistenten, Hinweise zu Single Sign-On."""
+from __future__ import annotations
+
+import httpx
+import pytest
+from PySide6.QtWidgets import QApplication, QPushButton
+
+from cockpit.adapters.base import TestResult
+from cockpit.core.accounts import find_type
+from cockpit.core.errors import CockpitError
+from cockpit.core.secret import Secret
+from cockpit.platforms import github
+from cockpit.platforms.base import BrowserLogin
+from cockpit.platforms.github import GitHubPlatform
+from cockpit.ui import accounts_dialog as ad
+from cockpit.ui import browser_login_dialog as bld
+from cockpit.ui import setup_wizard as sw
+from tests.conftest import FakeVault, said
+from tests.test_github import TOKEN, FakeGitHub
+from tests.test_ui import show_active
+
+
+@pytest.fixture(autouse=True)
+def no_blocking_dialogs(monkeypatch):
+    """Meldungsfenster würden die Tests anhalten."""
+    opened: list[str] = []
+    monkeypatch.setattr(bld, "open_url", opened.append)
+    monkeypatch.setattr(bld, "show_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ad, "show_info", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ad, "show_error", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
+    monkeypatch.setattr(sw, "show_error", lambda *args, **kwargs: None)
+    return opened
+
+
+@pytest.fixture
+def server(monkeypatch):
+    fake = FakeGitHub()
+    monkeypatch.setattr(GitHubPlatform, "transport", httpx.MockTransport(fake.handler))
+    return fake
+
+
+class FakeLoginPlatform:
+    """Plattform mit Anmeldung im Browser, ohne Netz."""
+    display_name = "GitHub"
+    fail = False
+
+    def __init__(self, url="", token=None):
+        self.token = token
+
+    @classmethod
+    def start_browser_login(cls, url=""):
+        return BrowserLogin("ABCD-1234", "https://github.com/login/device", "geraet", 5, 900)
+
+    @classmethod
+    def wait_for_browser_login(cls, login, url="", cancel=None):
+        if cls.fail:
+            raise CockpitError("Die Anmeldung wurde im Browser abgelehnt.")
+        return Secret(TOKEN)
+
+    def current_user(self):
+        from cockpit.platforms.base import User
+        return User("1013hPascal", "94653295")
+
+
+# -- Anmeldung im Browser -------------------------------------------------------------------
+def test_browser_login_dialog_shows_code_opens_browser_and_returns_token(qtbot,
+                                                                          no_blocking_dialogs):
+    dialog = bld.BrowserLoginDialog(FakeLoginPlatform)
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: dialog.token is not None, timeout=5000)
+    assert dialog.token.reveal() == TOKEN
+    assert dialog.username == "1013hPascal"
+    assert dialog.steps.item(0).text() == "Ihr Code: ABCD-1234"
+    assert QApplication.clipboard().text() == "ABCD-1234"
+    assert no_blocking_dialogs == ["https://github.com/login/device"]
+    assert said("Angemeldet als 1013hPascal.")
+
+
+def test_browser_login_denied(qtbot, monkeypatch):
+    monkeypatch.setattr(FakeLoginPlatform, "fail", True)
+    dialog = bld.BrowserLoginDialog(FakeLoginPlatform)
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: dialog.result() == 0 and not dialog.isVisible()
+                    and said("abgelehnt"), timeout=5000)
+    assert dialog.token is None
+
+
+def test_browser_button_only_with_client_id(qtbot, make_services, monkeypatch):
+    services = make_services(vault=FakeVault())
+    account_type = find_type("platform", "github")
+    monkeypatch.setattr(github, "CLIENT_ID", "")
+    without = ad.AccountEditDialog(services, account_type)
+    qtbot.addWidget(without)
+    assert without.browser_button is None
+    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    dialog = ad.AccountEditDialog(services, account_type)
+    qtbot.addWidget(dialog)
+    assert dialog.browser_button.text() == "Im &Browser anmelden …"
+
+
+def test_browser_login_fills_the_account(qtbot, make_services, monkeypatch):
+    services = make_services(vault=FakeVault())
+    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+
+    class Done:
+        def __init__(self, *args):
+            self.token, self.username = Secret(TOKEN), "1013hPascal"
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(bld, "BrowserLoginDialog", Done)
+    dialog.browser_login()
+    assert dialog.form.fields["username"].get() == "1013hPascal"
+    assert dialog.form.fields["display_name"].get() == "GitHub 1013hPascal"
+    token_field = dialog.form.fields["token"].focus
+    assert token_field.text() == ""                          # Token nie sichtbar im Feld
+    assert token_field.placeholderText() == "Über die Anmeldung im Browser erhalten"
+    dialog.save()
+    assert services.accounts.values(dialog.saved)["token"].reveal() == TOKEN
+
+
+def test_connection_test_fills_username(qtbot, make_services, server):
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    dialog.form.fields["token"].focus.setText(TOKEN)
+    dialog.test_connection()
+    qtbot.waitUntil(lambda: dialog.form.fields["username"].get() == "1013hPascal", timeout=5000)
+    assert said("Verbindung in Ordnung. Angemeldet als 1013hPascal.")
+
+
+def test_sso_result_offers_the_link(qtbot, monkeypatch, no_blocking_dialogs):
+    monkeypatch.setattr(ad, "confirm", lambda *args, **kwargs: True)
+    ad.show_test_result(None, TestResult(False, github.SSO_REQUIRED, "HTTP 403",
+                                         link="https://github.com/orgs/firma/sso",
+                                         link_text="Freigabeseite im Browser öffnen?"))
+    assert no_blocking_dialogs == ["https://github.com/orgs/firma/sso"]
+
+
+def test_ui_stays_usable_during_connection_test(qtbot, make_services, monkeypatch):
+    """Das Netz läuft im Hintergrund: Die Schaltfläche ist gesperrt, bis der Test fertig ist."""
+    services = make_services(vault=FakeVault())
+    dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
+    qtbot.addWidget(dialog)
+    dialog.form.fields["token"].focus.setText(TOKEN)
+
+    def slow(request):
+        import time
+        time.sleep(0.3)
+        return httpx.Response(401, json={"message": "Bad credentials"})
+
+    monkeypatch.setattr(GitHubPlatform, "transport", httpx.MockTransport(slow))
+    dialog.test_connection()
+    assert not dialog.test_button.isEnabled()
+    assert said("Verbindung wird getestet")
+    qtbot.waitUntil(dialog.test_button.isEnabled, timeout=5000)
+
+
+# -- Assistent ------------------------------------------------------------------------------
+@pytest.fixture
+def wizard(qtbot, make_services):
+    services = make_services()
+    services.use_vault(services.make_vault("windows"))       # Test-Tresor im Arbeitsspeicher
+    dialog = sw.SetupWizard(services)
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    return dialog, services
+
+
+def go_to(dialog, title: str) -> None:
+    while dialog.page.title != title:
+        dialog.skip() if dialog.page.can_skip else dialog.next()
+
+
+def test_wizard_github_page_needs_account_or_skip(wizard):
+    dialog, services = wizard
+    go_to(dialog, "GitHub-Konto")
+    assert dialog.heading.text() == "Schritt 4 von 7: GitHub-Konto"
+    assert dialog.focusWidget() is dialog.page.text
+    assert dialog.page.setup_button.text() == "GitHub-Konto &einrichten …"
+    dialog.next()
+    assert dialog.page.title == "GitHub-Konto"                # ohne Konto geht es nicht weiter
+    services.accounts.create(find_type("platform", "github"), "GitHub privat",
+                             {"username": "1013hPascal", "token": Secret(TOKEN)})
+    dialog.page.on_show()
+    dialog.next()
+    assert dialog.page.title == "Projekte-Hauptordner"
+    assert dialog.pages[3].done_text == "GitHub-Konto: GitHub privat, 1013hPascal."
+
+
+def test_wizard_takes_the_noreply_address(wizard, server, qtbot):
+    dialog, services = wizard
+    services.accounts.create(find_type("platform", "github"), "GitHub privat",
+                             {"username": "1013hPascal", "token": Secret(TOKEN)})
+    go_to(dialog, "Git-Identität")
+    page = dialog.page
+    assert page.noreply_button.isVisible()
+    page.take_noreply()
+    qtbot.waitUntil(lambda: page.form.fields["git_email"].get() != "", timeout=5000)
+    assert page.form.fields["git_email"].get() == "94653295+1013hPascal@users.noreply.github.com"
+    assert page.form.fields["git_name"].get() == "1013hPascal"
+
+
+def test_noreply_button_hidden_without_github_account(wizard):
+    dialog, _ = wizard
+    go_to(dialog, "Git-Identität")
+    assert not dialog.page.noreply_button.isVisible()
+
+
+def test_wizard_mnemonics_still_unique(wizard):
+    import re
+    dialog, _ = wizard
+    for page in dialog.pages:
+        texts = [b.text() for b in (dialog.back_button, dialog.skip_button, dialog.next_button,
+                                    dialog.cancel_button)]
+        texts += [w.text() for w in page.findChildren(QPushButton)]
+        keys = [m.group(1).lower() for t in texts if (m := re.search(r"&(\w)", t))]
+        assert len(keys) == len(set(keys)), (page.title, texts)

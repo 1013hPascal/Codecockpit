@@ -31,6 +31,7 @@ def no_blocking_questions(monkeypatch):
     """Rückfragen beim Schließen (zum Beispiel "Einrichtung abbrechen?") würden die Tests
     anhalten. Tests, die eine Antwort prüfen, ersetzen confirm selbst."""
     monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
+    monkeypatch.setattr(sw, "show_error", lambda *args, **kwargs: None)
     monkeypatch.setattr(ad, "show_info", lambda *args, **kwargs: None)
     shown_infos.clear()
     monkeypatch.setattr("cockpit.ui.vault_settings_dialog.show_info",
@@ -118,14 +119,14 @@ def wizard(qtbot, make_services):
 
 def test_wizard_pages_and_announcements(wizard, monkeypatch):
     dialog, services = wizard()
-    assert [p.title for p in dialog.pages] == ["Willkommen", "Git", "Tresor",
+    assert [p.title for p in dialog.pages] == ["Willkommen", "Git", "Tresor", "GitHub-Konto",
                                                "Projekte-Hauptordner", "Git-Identität",
                                                "Zusammenfassung"]
-    assert dialog.heading.text() == "Schritt 1 von 6: Willkommen"
+    assert dialog.heading.text() == "Schritt 1 von 7: Willkommen"
     assert not dialog.skip_button.isVisible()
     assert not dialog.back_button.isEnabled()
     dialog.next()
-    assert said("Schritt 2 von 6: Git.")
+    assert said("Schritt 2 von 7: Git.")
     assert dialog.skip_button.isVisible()
     dialog.next()
     assert dialog.page.title == "Tresor"
@@ -146,6 +147,7 @@ def test_wizard_full_run_with_windows_vault(wizard, projects_root):
     dialog.next()                                            # Git
     dialog.next()                                            # Tresor: Windows
     assert services.settings.load().vault_kind == "windows"
+    dialog.skip()                                            # GitHub-Konto
     dialog.next()                                            # Hauptordner
     identity = dialog.page
     identity.form.fields["git_name"].set("1013hPascal")
@@ -164,6 +166,7 @@ def test_wizard_skip_is_listed_in_summary(wizard):
     dialog, services = wizard()
     for _ in range(3):
         dialog.next()
+    dialog.skip()                                            # GitHub-Konto
     dialog.skip()                                            # Hauptordner
     dialog.skip()                                            # Git-Identität
     summary = [dialog.page.list.item(r).text() for r in range(dialog.page.list.count())]
@@ -200,8 +203,10 @@ def test_wizard_cancelled_vault_password_stays_on_page(wizard, monkeypatch):
 def test_wizard_identity_needs_both_or_skip(wizard, monkeypatch):
     shown = errors_to(monkeypatch, sw)
     dialog, _ = wizard()
-    for _ in range(4):
+    for _ in range(3):
         dialog.next()
+    dialog.skip()                                            # GitHub-Konto
+    dialog.next()                                            # Hauptordner
     dialog.page.form.fields["git_name"].set("Nur Name")
     dialog.next()
     assert dialog.page.title == "Git-Identität"
@@ -296,6 +301,7 @@ def test_account_edit_connection_test_uses_stored_secret(qtbot, accounts, monkey
     edit = ad.AccountEditDialog(services, account_type, account)
     qtbot.addWidget(edit)
     edit.test_connection()
+    qtbot.waitUntil(lambda: bool(infos), timeout=5000)
     assert infos == ["Angemeldet als a."]
     assert said("Angemeldet als a.")
 
@@ -310,6 +316,7 @@ def test_failed_connection_test_shows_details(qtbot, accounts, monkeypatch):
     edit.form.fields["username"].set("a")
     edit.form.fields["token"].focus.setText("falsch-1")
     edit.test_connection()
+    qtbot.waitUntil(lambda: bool(errors), timeout=5000)
     assert errors == [("Der Token wurde abgelehnt.", "HTTP 401")]
     assert announcer.messages[-1].urgent
 

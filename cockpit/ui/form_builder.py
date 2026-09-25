@@ -130,10 +130,14 @@ class SettingsForm(QWidget):
     def raw_values(self) -> dict[str, Any]:
         return {key: entry.get() for key, entry in self.fields.items()}
 
-    def values(self) -> dict[str, Any]:
-        """Geprüfte Werte. Wirft FormError mit der Kennung des ersten fehlerhaften Felds."""
+    def values(self, skip: set[str] | frozenset[str] = frozenset()) -> dict[str, Any]:
+        """Geprüfte Werte. Wirft FormError mit der Kennung des ersten fehlerhaften Felds.
+        Felder in skip werden nicht geprüft (zum Beispiel ein Token aus der Anmeldung im
+        Browser, der gar nicht im Feld steht)."""
         result = {}
         for key, entry in self.fields.items():
+            if key in skip:
+                continue
             try:
                 result[key] = entry.spec.check(entry.get())
             except ValueError as exc:

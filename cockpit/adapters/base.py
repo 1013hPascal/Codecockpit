@@ -24,6 +24,8 @@ class TestResult:
     ok: bool
     text: str                # einfaches Deutsch, das Wichtigste vorne
     details: str = ""        # technische Meldung, ohne Geheimnisse
+    link: str = ""           # Seite, die weiterhilft, zum Beispiel die Freigabe für Single Sign-On
+    link_text: str = ""      # Frage zum Öffnen, zum Beispiel "Freigabeseite im Browser öffnen?"
 
 
 class Adapter(ABC):

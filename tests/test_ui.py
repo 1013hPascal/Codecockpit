@@ -117,6 +117,7 @@ def test_help_menu_entries_and_shortcuts(window):
     assert entries["Letzte Meldung wiederholen"] == "Ctrl+Shift+M"
     assert entries["Meldungen …"] == "Ctrl+Shift+L"
     assert "Git installieren …" in entries
+    assert "GitHub-Token erstellen …" in entries
     assert "Über CodeCockpit" in entries
 
 

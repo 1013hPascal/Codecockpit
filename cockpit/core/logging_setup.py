@@ -19,6 +19,8 @@ _PATTERNS = [
     re.compile(r"\bglpat-[A-Za-z0-9_\-]{20,}"),               # GitLab
     re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}"),                  # OpenAI, Anthropic und ähnliche
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/\-]+=*"),
+    re.compile(r"(?i)\bbasic\s+[A-Za-z0-9+/]{8,}=*"),         # Token für Git (x-access-token)
+    re.compile(r"\bgho_[A-Za-z0-9]{20,}|\b(?:ghp|ghu|ghs|ghr)_[A-Za-z0-9]{20,}"),
     re.compile(r"(?i)(authorization\s*[:=]\s*)(\S+)"),
     re.compile(r"(?i)(https?://)[^/\s:@]+:[^/\s@]+@"),        # Zugangsdaten in Adressen
 ]

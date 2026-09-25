@@ -16,6 +16,7 @@ from enum import Enum, auto
 from cockpit.adapters.base import Adapter
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
+from cockpit.core.secret import Secret
 
 
 class Capability(Enum):
@@ -138,6 +139,38 @@ class Platform(Adapter):
 
     @abstractmethod
     def git_credentials(self) -> GitCredentials: ...
+
+
+# -- Anmeldung im Browser (Device Flow, Konzept 6.1) ----------------------------------------
+@dataclass(frozen=True)
+class BrowserLogin:
+    """Laufende Anmeldung im Browser: Der Nutzer gibt user_code auf verification_uri ein."""
+    user_code: str
+    verification_uri: str
+    device_code: str
+    interval: int                  # Sekunden zwischen zwei Nachfragen
+    expires_in: int                # Sekunden, bis der Code verfällt
+
+
+class SupportsBrowserLogin:
+    """Zusatz-Schnittstelle für Plattformen mit Anmeldung im Browser.
+
+    Ablauf: start_browser_login() liefert den Code. Die Oberfläche zeigt ihn an und öffnet den
+    Browser. wait_for_browser_login() fragt im Hintergrund nach, bis der Nutzer bestätigt hat, und
+    gibt dann den Token zurück."""
+
+    @classmethod
+    def browser_login_available(cls, url: str = "") -> bool:
+        return False
+
+    @classmethod
+    def start_browser_login(cls, url: str = "") -> BrowserLogin:
+        raise NotImplementedError
+
+    @classmethod
+    def wait_for_browser_login(cls, login: BrowserLogin, url: str = "",
+                               cancel=None) -> "Secret":
+        raise NotImplementedError
 
 
 # -- Fehler der Plattform ----------------------------------------------------------------

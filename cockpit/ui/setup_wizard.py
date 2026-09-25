@@ -5,8 +5,8 @@ einfaches Formular. Unten: "Zurück", "Überspringen" (wo erlaubt), "Weiter" bzw
 "Abbrechen". Beim Seitenwechsel sagt das Cockpit "Schritt 2 von 6: Git" und eine kurze Erklärung
 an, der Fokus steht im ersten Feld der Seite.
 
-Phase 3 enthält: Willkommen, Git, Tresor (Pflicht), Projekte-Hauptordner, Git-Identität und die
-Zusammenfassung. Spätere Phasen fügen Seiten hinzu (Plattform-Konto, KI, Automation, E-Mail,
+Seiten: Willkommen, Git, Tresor (Pflicht), GitHub-Konto (seit Phase 4), Projekte-Hauptordner,
+Git-Identität und die Zusammenfassung. Spätere Phasen fügen Seiten hinzu (Plattform-Konto, KI, Automation, E-Mail,
 Features).
 """
 from __future__ import annotations
@@ -28,6 +28,7 @@ from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, announce_focus, confirm, label_for, name_widget
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
+from cockpit.ui.tasks import Task
 from cockpit.ui.text_dialog import TextDialog
 
 
@@ -217,6 +218,63 @@ class FolderPage(Page):
         return True
 
 
+class PlatformPage(Page):
+    title = "GitHub-Konto"
+    intro = "Mit einem GitHub-Konto kann das Cockpit Ihren Code hochladen."
+    later = "Menü Konten, Kontenverwaltung"
+
+    def __init__(self, wizard) -> None:
+        super().__init__(wizard)
+        self.text = _lines("Erklärung", [
+            "Das Cockpit braucht Zugang zu Ihrem GitHub-Konto, um Code hochzuladen und "
+            "Repositories anzulegen.",
+            "Empfohlen: Im Browser anmelden. Sie bekommen einen Code, den Sie auf github.com "
+            "eingeben. Ein Passwort gibt das Cockpit nie weiter.",
+            "Alternativ tragen Sie einen selbst erstellten Token ein. Die Anleitung steht im "
+            "Menü Hilfe.",
+            "Der Zugang liegt verschlüsselt im Tresor.",
+            "Mit Tab kommen Sie zu GitHub-Konto einrichten.",
+        ])
+        self.setup_button = QPushButton("GitHub-Konto &einrichten …")
+        self.setup_button.clicked.connect(self.setup_account)
+        row = QHBoxLayout()
+        row.addWidget(self.setup_button)
+        row.addStretch(1)
+        self.layout_.addWidget(self.text)
+        self.layout_.addLayout(row)
+
+    def github_accounts(self) -> list:
+        return [a for a in self.services.accounts.all() if a.adapter == "github"]
+
+    def on_show(self) -> None:
+        accounts = self.github_accounts()
+        self.done_text = (f"GitHub-Konto: {accounts[0].display_name}, {accounts[0].username}."
+                          if accounts else "")
+
+    def setup_account(self) -> None:
+        from cockpit.core.accounts import find_type
+        from cockpit.ui.accounts_dialog import AccountEditDialog
+        account_type = find_type("platform", "github")
+        dialog = AccountEditDialog(self.services, account_type, None, self.wizard)
+        if dialog.exec():
+            self.on_show()
+            announce(f"Konto {dialog.saved.display_name} angelegt.")
+            self.wizard.next_button.setFocus()
+        else:
+            self.setup_button.setFocus()
+
+    def first_focus(self):
+        return self.text
+
+    def accept_page(self) -> bool:
+        if not self.github_accounts():
+            show_error(self.wizard, self.title, "Es ist noch kein GitHub-Konto eingerichtet. "
+                       "Wählen Sie GitHub-Konto einrichten oder überspringen Sie den Schritt.")
+            self.setup_button.setFocus()
+            return False
+        return True
+
+
 class IdentityPage(Page):
     title = "Git-Identität"
     intro = ("Name und E-Mail-Adresse stehen in jedem Commit. Bei öffentlichen Repositories "
@@ -229,12 +287,55 @@ class IdentityPage(Page):
         settings = self.services.settings.load()
         self.form = SettingsForm(fields, {"git_name": settings.git_name,
                                           "git_email": settings.git_email})
-        hint = QLabel("Tipp: GitHub bietet eine anonyme noreply-Adresse. Das Cockpit schlägt sie "
-                      "vor, sobald ein GitHub-Konto eingerichtet ist.")
+        hint = QLabel("Tipp: GitHub bietet eine anonyme noreply-Adresse. Dann erscheint Ihre "
+                      "private Adresse nie öffentlich.")
         hint.setWordWrap(True)
+        self.noreply_button = QPushButton("&Anonyme GitHub-Adresse übernehmen")
+        self.noreply_button.clicked.connect(self.take_noreply)
+        self.task = None
+        row = QHBoxLayout()
+        row.addWidget(self.noreply_button)
+        row.addStretch(1)
         self.layout_.addWidget(self.form)
+        self.layout_.addLayout(row)
         self.layout_.addWidget(hint)
         self.layout_.addStretch(1)
+
+    def github_account(self):
+        return next((a for a in self.services.accounts.all() if a.adapter == "github"), None)
+
+    def on_show(self) -> None:
+        self.noreply_button.setVisible(self.github_account() is not None)
+
+    def take_noreply(self) -> None:
+        """Name und anonyme Adresse vom GitHub-Konto übernehmen (Konzept 9.8)."""
+        account = self.github_account()
+        if account is None or not vault_ui.ensure_unlocked(self.services, self.wizard):
+            return
+        accounts = self.services.accounts
+
+        def work(task):
+            adapter = accounts.adapter_for(account)
+            return adapter.noreply_email(), adapter.username
+
+        self.noreply_button.setEnabled(False)
+        self.task = Task(work, self)
+        self.task.result.connect(self.noreply_received)
+        self.task.error.connect(self.noreply_failed)
+        self.task.finished.connect(lambda: self.noreply_button.setEnabled(True))
+        self.task.start()
+
+    def noreply_received(self, result) -> None:
+        email, login = result
+        if not self.form.fields["git_name"].get():
+            self.form.fields["git_name"].set(login)
+        self.form.fields["git_email"].set(email)
+        announce(f"Adresse übernommen: {email}")
+        self.form.focus_field("git_email")
+
+    def noreply_failed(self, message: str, details: str) -> None:
+        show_error(self.wizard, self.title, message, details)
+        self.noreply_button.setFocus()
 
     def first_focus(self):
         return self.form.first_focus()
@@ -290,7 +391,8 @@ class SetupWizard(FocusDialog):
         self.services = services
         self.setWindowTitle(f"{APP_NAME} einrichten")
         self.pages: list[Page] = [WelcomePage(self), GitPage(self), VaultPage(self),
-                                  FolderPage(self), IdentityPage(self), SummaryPage(self)]
+                                  PlatformPage(self), FolderPage(self), IdentityPage(self),
+                                  SummaryPage(self)]
         self.stack = QStackedWidget()
         for page in self.pages:
             self.stack.addWidget(page)

@@ -22,11 +22,12 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.features import settings_fields as sf
 from cockpit.core.secret import Secret
 from cockpit.core.services import Services
-from cockpit.ui import vault_ui
+from cockpit.ui import browser_login_dialog, vault_ui
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, confirm, name_widget, show_info
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
+from cockpit.ui.tasks import Task
 from cockpit.ui.text_dialog import TextDialog
 
 NEW_ACCOUNT_TEXT = "Neues Konto anlegen …"
@@ -49,11 +50,43 @@ HELP_LINES = [
 
 
 def show_test_result(parent: QWidget, result: TestResult) -> None:
-    announce(result.text, urgent=not result.ok)
+    announce(result.text, urgent=not result.ok, speak=False)     # das Fenster liest NVDA vor
     if result.ok:
         show_info(parent, "Verbindung testen", result.text)
-    else:
-        show_error(parent, "Verbindung testen", result.text, result.details)
+        return
+    show_error(parent, "Verbindung testen", result.text, result.details)
+    if result.link and confirm(parent, "Verbindung testen", result.link_text or
+                               "Seite im Browser öffnen?", default_yes=True):
+        browser_login_dialog.open_url(result.link)
+
+
+def wait_for(task: Task | None) -> None:
+    """Beim Schließen auf einen laufenden Test warten. Ein zerstörter laufender Thread würde das
+    Programm abstürzen lassen."""
+    try:
+        if task is not None and task.isRunning():
+            task.wait(5000)
+    except RuntimeError:                            # Task ist schon aufgeräumt
+        pass
+
+
+def run_in_background(parent: QWidget, fn, on_result, button: QPushButton) -> Task:
+    """Netzwerk nie im Vordergrund: Die Oberfläche bleibt bedienbar, die Schaltfläche ist
+    solange gesperrt."""
+    button.setEnabled(False)
+    announce("Verbindung wird getestet …")
+    task = Task(fn, parent)
+
+    def done() -> None:
+        button.setEnabled(True)
+        button.setFocus()
+
+    task.result.connect(lambda result: (done(), on_result(result)))
+    task.error.connect(lambda message, details: (done(), show_test_result(
+        parent, TestResult(False, message, details))))
+    task.finished.connect(task.deleteLater)
+    task.start()
+    return task
 
 
 class ChoiceDialog(FocusDialog):
@@ -92,6 +125,9 @@ class AccountEditDialog(FocusDialog):
         self.account_type = account_type
         self.account = account
         self.saved: Account | None = None
+        self.device_token: Secret | None = None           # aus der Anmeldung im Browser
+        self.task: Task | None = None
+        self.adapter_cls = adapter_registry.adapter_class(account_type.kind, account_type.adapter)
         self.setWindowTitle(f"Konto bearbeiten: {account.display_name}" if account
                             else f"Neues Konto: {account_type.display_name}")
 
@@ -114,6 +150,11 @@ class AccountEditDialog(FocusDialog):
         buttons.addButton("Abbrechen", QDialogButtonBox.ButtonRole.RejectRole)
         self.save_button.setDefault(True)
         self.test_button.clicked.connect(self.test_connection)
+        self.browser_button = None
+        if self.has_browser_login():
+            self.browser_button = buttons.addButton("Im &Browser anmelden …",
+                                                    QDialogButtonBox.ButtonRole.ActionRole)
+            self.browser_button.clicked.connect(self.browser_login)
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
@@ -124,14 +165,46 @@ class AccountEditDialog(FocusDialog):
         self.initial_focus_widget.setFocus()
 
     def _values(self) -> tuple[str, dict[str, Any]] | None:
+        secret_keys = {k for k, f in self.form.fields.items() if isinstance(f.spec, sf.SecretText)}
+        skip = {k for k in secret_keys if not self.form.fields[k].get()}             if self.device_token is not None else set()
         try:
-            values = self.form.values()
+            values = self.form.values(skip)
         except FormError as exc:
             show_error(self, self.windowTitle(), exc.message)
             self.form.focus_field(exc.key)
             return None
-        return values.pop("display_name"), values
+        name = values.pop("display_name")
+        for key in skip:
+            values[key] = self.device_token             # aus der Anmeldung im Browser
+        return name, values
 
+    # -- Anmeldung im Browser --------------------------------------------------------------
+    def current_url(self) -> str:
+        field = self.form.fields.get("url")
+        return str(field.get()) if field is not None else ""
+
+    def has_browser_login(self) -> bool:
+        check = getattr(self.adapter_cls, "browser_login_available", None)
+        return bool(check and check(self.current_url()))
+
+    def browser_login(self) -> None:
+        dialog = browser_login_dialog.BrowserLoginDialog(self.adapter_cls, self.current_url(),
+                                                         self)
+        if dialog.exec() and dialog.token is not None:
+            self.device_token = dialog.token
+            token_field = next((f for f in self.form.fields.values()
+                                if isinstance(f.spec, sf.SecretText)), None)
+            if token_field is not None:
+                token_field.focus.clear()
+                token_field.focus.setPlaceholderText("Über die Anmeldung im Browser erhalten")
+            if "username" in self.form.fields and dialog.username:
+                self.form.fields["username"].set(dialog.username)
+            display = self.form.fields["display_name"]
+            if display.get() == self.account_type.display_name and dialog.username:
+                display.set(f"{self.account_type.display_name} {dialog.username}")
+        self.save_button.setFocus()
+
+    # -- Verbindung testen -----------------------------------------------------------------
     def test_connection(self) -> None:
         checked = self._values()
         if checked is None:
@@ -144,13 +217,24 @@ class AccountEditDialog(FocusDialog):
             for key, value in values.items():
                 if isinstance(value, Secret) and not value.reveal():
                     values[key] = stored.get(key) or value
-        cls = adapter_registry.adapter_class(self.account_type.kind, self.account_type.adapter)
-        try:
-            result = cls.from_account(values).test_connection()
-        except CockpitError as exc:
-            result = TestResult(False, exc.message, exc.details)
+        cls = self.adapter_cls
+
+        def work(task: Task):
+            adapter = cls.from_account(values)
+            return adapter.test_connection(), getattr(adapter, "username", "")
+
+        self.task = run_in_background(self, work, self.test_finished, self.test_button)
+
+    def test_finished(self, outcome) -> None:
+        result, username = outcome
+        self.task = None
+        if result.ok and username and "username" in self.form.fields                 and not self.form.fields["username"].get():
+            self.form.fields["username"].set(username)     # Benutzername selbst eintragen
         show_test_result(self, result)
-        self.test_button.setFocus()
+
+    def done(self, code: int) -> None:
+        wait_for(self.task)
+        super().done(code)
 
     def save(self) -> None:
         checked = self._values()
@@ -261,9 +345,16 @@ class AccountsDialog(FocusDialog):
             announce("Bitte zuerst ein Konto wählen.")
             self.list.setFocus()
             return
-        if vault_ui.ensure_unlocked(self.services, self):
-            show_test_result(self, self.services.accounts.test(account))
-        self.test_button.setFocus()
+        if not vault_ui.ensure_unlocked(self.services, self):
+            return
+        accounts = self.services.accounts
+        self.task = run_in_background(self, lambda task: accounts.test(account),
+                                      lambda result: show_test_result(self, result),
+                                      self.test_button)
+
+    def done(self, code: int) -> None:
+        wait_for(getattr(self, "task", None))
+        super().done(code)
 
     def delete_current(self) -> None:
         account = self.current_account()
