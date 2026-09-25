@@ -68,14 +68,14 @@ Tasten: Zurück ins Cockpit, Umschalt+Tab zur Projektliste, Enter auf der Zeile 
 Erwartet: NVDA sagt „… wird heruntergeladen.“ und nach einer Weile „… heruntergeladen.“ Der Fokus steht auf dem Projekt. Die Zeile heißt jetzt „Name, aktualisiert am …“ ohne „nur auf GitHub“. Mit Pfeil rechts und Pfeil runter kommt „Code, alles hochgeladen“.
 Ergebnis:
 
-[?] 7. Git-Identität im heruntergeladenen Projekt
+[x] 7. Git-Identität im heruntergeladenen Projekt (ersetzt durch 7a)
 Tasten: Öffnen Sie im Explorer `%LOCALAPPDATA%\CodeCockpit\Testdaten\Projekte\<Name>\Code\.git\config` mit dem Editor.
 Erwartet: Unter `[user]` stehen Ihr Name und Ihre E-Mail-Adresse aus dem Einrichtungsassistenten.
 Ergebnis: fWarum kann man das nicht auch bei projekt mit tab bei Aktionen, das wor zur projektdatein acuh der diese Infos, sondren in der Datei, oder ist das nich treelvant., odrer kommt das später noch?
 
 Antwort von Claude: Gute Idee, ist eingebaut. Bei „Code“ gibt es jetzt die Aktion „Git-Identität …“. Sie zeigt die Identität des Projekts. Weicht sie von den Grundeinstellungen ab oder fehlt sie, fragt sie, ob die aus den Grundeinstellungen übernommen werden soll. Bitte prüfen Sie Punkt 7a statt Punkt 7. Dafür das Cockpit mit `start_testdaten.bat` neu starten. Die Testdaten sind danach frisch, laden Sie also zuerst wie in Punkt 6 wieder ein kleines Repository herunter.
 
-[ ] 7a. Aktion Git-Identität
+[x] 7a. Aktion Git-Identität
 Tasten: „Code“ unter dem heruntergeladenen Projekt, Tab, „Git-Identität …“, Enter. Danach dasselbe bei „Code“ unter Bildbeschreiber.
 Erwartet: Beim heruntergeladenen Projekt ein Meldungsfenster: Ihr Name und Ihre E-Mail-Adresse, dann „Das ist die Identität aus den Grundeinstellungen.“ Bei Bildbeschreiber gibt es die Aktion nicht, weil es noch kein Git-Repository ist.
 Ergebnis:
@@ -83,7 +83,7 @@ Ergebnis:
 
 ## C. Vorhandenes Projekt hinzufügen
 
-[ ] 8. Projektordner mit Code
+[x] 8. Projektordner mit Code
 Tasten: Alt+D, „Vorhandenes Projekt hinzufügen …“, Ordner `…\Andere Ordner\Wetter` wählen.
 Erwartet: NVDA sagt „Wetter hinzugefügt.“ Der Fokus steht auf „Wetter, noch nicht auf GitHub“.
 Ergebnis: Check nicht was du hier willst. wo soll ichhin, woher soll ein orndre hinzugefügt werden? von wo anders vom rechner in diesn Explorer, und damit dan auf GitHub?
@@ -94,27 +94,27 @@ Antwort von Claude: Es geht um Projekte, die nicht im Projekte-Hauptordner liege
 3. Drücken Sie Enter. Falls das Fenster noch offen ist, wählen Sie den Knopf „Ordner auswählen“.
 Für die Punkte 9 bis 13 und 14 ist es genauso, nur der letzte Teil des Pfads ändert sich, zum Beispiel `…\Andere Ordner\Rechner`.
 
-[ ] 9. Schon in der Liste
+[x] 9. Schon in der Liste
 Tasten: Dasselbe noch einmal mit `Wetter`.
 Erwartet: NVDA sagt „Wetter ist schon in der Liste.“ Der Fokus steht auf Wetter. Es gibt Wetter nur einmal.
 Ergebnis:
 
-[ ] 10. Ordner ohne Code: Rückfrage und Escape
+[x] 10. Ordner ohne Code: Rückfrage und Escape
 Tasten: „Vorhandenes Projekt hinzufügen …“ mit dem Ordner `Rechner`. Lesen Sie die Frage. Dann Escape.
 Erwartet: Die Frage beginnt mit „Der Ordner Rechner hat keinen Unterordner Code.“ und erklärt Umstellen und Nur verknüpfen. Mit Tab erreichbar: „Umstellen …“, „Nur verknüpfen …“, „Abbrechen“. Vorgabe ist „Abbrechen“. Nach Escape passiert nichts.
 Ergebnis:
 
-[ ] 11. Umstellen
+[x] 11. Umstellen
 Tasten: Noch einmal mit `Rechner`, diesmal „Umstellen …“. Lesen Sie die zweite Frage und wählen Sie „Umstellen“.
 Erwartet: Die zweite Frage sagt, dass der Ordner nach `…\Testdaten\Projekte\Rechner\Code` verschoben wird und sein Inhalt unverändert bleibt. Danach sagt NVDA „Rechner hinzugefügt.“ Im Ordner `Andere Ordner` gibt es Rechner nicht mehr.
 Ergebnis:
 
-[ ] 12. Nur verknüpfen
+[x] 12. Nur verknüpfen
 Tasten: „Vorhandenes Projekt hinzufügen …“ mit dem Ordner `Firmenprojekt`, „Nur verknüpfen …“. Bei der Frage nach dem Exe-Ordner „Ohne Exe-Ordner“.
 Erwartet: NVDA sagt „Firmenprojekt hinzugefügt.“ Der Ordner bleibt in `Andere Ordner`. Beim Ausklappen gibt es nur „Code, noch nicht auf GitHub“.
 Ergebnis:
 
-[ ] 13. Andere Git-Identität
+[x] 13. Andere Git-Identität
 Tasten: „Vorhandenes Projekt hinzufügen …“ mit dem Ordner `Vereinsseite`. Lesen Sie die Frage, dann Escape.
 Erwartet: Die Frage lautet „Vereinsseite hat eine andere Git-Identität: Alter Name, alt@example.org. In den Grundeinstellungen steht: …“. Die Knöpfe heißen „Grundeinstellungen übernehmen“ und „Vorhandene behalten“. Vorgabe ist „Vorhandene behalten“. Nach Escape sagt NVDA „Vereinsseite hinzugefügt.“
 Ergebnis:
@@ -122,35 +122,37 @@ Ergebnis:
 
 ## D. Neuer Ort und Reparatur
 
-[ ] 14. Neuen Ort angeben
+[x] 14. Neuen Ort angeben
 Tasten: Auf „Notizen, Ordner nicht gefunden“ Tab. Die erste Aktion ist „Neuen Ort angeben …“. Enter und den Ordner `…\Andere Ordner\Notizen` wählen.
 Erwartet: NVDA sagt „Neuer Ort für Notizen gespeichert.“ Die Zeile heißt jetzt „Notizen, noch nicht auf GitHub“. Bei PDF-Chat gibt es die Aktion „Neuen Ort angeben …“ nicht.
 Ergebnis:
 
-[ ] 15. Virtuelle Umgebung neu anlegen
+[x] 15. Virtuelle Umgebung neu anlegen
 Tasten: „Code“ unter Tagebuch, Tab, „Virtuelle Umgebung neu anlegen …“, Enter. Frage lesen, „Neu anlegen“.
 Erwartet: Die Frage nennt den Grund „Das Projekt wurde verschoben.“ und sagt, dass die alte Umgebung als Sicherheitskopie in den Ordner backups kommt. Danach sagt NVDA „Schritt 1 von 2: Alte Umgebung wird gesichert …“, „Schritt 2 von 2: Neue Umgebung wird angelegt …“ und „Virtuelle Umgebung von Tagebuch neu angelegt.“ In der Zeile von Tagebuch steht nichts mehr von der virtuellen Umgebung.
 Ergebnis:
 
-[ ] 16. Mit vorhandenem Repository verbinden
+[x] 16. Mit vorhandenem Repository verbinden
 Tasten: „Code“ unter Bildbeschreiber, Tab, „Mit vorhandenem Repository verbinden …“, Enter.
 Erwartet: Eine Liste „Repositories“ mit Ihren Repositories, zum Beispiel „Tagebuch, 1013hPascal“. Der letzte Eintrag heißt „Adresse eingeben …“. Escape schließt, ohne etwas zu ändern.
 Ergebnis:
 
-[ ] 17. Verbinden ausführen
+[x] 17. Verbinden ausführen
 Tasten: Wie in Punkt 16, diesmal ein kleines Repository wählen, Enter, in der Frage „Verbinden“.
 Erwartet: Die Frage sagt, dass die Dateien unverändert bleiben. NVDA sagt „Bildbeschreiber wird verbunden.“ und dann „Bildbeschreiber ist verbunden, Branch main.“ (oder der Name des Haupt-Branches). Die Zeile nennt jetzt Dateien, die noch nicht hochgeladen sind. Auf GitHub ändert sich nichts.
-Ergebnis:
+Ergebnis: nur eine verständisfrae, was macht das? wofü braucht man das,ist das eigentlich selbstverständlich oder lohnt sich hier noch eine kleine Erklärung einzbauen.
+
+Antwort von Claude: Das ist eine Reparatur für einen Sonderfall. Jedes Git-Projekt hat einen versteckten Ordner `.git`. Darin stehen der ganze Verlauf und die Adresse des Repositories auf GitHub. Fehlt dieser Ordner, zum Beispiel weil jemand nur die Dateien kopiert hat, weiß das Projekt nicht mehr, wohin es gehört. „Verbinden“ holt den Verlauf von GitHub zurück, ohne Ihre Dateien zu ändern. Danach funktionieren Hochladen und Holen wieder. Für ganz neue Projekte braucht man es nicht, dafür kommt in 5b „Auf GitHub hochladen“. Sie haben recht, eine kurze Erklärung hilft. Die Rückfrage vor dem Verbinden erklärt das jetzt am Anfang.
 
 
 ## E. Einstellungen und Hilfe
 
-[ ] 18. Neue Repositories automatisch herunterladen
+[x] 18. Neue Repositories automatisch herunterladen
 Tasten: Alt+E, „Grundeinstellungen …“, mit Tab durch das Formular.
 Erwartet: Es gibt das Kontrollkästchen „Neue Repositories automatisch herunterladen“. Es ist nicht aktiviert.
 Ergebnis:
 
-[ ] 19. Tastenkürzel
+[x] 19. Tastenkürzel
 Tasten: F1.
 Erwartet: Die Liste enthält „Repository herunterladen, das nur auf GitHub liegt, Enter“ und „Projekte neu einlesen und Stand abfragen, Strg+R“.
 Ergebnis:

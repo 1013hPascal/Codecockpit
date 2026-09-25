@@ -23,7 +23,7 @@ Inhalt:
 - [x] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git. Abgeschlossen am 25.09.2026, außer der Sprachausgabe in Dialogen (siehe TODO.md)
 - [x] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Abgeschlossen am 25.09.2026: 213 Tests bestanden, NVDA-Test mit checklisten\phase-04.md bestanden
 - [ ] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md)
-  - [ ] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
+  - [x] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
   - [ ] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
   - [ ] 5c: Änderungen hochladen, Änderungen holen, Projekt von der Plattform herunterladen
   - [ ] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien

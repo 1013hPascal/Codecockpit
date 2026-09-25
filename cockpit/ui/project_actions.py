@@ -297,7 +297,10 @@ class ProjectController:
             account = self.services.account_for_host(address.host)
             account_id = account.id if account else None
             label = f"{address.owner}/{address.name}"
-        text = (f"{project.name} wird mit dem Repository {label} verbunden. Die Dateien im "
+        text = (f"{project.name} hat keinen Git-Ordner. Das passiert zum Beispiel, wenn beim "
+                "Kopieren oder Verschieben der versteckte Ordner .git fehlte. Ohne ihn weiß das "
+                "Projekt nicht, zu welchem Repository es gehört, und hat keinen Verlauf. "
+                f"{project.name} wird jetzt mit dem Repository {label} verbunden. Die Dateien im "
                 "Ordner bleiben unverändert. Unterschiede zur Plattform erscheinen danach als "
                 "Änderungen, die noch nicht hochgeladen sind. Verbinden?")
         if not confirm(self.window, "Verbinden", text, yes="Verbinden", no="Abbrechen"):
