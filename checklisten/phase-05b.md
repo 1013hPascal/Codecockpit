@@ -188,17 +188,19 @@ Ergebnis:
 
 ## F. Nachtest
 
-Bitte `start_testdaten.bat` neu starten. Die Testdaten sind danach frisch, der Testordner hat wieder Token und Passwort. So kommen Sie zum Fenster Sicherheitsprüfung:
-1. „Projekt vom Rechner hinzufügen“, Ordner `C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Andere Ordner\codecockpit-test`, „Am Ort lassen …“, „Ohne Exe-Ordner“.
-2. Bei „Jetzt hochladen?“ „Jetzt hochladen …“ wählen, den Namen lassen, Alt+W, „Hochladen“.
-Am Ende brechen Sie im Fenster Sicherheitsprüfung mit Escape ab. Dann entsteht auf GitHub nichts, und Ihr codecockpit-test auf GitHub bleibt unverändert.
+Antwort von Claude auf Ihre Meldung: Stimmt, codecockpit-test liegt schon auf GitHub, und nach dem Herunterladen gibt es dort nichts mehr hochzuladen. Für den Nachtest gibt es deshalb in den Testdaten einen eigenen Ordner „sicherheitstest“ mit Token und Passwort. Er wird nie hochgeladen, weil Sie am Ende abbrechen.
+
+Bitte `start_testdaten.bat` neu starten. So kommen Sie zum Fenster Sicherheitsprüfung:
+1. „Projekt vom Rechner hinzufügen“, Ordner `C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Andere Ordner\sicherheitstest`, „Am Ort lassen …“, „Ohne Exe-Ordner“.
+2. Bei „Jetzt hochladen?“ „Jetzt hochladen …“ wählen, den Namen „sicherheitstest“ lassen, Alt+W, „Hochladen“.
+Am Ende brechen Sie im Fenster Sicherheitsprüfung mit Escape ab. Dann entsteht auf GitHub nichts.
 
 [ ] 31. Enter auf Knöpfen und Erneut prüfen
 Tasten: Im Fenster Sicherheitsprüfung auf der Zeile mit dem GitHub-Token Enter. Dann mit Tab zu „Erneut prüfen“, Enter. Danach „Datei öffnen“ mit Tab und Enter, die Zeile mit dem Token im Editor löschen, speichern, schließen. Zurück zu „Erneut prüfen“, Enter. Dann Tab bis „Kein Geheimnis“, Enter. Am Ende Escape.
 Erwartet: Enter in der Liste tut nichts. Das erste „Erneut prüfen“ sagt „Besteht weiter. Noch: 2 Funde stoppen das Hochladen“, der Fokus steht in der Liste auf demselben Fund. Das zweite sagt „Behoben. Noch: 1 Fund stoppt das Hochladen“, der Fokus steht auf dem nächsten Fund. „Kein Geheimnis“ mit Enter markiert ihn. Escape bricht ab.
 Ergebnis:
 
-[ ] 32. Adresse eingeben oben
+[x] 32. Adresse eingeben oben
 Tasten: Enter auf „Projekt von GitHub herunterladen“.
 Erwartet: Der erste Eintrag der Liste ist „Adresse eingeben …“, danach kommen Ihre Repositories. Escape schließt.
 Ergebnis:

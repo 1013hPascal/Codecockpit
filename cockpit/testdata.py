@@ -110,14 +110,16 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
         (others / name / "main.py").write_text(f"print('{name}')\n", encoding="utf-8")
     # Für "Auf GitHub hochladen" (Phase 5b): mit erfundenem Token, Passwort-Zeile, .env und
     # Datenbank. Der Token wird erst hier zusammengesetzt und ist nicht echt.
-    test = others / "codecockpit-test"
-    test.mkdir(parents=True)
+    # "sicherheitstest" ist derselbe Inhalt für Nachtests, ohne je hochgeladen zu werden.
     fake_token = "ghp" + "_" + "Erfunden" + "0123456789" * 3
-    (test / "main.py").write_text("print('Test für CodeCockpit')\n", encoding="utf-8")
-    (test / "config.py").write_text(f'TOKEN = "{fake_token}"\npassword = "Sommer2026!"\n',
-                                    encoding="utf-8")
-    (test / ".env").write_text("GEHEIM=erfunden\n", encoding="utf-8")
-    (test / "daten.db").write_bytes(b"SQLite format 3\0erfunden")
+    for name in ("codecockpit-test", "sicherheitstest"):
+        test = others / name
+        test.mkdir(parents=True)
+        (test / "main.py").write_text("print('Test für CodeCockpit')\n", encoding="utf-8")
+        (test / "config.py").write_text(f'TOKEN = "{fake_token}"\npassword = "Sommer2026!"\n',
+                                        encoding="utf-8")
+        (test / ".env").write_text("GEHEIM=erfunden\n", encoding="utf-8")
+        (test / "daten.db").write_bytes(b"SQLite format 3\0erfunden")
     # Neuer Ort für Notizen (das Projekt fehlt im Hauptordner)
     (others / "Notizen" / "Code").mkdir(parents=True)
     (others / "Notizen" / "Code" / "notizen.py").write_text("print('Notizen')\n",
