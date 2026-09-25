@@ -27,11 +27,12 @@ from cockpit.core.availability import Availability
 from cockpit.core.errors import Cancelled, CockpitError
 from cockpit.core.secret import Secret
 from cockpit.core.text import join_words
-from cockpit.platforms.base import (BrowserLogin, Capability, GitCredentials, NetworkError,
-                                    NewRepo, NotAuthenticated, NotFound, PendingApproval,
-                                    PermissionMissing, Platform, PlatformError, RemoteRepo,
-                                    RepoInfo, RepoLinks, RepoRef, SsoAuthorizationRequired,
-                                    SupportsBrowserLogin, User)
+from cockpit.platforms.base import (BrowserLogin, Capability, Collaborator, GitCredentials,
+                                    NetworkError, NewRepo, NotAuthenticated, NotFound,
+                                    PendingApproval, PermissionMissing, Platform, PlatformError,
+                                    RemoteRepo, RepoInfo, RepoLinks, RepoRef,
+                                    SsoAuthorizationRequired, SupportsBrowserLogin,
+                                    SupportsCollaborators, User)
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,11 @@ log = logging.getLogger(__name__)
 CLIENT_ID = "Ov23li0mUwBCvUxIX2sT"
 # Rechte bei der Anmeldung im Browser. delete_repo fehlt bewusst: Löschen fragt es eigens an.
 SCOPES = "repo read:org workflow"
+# Zweite Anmeldung nur zum Löschen (ENTSCHEIDUNGEN.md). Der Zugang wird nicht gespeichert.
+DELETE_SCOPES = "repo delete_repo"
+# Rechte beim Einladen: Wert der Anzeige -> Wert der API
+INVITE_PERMISSIONS = {"read": "pull", "triage": "triage", "write": "push",
+                      "maintain": "maintain", "admin": "admin"}
 DEFAULT_URL = "https://github.com"
 
 NO_CONNECTION = "GitHub ist nicht erreichbar. Bitte prüfen Sie die Internetverbindung."
@@ -79,7 +85,7 @@ def _message(response: httpx.Response) -> str:
         return response.text[:200]
 
 
-class GitHubPlatform(Platform, SupportsBrowserLogin):
+class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators):
     kind = "github"
     display_name = "GitHub"
     account_fields = (
@@ -89,6 +95,7 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
     )
     account_guide = "anleitungen/github-token-erstellen.md"
     account_guide_title = "GitHub-Token erstellen"
+    delete_login_scopes = DELETE_SCOPES
 
     @classmethod
     def account_explanation(cls, browser_login: bool) -> list[str]:
@@ -184,6 +191,8 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         if status == 404:
             return NotFound(f"Nicht gefunden{doing}. Möglicherweise fehlt dem Token der "
                             "Zugriff auf dieses Repository.", details)
+        if status == 422 and capability is Capability.COLLABORATORS:
+            return PlatformError(f"GitHub hat die Einladung abgelehnt: {message}", details)
         if status == 422 and "already exists" in response.text:
             return PlatformError("Ein Repository mit diesem Namen gibt es schon.", details)
         return PlatformError(f"GitHub meldet einen Fehler{doing}.", details)
@@ -296,6 +305,46 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
         self.request("DELETE", f"/repos/{repo.owner}/{repo.name}", "Löschen",
                      Capability.DELETE_REPO)
 
+    def unarchive(self, repo: RepoRef) -> None:
+        self.request("PATCH", f"/repos/{repo.owner}/{repo.name}", "Archivierung aufheben",
+                     Capability.ARCHIVE, json={"archived": False})
+
+    def settings_url(self, repo: RepoRef) -> str:
+        return f"{web_base(self.url)}/{repo.owner}/{repo.name}/settings"
+
+    # -- Mitarbeiter ---------------------------------------------------------------------------
+    def collaborators(self, repo: RepoRef) -> list[Collaborator]:
+        base = f"/repos/{repo.owner}/{repo.name}"
+        people = self.request("GET", f"{base}/collaborators", "Mitarbeiter lesen",
+                              Capability.COLLABORATORS,
+                              params={"affiliation": "direct", "per_page": 100}).json()
+        result = [Collaborator(p.get("login", ""), _role(p)) for p in people]
+        invitations = self.request("GET", f"{base}/invitations", "Einladungen lesen",
+                                   Capability.COLLABORATORS, params={"per_page": 100}).json()
+        result += [Collaborator((i.get("invitee") or {}).get("login", ""),
+                                _permission(i.get("permissions", "")), int(i.get("id", 0)))
+                   for i in invitations]
+        return sorted(result, key=lambda c: c.login.lower())
+
+    def invite(self, repo: RepoRef, login: str, permission: str) -> bool:
+        try:
+            response = self.request(
+                "PUT", f"/repos/{repo.owner}/{repo.name}/collaborators/{login}",
+                "Mitarbeiter einladen", Capability.COLLABORATORS,
+                json={"permission": INVITE_PERMISSIONS.get(permission, "push")})
+        except NotFound as exc:
+            raise NotFound(f"Den Benutzer {login} gibt es auf GitHub nicht, oder das "
+                           "Repository ist nicht erreichbar.", exc.details) from None
+        return response.status_code == 201
+
+    def remove_collaborator(self, repo: RepoRef, login: str) -> None:
+        self.request("DELETE", f"/repos/{repo.owner}/{repo.name}/collaborators/{login}",
+                     "Mitarbeiter entfernen", Capability.COLLABORATORS)
+
+    def cancel_invitation(self, repo: RepoRef, invitation_id: int) -> None:
+        self.request("DELETE", f"/repos/{repo.owner}/{repo.name}/invitations/{invitation_id}",
+                     "Einladung zurückziehen", Capability.COLLABORATORS)
+
     def links(self, repo: RepoRef) -> RepoLinks:
         page = f"{web_base(self.url)}/{repo.owner}/{repo.name}"
         return RepoLinks(page, f"{page}#readme", f"{page}/releases/latest")
@@ -338,11 +387,11 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
                                 transport=cls.transport)
 
     @classmethod
-    def start_browser_login(cls, url: str = "") -> BrowserLogin:
+    def start_browser_login(cls, url: str = "", scopes: str = "") -> BrowserLogin:
         try:
             with cls._login_client() as client:
                 response = client.post("/login/device/code",
-                                       data={"client_id": CLIENT_ID, "scope": SCOPES})
+                                       data={"client_id": CLIENT_ID, "scope": scopes or SCOPES})
         except httpx.HTTPError as exc:
             raise NetworkError(NO_CONNECTION, repr(exc)) from None
         data = response.json() if response.content else {}
@@ -401,3 +450,20 @@ class GitHubPlatform(Platform, SupportsBrowserLogin):
             raise Cancelled()
         if cancel.is_set():
             raise Cancelled()
+
+
+def _role(person: dict) -> str:
+    """Recht eines Mitarbeiters: role_name, sonst das höchste aus permissions."""
+    role = str(person.get("role_name") or "")
+    if role:
+        return _permission(role)
+    permissions = person.get("permissions") or {}
+    for name in ("admin", "maintain", "push", "triage", "pull"):
+        if permissions.get(name):
+            return _permission(name)
+    return "read"
+
+
+def _permission(value: str) -> str:
+    """Werte der API ("pull", "push", "write" ...) auf read, triage, write, maintain, admin."""
+    return {"pull": "read", "push": "write"}.get(value, value or "read")

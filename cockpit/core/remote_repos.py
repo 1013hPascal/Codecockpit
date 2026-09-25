@@ -15,6 +15,8 @@ from urllib.parse import urlparse
 from cockpit.core.database import Database
 from cockpit.core.git import RemoteAddress
 
+HIDDEN_KEY = "remote_repos.hidden"          # aus der Liste entfernte Repositories
+
 
 @dataclass(frozen=True)
 class StoredRepo:
@@ -78,13 +80,41 @@ class RemoteRepoStore:
         return [r for r in self.all() if r.account_id == account_id
                 and (r.owner.lower(), r.name.lower()) not in known]
 
+    # -- "Aus der Liste entfernen" (Phase 5e) -------------------------------------------
+    def hidden(self) -> set[str]:
+        return set(self.database.get_value(HIDDEN_KEY, []) or [])
+
+    def hide(self, address: RemoteAddress) -> None:
+        """Nicht mehr als "nur auf GitHub" zeigen. Beim Herunterladen bleibt es wählbar."""
+        self.database.set_value(HIDDEN_KEY, sorted(self.hidden() | {address.key}))
+
+    def unhide(self, address: RemoteAddress) -> None:
+        hidden = self.hidden()
+        if address.key in hidden:
+            hidden.discard(address.key)
+            self.database.set_value(HIDDEN_KEY, sorted(hidden))
+
+    def forget(self, address: RemoteAddress) -> None:
+        """Ein gelöschtes Repository aus der gemerkten Liste nehmen."""
+        for repo in self.all():
+            if repo.address.key == address.key:
+                self.database.execute("DELETE FROM remote_repos WHERE id = ?", (repo.id,))
+
+    def set_private(self, address: RemoteAddress, private: bool) -> None:
+        for repo in self.all():
+            if repo.address.key == address.key:
+                self.database.execute("UPDATE remote_repos SET private = ? WHERE id = ?",
+                                      (int(private), repo.id))
+
     def only_remote(self, local_keys: set[str]) -> list[StoredRepo]:
-        """Repositories, zu denen es kein Projekt auf dem Rechner gibt."""
+        """Repositories, zu denen es kein Projekt auf dem Rechner gibt, ohne die aus der Liste
+        entfernten."""
         seen: set[str] = set()
+        hidden = self.hidden()
         result = []
         for repo in self.all():
             key = repo.address.key
-            if key in local_keys or key in seen:
+            if key in local_keys or key in seen or key in hidden:
                 continue
             seen.add(key)
             result.append(repo)

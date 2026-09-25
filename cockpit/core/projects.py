@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 CODE_DIR = "Code"
 EXE_DIR = "Exe"
 CONFIG_NAME = "cockpit.toml"
+REMOVED_KEY = "projects.removed"       # aus der Liste entfernte Ordner (Phase 5e)
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,7 @@ class ProjectStore:
     def add(self, project_dir: Path) -> Project:
         """Einen Projektordner mit Unterordner Code aufnehmen. Schon vorhandene bleiben gleich."""
         project_dir = project_dir.resolve()
+        self.forget_removed(project_dir)
         existing = self.find_by_dir(project_dir)
         if existing is not None:
             return existing
@@ -150,6 +152,7 @@ class ProjectStore:
     def add_linked(self, code_dir: Path, exe_dir: Path | None = None) -> Project:
         """Nur verknüpfen (Konzept 7.4): Die Ordner bleiben, wo sie sind."""
         code_dir = code_dir.resolve()
+        self.forget_removed(code_dir)
         existing = self.find_by_dir(code_dir) or self.find_by_code_dir(code_dir)
         if existing is not None:
             return existing
@@ -237,14 +240,32 @@ class ProjectStore:
         except OSError as exc:
             log.warning("Hauptordner nicht lesbar: %s (%s)", root, exc)
             return found
+        removed = self.removed_dirs()
         for folder in candidates:
+            if _key(folder) in removed:
+                continue                        # "Aus der Liste entfernen" gilt weiter
             if (folder / CODE_DIR).is_dir() and self.find_by_dir(folder) is None:
                 found.append(self.add(folder))
         return found
 
     def remove(self, project_id: int) -> None:
-        """Nur aus der Liste des Cockpits entfernen. Ordner und Plattform bleiben unverändert."""
+        """Nur aus der Liste des Cockpits entfernen. Ordner und Plattform bleiben unverändert.
+        Das Cockpit merkt sich den Ordner, damit ihn das Durchsuchen des Hauptordners nicht
+        wieder aufnimmt. Wer ihn selbst wieder hinzufügt, hebt das auf."""
+        project = self.get(project_id)
         self.database.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        if project is not None:
+            removed = self.removed_dirs() | {_key(project.project_dir)}
+            self.database.set_value(REMOVED_KEY, sorted(removed))
+
+    def removed_dirs(self) -> set[str]:
+        return set(self.database.get_value(REMOVED_KEY, []) or [])
+
+    def forget_removed(self, folder: Path) -> None:
+        removed = self.removed_dirs()
+        if _key(folder) in removed:
+            removed.discard(_key(folder))
+            self.database.set_value(REMOVED_KEY, sorted(removed))
 
     # -- Features pro Projekt (cockpit.toml) ---------------------------------------------
     def enabled_features(self, project: Project) -> set[str] | None:
@@ -266,6 +287,11 @@ class ProjectStore:
 
 
 # -- Hilfen zum Hinzufügen -------------------------------------------------------------------
+def _key(folder: Path) -> str:
+    """Vergleichbarer Schlüssel eines Ordners, ohne Groß- und Kleinschreibung (Windows)."""
+    return str(Path(folder).resolve()).lower()
+
+
 def classify_folder(folder: Path) -> tuple[str, Path]:
     """Was für ein Ordner wurde gewählt?
 

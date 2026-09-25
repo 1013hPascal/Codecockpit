@@ -13,6 +13,7 @@ die Aktionen des Kerns und der Features.
 - Herunterladen und Auf GitHub öffnen (Repository, das nur auf der Plattform liegt).
 - Änderungen hochladen, Änderungen holen und Konflikte lösen (Code, ab Phase 5c, sync_flow.py).
 - Verlauf und Änderungen verwerfen (Code, ab Phase 5d, history_dialogs.py).
+- Links, Repository verwalten und Aus der Liste entfernen (Projekt, ab Phase 5e, repo_dialogs.py).
 
 Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine Bestätigung.
 """
@@ -22,7 +23,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import core_actions, git, history, identity, project_setup, venv_repair
+from cockpit.core import (core_actions, git, history, identity, project_setup, repo_admin,
+                          venv_repair)
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
@@ -81,6 +83,14 @@ class ProjectController:
                    availability=_git_availability, visible=_is_repo, order=30),
             Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
                    availability=_discard_availability, visible=_is_repo, order=35),
+            Action("links", "Links …", Target.PROJECT, self.links_action,
+                   availability=self._account_availability, visible=_has_remote, order=20),
+            Action("manage_repo", "Repository verwalten …", Target.PROJECT, self.manage_action,
+                   availability=self._account_availability, visible=_has_remote, order=60),
+            Action("remove_project", "Aus der Liste entfernen …", Target.PROJECT,
+                   self.remove_action, visible=lambda c: c.project is not None, order=95),
+            Action("hide_remote", "Aus der Liste entfernen …", Target.REMOTE_REPO,
+                   self.hide_remote_action, order=90),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
                    visible=lambda c: c.project is not None and not c.project.folder_found,
                    order=5),
@@ -420,6 +430,81 @@ class ProjectController:
         self.window.refresh_status([project.id])
         announce(f"{count(len(dialog.chosen), 'Änderung', 'Änderungen')} verworfen.")
 
+    # -- Links, Repository verwalten, Aus der Liste entfernen (Konzept 9.5) --------------------
+    def _account_availability(self, context: ActionContext) -> Availability:
+        if context.project is None or repo_admin.account_for(self.services,
+                                                             context.project) is None:
+            return Availability.no(repo_admin.NO_ACCOUNT)
+        return Availability.yes()
+
+    def links_action(self, context: ActionContext) -> None:
+        from cockpit.ui.repo_dialogs import LinksDialog
+        project = context.project
+        try:
+            links = repo_admin.links(self.services, project)
+        except CockpitError as exc:
+            show_error(self.window, "Links", exc.message, exc.details)
+            return
+        LinksDialog(project.name, links, self.window).exec()
+
+    def manage_action(self, context: ActionContext) -> None:
+        project = context.project
+        if not vault_ui.ensure_unlocked(self.services, self.window):
+            return
+        services, window = self.services, self.window
+        platform_name = window.project_list.platform_name
+        announce("Repository wird abgefragt.")
+
+        def work(task: Task):
+            platform = services.platform_for(project)
+            if platform is None:
+                raise CockpitError(repo_admin.NO_ACCOUNT)
+            return platform, platform.repo_info(repo_admin.repo_ref(project))
+
+        def done(outcome) -> None:
+            from cockpit.ui.repo_dialogs import ManageRepoDialog
+            platform, info = outcome
+            dialog = ManageRepoDialog(services, project, platform, info, platform_name, window)
+            dialog.exec()
+            if dialog.deleted:
+                window.reload_projects(refresh=False)
+                if not dialog.removed:
+                    window.show_project(project.id)
+                    window.refresh_status([project.id])
+            elif dialog.changed:
+                window.refresh_status([project.id])
+
+        self.run_task(f"project:{project.id}", work, done, "Repository verwalten")
+
+    def remove_action(self, context: ActionContext) -> None:
+        project = context.project
+        where = f" und das Repository auf {self.window.project_list.platform_name}" if (
+            project.remote is not None) else ""
+        text = (f"{project.name} wird nur aus der Liste des Cockpits entfernt. Der Ordner "
+                f"{project.project_dir}{where} bleiben unverändert. Mit „Projekt vom Rechner "
+                "hinzufügen“ kommt es jederzeit zurück. Entfernen?")
+        if not confirm(self.window, "Aus der Liste entfernen", text, yes="Entfernen",
+                       no="Abbrechen"):
+            return
+        self.services.projects.remove(project.id)
+        if project.remote is not None:
+            self.services.remote_repos.hide(project.remote)   # nicht als "nur auf GitHub"
+        self.window.reload_projects(refresh=False)
+        announce(f"{project.name} aus der Liste entfernt.")
+
+    def hide_remote_action(self, context: ActionContext) -> None:
+        repo = context.remote_repo
+        name = self.window.project_list.platform_name
+        text = (f"{repo.name} erscheint nicht mehr in der Liste. Auf {name} ändert sich nichts. "
+                f"Mit „Projekt von {name} herunterladen“ können Sie es jederzeit holen. "
+                "Entfernen?")
+        if not confirm(self.window, "Aus der Liste entfernen", text, yes="Entfernen",
+                       no="Abbrechen"):
+            return
+        self.services.remote_repos.hide(repo.address)
+        self.window.reload_projects(refresh=False)
+        announce(f"{repo.name} aus der Liste entfernt.")
+
     # -- Neuen Ort angeben -----------------------------------------------------------------
     def relocate_action(self, context: ActionContext) -> None:
         project = context.project
@@ -564,6 +649,10 @@ def _key(repo) -> str:
     from urllib.parse import urlparse
     host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
     return git.RemoteAddress(host, repo.ref.owner, repo.ref.name).key
+
+
+def _has_remote(context: ActionContext) -> bool:
+    return context.project is not None and context.project.remote is not None
 
 
 def _not_on_platform(context: ActionContext) -> bool:

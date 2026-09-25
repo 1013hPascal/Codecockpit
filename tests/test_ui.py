@@ -289,7 +289,8 @@ def test_actions_follow_the_tree_selection(window):
         "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
-    assert win.actions_list.texts() == ["Projekt neu einlesen", "Projektordner öffnen"]
+    assert win.actions_list.texts() == ["Projekt neu einlesen", "Projektordner öffnen",
+                                        "Aus der Liste entfernen …"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [

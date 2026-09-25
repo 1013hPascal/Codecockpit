@@ -38,6 +38,7 @@ def download(services, repo: StoredRepo, root: Path,
     project = services.projects.add(project_dir)
     services.projects.set_account(project, repo.account_id)
     services.projects.set_remote(project, repo.address, repo.pushed_at[:19] or None)
+    services.remote_repos.unhide(repo.address)          # wieder geholt: wieder in der Liste
     return services.projects.get(project.id)
 
 

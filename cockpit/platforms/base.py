@@ -34,6 +34,7 @@ class Capability(Enum):
     DOWNLOAD_COUNTS = auto()
     PULL_REQUESTS = auto()
     SECURITY_ALERTS = auto()
+    COLLABORATORS = auto()
 
 
 # Deutsche Namen für Begründungen ("Die Plattform kennt keine Releases.")
@@ -52,6 +53,7 @@ CAPABILITY_NAMES = {
     Capability.DOWNLOAD_COUNTS: "Download-Zahlen",
     Capability.PULL_REQUESTS: "Pull Requests",
     Capability.SECURITY_ALERTS: "Sicherheitswarnungen",
+    Capability.COLLABORATORS: "Mitarbeiter",
 }
 
 
@@ -105,6 +107,23 @@ class RepoLinks:
 
 
 @dataclass(frozen=True)
+class Collaborator:
+    """Mitarbeiter eines Repositories oder eine offene Einladung."""
+    login: str
+    permission: str                 # "read", "triage", "write", "maintain", "admin"
+    invitation_id: int = 0          # nicht 0: Einladung, noch nicht angenommen
+
+    @property
+    def invited(self) -> bool:
+        return self.invitation_id != 0
+
+
+# Rechte beim Einladen: Anzeige und Wert für die Plattform (ENTSCHEIDUNGEN.md, Phase 5e)
+PERMISSION_NAMES = {"read": "lesen", "triage": "sichten", "write": "schreiben",
+                    "maintain": "pflegen", "admin": "verwalten"}
+
+
+@dataclass(frozen=True)
 class GitCredentials:
     """Wie Git sich anmeldet. Geheimnisse gehen nur über Umgebungsvariablen an Git, nie über die
     Befehlszeile."""
@@ -150,6 +169,14 @@ class Platform(Adapter):
     @abstractmethod
     def delete(self, repo: RepoRef) -> None: ...
 
+    def unarchive(self, repo: RepoRef) -> None:
+        """Archivierung aufheben. Plattformen, die das nicht können, melden es."""
+        raise PlatformError("Die Plattform kann die Archivierung nicht aufheben.")
+
+    def settings_url(self, repo: RepoRef) -> str:
+        """Seite mit den Einstellungen des Repositories im Browser, leer wenn unbekannt."""
+        return ""
+
     @abstractmethod
     def links(self, repo: RepoRef) -> RepoLinks: ...
 
@@ -163,6 +190,25 @@ class Platform(Adapter):
 
     @abstractmethod
     def git_credentials(self) -> GitCredentials: ...
+
+
+class SupportsCollaborators:
+    """Zusatz-Schnittstelle: Mitarbeiter einladen und entfernen (Konzept 9.5)."""
+
+    def collaborators(self, repo: RepoRef) -> list[Collaborator]:
+        """Direkte Mitarbeiter und offene Einladungen."""
+        raise NotImplementedError
+
+    def invite(self, repo: RepoRef, login: str, permission: str) -> bool:
+        """Einladen. True: Es ging eine Einladung hinaus, False: sofort Mitarbeiter (zum
+        Beispiel Mitglieder derselben Organisation)."""
+        raise NotImplementedError
+
+    def remove_collaborator(self, repo: RepoRef, login: str) -> None:
+        raise NotImplementedError
+
+    def cancel_invitation(self, repo: RepoRef, invitation_id: int) -> None:
+        raise NotImplementedError
 
 
 # -- Anmeldung im Browser (Device Flow, Konzept 6.1) ----------------------------------------
@@ -187,8 +233,12 @@ class SupportsBrowserLogin:
     def browser_login_available(cls, url: str = "") -> bool:
         return False
 
+    # Rechte für eine zweite, kurze Anmeldung nur zum Löschen. Leer: gibt es nicht.
+    delete_login_scopes = ""
+
     @classmethod
-    def start_browser_login(cls, url: str = "") -> BrowserLogin:
+    def start_browser_login(cls, url: str = "", scopes: str = "") -> BrowserLogin:
+        """scopes leer: die Rechte der normalen Anmeldung."""
         raise NotImplementedError
 
     @classmethod

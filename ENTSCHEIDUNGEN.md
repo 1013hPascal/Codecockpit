@@ -456,3 +456,32 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 
 - Vor dem Wiederherstellen, Rückgängigmachen und Verwerfen kommen die betroffenen Dateien in eine Sicherheitskopie. Anlass: „vor dem Wiederherstellen“, „vor dem Rückgängigmachen“ oder „vor dem Verwerfen“. Sie erscheinen im Fenster „Sicherheitskopien“ aus 5c.
 
+
+## 26.09.2026: Entscheidungen in Phase 5e
+
+### Links
+
+- „Links …“ ist eine Aktion beim Projekt. Das Fenster zeigt Projektseite und README als Liste. Enter oder „Kopieren“ kopiert den markierten Link, „Im Browser öffnen“ öffnet ihn. Der Download-Link kommt mit dem Feature Releases.
+- Links brauchen keinen Zugang aus dem Tresor. Sie gibt es nur bei Projekten, deren Adresse zu einem Konto passt.
+
+### Repository verwalten
+
+- „Repository verwalten …“ fragt zuerst den Stand bei der Plattform ab. Das Fenster zeigt die Angaben als Liste und die Knöpfe „Öffentlich machen …“ oder „Privat machen …“, „Mitarbeiter …“, „Archivieren …“ oder „Archivierung aufheben …“ und „Löschen …“.
+- Vor „Öffentlich machen“ prüft die Sicherheitsprüfung alle Dateien in Git, den ganzen Verlauf und alle E-Mail-Adressen der Commits. Findet sie ein Geheimnis, macht das Cockpit das Repository nicht öffentlich. Auch ein später entferntes Geheimnis bleibt im Verlauf sichtbar. Warnungen nennt die Rückfrage, Vorgabe ist „Abbrechen“.
+- Neu gegenüber dem Konzept: „Archivierung aufheben …“. GitHub erlaubt das, und so ist Archivieren wirklich die sanfte Alternative zum Löschen.
+- Löschen fragt zweimal. Erst mit dem Hinweis, dass es nicht rückgängig geht, und dem Angebot „Stattdessen archivieren …“. Vorgabe ist „Abbrechen“. Dann muss der Name des Repositories eingetippt werden. Vorgabe ist dort ebenfalls „Abbrechen“.
+- Fehlt das Recht zum Löschen und das Konto nutzt die Anmeldung im Browser, fragt das Cockpit nach einer zweiten, kurzen Anmeldung nur mit den Rechten repo und delete_repo. Meldet man sich dabei mit einem anderen Konto an, löscht es nichts. Der Zugang daraus wird nur für dieses Löschen benutzt und nicht gespeichert. Das Recht bleibt bei GitHub für die App CodeCockpit eingetragen. Man kann es dort unter Settings, Applications widerrufen.
+- Beim eigenen Token ohne dieses Recht erklärt das Cockpit, was fehlt, und bietet an, die Einstellungen des Repositories im Browser zu öffnen.
+- Nach dem Löschen fragt das Cockpit, was mit dem Projekt passiert. Vorgabe ist „Nur lokal behalten“: Die Verbindung origin wird entfernt, Dateien und Verlauf bleiben, das Projekt heißt „noch nicht auf GitHub“. Die andere Wahl ist „Aus der Liste entfernen“. Der Ordner bleibt in beiden Fällen.
+
+### Mitarbeiter
+
+- Die Liste zeigt direkte Mitarbeiter und offene Einladungen, zum Beispiel „erika, schreiben“ und „max, eingeladen, lesen“.
+- Beim Einladen wählt man „lesen“, „schreiben“ oder „verwalten“. Vorgabe ist „schreiben“. GitHub kennt noch „sichten“ und „pflegen“. Sie werden angezeigt, aber beim Einladen nicht angeboten, damit die Auswahl kurz bleibt.
+- „Entfernen …“ zieht bei einer offenen Einladung die Einladung zurück.
+
+### Aus der Liste entfernen
+
+- Beim Projekt: Das Cockpit merkt sich den Ordner. Beim Durchsuchen des Hauptordners und mit Strg+R kommt er nicht wieder. „Projekt vom Rechner hinzufügen“ hebt das auf. Liegt das Projekt auf GitHub, erscheint es danach auch nicht als „nur auf GitHub“.
+- Bei „nur auf GitHub“: Das Repository verschwindet aus der Liste. Bei „Projekt von GitHub herunterladen“ steht es weiter zur Wahl. Nach dem Herunterladen ist es wieder normal in der Liste.
+

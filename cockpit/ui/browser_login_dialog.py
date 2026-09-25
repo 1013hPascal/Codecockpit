@@ -8,6 +8,9 @@ Ablauf:
 
 Das Fenster zeigt die Schritte als Liste, der Code steht in der ersten Zeile. Mit Tab erreichbar:
 "Code kopieren", "Seite erneut öffnen" und "Abbrechen". Nach Erfolg schließt das Fenster selbst.
+
+Mit scopes holt dasselbe Fenster eine zweite, kurze Anmeldung mit anderen Rechten, zum Beispiel nur
+zum Löschen eines Repositories (Phase 5e). Der Zugang daraus wird nicht gespeichert.
 """
 from __future__ import annotations
 
@@ -31,15 +34,20 @@ class BrowserLoginDialog(FocusDialog):
     """platform_cls: Plattform mit SupportsBrowserLogin. Nach accept stehen token und username
     bereit."""
 
-    def __init__(self, platform_cls, url: str = "", parent: QWidget | None = None) -> None:
+    def __init__(self, platform_cls, url: str = "", parent: QWidget | None = None,
+                 scopes: str = "", title: str = "", confirm_line: str = "") -> None:
         super().__init__(parent)
         self.platform_cls = platform_cls
         self.url = url
+        self.scopes = scopes
+        self.confirm_line = confirm_line or (
+            "Auf der nächsten Seite fragt GitHub, ob CodeCockpit auf Ihr Konto zugreifen darf. "
+            "Bestätigen Sie mit Authorize.")
         self.token: Secret | None = None
         self.username = ""
         self.login = None
         self.task: Task | None = None
-        self.setWindowTitle(f"Mit {platform_cls.display_name} anmelden")
+        self.setWindowTitle(title or f"Mit {platform_cls.display_name} anmelden")
 
         self.steps = QListWidget()
         name_widget(self.steps, "Anmeldung")
@@ -68,8 +76,11 @@ class BrowserLoginDialog(FocusDialog):
 
     # -- Ablauf ----------------------------------------------------------------------------
     def start(self) -> None:
-        cls, url = self.platform_cls, self.url
-        self._run(lambda task: cls.start_browser_login(url), self.code_received)
+        cls, url, scopes = self.platform_cls, self.url, self.scopes
+        if scopes:
+            self._run(lambda task: cls.start_browser_login(url, scopes), self.code_received)
+        else:
+            self._run(lambda task: cls.start_browser_login(url), self.code_received)
 
     def code_received(self, login) -> None:
         self.login = login
@@ -80,8 +91,7 @@ class BrowserLoginDialog(FocusDialog):
             "Der Code ist in der Zwischenablage.",
             f"Der Browser öffnet die Seite {login.verification_uri}.",
             "Melden Sie sich dort an, fügen Sie den Code mit Strg+V ein und wählen Sie Continue.",
-            "Auf der nächsten Seite fragt GitHub, ob CodeCockpit auf Ihr Konto zugreifen darf. "
-            "Bestätigen Sie mit Authorize.",
+            self.confirm_line,
             "Danach kehren Sie hierher zurück. Das Cockpit wartet, bis Sie fertig sind.",
             f"Der Code gilt {login.expires_in // 60} Minuten.",
         ])
