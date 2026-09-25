@@ -143,7 +143,7 @@ Antwort von Claude: Umgebaut. Die Punkte 16 und 17 sind damit überholt, bitte s
 
 Bitte alle Cockpit-Fenster schließen und `start_testdaten.bat` neu starten.
 
-[ ] 18. Auswahl nach der Erklärung
+[x] 18. Auswahl nach der Erklärung
 Tasten: Im Assistenten bis „GitHub-Konto“, Tab, Enter auf „GitHub-Konto einrichten …“. Pfeiltasten in der Erklärung, dann zweimal Tab.
 Erwartet: Der Fokus steht in der „Erklärung“. Die zweite Zeile lautet „Es gibt zwei Wege. Mit Tab kommen Sie zu den beiden Knöpfen.“ Eine Zeile sagt, dass Sie den Benutzernamen nicht eintragen müssen. Mit Tab folgen „Im Browser anmelden …“ und „Mit Token anmelden …“, dann „Abbrechen“.
 Ergebnis:
@@ -153,12 +153,12 @@ Tasten: „Im Browser anmelden …“, im Browser Code eingeben und Authorize, z
 Erwartet: NVDA sagt „Angemeldet“. Der Fokus steht in der Liste „Ergebnis“ mit „Angemeldet als 1013hPascal.“ Mit Tab folgen das Feld „Anzeigename“ mit „GitHub 1013hPascal“ und „Speichern“. Speichern schließt das Fenster.
 Ergebnis:
 
-[ ] 20. Weg mit Token
+[x] 20. Weg mit Token
 Tasten: In der Kontenverwaltung „Neues Konto anlegen …“, Kontoart GitHub, zweimal Tab, Enter auf „Mit Token anmelden …“, dann mehrmals Tab.
 Erwartet: NVDA sagt „Mit Token anmelden“. Der Fokus steht im Feld „Anzeigename“. Mit Tab folgen: Serveradresse, „Anleitung für den Token …“, Token, „Zurück zur Auswahl“, „Verbindung testen“, „Speichern“, „Abbrechen“. Es gibt kein Feld Benutzername.
 Ergebnis:
 
-[ ] 21. Speichern mit Token
+[x] 21. Speichern mit Token
 Tasten: Im Feld Token „falsch“ eintragen, Alt+S. Danach, falls Sie einen echten Token haben, diesen eintragen und Alt+S.
 Erwartet: Mit „falsch“: Meldung „Der Token wurde abgelehnt …“, es wird nichts gespeichert. Mit einem echten Token: Das Fenster schließt, in der Kontenliste steht das Konto mit Ihrem Benutzernamen.
 Ergebnis:
