@@ -129,7 +129,7 @@ def repair(code_dir: Path, project_name: str, progress: Callable[[int, int, str]
     names = steps(code_dir)
     total = len(names)
     progress(1, total, names[0])
-    backup = backups.move_into_backup(code_dir / VENV, project_name, "venv")
+    backup = backups.move_into_backup(code_dir / VENV, project_name, "virtuelle Umgebung")
     progress(2, total, names[1])
     _run([*python, "-m", "venv", VENV], code_dir, cancel)
     if total == 3:

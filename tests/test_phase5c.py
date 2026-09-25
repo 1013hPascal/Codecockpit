@@ -241,7 +241,7 @@ def test_pull_fast_forward_keeps_other_changes_and_makes_a_backup(tmp_path, proj
     assert target.parent == backups.backups_dir()
     assert (target / "main.py").read_text(encoding="utf-8") == "a\nb\nc\n"          # Stand vor dem Holen
     assert (target / "README.md").read_text(encoding="utf-8") == "# eigene Änderung\n"
-    assert before in (target / "Stand.txt").read_text()
+    assert before in (target / "Sicherheitskopie.txt").read_text(encoding="utf-8")
     outcome = sync.merge(code, stash=False)
     assert outcome.kind is ConflictKind.NONE
     assert (code / "main.py").read_text(encoding="utf-8") == "a\nB\nc\n"
@@ -421,7 +421,8 @@ def test_code_actions_on_platform(live, qtbot, make_services, projects_root, tmp
     win = live(services)
     select_code(win, services, projects_root / "Tagebuch" / "Code")
     texts = labels(win)
-    assert texts[:2] == ["Änderungen hochladen …", "Änderungen von GitHub holen …"]
+    assert texts[:3] == ["Projekt neu einlesen", "Änderungen hochladen …",
+                         "Änderungen von GitHub holen …"]
     assert "Auf GitHub hochladen …" not in texts and "Konflikte lösen …" not in texts
 
 
@@ -442,7 +443,7 @@ def test_push_from_the_window(live, qtbot, make_services, projects_root, tmp_pat
             return True
 
     monkeypatch.setattr(sync_dialogs, "CommitDialog", FakeCommitDialog)
-    win.run_entry(win.current_entries()[0])
+    win.run_default_action()
     qtbot.waitUntil(lambda: said("Fertig. Commit „Neue Suche“. Branch main ist hochgeladen."),
                     timeout=20000)
     assert sh(bare, "log", "-1", "--format=%s", "main").strip() == "Neue Suche"
@@ -456,7 +457,7 @@ def test_push_without_changes(live, qtbot, make_services, projects_root, tmp_pat
     setup_repo(tmp_path, projects_root)
     win = live(services)
     select_code(win, services, projects_root / "Tagebuch" / "Code")
-    win.run_entry(win.current_entries()[0])
+    win.run_default_action()
     qtbot.waitUntil(lambda: said("Es gibt nichts zum Hochladen. Alles ist hochgeladen."),
                     timeout=10000)
 
@@ -482,7 +483,7 @@ def test_push_behind_offers_pull_then_push(live, qtbot, make_services, projects_
     monkeypatch.setattr(sync_dialogs, "CommitDialog", FakeCommitDialog)
     monkeypatch.setattr(sync_flow, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
-    win.run_entry(win.current_entries()[0])
+    win.run_default_action()
     qtbot.waitUntil(lambda: said("Fertig. Branch main ist hochgeladen."), timeout=30000)
     text, buttons = questions[0]
     assert text.startswith("Ihr Commit ist gespeichert, aber noch nicht hochgeladen. Auf GitHub "
@@ -567,7 +568,7 @@ def test_conflict_abort_from_window(live, qtbot, make_services, projects_root, t
     code, before, _ = merge_conflict(tmp_path, projects_root)
     win = live(services)
     select_code(win, services, code)
-    assert labels(win)[0] == "Konflikte lösen …"                  # Vorgabe für Enter
+    assert labels(win)[1] == "Konflikte lösen …"                  # Vorgabe für Enter
 
     class Cancel:
         def __init__(self, *a, **k):
@@ -623,11 +624,20 @@ def test_conflict_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     monkeypatch.setattr(dialogs.core_actions, "open_path", lambda p: opened.append(p))
     dialog = dialogs.ConflictDialog(code, ConflictKind.MERGE, "GitHub")
     qtbot.addWidget(dialog)
+    dialog.show()
+    dialog.activateWindow()
+    qtbot.waitUntil(dialog.isActiveWindow, timeout=3000)
     rows = lambda: [dialog.list.item(i).text() for i in range(dialog.list.count())]  # noqa: E731
     assert dialog.windowTitle() == "Konflikte beim Zusammenführen: 3 Konflikte offen"
     assert rows() == ["a.py, Konflikt", "b.py, Konflikt", "c.py, Konflikt"]
     assert dialog.theirs_button.text() == "Fassung von &GitHub übernehmen"
-    assert not dialog.finish_button.isEnabled()
+    assert dialog.editor_button.text() == "Konflikt im &Editor anzeigen"
+    # Abschließen ist immer erreichbar und sagt, was noch fehlt (Rückmeldung aus dem Test von 5c)
+    assert dialog.finish_button.isEnabled()
+    dialog.list.setCurrentRow(2)
+    dialog.finish()
+    assert said("Noch nicht fertig. Noch 3 Konflikte.")
+    assert dialog.list.currentRow() == 0 and dialog.result() == 0
     dialog.choose(True)
     assert said("a.py: Ihre Fassung. Noch 2 Konflikte.")
     assert dialog.list.currentRow() == 1                           # weiter zur nächsten Datei
@@ -636,7 +646,10 @@ def test_conflict_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     assert said("b.py: Fassung von GitHub. Noch 1 Konflikt.")
     dialog.open_current()
     assert opened == [code / "c.py"]
-    assert rows()[2] == "c.py, im Editor geöffnet, noch Konfliktmarken"
+    assert rows()[2] == "c.py, im Editor angezeigt, noch Konfliktmarken"
+    assert (code / "c.py").read_text(encoding="utf-8").splitlines() == [
+        "<<<<<<< Meine Fassung, c.py Zeile 1", "meine",
+        "======= Fassung von GitHub, c.py Zeile 1", "github", ">>>>>>> Ende des Konflikts"]
     dialog.recheck()
     assert said("Keine Änderung. Noch 1 Konflikt.")
     write(code, "c.py", "beides\n")
@@ -645,7 +658,7 @@ def test_conflict_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     assert dialog.windowTitle() == "Konflikte beim Zusammenführen: alle Konflikte gelöst"
     assert rows() == ["a.py, gelöst: Ihre Fassung", "b.py, gelöst: Fassung von GitHub",
                       "c.py, gelöst: im Editor bearbeitet"]
-    assert dialog.finish_button.isEnabled()
+    assert dialog.finish_button.hasFocus()                        # alles gelöst: zum Abschließen
     dialog.list.setCurrentRow(0)
     assert not dialog.mine_button.isEnabled()                       # schon gelöst
     dialog.finish()
@@ -666,3 +679,174 @@ def test_conflict_dialog_escape_is_abort(qtbot, tmp_path, projects_root):
     assert dialog.isVisible() and sync.conflicted(code) == ["main.py"]
     qtbot.keyClick(dialog, Qt.Key.Key_Escape)
     assert dialog.result() == 0
+
+
+# -- Beschriftete Konfliktmarken ------------------------------------------------------------
+def test_labels_name_version_file_and_line(tmp_path):
+    text = ("eins\nzwei\n<<<<<<< HEAD\nmeine a\nmeine b\n=======\ngithub\n>>>>>>> origin/main\n"
+            "mitte\n<<<<<<< HEAD\nm\n||||||| basis\nb\n=======\ng1\ng2\n>>>>>>> origin/main\n")
+    write(tmp_path, "sub/main.py", text)
+    assert sync.label_conflicts(tmp_path, "sub/main.py", ConflictKind.MERGE) == 2
+    assert (tmp_path / "sub/main.py").read_text(encoding="utf-8").splitlines() == [
+        "eins", "zwei",
+        "<<<<<<< Meine Fassung, main.py Zeile 3", "meine a", "meine b",
+        "======= Fassung von GitHub, main.py Zeile 3", "github",
+        ">>>>>>> Ende des Konflikts",
+        "mitte",
+        "<<<<<<< Meine Fassung, main.py Zeile 6", "m",
+        "||||||| Gemeinsamer Ausgangsstand", "b",
+        "======= Fassung von GitHub, main.py Zeile 5", "g1", "g2",
+        ">>>>>>> Ende des Konflikts"]
+    assert sync.has_markers(tmp_path, "sub/main.py")
+    # Noch einmal beschriften ändert nichts
+    before = (tmp_path / "sub/main.py").read_bytes()
+    sync.label_conflicts(tmp_path, "sub/main.py", ConflictKind.MERGE)
+    assert (tmp_path / "sub/main.py").read_bytes() == before
+
+
+def test_labels_for_stash_conflicts_start_with_github(tmp_path):
+    (tmp_path / "a.py").write_bytes(b"<<<<<<< Updated upstream\r\ng\r\n=======\r\nm\r\n"
+                                    b">>>>>>> Stashed changes\r\n")
+    sync.label_conflicts(tmp_path, "a.py", ConflictKind.STASH, "GitHub")
+    assert (tmp_path / "a.py").read_bytes() == (
+        b"<<<<<<< Fassung von GitHub, a.py Zeile 1\r\ng\r\n"
+        b"======= Meine Fassung, a.py Zeile 1\r\nm\r\n>>>>>>> Ende des Konflikts\r\n")
+
+
+def test_labels_in_a_real_stash_conflict(tmp_path, projects_root):
+    code, _, _ = stash_conflict(tmp_path, projects_root)
+    sync.label_conflicts(code, "main.py", ConflictKind.STASH)
+    lines = (code / "main.py").read_text(encoding="utf-8").splitlines()
+    assert lines[1] == "<<<<<<< Fassung von GitHub, main.py Zeile 2"
+    assert lines[2] == "VON GITHUB" and lines[4] == "MEINE"
+    assert lines[3] == "======= Meine Fassung, main.py Zeile 2"
+
+
+# -- Stand bei Code und Projekt neu einlesen --------------------------------------------------
+def test_code_line_says_what_is_not_fetched(tmp_path, projects_root, make_services):
+    services = make_services()
+    _, code, other = setup_repo(tmp_path, projects_root)
+    push_from_other(other, "neu.py", "x\n")
+    sync.fetch(code)
+    project = services.projects.add(code.parent)
+    status = project_status.compute(project)
+    assert project_status.code_line(status) == (
+        "Code, alles hochgeladen, 1 Änderung auf GitHub noch nicht geholt")
+
+
+def test_reread_project_is_on_top_of_every_level(live, qtbot, make_services, projects_root,
+                                                 tmp_path):
+    from cockpit.core.actions import Target
+    services = make_services()
+    _, code, _ = setup_repo(tmp_path, projects_root)
+    (code.parent / "Exe").mkdir()
+    win = live(services)
+    project = select_code(win, services, code)
+    for target in (Target.PROJECT, Target.CODE, Target.EXE):
+        win.project_list.select(target, project.id)
+        assert labels(win)[0] == "Projekt neu einlesen"
+        assert not win.current_entries()[0].action.is_default     # Enter bleibt wie bisher
+    write(code, "neu.py", "x\n")
+    win.project_list.select(Target.CODE, project.id)
+    win.run_entry(win.current_entries()[0])
+    qtbot.waitUntil(lambda: said("Tagebuch neu eingelesen."), timeout=10000)
+    assert win.project_list.currentItem().text() == "Code, 1 Datei noch nicht hochgeladen"
+    file_menu = win.menuBar().actions()[0].menu()
+    texts = [a.text() for a in file_menu.actions()]
+    assert "Projekte &neu einlesen" in texts and "&Sicherheitskopien …" in texts
+
+
+# -- Sicherheitskopien ------------------------------------------------------------------------
+def test_backup_info_and_restore(tmp_path, projects_root):
+    from cockpit.core import backups
+    _, code, other = setup_repo(tmp_path, projects_root)
+    push_from_other(other, "main.py", "a\nB\nc\n")
+    write(code, "main.py", "a\nb\nMEINE\n")
+    incoming = sync.fetch(code)
+    folder = sync.backup(code, "Tagebuch", incoming)
+    info = next(i for i in backups.all_backups() if i.path == folder)
+    assert (info.project, info.reason, info.source_dir) == ("Tagebuch", "vor dem Holen", code)
+    assert info.files() == ["main.py"]
+    assert info.line().endswith(", Tagebuch, vor dem Holen, 1 Datei")
+    assert info.notes[0].startswith("Commit vor dem Holen: ")
+    write(code, "main.py", "kaputt\n")
+    before = backups.restore(info, "main.py")
+    assert (code / "main.py").read_text(encoding="utf-8") == "a\nb\nMEINE\n"
+    assert (before / "main.py").read_text(encoding="utf-8") == "kaputt\n"   # vorher gesichert
+    assert backups.read_info(before).reason == "vor dem Wiederherstellen"
+    (code / "main.py").unlink()
+    assert backups.restore(info, "main.py") is None                 # nichts zu sichern
+    assert (code / "main.py").exists()
+    backups.delete(info)
+    assert not folder.exists()
+
+
+def test_old_backup_without_info_cannot_be_restored(tmp_path):
+    from cockpit.core import backups
+    from cockpit.core.errors import CockpitError
+    folder = backups.backups_dir() / "2026-09-01_10-00-00 Alt venv"
+    write(folder, "a.txt", "x")
+    info = backups.read_info(folder)
+    assert info.project == "Alt venv" and info.source_dir is None
+    with pytest.raises(CockpitError, match="nicht bekannt, woher"):
+        backups.restore(info, "a.txt")
+
+
+def test_backups_dialog(qtbot, tmp_path, projects_root, monkeypatch):
+    from cockpit.core import backups
+    from cockpit.ui import backups_dialog
+    _, code, other = setup_repo(tmp_path, projects_root)
+    push_from_other(other, "main.py", "a\nB\nc\n")
+    write(code, "main.py", "MEINE\n")
+    folder = sync.backup(code, "Tagebuch", sync.fetch(code))
+    write(code, "main.py", "anders\n")
+    questions, opened = [], []
+    monkeypatch.setattr(backups_dialog, "confirm",
+                        lambda p, t, text, **k: questions.append((text, k)) or True)
+    monkeypatch.setattr(backups_dialog.core_actions, "open_path", opened.append)
+    dialog = backups_dialog.BackupsDialog()
+    qtbot.addWidget(dialog)
+    assert dialog.windowTitle().startswith("Sicherheitskopien: ")
+    assert dialog.list.item(0).text().endswith(", Tagebuch, vor dem Holen, 1 Datei")
+    files = backups_dialog.BackupFilesDialog(dialog.items[0], dialog)
+    qtbot.addWidget(files)
+    assert files.list.accessibleName() == "Dateien"
+    assert files.list.item(0).text() == "main.py"
+    assert files.windowTitle().endswith(f", aus {code}")
+    files.open_current()
+    assert opened == [folder / "main.py"]
+    files.restore_current()
+    text, buttons = questions[-1]
+    assert text.startswith("main.py aus der Sicherheitskopie vom ")
+    assert "Die jetzige Datei kommt vorher selbst als Sicherheitskopie" in text
+    assert buttons == {"yes": "Wiederherstellen", "no": "Abbrechen"}
+    assert (code / "main.py").read_text(encoding="utf-8") == "MEINE\n"
+    assert said("main.py wiederhergestellt.")
+    dialog.fill()
+    assert dialog.list.item(0).text().endswith("Tagebuch, vor dem Wiederherstellen, 1 Datei")
+    dialog.list.setCurrentRow(0)
+    count_before = len(backups.all_backups())
+    dialog.delete_current()
+    assert "wird endgültig gelöscht" in questions[-1][0]
+    assert questions[-1][1] == {"yes": "Löschen", "no": "Abbrechen"}
+    assert len(backups.all_backups()) == count_before - 1
+    assert said("Sicherheitskopie gelöscht.")
+
+
+def test_backups_dialog_cancel_changes_nothing(qtbot, tmp_path, projects_root, monkeypatch):
+    from cockpit.ui import backups_dialog
+    _, code, other = setup_repo(tmp_path, projects_root)
+    push_from_other(other, "main.py", "a\nB\nc\n")
+    write(code, "main.py", "MEINE\n")
+    sync.backup(code, "Tagebuch", sync.fetch(code))
+    write(code, "main.py", "anders\n")
+    monkeypatch.setattr(backups_dialog, "confirm", lambda *a, **k: False)     # Escape
+    dialog = backups_dialog.BackupsDialog()
+    qtbot.addWidget(dialog)
+    files = backups_dialog.BackupFilesDialog(dialog.items[0], dialog)
+    qtbot.addWidget(files)
+    files.restore_current()
+    dialog.delete_current()
+    assert (code / "main.py").read_text(encoding="utf-8") == "anders\n"
+    assert len(dialog.items) == 1 and dialog.items[0].path.exists()
+

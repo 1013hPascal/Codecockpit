@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
@@ -92,6 +93,7 @@ class MainWindow(QMainWindow):
         self.status_task: Task | None = None
         self.status_queue: set[int] | None = None       # wartet auf den laufenden Abruf
         self.status_queue_all = False
+        self.status_callbacks: list[Callable[[], None]] = []
         self.remote_task: Task | None = None
         self.actions_list = ActionList()
         list_label = QLabel("&Projekte:")
@@ -163,6 +165,7 @@ class MainWindow(QMainWindow):
                                          self.controller.add_remote)
         file_menu.aboutToShow.connect(self.update_file_menu)
         self._action(file_menu, "Projekte &neu einlesen", self.rescan, "Ctrl+R")
+        self._action(file_menu, "&Sicherheitskopien …", self.open_backups)
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
 
@@ -190,6 +193,11 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
+
+    def open_backups(self) -> None:
+        from cockpit.ui.backups_dialog import BackupsDialog
+        BackupsDialog(self).exec()
+        self.refresh_status()                  # Wiederherstellen kann den Stand ändern
 
     def update_file_menu(self) -> None:
         self.act_download.setText(f"Projekt von {self.platform_name()} &herunterladen …")
@@ -268,8 +276,12 @@ class MainWindow(QMainWindow):
         if remote_ids != set(self.project_list.remote_ids()):
             self.reload_projects(refresh=False)
 
-    def refresh_status(self, project_ids: list[int] | None = None) -> None:
-        """Stand der Projekte im Hintergrund abfragen (ohne Ansage, der Fokus bleibt)."""
+    def refresh_status(self, project_ids: list[int] | None = None,
+                       on_done: Callable[[], None] | None = None) -> None:
+        """Stand der Projekte im Hintergrund abfragen (ohne Ansage, der Fokus bleibt).
+        on_done kommt, wenn keine Abfrage mehr läuft oder wartet."""
+        if on_done is not None:
+            self.status_callbacks.append(on_done)
         if self.status_task is not None:
             if project_ids is None:
                 self.status_queue_all = True
@@ -311,6 +323,10 @@ class MainWindow(QMainWindow):
             queued = None if self.status_queue_all else list(self.status_queue)
             self.status_queue, self.status_queue_all = None, False
             self.refresh_status(queued)
+            return
+        callbacks, self.status_callbacks = self.status_callbacks, []
+        for callback in callbacks:
+            callback()
 
     def refresh_remote(self) -> None:
         """Repositories der Plattform-Konten im Hintergrund abfragen. Ist die Tresordatei
@@ -396,7 +412,8 @@ class MainWindow(QMainWindow):
             message = f"{entry.action.text} hat nicht geklappt."
             announce(message, urgent=True)
             show_error(self, entry.action.text, message, str(exc))
-        self.refresh_actions()
+        # Die Markierung bleibt auf der ausgeführten Aktion, statt nach oben zu springen
+        self.refresh_actions(keep_selection=True)
 
     def run_default_action(self) -> None:
         """Enter in der Projektliste: wichtigste Aktion, sonst in die Aktionsliste springen."""

@@ -128,6 +128,10 @@ def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> st
         parts.append(f"{count(status.pending, 'Datei', 'Dateien')} noch nicht hochgeladen")
     else:
         parts.append("alles hochgeladen")
+    if status.on_platform and status.repo.behind:
+        # Wie beim Projekt, damit man an Code sieht, dass hier geholt werden muss
+        parts.append(f"{count(status.repo.behind, 'Änderung', 'Änderungen')} auf "
+                     f"{platform_name} noch nicht geholt")
     return ", ".join(parts)
 
 

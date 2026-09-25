@@ -414,3 +414,15 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 ### Testdaten
 
 - Ein „anderer Rechner“ hat Änderungen zu PDF-Chat, Tagebuch und Rezepte hochgeladen. Das neue Beispielprojekt Rezepte hat einen Konflikt beim Zusammenführen, Tagebuch einen beim Zurücklegen.
+
+### Nach dem NVDA-Test von 5c
+
+- „Projekt neu einlesen“ steht bei Projekt, Code und Exe ganz oben in der Aktionsliste. Es fragt nur den Stand dieses Projekts neu ab und sagt danach „… neu eingelesen.“ Enter auf Code führt weiter die wichtigste Aktion aus. Im Menü Datei bleibt „Projekte neu einlesen“ für alle Projekte.
+- Nach einer Aktion bleibt die Markierung in der Aktionsliste auf dieser Aktion. Vorher sprang sie nach oben.
+- Das zweite Feld beim Hochladen heißt nur „Beschreibung“. Mit „freiwillig“ klang es beim ersten Vorlesen so, als wäre das Pflichtfeld freiwillig.
+- Code nennt auch die Änderungen, die auf GitHub noch nicht geholt sind. Exe nennt sie nicht, weil Holen die Exe nicht betrifft und man dort nichts tun kann.
+- „Im Editor öffnen“ heißt jetzt „Konflikt im Editor anzeigen“. Vorher beschriftet das Cockpit die Konfliktmarken in der Datei: „Meine Fassung“ oder „Fassung von GitHub“ mit Dateiname und Zeile, am Ende „Ende des Konflikts“. Nur die Markenzeilen ändern sich, auch schon bearbeiteter Code bleibt.
+- „Zusammenführen abschließen“ ist nie ausgegraut, weil Tab ausgegraute Knöpfe überspringt. Ist noch etwas offen, sagt der Knopf, wie viel. Ist der letzte Konflikt gelöst, springt der Fokus auf diesen Knopf.
+- Neu im Menü Datei: „Sicherheitskopien …“. Jede Kopie hat die Datei Sicherheitskopie.txt mit Projekt, Anlass und Herkunftsordner. Einzelne Dateien lassen sich öffnen und wiederherstellen. Vor dem Wiederherstellen kommt die jetzige Datei selbst in eine neue Sicherheitskopie. Löschen einer Kopie braucht eine Bestätigung, eine Kopie der Kopie gibt es nicht. Das greift einem Teil von 5d vor.
+- Der Anlass der Sicherheitskopie beim Neuanlegen der virtuellen Umgebung heißt jetzt „virtuelle Umgebung“ statt „venv“.
+

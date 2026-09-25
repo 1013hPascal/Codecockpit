@@ -26,7 +26,7 @@ from tests.conftest import FAKE_TOKEN, make_project, said
 def window(qtbot, make_services, projects_root, monkeypatch):
     """Hauptfenster ohne Abfrage des Stands im Hintergrund, damit die Zeilen nur den Namen zeigen.
     Den Stand prüfen die Tests in test_phase5a.py."""
-    monkeypatch.setattr(MainWindow, "refresh_status", lambda self, ids=None: None)
+    monkeypatch.setattr(MainWindow, "refresh_status", lambda self, ids=None, on_done=None: None)
 
     def factory(names=("PDF-Chat", "Tagebuch"), exe=("PDF-Chat",)):
         for name in names:
@@ -289,11 +289,12 @@ def test_actions_follow_the_tree_selection(window):
         "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
-    assert win.actions_list.texts() == ["Projektordner öffnen"]
+    assert win.actions_list.texts() == ["Projekt neu einlesen", "Projektordner öffnen"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
-        "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.", "Exe-Ordner öffnen"]
+        "Projekt neu einlesen", "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.",
+        "Exe-Ordner öffnen"]
 
 
 def test_unavailable_action_announces_reason(window, qtbot):
@@ -311,6 +312,7 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     win = window()
     select_project(win, "PDF-Chat")
     win.focus_actions()
+    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # oben steht Projekt neu einlesen
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)
     assert len(opened) == 2 and opened[0].name == "PDF-Chat"

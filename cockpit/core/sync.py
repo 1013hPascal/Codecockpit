@@ -258,17 +258,16 @@ def fetch(code_dir: Path, env: dict[str, str] | None = None,
 
 def backup(code_dir: Path, project_name: str, incoming: Incoming) -> Path:
     """Sicherheitskopie vor dem Holen: alle Dateien, die das Holen ändern könnte, und alle
-    eigenen Änderungen. Dazu der Commit vor dem Holen in Stand.txt."""
-    target = backups.new_backup_dir(project_name, "vor dem Holen")
+    eigenen Änderungen. Dazu der Commit vor dem Holen in Sicherheitskopie.txt."""
+    head = git.run(["rev-parse", "HEAD"], code_dir, action="Sicherheitskopie").stdout.strip()
+    target = backups.new_backup_dir(project_name, "vor dem Holen", code_dir, [
+        f"Commit vor dem Holen: {head}", f"Branch: {incoming.branch}"])
     for relative in sorted(set(incoming.files) | set(incoming.local)):
         source = code_dir / relative
         if source.is_file():
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
-    head = git.run(["rev-parse", "HEAD"], code_dir, action="Sicherheitskopie").stdout.strip()
-    (target / "Stand.txt").write_text(
-        f"Commit vor dem Holen: {head}\nBranch: {incoming.branch}\n", encoding="utf-8")
     log.info("Sicherheitskopie vor dem Holen: %s", target)
     return target
 
@@ -366,6 +365,65 @@ def resolve(code_dir: Path, path: str, kind: ConflictKind, keep_mine: bool) -> N
         git.run(["add", "--", path], code_dir, action="Konflikt lösen")
     else:                                               # auf dieser Seite gelöscht
         git.run(["rm", "-q", "--", path], code_dir, action="Konflikt lösen")
+
+
+def label_conflicts(code_dir: Path, path: str, kind: ConflictKind,
+                    platform_name: str = "GitHub") -> int:
+    """Konfliktmarken in der Datei verständlich beschriften (Wunsch aus dem Test von 5c).
+
+    Git schreibt "<<<<<<< HEAD", "=======" und ">>>>>>> origin/main". Daraus wird zum Beispiel
+    "<<<<<<< Meine Fassung, main.py Zeile 7", "======= Fassung von GitHub, main.py Zeile 7" und
+    ">>>>>>> Ende des Konflikts". Die Zeilennummer gilt jeweils in der Datei dieser Fassung.
+    Nur die Zeilen mit den Marken ändern sich, der Code dazwischen bleibt, auch wenn er schon
+    bearbeitet ist. Gibt die Zahl der Konflikte zurück."""
+    file = code_dir / path
+    try:
+        data = file.read_bytes()
+    except OSError:
+        return 0
+    mine = "Meine Fassung"
+    theirs = f"Fassung von {platform_name}"
+    # Oben steht bei Git immer "ours": beim Zusammenführen meine Fassung, beim Zurücklegen des
+    # Stashs die Fassung der Plattform.
+    first, second = (mine, theirs) if kind is ConflictKind.MERGE else (theirs, mine)
+    name = Path(path).name
+    lines = data.splitlines(keepends=True)
+    result: list[bytes] = []
+    line_first = line_second = 0                 # Zeilen bisher in beiden Fassungen
+    section = ""                                  # "", "first", "base", "second"
+    blocks = 0
+    for line in lines:
+        ending = line[len(line.rstrip(b"\r\n")):]
+        if line.startswith(b"<<<<<<<"):
+            section = "first"
+            blocks += 1
+            label = f"<<<<<<< {first}, {name} Zeile {line_first + 1}"
+            result.append(label.encode("utf-8") + ending)
+            start_second = line_second + 1
+            continue
+        if section == "first" and line.startswith(b"|||||||"):
+            section = "base"
+            result.append("||||||| Gemeinsamer Ausgangsstand".encode("utf-8") + ending)
+            continue
+        if section in ("first", "base") and line.startswith(b"======="):
+            section = "second"
+            label = f"======= {second}, {name} Zeile {start_second}"
+            result.append(label.encode("utf-8") + ending)
+            continue
+        if section == "second" and line.startswith(b">>>>>>>"):
+            section = ""
+            result.append(">>>>>>> Ende des Konflikts".encode("utf-8") + ending)
+            continue
+        if section in ("", "first"):
+            line_first += 1
+        if section in ("", "second"):
+            line_second += 1
+        result.append(line)
+    if blocks:
+        new = b"".join(result)
+        if new != data:
+            file.write_bytes(new)
+    return blocks
 
 
 def has_markers(code_dir: Path, path: str) -> bool:

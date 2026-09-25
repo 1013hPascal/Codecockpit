@@ -4,9 +4,11 @@ CommitDialog: Was haben Sie geändert? Der Titel nennt die Änderungen kurz, die
 Datei. Der Fokus beginnt im Feld für die Nachricht, Enter lädt hoch.
 
 ConflictDialog: Dateien mit Konflikt als Liste. Für die markierte Datei: "Meine Fassung
-behalten", "Fassung von GitHub übernehmen" oder "Im Editor öffnen". "Erneut prüfen" erkennt im
-Editor gelöste Dateien daran, dass keine Konfliktmarken mehr darin stehen. "Zusammenführen
-abschließen" geht erst, wenn alles gelöst ist. Escape wählt "Zusammenführen abbrechen".
+behalten", "Fassung von GitHub übernehmen" oder "Konflikt im Editor anzeigen". Im Editor stehen
+über jedem Abschnitt "Meine Fassung" oder "Fassung von GitHub" mit Dateiname und Zeile.
+"Erneut prüfen" erkennt im Editor gelöste Dateien daran, dass keine Konfliktmarken mehr darin
+stehen. "Zusammenführen abschließen" ist immer erreichbar und sagt, was noch offen ist. Ist der
+letzte Konflikt gelöst, springt der Fokus dorthin. Escape wählt "Zusammenführen abbrechen".
 """
 from __future__ import annotations
 
@@ -36,7 +38,7 @@ class CommitDialog(FocusDialog):
         self.summary = QLineEdit()
         summary_label = label_for(self.summary, "&Was haben Sie geändert?")
         self.details = PlainEdit()
-        details_label = label_for(self.details, "&Beschreibung, freiwillig:")
+        details_label = label_for(self.details, "&Beschreibung:")
         self.files = QListWidget()
         files_label = label_for(self.files, "Ä&nderungen:")
         self.files.addItems(changes.lines())
@@ -92,7 +94,7 @@ class ConflictDialog(FocusDialog):
         self.mine_button.clicked.connect(lambda: self.choose(True))
         self.theirs_button = QPushButton(f"Fassung von &{platform_name} übernehmen")
         self.theirs_button.clicked.connect(lambda: self.choose(False))
-        self.editor_button = QPushButton("Im &Editor öffnen")
+        self.editor_button = QPushButton("Konflikt im &Editor anzeigen")
         self.editor_button.clicked.connect(self.open_current)
         self.recheck_button = QPushButton("E&rneut prüfen")
         self.recheck_button.clicked.connect(self.recheck)
@@ -147,7 +149,6 @@ class ConflictDialog(FocusDialog):
         unresolved = path is not None and path in self.open_files()
         for button in (self.mine_button, self.theirs_button, self.editor_button):
             button.setEnabled(unresolved)
-        self.finish_button.setEnabled(not self.open_files())
 
     def _next_row(self, row: int) -> int:
         """Nächste offene Datei nach row, sonst die erste offene, sonst row."""
@@ -176,14 +177,20 @@ class ConflictDialog(FocusDialog):
         self.state[path] = f"gelöst: {which}"
         row = self.list.currentRow()
         self.fill(self._next_row(row))
-        self.list.setFocus()
+        self._focus_next()
         announce(f"{path}: {which}. {self._remaining_text()}")
+
+    def _focus_next(self) -> None:
+        """Ist alles gelöst, geht der Fokus auf "Zusammenführen abschließen", sonst in die
+        Liste (Rückmeldung aus dem Test von 5c)."""
+        (self.list if self.open_files() else self.finish_button).setFocus()
 
     def open_current(self) -> None:
         path = self.current()
         if path is None:
             return
-        self.state[path] = "im Editor geöffnet, noch Konfliktmarken"
+        sync.label_conflicts(self.code_dir, path, self.kind, self.platform_name)
+        self.state[path] = "im Editor angezeigt, noch Konfliktmarken"
         self.fill(self.list.currentRow())
         core_actions.open_path(self.code_dir / path)
 
@@ -201,7 +208,7 @@ class ConflictDialog(FocusDialog):
                 self.state[path] = "gelöst: im Editor bearbeitet"
                 solved.append(path)
         self.fill(self._next_row(row) if solved else row)
-        self.list.setFocus()
+        self._focus_next()
         head = f"Gelöst: {', '.join(solved)}." if solved else "Keine Änderung."
         announce(f"{head} {self._remaining_text()}")
 
@@ -213,5 +220,10 @@ class ConflictDialog(FocusDialog):
         return super().eventFilter(watched, event)
 
     def finish(self) -> None:
-        if not self.open_files():
+        remaining = self.open_files()
+        if not remaining:
             self.accept()
+            return
+        self.list.setCurrentRow(self.files.index(remaining[0]))
+        self.list.setFocus()
+        announce(f"Noch nicht fertig. {self._remaining_text()}")

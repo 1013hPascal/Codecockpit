@@ -55,7 +55,10 @@ class ProjectController:
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
         platform_name = self.window.project_list.platform_name
-        return [
+        reread = [Action(f"reread_{target.value}", "Projekt neu einlesen", target,
+                         self.reread_action, visible=lambda c: c.project is not None, order=1)
+                  for target in (Target.PROJECT, Target.CODE, Target.EXE)]
+        return reread + [
             Action("add_local", "Projekt vom Rechner hinzufügen …", Target.ADD_LOCAL,
                    lambda c: self.add_local(), is_default=True, order=10),
             Action("add_remote", f"Projekt von {platform_name} herunterladen …",
@@ -127,6 +130,14 @@ class ProjectController:
         for task in list(self.tasks):
             task.cancel()
             task.wait(5000)
+
+    # -- Projekt neu einlesen ----------------------------------------------------------------
+    def reread_action(self, context: ActionContext) -> None:
+        """Stand dieses einen Projekts neu abfragen (Wunsch aus dem Test von 5c). Im Menü Datei
+        steht weiter "Projekte neu einlesen" für alle."""
+        name, project_id = context.project.name, context.project.id
+        self.window.refresh_status([project_id],
+                                   on_done=lambda: announce(f"{name} neu eingelesen."))
 
     # -- Projekt vom Rechner hinzufügen ------------------------------------------------------
     def add_local(self) -> None:

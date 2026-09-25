@@ -691,9 +691,10 @@ def test_relocate_only_for_missing_folder(live, qtbot, make_services, projects_r
     wait_idle(qtbot, win)
     win.project_list.select(Target.PROJECT, project.id)
     entries = win.current_entries()
-    assert entries[0].label == "Neuen Ort angeben …"
+    assert entries[0].label == "Projekt neu einlesen"
+    assert entries[1].label == "Neuen Ort angeben …"
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: new_place / "Notizen")
-    win.run_entry(entries[0])
+    win.run_entry(entries[1])
     assert said("Neuer Ort für Notizen gespeichert.")
     assert services.projects.get(project.id).folder_found
 
