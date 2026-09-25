@@ -261,3 +261,59 @@ Neue Einträge kommen ans Ende.
 - Git bekommt den Token später über Umgebungsvariablen (GIT_CONFIG_COUNT und http.extraheader), nie über die Befehlszeile. Der Log-Filter maskiert auch diese kodierte Form.
 - Konto-Fenster nach dem NVDA-Test: zuerst eine Erklärung als Liste, dann „Im Browser anmelden …“, dann die Felder für den Weg mit Token samt „Anleitung für den Token …“. Gleich im Assistenten und in der Kontenverwaltung. Beim Bearbeiten eines vorhandenen Kontos beginnt der Fokus im ersten Feld. Jeder Adapter kann seine Erklärung mitbringen (account_explanation).
 - Konto-Fenster, zweite Fassung nach dem NVDA-Test: Nach der Erklärung wählt man zwischen „Im Browser anmelden …“ und „Mit Token anmelden …“. Jeder Weg zeigt danach nur seine Felder. Felder, die das Cockpit selbst füllt (auto, bei GitHub der Benutzername), erscheinen nie. Beim Speichern mit neuem Token testet das Cockpit erst die Verbindung und speichert nur, wenn sie klappt.
+
+
+## 25.09.2026: Antworten auf die Fragen zu Phase 5
+
+Die Fragen und Antworten stehen in `fragen\phase-05.md`.
+
+### Grundsatz: wie Git und GitHub
+
+- Das Cockpit macht alles so, wie es Git im Terminal und GitHub Desktop machen. Es nutzt dieselben Git-Befehle und dieselben Voreinstellungen.
+- Weicht es davon ab, steht der Grund in dieser Datei. Die feste Ausnahme: nie ein force push.
+- Ziel: Man braucht für die Arbeit mit Git und GitHub kein Terminal mehr.
+
+### Aufteilung von Phase 5
+
+- Phase 5 kommt in sechs Teilschritten, jeder mit eigenen Tests und eigener Checkliste `checklisten\phase-05a.md` bis `phase-05f.md`.
+- 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand der Projekte in der Projektliste, Repositories des Kontos in der Liste.
+- 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen.
+- 5c: Änderungen hochladen, Änderungen holen, Projekt von der Plattform herunterladen.
+- 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien.
+- 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen.
+- 5f: Übersicht „Branches“ und Stash.
+- Getestet wird mit einem privaten Repository „codecockpit-test“ auf dem echten Konto. Es wird in 5e mit dem Cockpit gelöscht. Die automatischen Tests arbeiten nur mit einer Attrappe.
+
+### Git und Projekte
+
+- Git-Identität: Das Cockpit trägt Name und E-Mail-Adresse nur im Repository ein, nie global. Hat ein Repository schon eine andere Identität, fragt es nach. Vorgabe: „Vorhandene behalten“.
+- Projekte ohne Verbindung zur Plattform heißen in der Liste „noch nicht auf GitHub“ und haben bei „Code“ die Aktion „Auf GitHub hochladen“.
+- Der Haupt-Branch neuer Repositories heißt „main“.
+- Den Stand der Projekte fragt das Cockpit im Hintergrund ab: beim Start, nach jeder Aktion am Projekt und mit Strg+R. Ohne Ansage, der Fokus bleibt.
+- Alle Repositories des eigenen Kontos erscheinen von selbst in der Projektliste. Liegt eines nicht auf dem Rechner, heißt es „nur auf GitHub“. Enter lädt es herunter. Repositories von Organisationen kommen über „Projekt von der Plattform herunterladen“. Die Einstellung „Neue Repositories automatisch herunterladen“ ist anfangs aus. „Aus der Liste entfernen“ merkt sich das Cockpit.
+
+### Sicherheitsprüfung
+
+- Eigene Regeln ohne neue Bibliothek für typische Tokens, Schlüssel, private Schlüssel, Passwort-Zeilen und `.env`-Dateien.
+- „Kein Geheimnis“-Markierungen stehen in `cockpit.toml`: nur Dateiname und Fingerabdruck der Zeile, nie der Wert.
+- Große Dateien: ab 50 MB Rückfrage mit der Vorgabe „In .gitignore aufnehmen“. Ab 100 MB stoppt das Cockpit, weil GitHub die Datei ablehnt.
+- Private Daten wie Datenbanken und Logs: Rückfrage mit der Vorgabe „In .gitignore aufnehmen“.
+
+### Hochladen und Holen
+
+- Hochgeladen werden alle Änderungen, die die Sicherheitsprüfung durchlassen. Es gibt keine Auswahl einzelner Dateien.
+- Die Datei `LICENSE` legt das Cockpit selbst an, mit dem Text von GitHub, Name und Jahr. Eine vorhandene bleibt unverändert.
+- Holen wie GitHub Desktop mit Merge. Abweichung von Konzept 9.3, dort wurde nie zusammengeführt. Bei Konflikten pro Datei: „Meine Fassung behalten“, „Fassung von GitHub übernehmen“ oder „Im Editor öffnen“. Dazu „Zusammenführen abbrechen“ als sichere Vorgabe. Stören noch nicht hochgeladene Änderungen, fragt das Cockpit nach Stash. Vorgabe: „Abbrechen“. Vorher gibt es eine Sicherheitskopie.
+- Herunterladen: Liste der eigenen Repositories und der Repositories der Organisationen, neueste oben, dazu „Adresse eingeben …“.
+
+### Verlauf und Repository verwalten
+
+- Die ausgeführten Feature-Schritte eines Commits stehen in der Datenbank, nur für Commits aus dem Cockpit.
+- Löschen: Bei der Anmeldung im Browser holt das Cockpit mit einer zweiten Anmeldung das Recht delete_repo. Der Zugang wird nur dafür benutzt und danach verworfen. Beim eigenen Token erklärt das Cockpit, welches Recht fehlt.
+- Neue Dateien beim Verwerfen kommen über eine Funktion von Windows in den Papierkorb, ohne neue Bibliothek.
+
+### Branches und weitere GitHub-Funktionen
+
+- Konzept 10.14 ist erweitert. Die Grundfunktionen für Branches gehören zum Kern (Teilschritt 5f).
+- Pull Requests, Reviews und Schutzregeln kommen als Phase 6 direkt nach Phase 5, statt in Phase 15. Die Phasen 6 bis 14 rücken um eins nach hinten. Es bleiben 17 Phasen.
+- Neu im Konzept: Tags beim Feature Versionen, GitHub Actions beim Feature Releases, Mitarbeiter bei „Repository verwalten“.

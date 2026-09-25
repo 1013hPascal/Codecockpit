@@ -465,6 +465,8 @@ Schlägt ein Schritt nach dem Hochladen fehl (z. B. der Exe-Test), bleibt der Co
 
 Holt Änderungen, die z. B. Kollegen oder man selbst auf einem anderen Rechner hochgeladen hat. Bei Konflikten wird nichts automatisch zusammengeführt, sondern verständlich erklärt, welche Dateien betroffen sind.
 
+Geändert am 25.09.2026 (siehe ENTSCHEIDUNGEN.md): Das Cockpit holt wie GitHub Desktop mit Merge. Bei einem Konflikt wählt man pro Datei „Meine Fassung behalten“, „Fassung von GitHub übernehmen“ oder „Im Editor öffnen“, oder man bricht das Zusammenführen ab.
+
 ### 9.4 Verlauf
 
 Liste aller Commits, neueste oben: „23.09.2026, Version 1.4.0: Suche in mehreren PDFs ergänzt“. Enter zeigt Details (Autor, geänderte Dateien, ausgeführte Feature-Schritte).
@@ -482,6 +484,7 @@ In den Details per Tab erreichbar:
   - Zur Bestätigung muss der Name des Repositories eingetippt werden.
   - Der lokale Ordner bleibt immer erhalten. Das Projekt kann danach aus der Liste entfernt oder als „nur lokal“ behalten werden.
   - Benötigt ein Recht, das der Token ausdrücklich haben muss. Fehlt es (in Firmen häufig), erklärt das Cockpit das.
+- **Mitarbeiter** einladen und entfernen (ergänzt am 25.09.2026).
 - **Aus der Liste entfernen**: nur aus dem Cockpit, ohne Änderung an Plattform oder Ordner.
 
 Das Cockpit führt nie einen „force push“ aus.
@@ -707,6 +710,21 @@ Jede verwendete Bibliothek hat eine eigene Lizenz. Manche Lizenzen stellen Bedin
 
 ### 10.14 Branches und Pull Requests
 
+Ergänzt am 25.09.2026 (siehe ENTSCHEIDUNGEN.md): Mit Branches soll alles gehen, was GitHub kann, ohne Terminal. Die Grundfunktionen für Branches gehören zum Kern und sind immer da:
+
+- **Immer sichtbar, wo man ist:** In der Projektliste steht „Code, Branch suche-pdfs“, wenn man nicht auf dem Hauptzweig ist. Ansagen beim Hochladen und Holen nennen den Branch.
+- **Übersicht „Branches“** bei „Code“: alle Branches, lokal und auf der Plattform, mit Stand, zum Beispiel „suche-pdfs, 2 Commits vor main, 1 offener Pull Request“.
+- Branch anlegen, wechseln, umbenennen, löschen.
+- Hochladen und Holen arbeiten immer mit dem aktuellen Branch.
+- In den Hauptzweig übernehmen: direkt zusammenführen oder über einen Pull Request (Feature).
+- Änderungen beiseitelegen und zurückholen (Stash), zum Beispiel vor dem Wechsel des Branches.
+
+Das Feature „Branches und Pull Requests“ ergänzt:
+
+- Pull Requests erstellen, ansehen, Kommentare lesen und schreiben, prüfen (Review mit „genehmigen“ oder „Änderungen anfordern“), übernehmen, schließen.
+- Schutzregeln für den Hauptzweig, wenn man Admin ist, zum Beispiel „Nur über Pull Request“ oder „Mindestens eine Genehmigung“.
+- Die folgenden Punkte aus der ersten Fassung.
+
 In Unternehmen ist das direkte Hochladen in den Hauptzweig oft gesperrt. Man arbeitet stattdessen in einem eigenen Zweig (Branch) und beantragt die Übernahme (Pull Request, bei GitLab Merge Request). Privat bleibt dieses Feature normalerweise aus.
 
 - **Ist das Feature aktiv**, fragt „Änderungen hochladen“ zusätzlich, in welchen Zweig hochgeladen wird: bestehenden Zweig wählen oder neuen anlegen. Der Name wird aus der Commit-Nachricht vorgeschlagen (z. B. `suche-mehrere-pdfs`).
@@ -865,17 +883,17 @@ Nach jeder Phase ist das Programm nutzbar.
 2. **Grundgerüst:** Architektur mit Kern, Feature-System und Adapter-Schnittstellen (Plattform-Adapter mit Fähigkeiten-Abfrage, Abschnitt 6.3), Menüleiste, Profile
 3. **Tresor, Konten und Ersteinrichtung:** beide Speicherarten mit Wechsel, Kontenverwaltung, Einrichtungsassistent (wird in späteren Phasen um weitere Seiten ergänzt)
 4. **Plattform-Anbindung GitHub:** Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Single-Sign-On-Hinweise
-5. **Grundfunktionen:** Git-Identität mit noreply-Adresse, Projektaufbau mit `Code` und `Exe`, Projektbaum mit automatischem Zuklappen, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, neues Projekt hochladen, Änderungen hochladen und holen, Verlauf, Rückgängig machen, Links, Repository verwalten, Sicherheitsprüfung
-6. **Feature-Verwaltung** global und pro Projekt
-7. **KI-Adapter** (zuerst Ollama und OpenAI-kompatibel), Feature KI-Assistent
-8. **Features README-Pflege** (mit Sprachen) und **Versionen**
-9. **Feature Exe-Erstellung** inklusive „Exe-Einrichtung prüfen“, Hinweis zu Windows-Warnungen und Selbstaktualisierung des Cockpits, dazu **Feature Externe Ressourcen** und **Feature Lizenzprüfung**
-10. **n8n-Grundlagen:** Automations-Adapter, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
-11. **E-Mail:** Konten (SMTP mit Anbietervorlagen, Microsoft 365), Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
-12. **Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung**
-13. **Feature Releases**
-14. **Weitere KI-Adapter** (Azure OpenAI, Anthropic, Gemini)
-15. **Feature Branches und Pull Requests**
+5. **Grundfunktionen:** Git-Identität mit noreply-Adresse, Projektaufbau mit `Code` und `Exe`, Projektbaum mit automatischem Zuklappen, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, neues Projekt hochladen, Änderungen hochladen und holen, Verlauf, Rückgängig machen, Links, Repository verwalten mit Mitarbeitern, Sicherheitsprüfung, Grundfunktionen für Branches
+6. **Feature Branches und Pull Requests** mit Reviews und Schutzregeln (vorgezogen, siehe ENTSCHEIDUNGEN.md)
+7. **Feature-Verwaltung** global und pro Projekt
+8. **KI-Adapter** (zuerst Ollama und OpenAI-kompatibel), Feature KI-Assistent
+9. **Features README-Pflege** (mit Sprachen) und **Versionen** mit Tags
+10. **Feature Exe-Erstellung** inklusive „Exe-Einrichtung prüfen“, Hinweis zu Windows-Warnungen und Selbstaktualisierung des Cockpits, dazu **Feature Externe Ressourcen** und **Feature Lizenzprüfung**
+11. **n8n-Grundlagen:** Automations-Adapter, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
+12. **E-Mail:** Konten (SMTP mit Anbietervorlagen, Microsoft 365), Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
+13. **Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung**
+14. **Feature Releases** mit GitHub Actions (Läufe ansehen, Fehler lesen, neu starten)
+15. **Weitere KI-Adapter** (Azure OpenAI, Anthropic, Gemini)
 16. **Weitere Plattform-Adapter:** GitLab und Azure DevOps
 17. **Sicherung** erstellen und wiederherstellen, Export und Import von Einstellungen, optionales Signieren der Exe, Feinschliff
 

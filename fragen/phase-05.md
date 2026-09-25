@@ -100,7 +100,7 @@ Antwort von Claude: So ist es im Terminal und in GitHub Desktop, dem Programm vo
 - Betreffen sie dieselbe Stelle, gibt es einen Konflikt. Git schreibt dann beide Fassungen mit Markierungen wie `<<<<<<<` in die Datei. Im Terminal muss man die Datei von Hand bereinigen. GitHub Desktop zeigt stattdessen eine Liste der Dateien mit Konflikt. Pro Datei kann man seine eigene Fassung behalten, die Fassung von GitHub nehmen oder die Datei im Editor öffnen. Man kann das Zusammenführen auch abbrechen, dann ist alles wie vorher.
 - Gibt es hier Änderungen, die noch nicht hochgeladen sind, und würde das Holen sie überschreiben, weigert sich Git. GitHub Desktop bietet dann an, die Änderungen kurz beiseitezulegen und danach zurückzuholen. Das heißt „Stash“.
 
-[ ] 13a. Neuer Vorschlag zum Holen
+[x] 13a. Neuer Vorschlag zum Holen
 Vorschlag: Das Cockpit macht es wie GitHub Desktop:
 - Zusammenführen mit Merge, wie `git pull`.
 - Bei einem Konflikt erscheint eine Liste der betroffenen Dateien. Pro Datei wählen Sie: „Meine Fassung behalten“, „Fassung von GitHub übernehmen“ oder „Im Editor öffnen“. Dazu gibt es „Zusammenführen abbrechen“. Das ist die sichere Vorgabe, Escape wählt sie.
@@ -143,11 +143,11 @@ Antwort von Claude: Danke. Zu Ihren drei Punkten habe ich unten neue Fragen gest
 
 ## F. Neue Fragen zu Ihren Kommentaren
 
-[ ] 18. Grundsatz: Abläufe wie bei Git und GitHub
+[x] 18. Grundsatz: Abläufe wie bei Git und GitHub
 Vorschlag: Ich nehme als Grundsatz in ENTSCHEIDUNGEN.md auf: Das Cockpit macht alles so, wie es Git im Terminal und GitHub Desktop machen. Es nutzt dieselben Git-Befehle und dieselben Voreinstellungen. Weicht es davon ab, steht der Grund in ENTSCHEIDUNGEN.md. Die Ausnahme bleibt: Nie ein force push.
 Antwort:
 
-[ ] 19. Ihre Repositories automatisch in der Projektliste
+[x] 19. Ihre Repositories automatisch in der Projektliste
 Frage: Sollen alle Repositories Ihres Kontos gleich heruntergeladen werden?
 Vorschlag: Alle Repositories Ihres GitHub-Kontos erscheinen von selbst in der Projektliste. Liegt eines noch nicht auf dem Rechner, steht dort zum Beispiel „Tagebuch, nur auf GitHub“. Enter lädt es in den Projekte-Hauptordner herunter. Es wird nicht alles sofort heruntergeladen, weil das viel Platz und Zeit kosten kann. In Firmen gibt es oft Hunderte Repositories.
 Dazu:
@@ -156,7 +156,7 @@ Dazu:
 - Wollen Sie ein Repository nicht in der Liste sehen, wählen Sie „Aus der Liste entfernen“. Das Cockpit merkt sich das.
 Antwort:
 
-[ ] 20. Branches: Umfang
+[x] 20. Branches: Umfang
 Frage: Sie möchten mit Branches alles machen können, was GitHub kann, ohne Terminal. Im Konzept steht bisher nur ein kleiner Teil davon (Konzept 10.14).
 Vorschlag: Ich erweitere Konzept 10.14. Ein Projekt bekommt eine Übersicht „Branches“ mit diesen Möglichkeiten:
 - Immer sichtbar, wo man gerade ist: In der Projektliste steht „Code, Branch suche-pdfs“, wenn Sie nicht auf main sind. Jede Ansage beim Hochladen und Holen nennt den Branch.
@@ -169,14 +169,14 @@ Vorschlag: Ich erweitere Konzept 10.14. Ein Projekt bekommt eine Übersicht „B
 - Änderungen beiseitelegen und zurückholen (Stash), zum Beispiel vor dem Wechsel des Branches.
 Antwort:
 
-[ ] 21. Branches: Zeitpunkt
+[x] 21. Branches: Zeitpunkt
 Frage: Laut Plan kommt das Feature Branches und Pull Requests erst in Phase 15. Wann soll es kommen?
 Vorschlag: Aufteilen:
 - In Phase 5 ist der Kern schon auf Branches vorbereitet: Hochladen und Holen arbeiten mit dem aktuellen Branch, und die Projektliste nennt ihn. Dazu kommt Teilschritt 5f mit der Übersicht „Branches“: anlegen, wechseln, umbenennen, löschen, in main zusammenführen und Stash.
 - Pull Requests, Reviews und Schutzregeln kommen als eigene Phase direkt nach Phase 5, statt erst in Phase 15. Die Nummern der späteren Phasen verschieben sich dann um eins nach hinten.
 Antwort:
 
-[ ] 22. Weitere Funktionen von GitHub
+[x] 22. Weitere Funktionen von GitHub
 Frage: Damit man kein Terminal mehr braucht, fehlen im Konzept noch einige Funktionen von GitHub. Welche davon wollen Sie?
 Vorschlag: Diese nehme ich ins Konzept auf und ordne sie Phasen zu:
 - Tags, also Versionsmarken. Sie passen zum Feature Versionen (Phase 8).

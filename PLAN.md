@@ -1,6 +1,6 @@
 # Plan für CodeCockpit
 
-Stand: 24.09.2026, nach Phase 1 und den Antworten des Nutzers.
+Stand: 25.09.2026, nach den Antworten zu Phase 5.
 
 Grundlage sind KONZEPT.md, ENTSCHEIDUNGEN.md und ANALYSE.md. Wo ENTSCHEIDUNGEN.md vom Konzept abweicht, gilt ENTSCHEIDUNGEN.md. Die wichtigste Abweichung: Es gibt keine Profile.
 
@@ -22,17 +22,23 @@ Inhalt:
 - [x] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Projektliste. Abgeschlossen am 25.09.2026: 105 Tests bestanden, NVDA-Test mit checklisten\phase-02.md bestanden
 - [x] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git. Abgeschlossen am 25.09.2026, außer der Sprachausgabe in Dialogen (siehe TODO.md)
 - [x] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Abgeschlossen am 25.09.2026: 213 Tests bestanden, NVDA-Test mit checklisten\phase-04.md bestanden
-- [ ] Phase 5: Grundfunktionen: Git-Identität, Projektaufbau, Projektbaum, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, Hochladen, Holen, Verlauf, Rückgängig, Links, Repository verwalten, Sicherheitsprüfung
-- [ ] Phase 6: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
-- [ ] Phase 7: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
-- [ ] Phase 8: Features README-Pflege mit Sprachen und Versionen
-- [ ] Phase 9: Features Exe-Erstellung mit Einrichtungsprüfung, Windows-Warnungen und Selbstaktualisierung, Externe Ressourcen, Lizenzprüfung
-- [ ] Phase 10: n8n-Grundlagen, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
-- [ ] Phase 11: E-Mail-Konten, Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
-- [ ] Phase 12: Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung
-- [ ] Phase 13: Feature Releases
-- [ ] Phase 14: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
-- [ ] Phase 15: Feature Branches und Pull Requests
+- [ ] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md)
+  - [ ] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
+  - [ ] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
+  - [ ] 5c: Änderungen hochladen, Änderungen holen, Projekt von der Plattform herunterladen
+  - [ ] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
+  - [ ] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
+  - [ ] 5f: Übersicht „Branches“ und Stash
+- [ ] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen)
+- [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
+- [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
+- [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags
+- [ ] Phase 10: Features Exe-Erstellung mit Einrichtungsprüfung, Windows-Warnungen und Selbstaktualisierung, Externe Ressourcen, Lizenzprüfung
+- [ ] Phase 11: n8n-Grundlagen, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
+- [ ] Phase 12: E-Mail-Konten, Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
+- [ ] Phase 13: Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung
+- [ ] Phase 14: Feature Releases mit GitHub Actions
+- [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
 - [ ] Phase 17: Sicherung und Wiederherstellung, Export und Import von Einstellungen, Signieren der Exe, Prüfung aller Feature-Einführungen, Feinschliff
 
