@@ -5,6 +5,7 @@ Rechner. Kein echtes Netz.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,9 @@ from tests.conftest import said
 from tests.test_phase5a import live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import head, labels, select_code, setup_repo
+
+# Die Commits der Tests macht "Test" (siehe sh), heute
+BY = f"zuletzt von Test am {datetime.now():%d.%m.%Y}"
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -61,10 +65,11 @@ def test_list_branches_local_and_remote(tmp_path, projects_root):
     items = branches.list_branches(code)
     assert items[0].name == "main" and items[0].current and items[0].default
     lines = {b.name: b.line() for b in items}
-    assert lines["main"] == "main, aktueller Branch, Haupt-Branch"
-    assert lines["suche"] == "suche, 2 Commits vor main"
-    assert lines["lokal-neu"] == "lokal-neu, 1 Commit vor main, noch nicht auf GitHub"
-    assert lines["design"] == "design, 1 Commit vor main, nur auf GitHub"
+    # Wunsch aus dem Test von 5f: Name, Ort, wer zuletzt daran gearbeitet hat, dann der Stand
+    assert lines["main"] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
+    assert lines["suche"] == f"suche, hier und auf GitHub, {BY}, 2 Commits vor main"
+    assert lines["lokal-neu"] == f"lokal-neu, nur hier, {BY}, 1 Commit vor main"
+    assert lines["design"] == f"design, nur auf GitHub, {BY}, 1 Commit vor main"
 
 
 def test_line_shows_upload_state_and_behind_main(tmp_path, projects_root):
@@ -74,9 +79,11 @@ def test_line_shows_upload_state_and_behind_main(tmp_path, projects_root):
     sh(code, "switch", "-q", "main")
     commit(code, "Main weiter", {"main.py": "neu\n"})
     line = by_name(code)["suche"].line("main", "GitHub")
-    assert line == "suche, 3 Commits vor main, 1 Commit hinter main, 1 Commit noch nicht hochgeladen"
+    assert line == (f"suche, hier und auf GitHub, {BY}, 3 Commits vor main, 1 Commit hinter "
+                    "main, 1 Commit noch nicht hochgeladen")
     sh(code, "switch", "-q", "-c", "gleich")
-    assert by_name(code)["gleich"].line().startswith("gleich, aktueller Branch, gleich wie main")
+    assert by_name(code)["gleich"].line() == (f"gleich, aktueller Branch, nur hier, {BY}, "
+                                              "gleich wie main")
 
 
 def test_refresh_forgets_deleted_remote_branches(tmp_path, projects_root):
@@ -409,7 +416,7 @@ def test_dialog_lines_and_enter_switches(qtbot, make_services, tmp_path, project
     _, code, _ = branch_repo(tmp_path, projects_root)
     dialog = dialog_for(qtbot, make_services, code)
     assert dialog.windowTitle() == "Branches von Tagebuch: 4 Branches"
-    assert rows(dialog)[0] == "main, aktueller Branch, Haupt-Branch"
+    assert rows(dialog)[0] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
     dialog.switch_current()
     assert said("Sie sind schon auf main.")
     select(dialog, "design")
@@ -473,7 +480,7 @@ def test_new_branch(qtbot, make_services, tmp_path, projects_root, answers, monk
     assert git.status(code).branch == "neue-idee"
     assert said("Branch neue-idee angelegt. Sie sind jetzt auf neue-idee.")
     assert dialog.list.currentItem().text() == (
-        "neue-idee, aktueller Branch, gleich wie main, noch nicht auf GitHub")
+        f"neue-idee, aktueller Branch, nur hier, {BY}, gleich wie main")
 
 
 def test_branch_name_dialog(qtbot, tmp_path, projects_root, monkeypatch):
@@ -570,12 +577,12 @@ def test_rename_and_delete_in_the_dialog(qtbot, make_services, tmp_path, project
     assert "lokal-neu" not in [b.name for b in dialog.items]
     assert said("lokal-neu gelöscht.")
 
-    answers.choice = 1                                             # hier und auf GitHub
+    answers.choice = 2                                             # hier und auf GitHub
     select(dialog, "suche-2")
     dialog.delete_current()
-    assert answers.questions[-1][2]["buttons"] == ["Nur auf diesem Rechner",
+    assert answers.questions[-1][2]["buttons"] == ["Nur auf diesem Rechner", "Nur auf GitHub",
                                                    "Hier und auf GitHub", "Abbrechen"]
-    assert answers.questions[-1][2]["default"] == 2
+    assert answers.questions[-1][2]["default"] == 3
     qtbot.waitUntil(lambda: not dialog.worker.busy, timeout=10000)
     assert said("suche-2 gelöscht, auch auf GitHub.")
     assert "suche-2" not in sh(bare, "branch", "--list")
@@ -632,7 +639,48 @@ def test_testdata_have_branches_and_a_stash(tmp_path, monkeypatch):
     _, root = testdata.prepare(tmp_path / "Testdaten")
     pdf = root / "PDF-Chat" / "Code"
     lines = {b.name: b.line() for b in branches.list_branches(pdf)}
-    assert lines["suche-pdfs"] == "suche-pdfs, 2 Commits vor main"
-    assert lines["neues-design"].endswith(", nur auf GitHub")
+    assert lines["suche-pdfs"] == ("suche-pdfs, hier und auf GitHub, zuletzt von Testdaten am "
+                                   "24.09.2026, 2 Commits vor main")
+    assert lines["neues-design"].startswith("neues-design, nur auf GitHub, zuletzt von Testdaten")
     stash = branches.stashes(root / "Rezepte" / "Code")
     assert len(stash) == 1 and stash[0].files == ["notiz.txt"] and stash[0].branch == "main"
+
+
+def test_delete_only_on_the_platform(qtbot, make_services, tmp_path, projects_root, answers):
+    """Wunsch aus dem Test von 5f: auch nur auf GitHub löschen."""
+    bare, code, _ = branch_repo(tmp_path, projects_root)
+    dialog = dialog_for(qtbot, make_services, code)
+    answers.choice = 1
+    select(dialog, "suche")
+    dialog.delete_current()
+    qtbot.waitUntil(lambda: not dialog.worker.busy, timeout=10000)
+    assert said("suche gelöscht, auf GitHub.")
+    assert "suche" not in sh(bare, "branch", "--list")
+    assert by_name(code)["suche"].line() == f"suche, nur hier, {BY}, 2 Commits vor main"
+
+
+def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, projects_root):
+    """Wunsch aus dem Test von 5f: Beim Haupt-Branch gibt es kein "In main übernehmen"."""
+    _, code, _ = branch_repo(tmp_path, projects_root)
+    sh(code, "switch", "-q", "suche")
+    dialog = dialog_for(qtbot, make_services, code)
+    dialog.show()
+    visible = lambda: (dialog.merge_button.isVisible(), dialog.rename_button.isVisible(),  # noqa
+                       dialog.delete_button.isVisible())
+    select(dialog, "main")
+    assert visible() == (False, False, False)
+    select(dialog, "suche")                                        # aktueller Branch
+    assert visible() == (True, True, False)
+    select(dialog, "design")
+    assert visible() == (True, True, True)
+
+
+def test_branches_guide_in_the_help_menu():
+    import inspect
+    from cockpit.core import paths
+    from cockpit.ui import main_window
+    assert '"B&ranches verstehen …", self.show_branches_guide' in inspect.getsource(main_window)
+    text = (paths.resource_dir() / "anleitungen" / "branches-verstehen.md").read_text(
+        encoding="utf-8")
+    assert "Welche Branches darf ich löschen?" in text
+    assert "Git kopiert also nicht einfach alle Dateien" in text

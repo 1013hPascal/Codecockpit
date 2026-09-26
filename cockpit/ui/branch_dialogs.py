@@ -1,7 +1,7 @@
 """Übersicht "Branches" und beiseitegelegte Änderungen (Konzept 10.14, Teilschritt 5f).
 
-BranchesDialog: alle Branches, lokal und auf der Plattform, zum Beispiel "suche-pdfs, 2 Commits vor
-main, noch nicht auf GitHub". Enter wechselt zum markierten Branch. Per Tab: "Neuer Branch …",
+BranchesDialog: alle Branches, lokal und auf der Plattform, zum Beispiel "design, hier und auf
+GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main". Enter wechselt zum markierten Branch. Per Tab: "Neuer Branch …",
 "In main übernehmen …", "Umbenennen …", "Löschen …".
 StashDialog: beiseitegelegte Änderungen. "Zurückholen …", "Als neuen Branch zurückholen …",
 "Löschen …".
@@ -58,6 +58,8 @@ class BranchesDialog(FocusDialog):
         rename.clicked.connect(self.rename_current)
         delete = QPushButton("&Löschen …")
         delete.clicked.connect(self.delete_current)
+        self.rename_button, self.delete_button = rename, delete
+        self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         layout = QVBoxLayout(self)
@@ -89,6 +91,19 @@ class BranchesDialog(FocusDialog):
         if select in names:
             row = names.index(select)
         self.list.setCurrentRow(min(row, self.list.count() - 1))
+        self.update_buttons()
+
+    def update_buttons(self) -> None:
+        """Wunsch aus dem Test von 5f: Beim Haupt-Branch gibt es kein "In main übernehmen …" und
+        kein "Umbenennen …", beim aktuellen und beim Haupt-Branch kein "Löschen …". Die Knöpfe
+        verschwinden dann, statt ausgegraut zu sein, weil Tab ausgegraute Knöpfe überspringt
+        und man sonst nicht weiß, warum."""
+        row = self.list.currentRow()
+        branch = self.items[row] if 0 <= row < len(self.items) else None
+        self.merge_button.setVisible(branch is not None and not branch.default)
+        self.rename_button.setVisible(branch is not None and not branch.default)
+        self.delete_button.setVisible(branch is not None and not branch.default
+                                      and not branch.current)
 
     def reload(self, select: str = "") -> None:
         try:
@@ -297,12 +312,12 @@ class BranchesDialog(FocusDialog):
             choice = ask_buttons(self, title,
                                  f"{branch.name} gibt es auf diesem Rechner und auf "
                                  f"{self.platform_name}. Wo soll er gelöscht werden?",
-                                 ["Nur auf diesem Rechner",
+                                 ["Nur auf diesem Rechner", f"Nur auf {self.platform_name}",
                                   f"Hier und auf {self.platform_name}", "Abbrechen"],
-                                 default=2, escape=2)
-            if choice == 2:
+                                 default=3, escape=3)
+            if choice == 3:
                 return
-            local, remote = True, choice == 1
+            local, remote = choice in (0, 2), choice in (1, 2)
         elif branch.local:
             extra = ""
             lost = branches.unmerged(self.code_dir, branch.name)
@@ -332,10 +347,11 @@ class BranchesDialog(FocusDialog):
             announce(f"{branch.name} gelöscht.")
             return
         code_dir, env, name = self.code_dir, self.env, branch.name
+        where = "auch auf" if local else "auf"
 
         def done(_value) -> None:
-            self.reload()
-            announce(f"{name} gelöscht, auch auf {self.platform_name}.")
+            self.reload(name if not local else "")
+            announce(f"{name} gelöscht, {where} {self.platform_name}.")
 
         self.worker.run(lambda: branches.delete_remote(code_dir, name, env), done,
                         speak="Wird gelöscht.")

@@ -512,3 +512,11 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - „Zurückholen …“ geht nur ohne eigene Änderungen. Passen die Änderungen nicht mehr zum Stand, stellt das Cockpit alles wieder her, und sie bleiben beiseitegelegt. Dann hilft „Als neuen Branch zurückholen …“ (git stash branch). Das passt immer, weil der Branch dort beginnt, wo beiseitegelegt wurde.
 - „Löschen …“ legt vorher die Dateien als Sicherheitskopie an.
 
+### Nach dem NVDA-Test von 5f
+
+- Die Knöpfe im Fenster Branches richten sich nach der markierten Zeile. Beim Haupt-Branch fehlen „In main übernehmen …“, „Umbenennen …“ und „Löschen …“, beim aktuellen Branch fehlt „Löschen …“. Sie verschwinden, statt ausgegraut zu sein.
+- Liegt ein Branch an beiden Orten, bietet Löschen auch „Nur auf GitHub“ an.
+- Jede Zeile der Übersicht nennt jetzt Name, Ort, Person und Stand, zum Beispiel „design, hier und auf GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main“. Der Ort ist immer ausgeschrieben: „nur hier“, „nur auf GitHub“ oder „hier und auf GitHub“. Git kennt nur, wer die Commits gemacht hat, deshalb heißt es „zuletzt von“.
+- Neu im Menü Hilfe: „Branches verstehen …“ (anleitungen/branches-verstehen.md) mit einem Beispiel, was wo passiert und was man wann löschen darf.
+- Die Testdaten entstehen schneller: Die drei Git-Projekte werden gleichzeitig angelegt, und jedes lädt so selten wie möglich hoch. Vorher dauerte der Start mit Testdaten etwa 10 Sekunden ohne jedes Fenster, jetzt etwa 4.
+

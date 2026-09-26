@@ -43,6 +43,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from cockpit import APP_NAME
@@ -161,23 +162,84 @@ def _git(cwd: Path, *args: str) -> None:
 
 
 def add_git(base: Path, root: Path) -> None:
-    """PDF-Chat und Tagebuch zu Git-Repositories mit einer "Plattform" im Dateisystem machen."""
+    """PDF-Chat, Tagebuch und Rezepte zu Git-Repositories mit einer "Plattform" im Dateisystem
+    machen, dazu ein "anderer Rechner", der Änderungen hochlädt.
+
+    Jeder Git-Aufruf dauert unter Windows spürbar. Die drei Projekte hängen nicht voneinander ab,
+    deshalb entstehen sie gleichzeitig, und jedes lädt so selten wie möglich hoch."""
     platform = base / "Plattform"
     platform.mkdir()
-    for name in ("PDF-Chat", "Tagebuch", "Rezepte"):
-        code = root / name / "Code"
-        _git(code, "init", "-q")
-        _git(code, "add", "-A")
-        _git(code, "commit", "-q", "-m", "Erste Version", "--date", "2026-09-19T09:00:00")
-        bare = platform / f"{name}.git"
-        _git(platform, "init", "-q", "--bare", str(bare))
-        _git(code, "remote", "add", "origin", bare.as_uri())
-        _git(code, "push", "-q", "-u", "origin", "main")
-    add_history(root / "PDF-Chat" / "Code")
-    (root / "Tagebuch" / "Code" / "main.py").write_text("print('Tagebuch, geändert')\n",
-                                                        encoding="utf-8")
-    # Virtuelle Umgebung, die angeblich an einem anderen Ort angelegt wurde
-    venv = root / "Tagebuch" / "Code" / ".venv"
+    (base / "Anderer Rechner").mkdir()
+    jobs = (_pdf_chat, _tagebuch, _rezepte)
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        for future in [pool.submit(job, base, root) for job in jobs]:
+            future.result()                     # Fehler hier weitergeben
+
+
+def _first_version(base: Path, root: Path, name: str) -> Path:
+    """Erste Version als Commit und die leere "Plattform" dazu, noch ohne Hochladen."""
+    code = root / name / "Code"
+    _git(code, "init", "-q")
+    _git(code, "add", "-A")
+    _git(code, "commit", "-q", "-m", "Erste Version", "--date", "2026-09-19T09:00:00")
+    bare = base / "Plattform" / f"{name}.git"
+    _git(base / "Plattform", "init", "-q", "--bare", str(bare))
+    _git(code, "remote", "add", "origin", bare.as_uri())
+    return code
+
+
+def _commit(code: Path, message: str, files: dict[str, str | None], date: str = "") -> None:
+    for name, content in files.items():
+        if content is None:
+            (code / name).unlink()
+        else:
+            (code / name).write_text(content, encoding="utf-8")
+    _git(code, "add", "-A")
+    _git(code, "commit", "-q", "-m", message, *(["--date", date] if date else []))
+
+
+def _other_computer(base: Path, name: str) -> Path:
+    """Phase 5c: Ein "anderer Rechner" holt das Projekt. Danach lädt er Änderungen hoch."""
+    other = base / "Anderer Rechner"
+    _git(other, "clone", "-q", (base / "Plattform" / f"{name}.git").as_uri(), name)
+    return other / name
+
+
+def _pdf_chat(base: Path, root: Path) -> None:
+    """Phase 5d: Verlauf mit fünf Versionen, eine mit dem Tag v1.0.0. Phase 5f: Branch suche-pdfs
+    mit zwei Commits, hochgeladen. Der andere Rechner lädt suche.py hoch und legt auf der
+    Plattform den Branch neues-design an. Hier bleiben main.py geändert und versuch.py neu."""
+    code = _first_version(base, root, "PDF-Chat")
+    _commit(code, "Hilfe ergänzt", {"hilfe.py": "print('Hilfe')\n"}, "2026-09-20T10:00:00")
+    _git(code, "tag", "v1.0.0")
+    _commit(code, "Einstellungen ergänzt", {"einstellungen.py": "SPRACHE = 'de'\n",
+                                            "main.py": "print('PDF-Chat mit Einstellungen')\n"},
+            "2026-09-21T11:30:00")
+    _commit(code, "Alte Datei entfernt", {"alt.py": None}, "2026-09-22T09:15:00")
+    _commit(code, "Hilfetext geändert", {"hilfe.py": "print('Hilfe, versehentlich kaputt')\n"},
+            "2026-09-23T16:45:00")
+    _git(code, "switch", "-q", "-c", "suche-pdfs")
+    for number, date in ((1, "2026-09-24T10:00:00"), (2, "2026-09-24T15:30:00")):
+        _commit(code, f"PDF-Suche, Schritt {number}", {"pdf_suche.py": f"SCHRITT = {number}\n"},
+                date)
+    _git(code, "switch", "-q", "main")
+    _git(code, "push", "-q", "--tags", "-u", "origin", "main", "suche-pdfs")
+    other = _other_computer(base, "PDF-Chat")
+    _commit(other, "Suche ergänzt", {"suche.py": "print('Suche in mehreren PDFs')\n"})
+    _git(other, "switch", "-q", "-c", "neues-design")
+    _commit(other, "Größere Schrift", {"design.css": "body { font-size: 120%; }\n"})
+    _git(other, "push", "-q", "-u", "origin", "main", "neues-design")
+    _git(code, "fetch", "-q")
+    (code / "main.py").write_text("print('PDF-Chat, nur ausprobiert')\n", encoding="utf-8")
+    (code / "versuch.py").write_text("print('Versuch')\n", encoding="utf-8")
+
+
+def _tagebuch(base: Path, root: Path) -> None:
+    """main.py ist hier geändert und auf der Plattform anders geändert: Holen fragt nach
+    Beiseitelegen, danach gibt es einen Konflikt beim Zurücklegen. Dazu eine virtuelle Umgebung,
+    die angeblich an einem anderen Ort angelegt wurde."""
+    code = _first_version(base, root, "Tagebuch")
+    venv = code / ".venv"
     (venv / "Scripts").mkdir(parents=True)
     python = Path(getattr(sys, "_base_executable", sys.executable))
     python = python.with_name("python.exe") if python.name.lower() == "pythonw.exe" else python
@@ -188,87 +250,29 @@ def add_git(base: Path, root: Path) -> None:
         f"command = {python} -m venv {old}\n", encoding="utf-8")
     (venv / "Scripts" / "activate.bat").write_text(f'@echo off\nset "VIRTUAL_ENV={old}"\n',
                                                    encoding="utf-8")
-    (root / "Tagebuch" / "Code" / ".gitignore").write_text(".venv/\n", encoding="utf-8")
-    _git(root / "Tagebuch" / "Code", "add", ".gitignore")
-    _git(root / "Tagebuch" / "Code", "commit", "-q", "-m", ".gitignore")
-    _git(root / "Tagebuch" / "Code", "push", "-q")
-    add_other_computer(base, root)
+    _commit(code, ".gitignore", {".gitignore": ".venv/\n"})
+    _git(code, "push", "-q", "-u", "origin", "main")
+    other = _other_computer(base, "Tagebuch")
+    _commit(other, "Ausgabe geändert", {"main.py": "print('Tagebuch vom anderen Rechner')\n"})
+    _git(other, "push", "-q")
+    _git(code, "fetch", "-q")
+    (code / "main.py").write_text("print('Tagebuch, geändert')\n", encoding="utf-8")
 
 
-def add_history(code: Path) -> None:
-    """Phase 5d: Verlauf für PDF-Chat, alles hochgeladen. Danach eine geänderte und eine neue
-    Datei, die noch nicht hochgeladen sind (zum Verwerfen)."""
-    versions = [
-        ("Hilfe ergänzt", {"hilfe.py": "print('Hilfe')\n"}, "2026-09-20T10:00:00"),
-        ("Einstellungen ergänzt", {"einstellungen.py": "SPRACHE = 'de'\n",
-                                   "main.py": "print('PDF-Chat mit Einstellungen')\n"},
-         "2026-09-21T11:30:00"),
-        ("Alte Datei entfernt", {"alt.py": None}, "2026-09-22T09:15:00"),
-        ("Hilfetext geändert", {"hilfe.py": "print('Hilfe, versehentlich kaputt')\n"},
-         "2026-09-23T16:45:00"),
-    ]
-    for message, files, date in versions:
-        for name, content in files.items():
-            if content is None:
-                (code / name).unlink()
-            else:
-                (code / name).write_text(content, encoding="utf-8")
-        _git(code, "add", "-A")
-        _git(code, "commit", "-q", "-m", message, "--date", date)
-        if message == "Hilfe ergänzt":
-            _git(code, "tag", "v1.0.0")
-    _git(code, "push", "-q", "--tags", "origin", "main")
-    # Phase 5f: ein Branch mit zwei Commits, hochgeladen
-    _git(code, "switch", "-q", "-c", "suche-pdfs")
-    for number, date in ((1, "2026-09-24T10:00:00"), (2, "2026-09-24T15:30:00")):
-        (code / "pdf_suche.py").write_text(f"SCHRITT = {number}\n", encoding="utf-8")
-        _git(code, "add", "-A")
-        _git(code, "commit", "-q", "-m", f"PDF-Suche, Schritt {number}", "--date", date)
-    _git(code, "push", "-q", "-u", "origin", "suche-pdfs")
-    _git(code, "switch", "-q", "main")
-    (code / "main.py").write_text("print('PDF-Chat, nur ausprobiert')\n", encoding="utf-8")
-    (code / "versuch.py").write_text("print('Versuch')\n", encoding="utf-8")
-
-
-def add_other_computer(base: Path, root: Path) -> None:
-    """Phase 5c: Ein "anderer Rechner" lädt Änderungen hoch, damit man Holen prüfen kann.
-
-    - PDF-Chat: eine neue Datei. Holen geht ohne Rückfrage nach Beiseitelegen.
-    - Tagebuch: main.py ist hier geändert und auf der Plattform anders geändert. Holen fragt nach
-      Beiseitelegen, danach gibt es einen Konflikt beim Zurücklegen.
-    - Rezepte: Hier und auf der Plattform gibt es je einen Commit, der dieselbe Zeile ändert.
-      Holen führt zu einem Konflikt beim Zusammenführen.
-    Danach holt das Cockpit den Stand (git fetch), damit die Liste "noch nicht geholt" zeigt."""
-    platform = base / "Plattform"
-    other = base / "Anderer Rechner"
-    other.mkdir()
-    changes = {
-        "PDF-Chat": ("suche.py", "print('Suche in mehreren PDFs')\n", "Suche ergänzt"),
-        "Tagebuch": ("main.py", "print('Tagebuch vom anderen Rechner')\n", "Ausgabe geändert"),
-        "Rezepte": ("rezepte.py", "REZEPT = 'Apfelstrudel'\n", "Rezept vom anderen Rechner"),
-    }
-    for name, (filename, content, message) in changes.items():
-        _git(other, "clone", "-q", (platform / f"{name}.git").as_uri(), name)
-        (other / name / filename).write_text(content, encoding="utf-8")
-        _git(other / name, "add", "-A")
-        _git(other / name, "commit", "-q", "-m", message)
-        _git(other / name, "push", "-q")
-    # Phase 5f: ein Branch, den es nur auf der Plattform gibt
-    design = other / "PDF-Chat"
-    _git(design, "switch", "-q", "-c", "neues-design")
-    (design / "design.css").write_text("body { font-size: 120%; }\n", encoding="utf-8")
-    _git(design, "add", "-A")
-    _git(design, "commit", "-q", "-m", "Größere Schrift")
-    _git(design, "push", "-q", "-u", "origin", "neues-design")
-    code = root / "Rezepte" / "Code"
-    (code / "rezepte.py").write_text("REZEPT = 'Kartoffelsuppe'\n", encoding="utf-8")
-    _git(code, "commit", "-q", "-am", "Rezept geändert")
-    # Phase 5f: eine beiseitegelegte Änderung
+def _rezepte(base: Path, root: Path) -> None:
+    """Hier und auf der Plattform gibt es je einen Commit, der dieselbe Zeile ändert: Holen führt
+    zu einem Konflikt beim Zusammenführen. Der eigene Commit ist noch nicht hochgeladen (Commit
+    zurücknehmen, 5d). Dazu eine beiseitegelegte Änderung (5f)."""
+    code = _first_version(base, root, "Rezepte")
+    _git(code, "push", "-q", "-u", "origin", "main")
+    other = _other_computer(base, "Rezepte")
+    _commit(other, "Rezept vom anderen Rechner", {"rezepte.py": "REZEPT = 'Apfelstrudel'\n"})
+    _git(other, "push", "-q")
+    _commit(code, "Rezept geändert", {"rezepte.py": "REZEPT = 'Kartoffelsuppe'\n"})
     (code / "notiz.txt").write_text("Mehr Salz probieren.\n", encoding="utf-8")
     _git(code, "stash", "push", "-q", "--include-untracked", "-m",
          "CodeCockpit: beiseitegelegt auf main")
-    for name in changes:
-        _git(root / name / "Code", "fetch", "-q")
+    _git(code, "fetch", "-q")
 
 
 def remove_missing_example(root: Path) -> None:

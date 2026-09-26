@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "&Meldungen …", self.show_messages, "Ctrl+Shift+L")
         self._action(help_menu, "&Git installieren …", self.show_git_guide)
         self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
+        self._action(help_menu, "B&ranches verstehen …", self.show_branches_guide)
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
 
@@ -482,6 +483,9 @@ class MainWindow(QMainWindow):
 
     def show_token_guide(self) -> None:
         self.show_guide("anleitungen/github-token-erstellen.md", "GitHub-Token erstellen")
+
+    def show_branches_guide(self) -> None:
+        self.show_guide("anleitungen/branches-verstehen.md", "Branches verstehen")
 
     def show_about(self) -> None:
         text = [f"{APP_NAME} Version {__version__}",

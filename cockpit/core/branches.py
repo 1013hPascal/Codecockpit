@@ -4,7 +4,8 @@ Grundfunktionen für Branches gehören zum Kern (ENTSCHEIDUNGEN.md): anlegen, we
 löschen, in den Haupt-Branch übernehmen und Änderungen beiseitelegen (git stash). Alles wie im
 Terminal und in GitHub Desktop, nie mit force push.
 
-Die Übersicht zeigt lokale Branches und die der Plattform (origin) in einer Liste. Ein Branch, den es
+Die Übersicht zeigt lokale Branches und die der Plattform (origin) in einer Liste. Jede Zeile
+nennt Name, Ort, wer zuletzt daran gearbeitet hat, und den Stand. Ein Branch, den es
 nur auf der Plattform gibt, wird beim Wechseln lokal angelegt, wie git switch.
 
 Beiseitegelegt wird mit einer Nachricht, die den Branch nennt: "CodeCockpit: beiseitegelegt auf
@@ -44,32 +45,48 @@ class Branch:
     ahead_main: int = 0                     # Commits, die im Haupt-Branch fehlen
     behind_main: int = 0                    # Commits des Haupt-Branches, die hier fehlen
     date: str = ""                          # letzter Commit, ISO
+    author: str = ""                        # wer zuletzt daran gearbeitet hat
+
+    def place(self, platform_name: str = "GitHub") -> str:
+        """Wo der Branch liegt: "nur hier", "nur auf GitHub" oder "hier und auf GitHub"."""
+        if self.local and self.remote:
+            return f"hier und auf {platform_name}"
+        return "nur hier" if self.local else f"nur auf {platform_name}"
 
     def line(self, main: str = "main", platform_name: str = "GitHub") -> str:
-        """Zeile der Übersicht, der Name vorne: "suche-pdfs, 2 Commits vor main"."""
+        """Zeile der Übersicht (Wunsch aus dem Test von 5f): Name, Ort, wer zuletzt daran
+        gearbeitet hat, dann der Stand. Zum Beispiel "design, hier und auf GitHub, zuletzt von
+        Anna am 24.09.2026, 2 Commits vor main"."""
         parts = [self.name]
         if self.current:
             parts.append("aktueller Branch")
         if self.default:
             parts.append("Haupt-Branch")
-        else:
+        parts.append(self.place(platform_name))
+        when = _day(self.date)
+        if self.author:
+            parts.append(f"zuletzt von {self.author}" + (f" am {when}" if when else ""))
+        if not self.default:
             if self.ahead_main:
                 parts.append(f"{count(self.ahead_main, 'Commit', 'Commits')} vor {main}")
             if self.behind_main:
                 parts.append(f"{count(self.behind_main, 'Commit', 'Commits')} hinter {main}")
             if not self.ahead_main and not self.behind_main:
                 parts.append(f"gleich wie {main}")
-        if not self.local:
-            parts.append(f"nur auf {platform_name}")
-        elif not self.remote:
-            parts.append(f"noch nicht auf {platform_name}")
-        else:
+        if self.local and self.remote:
             if self.ahead:
                 parts.append(f"{count(self.ahead, 'Commit', 'Commits')} noch nicht hochgeladen")
             if self.behind:
                 parts.append(f"{count(self.behind, 'Commit', 'Commits')} auf {platform_name} "
                              "noch nicht geholt")
         return ", ".join(parts)
+
+
+def _day(iso: str) -> str:
+    try:
+        return f"{datetime.fromisoformat(iso):%d.%m.%Y}" if iso else ""
+    except ValueError:
+        return ""
 
 
 def default_branch(code_dir: Path) -> str:
@@ -96,16 +113,19 @@ def list_branches(code_dir: Path) -> list[Branch]:
     übrigen mit dem neuesten Commit zuerst."""
     state = git.status(code_dir)
     main = state.default_branch
-    fields = _FIELD.join(["%(refname)", "%(upstream:short)", "%(committerdate:iso-strict)"])
+    fields = _FIELD.join(["%(refname)", "%(upstream:short)", "%(authordate:iso-strict)",
+                          "%(authorname)"])
     result = git.run(["for-each-ref", f"--format={fields}", "refs/heads", "refs/remotes/origin"],
                      code_dir, action="Branches lesen")
     found: dict[str, Branch] = {}
     for line in result.stdout.splitlines():
-        ref, upstream, date = (line.split(_FIELD) + ["", ""])[:3]
+        ref, upstream, date, author = (line.split(_FIELD) + ["", "", ""])[:4]
         if ref.startswith("refs/heads/"):
             name = ref[len("refs/heads/"):]
             branch = found.setdefault(name, Branch(name))
-            branch.local, branch.upstream, branch.date = True, upstream, date or branch.date
+            # Der lokale Stand zählt vor dem der Plattform
+            branch.local, branch.upstream = True, upstream
+            branch.date, branch.author = date or branch.date, author or branch.author
         elif ref.startswith("refs/remotes/origin/"):
             name = ref[len("refs/remotes/origin/"):]
             if name == "HEAD":
@@ -113,6 +133,7 @@ def list_branches(code_dir: Path) -> list[Branch]:
             branch = found.setdefault(name, Branch(name))
             branch.remote = True
             branch.date = branch.date or date
+            branch.author = branch.author or author
     base = main if _ref_exists(code_dir, f"refs/heads/{main}") else f"origin/{main}"
     for branch in found.values():
         branch.current = branch.local and branch.name == state.branch

@@ -22,13 +22,13 @@ Inhalt:
 - [x] Phase 2: Grundgerüst mit Kern, Feature-System, Adapter-Schnittstellen, Menüleiste, Grundeinstellungen, Projektliste. Abgeschlossen am 25.09.2026: 105 Tests bestanden, NVDA-Test mit checklisten\phase-02.md bestanden
 - [x] Phase 3: Tresor mit beiden Speicherarten und Wechsel, Kontenverwaltung, Einrichtungsassistent mit Prüfung auf Git. Abgeschlossen am 25.09.2026, außer der Sprachausgabe in Dialogen (siehe TODO.md)
 - [x] Phase 4: GitHub-Anbindung mit Anmeldung im Browser und per Token, Verbindungstest, Organisationen, Hinweise zu Single Sign-On. Abgeschlossen am 25.09.2026: 213 Tests bestanden, NVDA-Test mit checklisten\phase-04.md bestanden
-- [ ] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md)
+- [x] Phase 5: Grundfunktionen in sechs Teilschritten (siehe unten und ENTSCHEIDUNGEN.md). Abgeschlossen am 26.09.2026
   - [x] 5a: Git-Grundlage, Git-Identität, Projekte hinzufügen, Umstellen oder Verknüpfen, Reparatur nach dem Verschieben, Stand in der Projektliste, Repositories des Kontos in der Liste
   - [x] 5b: Sicherheitsprüfung und .gitignore, Neues Projekt hochladen, Auf GitHub hochladen
   - [x] 5c: Änderungen hochladen, Änderungen holen mit Konflikten und Beiseitelegen (Herunterladen kam schon in 5b)
   - [x] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
   - [x] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
-  - [ ] 5f: Übersicht „Branches“ und Stash
+  - [x] 5f: Übersicht „Branches“ und Stash
 - [ ] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen)
 - [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
