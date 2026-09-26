@@ -669,8 +669,10 @@ def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, proj
                        dialog.delete_button.isVisible())
     select(dialog, "main")
     assert visible() == (False, False, False)
+    assert dialog.switch_button.text() == "Zu main &wechseln"      # Wunsch aus dem Test von 6a
     select(dialog, "suche")                                        # aktueller Branch
     assert visible() == (True, True, False)
+    assert not dialog.switch_button.isVisible()
     select(dialog, "design")
     assert visible() == (True, True, True)
 

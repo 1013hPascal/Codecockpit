@@ -34,22 +34,22 @@ Pull Requests gibt es nur auf GitHub. Deshalb legen Sie wieder ein privates Test
 
 ## A. Erster Pull Request
 
-[ ] 1. Aktionen bei Code
+[x] 1. Aktionen bei Code
 Tasten: Zu Code von Wetter, Tab, durch die Aktionen.
 Erwartet: „Pull Requests …“ steht nach „Branches …“. „Pull Request erstellen …“ gibt es nicht, weil Sie auf main sind.
 Ergebnis:
 
-[ ] 2. Branch mit einer Änderung
+[x] 2. Branch mit einer Änderung
 Tasten: „Branches …“, „Neuer Branch …“, Name `groessere-schrift`, Enter, Escape. Dann im Explorer die Datei `Wetter\Code\wetter.py` öffnen, eine Zeile `print('Größer')` anhängen, speichern. Zurück im Cockpit bei Code „Änderungen hochladen …“, als Nachricht `Größere Schrift`, „Hochladen“.
 Erwartet: NVDA sagt am Ende „Fertig. Commit „Größere Schrift“. Branch groessere-schrift ist hochgeladen.“ Die Zeile Code nennt „Branch groessere-schrift“.
 Ergebnis:
 
-[ ] 3. Pull Request erstellen
+[x] 3. Pull Request erstellen
 Tasten: Bei Code „Pull Request erstellen …“, Enter. Mit Tab durch das Fenster, dann „Erstellen“.
 Erwartet: Das Fenster heißt „Pull Request erstellen: von groessere-schrift“. Der Fokus steht im Feld „Titel“ mit „Größere Schrift“. Danach kommen „Beschreibung“, „Ziel-Branch, dahin sollen die Änderungen aus groessere-schrift“ mit main, „Prüfer, freiwillig“ und „Als Entwurf erstellen“, nicht angekreuzt. Ohne Mitarbeiter steht bei den Prüfern „Keine Mitarbeiter, die prüfen könnten.“ Nach „Erstellen“ sagt NVDA „Pull Request wird erstellt.“ und „Pull Request Nr. 1 erstellt.“
 Ergebnis:
 
-[ ] 4. Anzeige bei Code und Branches
+[x] 4. Anzeige bei Code und Branches
 Tasten: Die Zeile Code lesen. Dann „Branches …“ und die Zeile von groessere-schrift lesen, Escape.
 Erwartet: Code endet mit „1 offener Pull Request“. In den Branches steht bei groessere-schrift ebenfalls „1 offener Pull Request“.
 Ergebnis:
@@ -57,27 +57,36 @@ Ergebnis:
 
 ## B. Liste und Details
 
-[ ] 5. Liste
+[x] 5. Liste
 Tasten: Bei Code „Pull Requests …“, Enter. Die Liste lesen. Umschalt+Tab zu „Anzeigen“ und mit den Pfeiltasten die Auswahl lesen, zurück auf „offene“.
 Erwartet: NVDA sagt „Pull Requests werden abgefragt.“ Das Fenster heißt „Pull Requests von codecockpit-test: 1 Pull Request, offene“. Der Fokus steht auf „Nr. 1: Größere Schrift, von groessere-schrift nach main, von …“ mit Ihrem Benutzernamen. Die Auswahl bietet „offene“, „geschlossene“ und „alle“.
 Ergebnis:
 
-[ ] 6. Details
+[x] 6. Details
 Tasten: Auf Nr. 1 Enter. Die Liste Angaben lesen, dann mit Tab zu Dateien, Kommentaren, dem Feld „Neuer Kommentar“ und den Knöpfen.
 Erwartet: Die Angaben beginnen mit „Nr. 1: Größere Schrift“, „Offen“, „Von groessere-schrift nach main“ und „Erstellt von … am …“. Die Dateien zeigen „wetter.py, geändert, 1 Zeile dazu“. Die Kommentare sagen „Noch keine Kommentare.“ Die Knöpfe sind „Kommentar senden“, „Pull Request schließen …“, „Im Browser öffnen“ und „Schließen“.
 Ergebnis:
 
-[ ] 7. Kommentieren
+[!] 7. Kommentieren
 Tasten: Im Feld „Neuer Kommentar“ `Bitte prüfen` schreiben. Tab zu „Kommentar senden“, Enter.
 Erwartet: NVDA sagt „Kommentar gesendet.“ Der Fokus steht in der Liste der Kommentare auf „…, <heutiges Datum>: Bitte prüfen“ mit Ihrem Namen vorne. Das Feld ist wieder leer.
-Ergebnis:
+Ergebnis: Also ansich funktioiert es, aber ich finde es etwas unlogisch. also wenn man in der liste der pull request steht, dann kommt, mit tab Details, neuer pull request, und schließen. 
+wenn man auf einen listeneintrag ode rneter drückt, kommt man zu den Details und dann zu ordner, Kommentar und dahinter pullrequest schließen und im browser anzeigen etc. 
+ich würde das alles, wenn man pei der pull reques liste ist da mit tab machen.
+Details, Kommentieren, Pullrequest schließen, neuer Pullrequest, im browser öffnen
+Und unter Kommentar, dann Dateienliste, Kommentar liste, neuer Kommentar, Kommentar senden
+Dateinliste kann auch gleich bei Details, dateienliste, ,Kommentar
+wenn es da beser hinpast, das musst du sagen. abe rich finde es unintuitiv, das man auf Details klicken muss, um zu kommentieren zu kommen.
 
-[ ] 8. Im Browser
+Antwort von Claude: Umgesetzt, ohne Nachtest. In der Liste der Pull Requests wirken jetzt alle Knöpfe direkt auf den markierten Eintrag. Mit Tab: „Details …“, „Kommentare …“, „Zum Prüfen freigeben“ (nur bei Entwürfen), „Pull Request schließen …“ oder „Wieder öffnen“, „Neuer Pull Request …“, „Im Browser öffnen“ und „Schließen“. Enter auf einem Eintrag öffnet weiter die Details. Die Dateien stehen in den Details, weil dort in 6b das Ansehen der Änderungen dazukommt. „Kommentare …“ öffnet ein kleines Fenster: die Kommentare, darunter „Neuer Kommentar“ und „Kommentar senden“.
+
+
+[x] 8. Im Browser
 Tasten: „Im Browser öffnen“, Enter. Im Browser den Kommentar suchen. Zurück ins Cockpit.
 Erwartet: GitHub zeigt den Pull Request Nr. 1 mit Ihrem Kommentar.
 Ergebnis:
 
-[ ] 9. Schließen und wieder öffnen
+[x] 9. Schließen und wieder öffnen
 Tasten: „Pull Request schließen …“, die Frage lesen, „Schließen“. Dann „Wieder öffnen“.
 Erwartet: Die Frage sagt, dass Nr. 1 geschlossen wird, ohne übernommen zu werden, und der Branch erhalten bleibt. Vorgabe ist „Abbrechen“. NVDA sagt „Nr. 1 ist geschlossen.“ Der Knopf heißt dann „Wieder öffnen“. Danach sagt NVDA „Nr. 1 ist wieder offen.“
 Ergebnis:
@@ -85,22 +94,24 @@ Ergebnis:
 
 ## C. Entwurf mit Hochladen vorher
 
-[ ] 10. Hochladen beim Erstellen
+[x] 10. Hochladen beim Erstellen
 Tasten: Alle Fenster bis zur Aktionsliste schließen. „Branches …“, „Neuer Branch …“, Name `entwurf`, Escape. In wetter.py noch eine Zeile `print('Entwurf')` anhängen und speichern. Bei Code „Pull Request erstellen …“. Die Frage lesen, „Hochladen und weiter“. Im Fenster zum Hochladen `Entwurf` schreiben, „Hochladen“.
 Erwartet: Die Frage sagt „Der Branch entwurf ist noch nicht auf GitHub. Das Cockpit lädt den Branch zuerst hoch …“. Vorgabe ist „Abbrechen“. Nach dem Hochladen öffnet sich gleich „Pull Request erstellen: von entwurf“ mit dem Titel „Entwurf“.
 Ergebnis:
 
-[ ] 11. Als Entwurf erstellen
+[x] 11. Als Entwurf erstellen
 Tasten: Mit Tab zu „Als Entwurf erstellen“, Leertaste, dann „Erstellen“.
 Erwartet: NVDA sagt „Pull Request Nr. 2 erstellt als Entwurf.“
 Ergebnis:
 
-[ ] 12. Entwurf freigeben
+[x] 12. Entwurf freigeben
 Tasten: „Pull Requests …“, auf Nr. 2 Enter. Die Angaben lesen. Tab bis „Zum Prüfen freigeben“, Enter, „Freigeben“.
 Erwartet: Die Zeile in der Liste endet mit „Entwurf“. Die Angaben sagen „Offen, Entwurf“. Die Frage hat die Vorgabe „Abbrechen“. Danach sagt NVDA „Zum Prüfen freigegeben.“ Der Knopf verschwindet, die Angaben sagen nur noch „Offen“.
-Ergebnis:
+Ergebnis: auch hier, wie oben, ist das intuitiv, das man auf Details klicken muss?
 
-[ ] 13. Geschlossene anzeigen
+Antwort von Claude: Nein, das war nicht gut. „Zum Prüfen freigeben“ steht jetzt direkt in der Liste, wenn der markierte Pull Request ein Entwurf ist.
+
+[x] 13. Geschlossene anzeigen
 Tasten: Nr. 2 schließen wie in Punkt 9. Escape zur Liste. Umschalt+Tab zu „Anzeigen“, „geschlossene“ wählen, Tab in die Liste.
 Erwartet: In der Liste der offenen steht nur noch Nr. 1. Bei „geschlossene“ steht „Nr. 2: Entwurf, von entwurf nach main, von …, geschlossen“.
 Ergebnis:
@@ -108,9 +119,17 @@ Ergebnis:
 
 ## D. Auf main
 
-[ ] 14. Auf main gibt es kein Erstellen
+[x] 14. Auf main gibt es kein Erstellen
 Tasten: „Branches …“, auf main Enter (Wechseln), Escape. Bei Code die Aktionen lesen. Dann „Pull Requests …“, Tab zu „Neuer Pull Request …“, Enter.
 Erwartet: „Pull Request erstellen …“ steht nicht in der Aktionsliste. Im Fenster Pull Requests sagt „Neuer Pull Request …“: „Sie sind auf main. Ein Pull Request bringt die Änderungen aus einem anderen Branch nach main. …“
 Ergebnis:
 
 Das Repository codecockpit-test bleibt für 6b bestehen. Dort übernehmen Sie Nr. 1 in main.
+
+Anmekrung:
+Sollen wir den schalter wechseln nicht umbenennen? Z.b. wenn man bei main tab drückt, dann soll der heißen, zu main wechseln
+oder main branch auswählen
+das finde ich eindeutiger.
+aber sonst passt es. Also meine Kommentare einbauen, ich muss es aber nicht testen, danach kannst mit Phase 6b weiter machen.
+
+Antwort von Claude: Umgesetzt. Der Knopf nennt jetzt den markierten Branch, zum Beispiel „Zu main wechseln“. Beim aktuellen Branch erscheint er nicht, weil man dort schon ist.

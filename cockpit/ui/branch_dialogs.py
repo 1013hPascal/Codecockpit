@@ -50,6 +50,7 @@ class BranchesDialog(FocusDialog):
         self.list.installEventFilter(self)
         switch = QPushButton("&Wechseln")
         switch.clicked.connect(self.switch_current)
+        self.switch_button = switch
         new = QPushButton("&Neuer Branch …")
         new.clicked.connect(self.new_branch)
         self.merge_button = QPushButton(f"In &{self.main} übernehmen …")
@@ -100,6 +101,10 @@ class BranchesDialog(FocusDialog):
         und man sonst nicht weiß, warum."""
         row = self.list.currentRow()
         branch = self.items[row] if 0 <= row < len(self.items) else None
+        # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
+        self.switch_button.setVisible(branch is not None and not branch.current)
+        if branch is not None:
+            self.switch_button.setText(f"Zu {branch.name.replace('&', '&&')} &wechseln")
         self.merge_button.setVisible(branch is not None and not branch.default)
         self.rename_button.setVisible(branch is not None and not branch.default)
         self.delete_button.setVisible(branch is not None and not branch.default

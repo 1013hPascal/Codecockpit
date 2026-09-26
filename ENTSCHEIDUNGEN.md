@@ -551,3 +551,9 @@ Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind a
 - Die Rechte der Anmeldung reichen. Fehlt eines, erklärt das Cockpit, welches.
 - Pull Requests laufen über eine eigene Schnittstelle der Plattform. GitLab bringt in Phase 16 seine eigene Umsetzung mit.
 
+### Nach dem NVDA-Test von 6a
+
+- In der Liste der Pull Requests wirken alle Knöpfe direkt auf den markierten Eintrag: „Details …“, „Kommentare …“, „Zum Prüfen freigeben“ (nur bei Entwürfen), „Pull Request schließen …“ oder „Wieder öffnen“, „Neuer Pull Request …“ und „Im Browser öffnen“. Man muss nicht erst die Details öffnen.
+- „Details …“ zeigt Angaben und geänderte Dateien. „Kommentare …“ zeigt die Kommentare mit dem Feld für einen neuen Kommentar.
+- Der Knopf zum Wechseln in der Übersicht Branches nennt den Branch, zum Beispiel „Zu main wechseln“. Beim aktuellen Branch erscheint er nicht.
+

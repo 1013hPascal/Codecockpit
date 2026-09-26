@@ -363,21 +363,73 @@ def test_list_dialog_filter_and_details(qtbot, make_services, monkeypatch):
     assert "Wechseln Sie zuerst" in errors[0]
 
 
-def test_details_comment_close_and_ready(qtbot, monkeypatch):
+def test_list_buttons_act_on_the_marked_pull(qtbot, make_services, monkeypatch):
+    """Wunsch aus dem Test von 6a: Alles direkt in der Liste, ohne erst die Details zu öffnen."""
+    services = make_services()
     fake = PullFake()
-    fake.pulls[0] = pull(12, draft=True)
-    questions = []
+    fake.pulls[0] = pull(12, draft=True, url="https://x/pull/12")
+    questions, opened = [], []
     monkeypatch.setattr(pull_request_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
-    dialog = pull_request_dialogs.PullRequestDialog(fake, REF, fake.pulls[0])
+    monkeypatch.setattr(pull_request_dialogs.browser_login_dialog, "open_url", opened.append)
+    dialog = pull_request_dialogs.PullRequestsDialog(
+        fake, REF, ADDRESS, services.pull_request_cache, fake.pull_requests(REF, "open"))
     qtbot.addWidget(dialog)
     dialog.show()
+    visible = lambda: [b.text() for b in (dialog.details_button, dialog.comments_button,  # noqa
+                                           dialog.ready_button, dialog.state_button,
+                                           dialog.browser_button) if b.isVisible()]
+    assert visible() == ["&Details …", "&Kommentare …", "Zum &Prüfen freigeben",
+                         "Pull Request s&chließen …", "Im &Browser öffnen"]
+    dialog.open_browser()
+    assert opened == ["https://x/pull/12"]
+    dialog.mark_ready()
+    assert questions[-1][1] == {"yes": "Freigeben", "no": "Abbrechen"}
     idle(qtbot, dialog)
+    qtbot.waitUntil(lambda: said("Zum Prüfen freigegeben."), timeout=5000)
+    assert "Zum &Prüfen freigeben" not in visible()
+    dialog.toggle_state()
+    assert "ohne übernommen zu werden" in questions[-1][0]
+    assert questions[-1][1] == {"yes": "Schließen", "no": "Abbrechen"}
+    idle(qtbot, dialog)
+    qtbot.waitUntil(lambda: said("Nr. 12 ist geschlossen."), timeout=5000)
+    dialog.filter.setCurrentIndex(1)                               # geschlossene
+    idle(qtbot, dialog)
+    dialog.list.setCurrentRow(0)
+    assert dialog.state_button.text() == "Wieder ö&ffnen"
+    dialog.toggle_state()
+    idle(qtbot, dialog)
+    qtbot.waitUntil(lambda: said("Nr. 12 ist wieder offen."), timeout=5000)
+    assert [c[0] for c in fake.calls if c[0] != "list"] == ["ready", "close", "open"]
+    assert dialog.changed
+    dialog.filter.setCurrentIndex(2)                               # alle, darunter übernommen
+    idle(qtbot, dialog)
+    dialog.list.setCurrentRow(2)
+    assert "Pull Request s&chließen …" not in visible() and "Wieder ö&ffnen" not in visible()
+
+
+def test_details_show_info_and_files(qtbot):
+    fake = PullFake()
+    fake.pulls[0] = pull(12, draft=True)
+    dialog = pull_request_dialogs.PullDetailsDialog(fake, REF, fake.pulls[0])
+    qtbot.addWidget(dialog)
+    idle(qtbot, dialog)
+    assert dialog.windowTitle().startswith("Details: Nr. 12: Suche in PDFs")
+    assert dialog.info.accessibleName() == "Angaben"
     assert dialog.info.item(1).text() == "Offen, Entwurf"
+    assert dialog.files.accessibleName() == "Dateien"
     assert dialog.files.item(0).text() == "main.py, geändert, 5 Zeilen dazu, 2 Zeilen weg"
-    assert dialog.comments.item(0).text() == "anna, 24.09.2026: Sieht gut aus"
+
+
+def test_comments_dialog(qtbot, monkeypatch):
+    fake = PullFake()
+    dialog = pull_request_dialogs.PullCommentsDialog(fake, REF, fake.pulls[0])
+    qtbot.addWidget(dialog)
+    idle(qtbot, dialog)
+    assert dialog.windowTitle() == "Kommentare: Nr. 12: Suche in PDFs"
     assert dialog.comments.accessibleName() == "Kommentare"
-    assert dialog.ready_button.isVisible()
+    assert dialog.comments.item(0).text() == "anna, 24.09.2026: Sieht gut aus"
+    assert dialog.edit.accessibleName() == "Neuer Kommentar"
     errors = []
     monkeypatch.setattr(pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog.send_comment()
@@ -387,23 +439,8 @@ def test_details_comment_close_and_ready(qtbot, monkeypatch):
     idle(qtbot, dialog)
     qtbot.waitUntil(lambda: said("Kommentar gesendet."), timeout=5000)
     assert dialog.comments.currentItem().text() == "tester, 26.09.2026: Danke!"
-    assert dialog.edit.toPlainText() == ""
-    dialog.mark_ready()
-    idle(qtbot, dialog)
-    qtbot.waitUntil(lambda: said("Zum Prüfen freigegeben."), timeout=5000)
-    assert not dialog.ready_button.isVisible()
-    assert dialog.state_button.text() == "Pull Request s&chließen …"
-    dialog.toggle_state()
-    assert "ohne übernommen zu werden" in questions[-1][0]
-    assert questions[-1][1] == {"yes": "Schließen", "no": "Abbrechen"}
-    idle(qtbot, dialog)
-    qtbot.waitUntil(lambda: said("Nr. 12 ist geschlossen."), timeout=5000)
-    assert dialog.state_button.text() == "Wieder ö&ffnen"
-    dialog.toggle_state()
-    idle(qtbot, dialog)
-    qtbot.waitUntil(lambda: said("Nr. 12 ist wieder offen."), timeout=5000)
-    assert [c[0] for c in fake.calls] == ["comment", "ready", "close", "open"]
-    assert dialog.changed
+    assert dialog.edit.toPlainText() == "" and dialog.changed
+    assert fake.calls[-1] == ("comment", 12, "Danke!")
 
 
 def test_create_dialog(qtbot, monkeypatch):
