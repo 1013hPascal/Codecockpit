@@ -31,6 +31,7 @@ class ProjectStatus:
     repo: RepoStatus | None = None           # None: Ordner fehlt oder Git ist fehlgeschlagen
     pending: int = 0                         # Dateien noch nicht hochgeladen
     venv: VenvState = field(default_factory=lambda: VenvState(False))
+    open_pulls: int = 0                      # offene Pull Requests aus dem aktuellen Branch
     error: str = ""
 
     @property
@@ -134,6 +135,8 @@ def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> st
         # Wie beim Projekt, damit man an Code sieht, dass hier geholt werden muss
         parts.append(f"{count(status.repo.behind, 'Änderung', 'Änderungen')} auf "
                      f"{platform_name} noch nicht geholt")
+    if status.open_pulls:
+        parts.append(count(status.open_pulls, "offener Pull Request", "offene Pull Requests"))
     if status.repo.stashes:
         parts.append("Änderungen beiseitegelegt")
     return ", ".join(parts)

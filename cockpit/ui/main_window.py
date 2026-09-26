@@ -289,6 +289,7 @@ class MainWindow(QMainWindow):
             self.status_queue = (self.status_queue or set()) | set(project_ids or [])
             return
         store = self.services.projects
+        pulls = self.services.pull_request_cache
         wanted = None if project_ids is None else set(project_ids)
         projects = [p for p in store.all() if wanted is None or p.id in wanted]
 
@@ -299,6 +300,10 @@ class MainWindow(QMainWindow):
                     break
                 status = project_status.compute(project)
                 project_status.remember(store, project, status)
+                if status.repo is not None and status.repo.branch:
+                    # Aus dem Zwischenspeicher, ohne GitHub zu fragen (Phase 6)
+                    status.open_pulls = pulls.count_for_branch(project.remote,
+                                                               status.repo.branch)
                 result.append(status)
             return result
 
@@ -351,6 +356,7 @@ class MainWindow(QMainWindow):
                         continue
                     repos = platform.repositories()
                     new.extend(services.remote_repos.replace(account.id, repos))
+                    refresh_pull_requests(services, platform, account, task.cancel_event)
                 except CockpitError as exc:
                     log.warning("Repositories von %s: %s %s", account.display_name,
                                 exc.message, exc.details)
@@ -573,3 +579,27 @@ class MainWindow(QMainWindow):
         if self._show_status in announcer.listeners:
             announcer.listeners.remove(self._show_status)
         super().closeEvent(event)
+
+
+def refresh_pull_requests(services, platform, account, cancel=None) -> None:
+    """Offene Pull Requests der Projekte dieses Kontos in den Zwischenspeicher holen (Phase 6).
+    Läuft im Hintergrund. Fehler bei einem Projekt stören die anderen nicht."""
+    from cockpit.core import repo_admin
+    from cockpit.platforms.base import SupportsPullRequests
+    if not isinstance(platform, SupportsPullRequests):
+        return
+    for project in services.projects.all():
+        if cancel is not None and cancel.is_set():
+            return
+        if project.remote is None:
+            continue
+        owner = repo_admin.account_for(services, project)
+        if owner is None or owner.id != account.id:
+            continue
+        try:
+            pulls = platform.pull_requests(repo_admin.repo_ref(project), "open")
+        except CockpitError as exc:
+            log.warning("Pull Requests von %s: %s", project.name, exc.message)
+            continue
+        services.pull_request_cache.replace(project.remote, pulls)
+

@@ -82,6 +82,19 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (project_id, sha)
     );
     """,
+    # Phase 6a: offene Pull Requests pro Repository, für "1 offener Pull Request"
+    """
+    CREATE TABLE pull_request_cache (
+        repo TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        head TEXT NOT NULL,
+        base TEXT NOT NULL,
+        title TEXT NOT NULL,
+        author TEXT NOT NULL DEFAULT '',
+        draft INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (repo, number)
+    );
+    """,
 ]
 
 

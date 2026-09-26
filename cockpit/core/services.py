@@ -23,6 +23,7 @@ from cockpit.core.settings import SettingsStore
 from cockpit.core.vault_service import NameIndex, VaultService, create_vault
 
 if TYPE_CHECKING:
+    from cockpit.core.pull_requests import PullRequestCache
     from cockpit.ai.base import AIProvider
     from cockpit.automation.base import Automation
     from cockpit.email.base import EmailSender
@@ -48,6 +49,7 @@ class Services:
     email: "EmailSender | None" = None
     accounts: AccountStore = field(init=False)
     remote_repos: RemoteRepoStore = field(init=False)
+    pull_request_cache: "PullRequestCache" = field(init=False)
     features: FeatureManager = field(init=False)
     flows: FlowEngine = field(init=False)
 
@@ -57,6 +59,8 @@ class Services:
                                       NameIndex(self.database))
         self.accounts = AccountStore(self.database, self.vault)
         self.remote_repos = RemoteRepoStore(self.database)
+        from cockpit.core.pull_requests import PullRequestCache
+        self.pull_request_cache = PullRequestCache(self.database)
         if self.automation is None:
             self.automation = adapter_registry.adapter_class("automation", "none")()
         self.features = FeatureManager(self.registry, self.database, self.projects,

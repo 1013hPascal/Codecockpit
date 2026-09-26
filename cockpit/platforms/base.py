@@ -215,6 +215,74 @@ class SupportsCollaborators:
         raise NotImplementedError
 
 
+# -- Pull Requests (Konzept 10.14, Phase 6) ----------------------------------------------------
+@dataclass(frozen=True)
+class PullRequest:
+    number: int
+    title: str
+    head: str                        # Branch mit den Änderungen, zum Beispiel "design"
+    base: str                        # Ziel, zum Beispiel "main"
+    author: str
+    state: str = "open"              # "open", "closed" oder "merged"
+    draft: bool = False
+    body: str = ""
+    created: str = ""                # ISO
+    url: str = ""
+    reviewers: tuple[str, ...] = ()  # angefragte Prüfer
+    node_id: str = ""                # für GraphQL (Entwurf freigeben)
+
+
+@dataclass(frozen=True)
+class PullRequestComment:
+    author: str
+    created: str                     # ISO
+    body: str
+    path: str = ""                   # Kommentar zu einer Zeile: Datei
+    line: int = 0                    # und Zeile
+
+
+@dataclass(frozen=True)
+class PullRequestFile:
+    path: str
+    status: str                      # "added", "modified", "removed", "renamed"
+    additions: int = 0
+    deletions: int = 0
+    patch: str = ""                  # Änderungen im Format von git diff
+
+
+class SupportsPullRequests:
+    """Zusatz-Schnittstelle: Pull Requests (bei GitLab später Merge Requests)."""
+
+    def pull_requests(self, repo: RepoRef, state: str = "open") -> list[PullRequest]:
+        """state: "open", "closed" oder "all". Neueste zuerst."""
+        raise NotImplementedError
+
+    def pull_request(self, repo: RepoRef, number: int) -> PullRequest:
+        raise NotImplementedError
+
+    def create_pull_request(self, repo: RepoRef, head: str, base: str, title: str, body: str,
+                            draft: bool = False, reviewers: tuple[str, ...] = ()) -> PullRequest:
+        raise NotImplementedError
+
+    def pull_request_comments(self, repo: RepoRef, number: int) -> list[PullRequestComment]:
+        """Allgemeine Kommentare und solche zu einer Zeile, älteste zuerst."""
+        raise NotImplementedError
+
+    def add_pull_request_comment(self, repo: RepoRef, number: int, body: str) -> None:
+        raise NotImplementedError
+
+    def pull_request_files(self, repo: RepoRef, number: int) -> list[PullRequestFile]:
+        raise NotImplementedError
+
+    def set_pull_request_open(self, repo: RepoRef, number: int, open_: bool) -> None:
+        """Schließen (False) oder wieder öffnen (True)."""
+        raise NotImplementedError
+
+    def mark_ready_for_review(self, repo: RepoRef, pull: PullRequest) -> None:
+        """Entwurf zum Prüfen freigeben."""
+        raise NotImplementedError
+
+
 # -- Anmeldung im Browser (Device Flow, Konzept 6.1) ----------------------------------------
 @dataclass(frozen=True)
 class BrowserLogin:

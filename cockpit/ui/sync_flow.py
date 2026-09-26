@@ -70,10 +70,11 @@ class PushRunner(_Runner):
     """Änderungen hochladen."""
 
     def __init__(self, controller: "ProjectController", project: Project,
-                 confirmed: bool = False) -> None:
+                 confirmed: bool = False, then: Callable[[], None] | None = None) -> None:
         super().__init__(controller, project)
         self.title = "Änderungen hochladen"
         self.confirmed = confirmed            # schon bestätigt, zum Beispiel nach dem Holen
+        self.then = then                      # danach, zum Beispiel Pull Request erstellen
         self.message = ""
         self.public = False
         self.accepted: set[tuple[str, str, str]] = set()
@@ -171,6 +172,9 @@ class PushRunner(_Runner):
                                  history.feature_step_lines(summary))
         if summary.completed:
             announce(summary.text())
+            if self.then is not None:
+                then, self.then = self.then, None
+                then()
             return
         behind = data.get("behind")
         if behind:

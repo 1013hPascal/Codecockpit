@@ -30,9 +30,10 @@ from cockpit.core.text import join_words
 from cockpit.platforms.base import (BrowserLogin, Capability, Collaborator, GitCredentials,
                                     NetworkError, NewRepo, NotAuthenticated, NotFound,
                                     PendingApproval, PermissionMissing, Platform, PlatformError,
+                                    PullRequest, PullRequestComment, PullRequestFile,
                                     RemoteRepo, RepoInfo, RepoLinks, RepoRef,
                                     SsoAuthorizationRequired, SupportsBrowserLogin,
-                                    SupportsCollaborators, User)
+                                    SupportsCollaborators, SupportsPullRequests, User)
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,13 @@ def api_base(url: str) -> str:
     return web_base(url) + "/api/v3"
 
 
+def graphql_url(url: str) -> str:
+    """github.com: api.github.com/graphql. GitHub Enterprise Server: <Server>/api/graphql."""
+    if is_github_com(url):
+        return "https://api.github.com/graphql"
+    return web_base(url) + "/api/graphql"
+
+
 def noreply_domain(url: str) -> str:
     return "users.noreply.github.com" if is_github_com(url) else f"users.noreply.{_host(url)}"
 
@@ -85,7 +93,8 @@ def _message(response: httpx.Response) -> str:
         return response.text[:200]
 
 
-class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators):
+class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
+                     SupportsPullRequests):
     kind = "github"
     display_name = "GitHub"
     account_fields = (
@@ -191,6 +200,15 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators):
         if status == 404:
             return NotFound(f"Nicht gefunden{doing}. Möglicherweise fehlt dem Token der "
                             "Zugriff auf dieses Repository.", details)
+        if status == 422 and capability is Capability.PULL_REQUESTS:
+            text = response.text.lower()             # die Gründe stehen unter "errors"
+            if "no commits between" in text:
+                return PlatformError("Zwischen den beiden Branches gibt es keinen Unterschied. "
+                                     "Ein Pull Request braucht mindestens einen Commit.", details)
+            if "already exists" in text:
+                return PlatformError("Für diesen Branch gibt es schon einen offenen Pull "
+                                     "Request.", details)
+            return PlatformError(f"GitHub hat den Pull Request abgelehnt: {message}", details)
         if status == 422 and capability is Capability.COLLABORATORS:
             return PlatformError(f"GitHub hat die Einladung abgelehnt: {message}", details)
         if status == 422 and "already exists" in response.text:
@@ -357,6 +375,81 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators):
         self.request("DELETE", f"/repos/{repo.owner}/{repo.name}/invitations/{invitation_id}",
                      "Einladung zurückziehen", Capability.COLLABORATORS)
 
+    # -- Pull Requests ---------------------------------------------------------------------------
+    def pull_requests(self, repo: RepoRef, state: str = "open") -> list[PullRequest]:
+        path = f"/repos/{repo.owner}/{repo.name}/pulls"
+        result: list[PullRequest] = []
+        for page in range(1, 11):                        # höchstens 1000
+            items = self.request("GET", path, "Pull Requests lesen", Capability.PULL_REQUESTS,
+                                 params={"state": state, "sort": "created",
+                                         "direction": "desc", "per_page": 100,
+                                         "page": page}).json()
+            result.extend(_pull(item) for item in items)
+            if len(items) < 100:
+                break
+        return result
+
+    def pull_request(self, repo: RepoRef, number: int) -> PullRequest:
+        return _pull(self.request("GET", f"/repos/{repo.owner}/{repo.name}/pulls/{number}",
+                                  "Pull Request lesen", Capability.PULL_REQUESTS).json())
+
+    def create_pull_request(self, repo: RepoRef, head: str, base: str, title: str, body: str,
+                            draft: bool = False, reviewers: tuple[str, ...] = ()) -> PullRequest:
+        base_path = f"/repos/{repo.owner}/{repo.name}/pulls"
+        created = _pull(self.request("POST", base_path, "Pull Request erstellen",
+                                     Capability.PULL_REQUESTS,
+                                     json={"title": title, "head": head, "base": base,
+                                           "body": body, "draft": draft}).json())
+        if reviewers:
+            self.request("POST", f"{base_path}/{created.number}/requested_reviewers",
+                         "Prüfer anfragen", Capability.PULL_REQUESTS,
+                         json={"reviewers": list(reviewers)})
+            created = PullRequest(**{**created.__dict__, "reviewers": tuple(reviewers)})
+        return created
+
+    def pull_request_comments(self, repo: RepoRef, number: int) -> list[PullRequestComment]:
+        base = f"/repos/{repo.owner}/{repo.name}"
+        general = self.request("GET", f"{base}/issues/{number}/comments", "Kommentare lesen",
+                               Capability.PULL_REQUESTS, params={"per_page": 100}).json()
+        on_lines = self.request("GET", f"{base}/pulls/{number}/comments", "Kommentare lesen",
+                                Capability.PULL_REQUESTS, params={"per_page": 100}).json()
+        found = [PullRequestComment(_login(c), c.get("created_at", ""), c.get("body") or "")
+                 for c in general]
+        found += [PullRequestComment(_login(c), c.get("created_at", ""), c.get("body") or "",
+                                     c.get("path", ""),
+                                     int(c.get("line") or c.get("original_line") or 0))
+                  for c in on_lines]
+        return sorted(found, key=lambda c: c.created)
+
+    def add_pull_request_comment(self, repo: RepoRef, number: int, body: str) -> None:
+        self.request("POST", f"/repos/{repo.owner}/{repo.name}/issues/{number}/comments",
+                     "Kommentar schreiben", Capability.PULL_REQUESTS, json={"body": body})
+
+    def pull_request_files(self, repo: RepoRef, number: int) -> list[PullRequestFile]:
+        items = self.request("GET", f"/repos/{repo.owner}/{repo.name}/pulls/{number}/files",
+                             "Dateien lesen", Capability.PULL_REQUESTS,
+                             params={"per_page": 100}).json()
+        return [PullRequestFile(f.get("filename", ""), f.get("status", "modified"),
+                                int(f.get("additions") or 0), int(f.get("deletions") or 0),
+                                f.get("patch") or "") for f in items]
+
+    def set_pull_request_open(self, repo: RepoRef, number: int, open_: bool) -> None:
+        self.request("PATCH", f"/repos/{repo.owner}/{repo.name}/pulls/{number}",
+                     "Pull Request öffnen" if open_ else "Pull Request schließen",
+                     Capability.PULL_REQUESTS, json={"state": "open" if open_ else "closed"})
+
+    def mark_ready_for_review(self, repo: RepoRef, pull: PullRequest) -> None:
+        """Geht nur über GraphQL, die REST-Schnittstelle kann das nicht."""
+        node_id = pull.node_id or self.pull_request(repo, pull.number).node_id
+        query = ("mutation($id: ID!) { markPullRequestReadyForReview(input: "
+                 "{pullRequestId: $id}) { pullRequest { isDraft } } }")
+        data = self.request("POST", graphql_url(self.url), "Zum Prüfen freigeben",
+                            Capability.PULL_REQUESTS,
+                            json={"query": query, "variables": {"id": node_id}}).json()
+        if data.get("errors"):
+            raise PlatformError("GitHub hat die Freigabe abgelehnt.",
+                                str(data["errors"][0].get("message", "")))
+
     def links(self, repo: RepoRef) -> RepoLinks:
         page = f"{web_base(self.url)}/{repo.owner}/{repo.name}"
         return RepoLinks(page, f"{page}#readme", f"{page}/releases/latest")
@@ -479,3 +572,19 @@ def _role(person: dict) -> str:
 def _permission(value: str) -> str:
     """Werte der API ("pull", "push", "write" ...) auf read, triage, write, maintain, admin."""
     return {"pull": "read", "push": "write"}.get(value, value or "read")
+
+
+def _login(item: dict) -> str:
+    return (item.get("user") or {}).get("login", "")
+
+
+def _pull(data: dict) -> PullRequest:
+    """Pull Request aus der Antwort von GitHub."""
+    state = "merged" if data.get("merged_at") else data.get("state", "open")
+    reviewers = tuple(r.get("login", "") for r in data.get("requested_reviewers") or [])
+    return PullRequest(int(data.get("number", 0)), data.get("title", ""),
+                       (data.get("head") or {}).get("ref", ""),
+                       (data.get("base") or {}).get("ref", ""), _login(data), state,
+                       bool(data.get("draft")), data.get("body") or "",
+                       data.get("created_at", ""), data.get("html_url", ""), reviewers,
+                       data.get("node_id", ""))

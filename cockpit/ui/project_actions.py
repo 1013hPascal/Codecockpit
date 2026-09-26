@@ -56,6 +56,7 @@ class ProjectController:
         self.busy: set[str] = set()               # laufende Vorgänge, zum Beispiel "clone:3"
         self.tasks: list[Task] = []
         self.upload = None                        # laufendes Hochladen (UploadRunner)
+        self.pull_runner = None                   # laufender Ablauf für Pull Requests
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
@@ -82,6 +83,11 @@ class ProjectController:
                    order=20),
             Action("branches", "Branches …", Target.CODE, self.branches_action,
                    availability=_git_availability, visible=_has_commits, order=25),
+            Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
+                   availability=self._account_availability, visible=_has_remote, order=26),
+            Action("create_pull", "Pull Request erstellen …", Target.CODE,
+                   self.create_pull_action, availability=self._account_availability,
+                   visible=_on_other_branch, order=27),
             Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
                    availability=_discard_availability, visible=_has_commits, order=36),
             Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
@@ -459,7 +465,12 @@ class ProjectController:
             except CockpitError as exc:
                 log.warning("Branches von %s nicht abgefragt: %s", project.name, exc.message)
                 note = f"Stand von {platform_name} nicht abgefragt. {exc.message}"
-            return env, branches.list_branches(project.code_dir), note
+            items = branches.list_branches(project.code_dir)
+            refresh_pulls_for(services, project)
+            for item in items:
+                item.open_pulls = services.pull_request_cache.count_for_branch(project.remote,
+                                                                               item.name)
+            return env, items, note
 
         def done(outcome) -> None:
             from cockpit.ui.branch_dialogs import BranchesDialog
@@ -471,6 +482,15 @@ class ProjectController:
             window.refresh_status([project.id])
 
         self.run_task(f"project:{project.id}", work, done, "Branches")
+
+    # -- Pull Requests (Konzept 10.14, Phase 6) ---------------------------------------------
+    def pull_requests_action(self, context: ActionContext) -> None:
+        from cockpit.ui.pull_request_flow import PullRequestRunner
+        PullRequestRunner(self, context.project).open_list()
+
+    def create_pull_action(self, context: ActionContext) -> None:
+        from cockpit.ui.pull_request_flow import PullRequestRunner
+        PullRequestRunner(self, context.project).create()
 
     def stash_push_action(self, context: ActionContext) -> None:
         from cockpit.core import branches, sync
@@ -739,6 +759,12 @@ def _has_stashes(context: ActionContext) -> bool:
     return status is not None and status.repo is not None and status.repo.stashes > 0
 
 
+def _on_other_branch(context: ActionContext) -> bool:
+    """Auf einem anderen Branch als main, und das Projekt liegt auf der Plattform."""
+    return (_has_remote(context) and context.status is not None
+            and bool(context.status.other_branch))
+
+
 def _has_remote(context: ActionContext) -> bool:
     return context.project is not None and context.project.remote is not None
 
@@ -786,3 +812,19 @@ def _git_missing(context: ActionContext) -> bool:
 
 def _venv_broken(context: ActionContext) -> bool:
     return context.status is not None and context.status.venv.broken
+
+
+def refresh_pulls_for(services, project) -> None:
+    """Offene Pull Requests eines Projekts auffrischen, wenn die Plattform das kann. Im
+    Hintergrund aufrufen. Klappt es nicht, bleibt der letzte bekannte Stand."""
+    from cockpit.platforms.base import SupportsPullRequests
+    if project.remote is None:
+        return
+    try:
+        platform = services.platform_for(project)
+        if isinstance(platform, SupportsPullRequests):
+            services.pull_request_cache.replace(
+                project.remote, platform.pull_requests(repo_admin.repo_ref(project), "open"))
+    except CockpitError as exc:
+        log.warning("Pull Requests von %s: %s", project.name, exc.message)
+

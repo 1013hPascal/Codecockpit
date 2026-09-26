@@ -46,6 +46,7 @@ class Branch:
     behind_main: int = 0                    # Commits des Haupt-Branches, die hier fehlen
     date: str = ""                          # letzter Commit, ISO
     author: str = ""                        # wer zuletzt daran gearbeitet hat
+    open_pulls: int = 0                     # offene Pull Requests aus diesem Branch (Phase 6)
 
     def place(self, platform_name: str = "GitHub") -> str:
         """Wo der Branch liegt: "nur hier", "nur auf GitHub" oder "hier und auf GitHub"."""
@@ -73,6 +74,8 @@ class Branch:
                 parts.append(f"{count(self.behind_main, 'Commit', 'Commits')} hinter {main}")
             if not self.ahead_main and not self.behind_main:
                 parts.append(f"gleich wie {main}")
+        if self.open_pulls:
+            parts.append(count(self.open_pulls, "offener Pull Request", "offene Pull Requests"))
         if self.local and self.remote:
             if self.ahead:
                 parts.append(f"{count(self.ahead, 'Commit', 'Commits')} noch nicht hochgeladen")

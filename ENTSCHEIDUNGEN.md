@@ -520,3 +520,34 @@ Die Fragen und Antworten stehen in `fragen\phase-05.md`.
 - Neu im Menü Hilfe: „Branches verstehen …“ (anleitungen/branches-verstehen.md) mit einem Beispiel, was wo passiert und was man wann löschen darf.
 - Die Testdaten entstehen schneller: Die drei Git-Projekte werden gleichzeitig angelegt, und jedes lädt so selten wie möglich hoch. Vorher dauerte der Start mit Testdaten etwa 10 Sekunden ohne jedes Fenster, jetzt etwa 4.
 
+
+## 26.09.2026: Antworten auf die Fragen zu Phase 6
+
+Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind angenommen.
+
+### Ablauf
+
+- Phase 6 kommt in drei Teilschritten mit eigenen Tests und Checklisten `checklisten\phase-06a.md` bis `phase-06c.md`.
+- 6a: Pull Requests erstellen, als Liste ansehen, Details, geänderte Dateien und Kommentare lesen, selbst kommentieren, Entwürfe, schließen und wieder öffnen.
+- 6b: Reviews, Änderungen einer Datei lesbar ansehen, in main übernehmen, danach aufräumen.
+- 6c: Schutzregeln für main, Hochladen in einen Branch, wenn main geschützt ist, und das Feature „Branches und Pull Requests“ für den Ablauf beim Hochladen.
+- Getestet wird mit einem neuen privaten Repository „codecockpit-test“ auf dem echten Konto. Es wird am Ende von Phase 6 gelöscht. Für die Schutzregeln wird es kurz öffentlich.
+- Es gibt kein zweites GitHub-Konto. Genehmigen und Änderungen anfordern prüfen nur die automatischen Tests. Die Checklisten prüfen Kommentieren und Übernehmen.
+
+### Pull Requests
+
+- Pull Requests ansehen, erstellen, kommentieren, prüfen und übernehmen gehört zum Kern und ist da, sobald ein Projekt auf GitHub liegt und ein Konto passt.
+- Das Feature „Branches und Pull Requests“ ändert nur den Ablauf beim Hochladen (6c). Bis Phase 7 schaltet man es mit einer Aktion bei Code ein und aus.
+- „Pull Requests …“ bei Code zeigt die offenen, neueste oben. Eine Auswahl oben zeigt auch geschlossene. Die Branches und Code nennen offene Pull Requests. Die Projektliste nicht.
+- Erstellen fragt nach Titel, Beschreibung, Ziel-Branch, Prüfern und „Als Entwurf erstellen“. Titel und Beschreibung sind aus den Commit-Nachrichten vorbelegt.
+- Kommentare stehen als eine Liste, älteste oben, allgemeine und solche zu einer Zeile. Schreiben kann man allgemeine Kommentare.
+- Übernehmen bietet Merge-Commit (Vorgabe), Squash und Rebase an, soweit das Repository sie erlaubt. Danach fragt das Cockpit, ob es zu main wechseln, holen und den Branch aufräumen soll. Vorgabe ist „Später“.
+
+### Schutzregeln
+
+- Unter „Repository verwalten“: nur über Pull Request, Anzahl der Genehmigungen, Genehmigungen verfallen bei neuen Commits, gilt auch für Administratoren, main darf nicht gelöscht werden. Force push auf main bleibt immer verboten.
+- Gibt es Schutzregeln für ein privates Repository nur mit GitHub Pro, erklärt das Cockpit das.
+- Lehnt GitHub das Hochladen in main ab, bietet das Cockpit an, in einen neuen Branch hochzuladen und einen Pull Request zu erstellen.
+- Die Rechte der Anmeldung reichen. Fehlt eines, erklärt das Cockpit, welches.
+- Pull Requests laufen über eine eigene Schnittstelle der Plattform. GitLab bringt in Phase 16 seine eigene Umsetzung mit.
+
