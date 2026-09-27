@@ -120,7 +120,8 @@ def test_dialog_runs_commands(qtbot, tmp_path):
     dialog.edit.setText("echo hallo")
     dialog.run_command()
     qtbot.waitUntil(lambda: not dialog.running, timeout=20000)
-    assert rows(dialog)[1:] == ["> echo hallo", "hallo", "Fertig."]
+    assert rows(dialog)[1].startswith("Anfrage um ") and rows(dialog)[1].endswith(": echo hallo")
+    assert rows(dialog)[2:] == ["hallo", "Fertig."]
     assert said("Fertig. 1 Zeile Ausgabe.")
     assert dialog.edit.text() == ""
     dialog.edit.setText("exit 2")
@@ -208,3 +209,43 @@ def test_terminal_actions(qtbot, make_services, projects_root):
     for target in (Target.PROJECT, Target.CODE):
         win.project_list.select(target, project.id)
         assert "Terminal …" in [e.label for e in win.current_entries()]
+
+
+def test_enter_runs_and_does_not_cancel(qtbot, tmp_path):
+    """Test von 8a: Enter im Befehlsfeld drückte zusätzlich "Abbrechen"."""
+    from PySide6.QtCore import Qt
+    dialog = dialog_for(qtbot, tmp_path)
+    dialog.show()
+    dialog.activateWindow()
+    dialog.edit.setFocus()
+    qtbot.keyClicks(dialog.edit, "echo 'mit Enter'")
+    qtbot.keyClick(dialog.edit, Qt.Key.Key_Return)
+    qtbot.waitUntil(lambda: not dialog.running, timeout=20000)
+    assert rows(dialog)[-2:] == ["mit Enter", "Fertig."]
+    assert dialog.isVisible()
+
+
+def test_copy_several_lines(qtbot, tmp_path):
+    from PySide6.QtCore import QItemSelectionModel
+    from PySide6.QtGui import QGuiApplication
+    dialog = dialog_for(qtbot, tmp_path)
+    for text in ("eins", "zwei", "drei"):
+        dialog.add_line(text)
+    dialog.output.setCurrentRow(1)
+    dialog.output.setCurrentRow(3, QItemSelectionModel.SelectionFlag.Select)
+    dialog.output.item(2).setSelected(True)
+    dialog.copy_line()
+    assert QGuiApplication.clipboard().text() == "eins\nzwei\ndrei"
+    assert said("3 Zeilen kopiert.")
+    dialog.output.selectAll()
+    dialog.copy_line()
+    assert said("4 Zeilen kopiert.")
+
+
+def test_text_lists_allow_selecting_several_lines(qtbot):
+    from PySide6.QtWidgets import QAbstractItemView
+    from cockpit.ui.messages_dialog import MessagesDialog
+    from cockpit.ui.text_dialog import TextDialog
+    for dialog in (TextDialog("T", ["a", "b"]), MessagesDialog([])):
+        qtbot.addWidget(dialog)
+        assert dialog.list.selectionMode() == QAbstractItemView.SelectionMode.ExtendedSelection

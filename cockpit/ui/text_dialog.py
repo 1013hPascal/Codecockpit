@@ -5,19 +5,17 @@ sich mit NVDA und Braillezeile zuverlässiger lesen als ein schreibgeschütztes 
 aus dem Test von Phase 2).
 
 Bedienung: Pfeiltasten lesen Zeile für Zeile, Pos1 und Ende springen an Anfang und Ende,
-Strg+C kopiert die markierte Zeile (zum Beispiel einen Befehl), Tab führt zu "Schließen",
+Strg+C kopiert die markierte Zeile (zum Beispiel einen Befehl). Umschalt+Pfeil und Strg+A
+wählen mehrere Zeilen aus, Strg+C kopiert dann alle. Tab führt zu "Schließen",
 Escape schließt.
 """
 from __future__ import annotations
 
 import re
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
-from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, name_widget
+from cockpit.ui.common import FocusDialog, copy_selected, make_copyable, name_widget
 
 
 def text_to_lines(text: str) -> list[str]:
@@ -46,9 +44,7 @@ class TextDialog(FocusDialog):
         self.list.addItems(self.lines)
         self.list.setCurrentRow(0)
         self.list.setWordWrap(True)
-        copy = QShortcut(QKeySequence.StandardKey.Copy, self.list)
-        copy.setContext(Qt.ShortcutContext.WidgetShortcut)
-        copy.activated.connect(self.copy_current)
+        make_copyable(self.list)
         self.close_button = QPushButton("&Schließen")
         self.close_button.setDefault(True)
         self.close_button.clicked.connect(self.accept)
@@ -60,7 +56,4 @@ class TextDialog(FocusDialog):
         self.initial_focus_widget = self.list
 
     def copy_current(self) -> None:
-        item = self.list.currentItem()
-        if item is not None:
-            QGuiApplication.clipboard().setText(item.text())
-            announce("Zeile kopiert.")
+        copy_selected(self.list)

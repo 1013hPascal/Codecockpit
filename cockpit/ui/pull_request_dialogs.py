@@ -31,7 +31,7 @@ from cockpit.platforms.base import PullRequest, RepoRef
 from cockpit.ui import browser_login_dialog
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import (FocusDialog, PlainEdit, ask_buttons, confirm, label_for,
-                               name_widget)
+                               make_copyable, name_widget)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.repo_dialogs import DialogWorker, _is_enter, button_row
 
@@ -364,6 +364,7 @@ class PullDetailsDialog(FocusDialog):
         self.info = QListWidget()
         name_widget(self.info, "Angaben")
         self.info.setWordWrap(True)
+        make_copyable(self.info)
         self.files = QListWidget()
         files_label = label_for(self.files, "&Dateien:")
         self.changed_files: list = []
@@ -449,6 +450,7 @@ class PullCommentsDialog(FocusDialog):
         self.setWindowTitle(f"Kommentare: Nr. {pull.number}: {pull.title}")
         self.comments = QListWidget()
         name_widget(self.comments, "Kommentare")
+        make_copyable(self.comments)
         self.comments.setWordWrap(True)
         self.comments.installEventFilter(self)
         self.edit = PlainEdit()

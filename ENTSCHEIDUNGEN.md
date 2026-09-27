@@ -656,3 +656,5 @@ Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konz
 - Git öffnet im Terminal weder Pager noch Editor und fragt nie nach einem Passwort. Befehle bekommen keine Eingabe. So bleibt nichts hängen.
 - Tokens und die Zugangsdaten für Git werden in jeder Zeile der Ausgabe durch *** ersetzt. Die Zugangsdaten gibt es nur, wenn der Tresor offen ist. Das Terminal fragt dafür nicht nach dem Master-Passwort.
 - Die Ausgabe behält höchstens 5000 Zeilen.
+- Nach dem ersten NVDA-Test von 8a: Enter im Befehlsfeld drückt keinen Knopf mehr von selbst. Vorher löste es zugleich „Abbrechen“ aus. Jede Ausgabe beginnt mit „Anfrage um Uhrzeit: Befehl“.
+- Wunsch aus dem Test von 8a für alle Textlisten: Umschalt+Pfeil und Strg+Umschalt+Pfeil wählen mehrere Zeilen aus, Strg+A alle, Strg+C kopiert die Auswahl. Gilt für Terminal, Anleitungen, Einführungen, Meldungen und die Listen mit Angaben und Kommentaren. Listen zum Auswählen einer Sache, wie die Projektliste oder die Aktionsliste, bleiben bei einer Auswahl.

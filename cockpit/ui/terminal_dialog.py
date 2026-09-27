@@ -1,9 +1,10 @@
 """Fenster "Terminal" (Konzept 9.9, Teilschritt 8a).
 
 Aufbau nach dem Wunsch des Nutzers: Der Fokus beginnt im Feld "Befehl". Umschalt+Tab führt in die
-Ausgabe, eine Liste mit einer Zeile pro Zeile der Ausgabe. Enter führt den Befehl aus. Pfeil hoch
-und runter im Befehlsfeld holen frühere Befehle zurück, wie in PowerShell. Strg+C in der Ausgabe
-kopiert die markierte Zeile.
+Ausgabe, eine Liste mit einer Zeile pro Zeile der Ausgabe. Jede Ausgabe beginnt mit "Anfrage um
+16:42:10: Befehl". Enter führt den Befehl aus. Pfeil hoch und runter im Befehlsfeld holen frühere
+Befehle zurück, wie in PowerShell. In der Ausgabe wählen Umschalt+Pfeil und Strg+A mehrere Zeilen
+aus, Strg+C kopiert sie.
 
 Escape bricht einen laufenden Befehl ab, sonst schließt es das Fenster. Die Ausgabe erscheint im
 Hintergrund, der Fokus bleibt im Befehlsfeld. Am Ende sagt NVDA "Fertig." oder den Rückgabewert.
@@ -12,16 +13,16 @@ Ab 8b kommt mit Tab das Feld "Erklärung der KI" dazu (Feature Terminal-Erkläru
 """
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt
-from PySide6.QtGui import QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, QItemSelectionModel, Qt
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.core import terminal
 from cockpit.core.errors import CockpitError
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, label_for, name_widget
+from cockpit.ui.common import FocusDialog, copy_selected, label_for, make_copyable, name_widget
 from cockpit.ui.repo_dialogs import button_row
 from cockpit.ui.tasks import Task
 
@@ -41,9 +42,7 @@ class TerminalDialog(FocusDialog):
         self.output = QListWidget()
         name_widget(self.output, "Ausgabe")
         self.output.setWordWrap(True)
-        copy = QShortcut(QKeySequence.StandardKey.Copy, self.output)
-        copy.setContext(Qt.ShortcutContext.WidgetShortcut)
-        copy.activated.connect(self.copy_line)
+        make_copyable(self.output)
         self.edit = QLineEdit()
         edit_label = label_for(self.edit, "&Befehl:")
         self.edit.returnPressed.connect(self.run_command)
@@ -53,6 +52,11 @@ class TerminalDialog(FocusDialog):
         self.stop_button.setVisible(False)
         close = QPushButton("Schließen")
         close.clicked.connect(self.close_terminal)
+        # Test von 8a: Enter im Befehlsfeld drückte zusätzlich den gerade sichtbar gewordenen Knopf
+        # "Abbrechen" (Standardknopf des Dialogs). Deshalb gibt es hier keinen Standardknopf.
+        for button in (self.stop_button, close):
+            button.setAutoDefault(False)
+            button.setDefault(False)
         layout = QVBoxLayout(self)
         layout.addWidget(label_for(self.output, "Ausgabe:"))
         layout.addWidget(self.output, 1)
@@ -76,6 +80,15 @@ class TerminalDialog(FocusDialog):
                 self.recall(1)
                 return True
         return super().eventFilter(watched, event)
+
+    def keyPressEvent(self, event) -> None:
+        """Enter drückt nie einen Knopf von selbst, außer er hat den Fokus."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            focus = self.focusWidget()
+            if isinstance(focus, QPushButton):
+                focus.click()
+            return
+        super().keyPressEvent(event)
 
     def recall(self, step: int) -> None:
         """Frühere Befehle wie in PowerShell."""
@@ -109,13 +122,12 @@ class TerminalDialog(FocusDialog):
             self.output.takeItem(0)
         self.output.scrollToBottom()
         if not self.output.hasFocus():
-            self.output.setCurrentRow(self.output.count() - 1)
+            # Nur die neue Zeile markieren, sonst wächst die Auswahl zum Kopieren mit
+            self.output.setCurrentRow(self.output.count() - 1,
+                                      QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     def copy_line(self) -> None:
-        item = self.output.currentItem()
-        if item is not None:
-            QGuiApplication.clipboard().setText(item.text())
-            announce("Zeile kopiert.")
+        copy_selected(self.output)
 
     # -- Ausführen ---------------------------------------------------------------------------
     def run_command(self) -> None:
@@ -129,7 +141,8 @@ class TerminalDialog(FocusDialog):
             self.history.append(command)
         self.history_index = len(self.history)
         self.edit.clear()
-        self.add_line(f"> {command}")
+        # Wunsch aus dem Test von 8a: Jede Ausgabe beginnt mit Uhrzeit und Befehl
+        self.add_line(f"Anfrage um {datetime.now():%H:%M:%S}: {command}")
         if terminal.is_force_push(command):
             self.add_line(terminal.FORCE_PUSH)
             announce("Gesperrt. " + terminal.FORCE_PUSH)

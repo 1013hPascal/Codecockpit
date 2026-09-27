@@ -7,7 +7,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.ui.announcer import Message
-from cockpit.ui.common import FocusDialog, name_widget
+from cockpit.ui.common import FocusDialog, make_copyable, name_widget
 
 
 class MessagesDialog(FocusDialog):
@@ -16,6 +16,7 @@ class MessagesDialog(FocusDialog):
         self.setWindowTitle("Meldungen")
         self.list = QListWidget()
         name_widget(self.list, "Meldungen")
+        make_copyable(self.list)
         if messages:
             self.list.addItems([m.label for m in messages])
         else:

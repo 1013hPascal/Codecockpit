@@ -30,12 +30,12 @@ Wenn Sie fertig sind, speichern Sie die Datei und sagen Sie mir im Terminal Besc
 
 ## A. Öffnen
 
-[ ] 1. Hinweis beim ersten Öffnen
+[x] 1. Hinweis beim ersten Öffnen
 Tasten: Zu Code von PDF-Chat, Tab, zu „Terminal …“, Enter.
 Erwartet: Zuerst eine Meldung: „Befehle im Terminal laufen ohne Rückfrage und ohne Sicherheitskopie. Gesperrt ist nur der force push.“ Nach OK öffnet sich „Terminal: PDF-Chat, Code“. Der Fokus steht im Feld „Befehl“.
 Ergebnis:
 
-[ ] 2. Ausgabe lesen
+[x] 2. Ausgabe lesen
 Tasten: Umschalt+Tab in die Ausgabe, lesen. Tab zurück ins Befehlsfeld.
 Erwartet: Die Ausgabe heißt „Ausgabe“ und enthält die Zeile „Ordner: …\PDF-Chat\Code“.
 Ergebnis:
@@ -43,25 +43,38 @@ Ergebnis:
 
 ## B. Befehle
 
-[ ] 3. Ein Git-Befehl
+[!] 3. Ein Git-Befehl
 Tasten: `git log --oneline -3` eintippen, Enter. Dann Umschalt+Tab und die Ausgabe lesen.
-Erwartet: NVDA sagt „Läuft.“ und danach „Fertig. 3 Zeilen Ausgabe.“ Der Fokus bleibt im Befehlsfeld, das wieder leer ist. In der Ausgabe stehen „> git log --oneline -3“, drei Zeilen mit Commits (die neueste zuerst, „Hilfetext geändert“) und „Fertig.“ Die Markierung steht auf der letzten Zeile.
+Erwartet: NVDA sagt „Läuft.“ und danach „Fertig. 3 Zeilen Ausgabe.“ Der Fokus bleibt im Befehlsfeld, das wieder leer ist. In der Ausgabe stehen „Anfrage um <Uhrzeit>: git log --oneline -3“, drei Zeilen mit Commits (die neueste zuerst, „Hilfetext geändert“) und „Fertig.“ Die Markierung steht auf der letzten Zeile.
 Ergebnis:
+bei mir kommt:
+Ordner: C:\Users\pasca\AppData\Local\CodeCockpit\Testdaten\Projekte\PDF-Chat
+> git log --oneline -3
+Abgebrochen.
+ich bin mit meinem GitHub angemeldet, falls das dijr hilft.
+also was mcih auch stört, generell überall bei den isten. ich würde gerne, dass man mit STRG shift pfiel hoch runter und STRG a mehrer zeilen auswählen kann, um die zu kopieren. wäre gut, wenn du das einbauen kannst. 
+Und es wäre auch tugt, dass man immer sieht, im terminal, anfrge von: Uhrzeit etc. dannzswischen den anfragen, als immer als erste ziele, dann wieß man welcher ausgabe zu welcher anfrage kommt.
 
-[ ] 4. Ein Fehler
+Antwort von Claude: Den Fehler habe ich gefunden, er lag nicht an Ihrem Konto. Enter im Befehlsfeld startete den Befehl und drückte gleichzeitig den Knopf „Abbrechen“, der in diesem Moment sichtbar wurde. Deshalb kam sofort „Abgebrochen.“ Jetzt drückt Enter keinen Knopf mehr von selbst, und ein neuer Test drückt wirklich Enter. Ihre Wünsche sind eingebaut: Jede Ausgabe beginnt mit „Anfrage um 16:42:10: git log --oneline -3“. In den Listen mit Text wählen Sie mit Umschalt+Pfeil oder Strg+Umschalt+Pfeil mehrere Zeilen aus, mit Strg+A alle. Strg+C kopiert dann alle ausgewählten Zeilen, NVDA sagt zum Beispiel „3 Zeilen kopiert.“ Das gilt für die Ausgabe des Terminals, die Anleitungen und Einführungen, die Meldungen, die Angaben im Verlauf, bei Repository verwalten und bei Pull Requests sowie für die Kommentare. Bitte die Punkte ab 3 noch einmal prüfen, nach einem Neustart von start_testdaten.bat.
+
+[!] 4. Ein Fehler
 Tasten: Im Befehlsfeld `git checkout gibt-es-nicht` eintippen, Enter. Ausgabe lesen.
 Erwartet: NVDA sagt „Fehler, Rückgabewert 1. …“. In der Ausgabe steht die Meldung von Git, zum Beispiel „error: pathspec 'gibt-es-nicht' did not match …“, und „Fehler, Rückgabewert 1.“
-Ergebnis:
+Ergebnis: selbes Problem wie bei 3
 
-[ ] 5. Frühere Befehle
+Antwort von Claude: Behoben, siehe Punkt 3.
+
+[x] 5. Frühere Befehle
 Tasten: Im Befehlsfeld Pfeil hoch, Pfeil hoch, Pfeil runter.
 Erwartet: Das Feld zeigt nacheinander „git checkout gibt-es-nicht“, „git log --oneline -3“ und wieder „git checkout gibt-es-nicht“.
 Ergebnis:
 
-[ ] 6. Zeile kopieren
+[x] 6. Zeile kopieren
 Tasten: In der Ausgabe auf eine Commit-Zeile, Strg+C. In einem Editor einfügen.
 Erwartet: NVDA sagt „Zeile kopiert.“ Im Editor steht genau diese Zeile.
-Ergebnis:
+Ergebnis: wunsch von oben
+
+Antwort von Claude: Eingebaut, siehe Punkt 3.
 
 [ ] 7. PowerShell-Befehl und Umlaute
 Tasten: `Get-ChildItem -Name` eintippen, Enter. Dann `echo 'Grüße aus dem Terminal'`, Enter.

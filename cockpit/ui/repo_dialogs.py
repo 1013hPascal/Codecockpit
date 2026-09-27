@@ -28,7 +28,8 @@ from cockpit.platforms.base import (PERMISSION_NAMES, BranchProtection, Capabili
                                     SupportsBranchProtection, SupportsCollaborators)
 from cockpit.ui import browser_login_dialog
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, ask_buttons, confirm, label_for, name_widget
+from cockpit.ui.common import (FocusDialog, ask_buttons, confirm, label_for, make_copyable,
+                               name_widget)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.tasks import Task
 
@@ -160,6 +161,7 @@ class ManageRepoDialog(FocusDialog):
         self.setWindowTitle(f"Repository verwalten: {info.ref.name}")
         self.list = QListWidget()
         name_widget(self.list, "Angaben")
+        make_copyable(self.list)
         self.list.installEventFilter(self)
         self.visibility_button = QPushButton()
         self.visibility_button.clicked.connect(self.change_visibility)

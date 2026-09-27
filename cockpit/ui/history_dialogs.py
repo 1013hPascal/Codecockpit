@@ -25,7 +25,7 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.history import Commit, LocalChange
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, confirm, label_for, name_widget
+from cockpit.ui.common import FocusDialog, confirm, label_for, make_copyable, name_widget
 from cockpit.ui.error_dialog import show_error
 
 if TYPE_CHECKING:
@@ -122,6 +122,7 @@ class VersionDialog(FocusDialog):
         steps = history.recorded_steps(services.database, project.id, commit.sha)
         self.info = QListWidget()
         name_widget(self.info, "Angaben")
+        make_copyable(self.info)
         self.info.addItems(history.details(commit, steps))
         self.info.setCurrentRow(0)
         self.info.setWordWrap(True)

@@ -157,3 +157,27 @@ def choose_from_list(parent: QWidget | None, title: str, name: str, items: list[
     """Index des gewählten Eintrags oder None bei Abbruch."""
     dialog = ListChoiceDialog(title, name, items, current, parent)
     return dialog.chosen if dialog.exec() else None
+
+
+def make_copyable(listing) -> None:
+    """Textlisten (Wunsch aus dem Test von 8a): Umschalt+Pfeil und Strg+Umschalt+Pfeil wählen
+    mehrere Zeilen aus, Strg+A alle. Strg+C kopiert die Auswahl, eine Zeile pro Eintrag."""
+    from PySide6.QtGui import QKeySequence, QShortcut
+    listing.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+    shortcut = QShortcut(QKeySequence.StandardKey.Copy, listing)
+    shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+    shortcut.activated.connect(lambda: copy_selected(listing))
+
+
+def copy_selected(listing) -> int:
+    """Ausgewählte Zeilen in die Zwischenablage, sonst die markierte. Gibt die Anzahl zurück."""
+    from PySide6.QtGui import QGuiApplication
+    from cockpit.ui.announcer import announce
+    rows = sorted({index.row() for index in listing.selectedIndexes()})
+    if not rows and listing.currentRow() >= 0:
+        rows = [listing.currentRow()]
+    if not rows:
+        return 0
+    QGuiApplication.clipboard().setText("\n".join(listing.item(r).text() for r in rows))
+    announce("Zeile kopiert." if len(rows) == 1 else f"{len(rows)} Zeilen kopiert.")
+    return len(rows)
