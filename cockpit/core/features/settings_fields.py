@@ -153,6 +153,22 @@ class MultiChoice(SettingField):
 
 
 @dataclass(frozen=True, kw_only=True)
+class AIToolChoice(SettingField):
+    """Welches KI-Werkzeug ein Feature nutzt (Konzept 11.1). Der Wert ist die Nummer des
+    Werkzeugs, 0 heißt: das Standard-Werkzeug. Die Möglichkeiten kommen aus der KI-Verwaltung."""
+    tool_kind: str = "text"
+    fallback: ClassVar[Any] = 0
+
+    def check(self, value: Any) -> int:
+        if isinstance(value, bool):
+            raise ValueError(f"{self.label}: Bitte ein Werkzeug wählen.")
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            raise ValueError(f"{self.label}: Bitte ein Werkzeug wählen.") from None
+
+
+@dataclass(frozen=True, kw_only=True)
 class TimeOfDay(SettingField):
     fallback: ClassVar[Any] = "08:00"
 

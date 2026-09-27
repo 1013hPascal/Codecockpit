@@ -9,12 +9,15 @@ aus, Strg+C kopiert sie.
 Escape bricht einen laufenden Befehl ab, sonst schließt es das Fenster. Die Ausgabe erscheint im
 Hintergrund, der Fokus bleibt im Befehlsfeld. Am Ende sagt NVDA "Fertig." oder den Rückgabewert.
 
-Ab 8b kommt mit Tab das Feld "Erklärung der KI" dazu (Feature Terminal-Erklärung).
+Ist das Feature Terminal-Erklärung aktiv (Teilschritt 8b), kommt mit Tab nach dem Befehlsfeld die
+Liste "Erklärung der KI", ein Satz pro Zeile. Schlägt ein Befehl fehl, schreibt die KI im
+Hintergrund hinein. NVDA sagt "Erklärung der KI bereit.", der Fokus bleibt, wo er ist.
 """
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 from PySide6.QtCore import QEvent, QItemSelectionModel, Qt
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
@@ -27,17 +30,29 @@ from cockpit.ui.repo_dialogs import button_row
 from cockpit.ui.tasks import Task
 
 MAX_LINES = 5000                  # ältere Zeilen fallen weg, damit die Liste schnell bleibt
+NO_EXPLANATION_YET = "Noch keine Erklärung. Sie erscheint, wenn ein Befehl fehlschlägt."
+EXPLAINING = "Die KI erklärt den Fehler …"
+READY = "Erklärung der KI bereit."
+
+# Bekommt das Terminal-Fenster, gibt eine TextAI oder den Grund zurück (ui/ai_ui.prepare)
+Explainer = Callable[[QWidget], object]
 
 
 class TerminalDialog(FocusDialog):
     def __init__(self, folder: Path, title: str, env: dict[str, str] | None = None,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, explainer: Explainer | None = None,
+                 command: str = "") -> None:
+        """explainer: nur bei aktivem Feature Terminal-Erklärung. command: steht schon im
+        Befehlsfeld und läuft erst mit Enter (zum Beispiel ollama pull)."""
         super().__init__(parent)
         self.folder = folder
         self.env = env or {}
         self.history: list[str] = []
         self.history_index = 0
         self.task: Task | None = None
+        self.explainer = explainer
+        self.explain_task: Task | None = None
+        self.last_command = ""
         self.setWindowTitle(f"Terminal: {title}")
         self.output = QListWidget()
         name_widget(self.output, "Ausgabe")
@@ -62,12 +77,24 @@ class TerminalDialog(FocusDialog):
         layout.addWidget(self.output, 1)
         layout.addWidget(edit_label)
         layout.addWidget(self.edit)
+        self.explanation: QListWidget | None = None
+        order: list[QWidget] = [self.output, self.edit]
+        if explainer is not None:
+            self.explanation = QListWidget()
+            self.explanation.setWordWrap(True)
+            make_copyable(self.explanation)
+            layout.addWidget(label_for(self.explanation, "Erklärung der &KI:"))
+            layout.addWidget(self.explanation)
+            self.set_explanation([NO_EXPLANATION_YET])
+            order.append(self.explanation)
         layout.addLayout(button_row(self.stop_button, None, close))
-        self.setTabOrder(self.output, self.edit)
-        self.setTabOrder(self.edit, self.stop_button)
-        self.setTabOrder(self.stop_button, close)
-        self.resize(820, 560)
+        order += [self.stop_button, close]
+        for first, second in zip(order, order[1:]):
+            self.setTabOrder(first, second)
+        self.resize(820, 600)
         self.add_line(f"Ordner: {folder}")
+        if command:
+            self.edit.setText(command)
         self.initial_focus_widget = self.edit
 
     # -- Bedienung ---------------------------------------------------------------------------
@@ -103,6 +130,7 @@ class TerminalDialog(FocusDialog):
         if self.running:
             self.stop()
             return
+        self.stop_explanation(wait=True)
         super().reject()
 
     def close_terminal(self) -> None:
@@ -110,6 +138,7 @@ class TerminalDialog(FocusDialog):
             self.stop()
             if self.task is not None:
                 self.task.wait(5000)
+        self.stop_explanation(wait=True)
         super().reject()
 
     @property
@@ -141,6 +170,10 @@ class TerminalDialog(FocusDialog):
             self.history.append(command)
         self.history_index = len(self.history)
         self.edit.clear()
+        self.last_command = command
+        self.stop_explanation()
+        if self.explanation is not None:              # die Erklärung gehört zum letzten Befehl
+            self.set_explanation([NO_EXPLANATION_YET])
         # Wunsch aus dem Test von 8a: Jede Ausgabe beginnt mit Uhrzeit und Befehl
         self.add_line(f"Anfrage um {datetime.now():%H:%M:%S}: {command}")
         if terminal.is_force_push(command):
@@ -176,6 +209,8 @@ class TerminalDialog(FocusDialog):
         self.add_line(text)
         lines = len(result.lines)
         announce(f"{text} {lines} Zeilen Ausgabe." if lines != 1 else f"{text} 1 Zeile Ausgabe.")
+        if not result.ok:
+            self.explain(self.last_command, result)
 
     def command_failed(self, message: str, details: str) -> None:
         self.add_line(message)
@@ -190,8 +225,94 @@ class TerminalDialog(FocusDialog):
             self.task.cancel()
             announce("Wird abgebrochen.")
 
+    # -- Erklärung der KI (Feature Terminal-Erklärung) ---------------------------------------
+    def set_explanation(self, lines: list[str]) -> None:
+        if self.explanation is None:
+            return
+        from cockpit.core.text import one_sentence_per_line
+        self.explanation.clear()
+        for line in lines:
+            self.explanation.addItems([s for s in one_sentence_per_line(line).splitlines()
+                                       if s.strip()])
+        if not self.explanation.hasFocus():
+            self.explanation.setCurrentRow(0)
 
-def open_terminal(services, window, folder: Path, title: str, project=None) -> None:
+    def explanation_lines(self) -> list[str]:
+        if self.explanation is None:
+            return []
+        return [self.explanation.item(i).text() for i in range(self.explanation.count())]
+
+    def explain(self, command: str, result: terminal.Result) -> None:
+        """Im Hintergrund die KI fragen. Der Fokus bleibt, wo er ist."""
+        if self.explainer is None:
+            return
+        ai = self.explainer(self)
+        if isinstance(ai, str):
+            self.set_explanation([f"Keine Erklärung. {ai}"])
+            return
+        from cockpit.features.terminal_explain.explain import explain
+        code, lines = result.code, list(result.lines)
+
+        def work(task: Task) -> str:
+            return explain(ai, command, code, lines, task.cancel_event)
+
+        task = Task(work, self)
+        task.result.connect(self.explanation_ready)
+        task.error.connect(self.explanation_failed)
+        task.finished.connect(self._explain_done)
+        self.explain_task = task
+        self.set_explanation([EXPLAINING])
+        task.start()
+
+    def explanation_ready(self, text: str) -> None:
+        self.set_explanation([text or "Die KI hat keine Erklärung geliefert."])
+        announce(READY)
+
+    def explanation_failed(self, message: str, details: str) -> None:
+        self.set_explanation([f"Keine Erklärung. {message}"])
+        announce(f"Keine Erklärung der KI. {message}")
+
+    def _explain_done(self) -> None:
+        task, self.explain_task = self.explain_task, None
+        if task is not None:
+            task.deleteLater()
+
+    def stop_explanation(self, wait: bool = False) -> None:
+        task = self.explain_task
+        if task is None:
+            return
+        task.cancel()
+        try:
+            task.result.disconnect(self.explanation_ready)
+            task.error.disconnect(self.explanation_failed)
+        except (RuntimeError, TypeError):
+            pass
+        if wait:
+            task.wait(5000)
+
+
+def explainer_for(services, project) -> Explainer | None:
+    """Nur bei aktivem Feature Terminal-Erklärung: eingeschaltet und eine Text-KI eingerichtet.
+    Ohne Projekt (zum Beispiel beim Herunterladen eines Modells) zählt die globale Einstellung."""
+    from cockpit.features.terminal_explain.manifest import FEATURE_ID
+    if FEATURE_ID not in services.registry:
+        return None
+    features = services.features
+    active = (features.active(FEATURE_ID, project) if project is not None
+              else features.availability(FEATURE_ID).available)
+    if not active:
+        return None
+
+    def prepare(parent: QWidget):
+        from cockpit.ui import ai_ui
+        tool_id = features.setting(FEATURE_ID, "tool") or None
+        return ai_ui.prepare(services, parent, FEATURE_ID, "der Befehl und die Ausgabe",
+                             tool_id)
+    return prepare
+
+
+def open_terminal(services, window, folder: Path, title: str, project=None,
+                  command: str = "") -> None:
     """Terminal öffnen. Beim allerersten Mal ein Hinweis (ENTSCHEIDUNGEN.md). Git bekommt die
     Zugangsdaten des Projekts, wenn sie ohne Rückfrage verfügbar sind."""
     from cockpit.core import sync
@@ -205,4 +326,4 @@ def open_terminal(services, window, folder: Path, title: str, project=None) -> N
             env = sync.environment(services, project)
         except CockpitError:
             env = {}                                   # zum Beispiel Tresor gesperrt
-    TerminalDialog(folder, title, env, window).exec()
+    TerminalDialog(folder, title, env, window, explainer_for(services, project), command).exec()

@@ -15,7 +15,8 @@ KINDS = ("platform", "ai", "vault", "automation", "email")
 # Art -> Name -> "modul:Klasse" oder die Klasse selbst (Tests)
 ADAPTERS: dict[str, dict[str, str | type[Adapter]]] = {
     "platform": {"github": "cockpit.platforms.github:GitHubPlatform"},
-    "ai": {},
+    "ai": {"ollama": "cockpit.ai.ollama:OllamaProvider",
+           "openai_compatible": "cockpit.ai.openai_compatible:OpenAICompatibleProvider"},
     "vault": {},
     "automation": {"none": "cockpit.automation.none:NoAutomation"},
     "email": {},

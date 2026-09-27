@@ -120,13 +120,13 @@ def wizard(qtbot, make_services):
 def test_wizard_pages_and_announcements(wizard, monkeypatch):
     dialog, services = wizard()
     assert [p.title for p in dialog.pages] == ["Willkommen", "Git", "Tresor", "GitHub-Konto",
-                                               "Projekte-Hauptordner", "Git-Identität",
+                                               "Projekte-Hauptordner", "Git-Identität", "KI",
                                                "Zusammenfassung"]
-    assert dialog.heading.text() == "Schritt 1 von 7: Willkommen"
+    assert dialog.heading.text() == "Schritt 1 von 8: Willkommen"
     assert not dialog.skip_button.isVisible()
     assert not dialog.back_button.isEnabled()
     dialog.next()
-    assert said("Schritt 2 von 7: Git.")
+    assert said("Schritt 2 von 8: Git.")
     assert dialog.skip_button.isVisible()
     dialog.next()
     assert dialog.page.title == "Tresor"
@@ -153,6 +153,8 @@ def test_wizard_full_run_with_windows_vault(wizard, projects_root):
     identity.form.fields["git_name"].set("1013hPascal")
     identity.form.fields["git_email"].set("94653295+1013hPascal@users.noreply.github.com")
     dialog.next()
+    assert dialog.page.title == "KI"
+    dialog.skip()
     summary = [dialog.page.list.item(r).text() for r in range(dialog.page.list.count())]
     assert "Eingerichtet: Tresor: Windows-Anmeldeinformationsverwaltung." in summary
     assert any(s.startswith("Eingerichtet: Git-Identität: 1013hPascal") for s in summary)
@@ -169,6 +171,7 @@ def test_wizard_skip_is_listed_in_summary(wizard):
     dialog.skip()                                            # GitHub-Konto
     dialog.skip()                                            # Hauptordner
     dialog.skip()                                            # Git-Identität
+    dialog.skip()                                            # KI
     summary = [dialog.page.list.item(r).text() for r in range(dialog.page.list.count())]
     assert "Übersprungen: Git-Identität. Nachholen: Menü Einstellungen, Grundeinstellungen." \
         in summary

@@ -37,8 +37,9 @@ HELP_LINES = [
     "Ein Konto ist Ihr Zugang zu einem Dienst, den das Cockpit für Sie benutzt.",
     "Plattform-Konto, zum Beispiel GitHub: Damit lädt das Cockpit Ihren Code hoch, legt "
     "Repositories an und holt Rückmeldungen. Das brauchen fast alle.",
-    "KI-Konto, zum Beispiel ein Cloud-Anbieter mit API-Schlüssel: nur nötig, wenn Sie nicht "
-    "die lokale KI Ollama nutzen. Kommt ab Phase 7.",
+    "KI-Konto, zum Beispiel ein Firmen-Server oder ein Cloud-Anbieter mit API-Schlüssel: nur "
+    "nötig, wenn Sie nicht die lokale KI Ollama nutzen. Welche KI das Cockpit nutzt, wählen Sie "
+    "im Menü KI, KI-Verwaltung.",
     "E-Mail-Konto: für Berichte und Benachrichtigungen per E-Mail. Kommt in Phase 11.",
     "Automations-Konto, zum Beispiel n8n: für Abläufe im Hintergrund. Kommt in Phase 10.",
     "Zu jedem Konto gehören Zugangsdaten wie ein Token. Sie liegen nur im Tresor.",
@@ -155,6 +156,8 @@ class AccountEditDialog(FocusDialog):
             if f.secret:
                 fields.append(sf.SecretText(f.key, f.label, required=f.required,
                                             keep_if_empty=account is not None))
+            elif f.yes_no:
+                fields.append(sf.YesNo(f.key, f.label, f.default == "ja"))
             else:
                 fields.append(sf.Text(f.key, f.label, f.default, required=f.required))
         values = {"display_name": account.display_name if account else account_type.display_name}

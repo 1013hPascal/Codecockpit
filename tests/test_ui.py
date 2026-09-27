@@ -101,7 +101,7 @@ def test_no_fixed_colors(window):
 def test_menu_bar_order_and_unique_mnemonics(window):
     win = window()
     titles = [a.text() for a in win.menuBar().actions()]
-    assert [t.replace("&", "") for t in titles] == ["Datei", "Features", "Konten",
+    assert [t.replace("&", "") for t in titles] == ["Datei", "Features", "KI", "Konten",
                                                     "Einstellungen", "Hilfe"]
     keys = [re.search(r"&(\w)", t).group(1).lower() for t in titles]
     assert len(keys) == len(set(keys))

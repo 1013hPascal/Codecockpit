@@ -6,8 +6,8 @@ einfaches Formular. Unten: "Zurück", "Überspringen" (wo erlaubt), "Weiter" bzw
 an, der Fokus steht im ersten Feld der Seite.
 
 Seiten: Willkommen, Git, Tresor (Pflicht), GitHub-Konto (seit Phase 4), Projekte-Hauptordner,
-Git-Identität und die Zusammenfassung. Spätere Phasen fügen Seiten hinzu (Plattform-Konto, KI, Automation, E-Mail,
-Features).
+Git-Identität, KI (seit 8b) und die Zusammenfassung. Spätere Phasen fügen Seiten hinzu
+(Automation, E-Mail, Features).
 """
 from __future__ import annotations
 
@@ -356,6 +356,76 @@ class IdentityPage(Page):
         return True
 
 
+class AIPage(Page):
+    """Seite KI (Konzept 8.7, Teilschritt 8b): Rechner und Ollama prüfen, KI einrichten."""
+    title = "KI"
+    intro = "Eine KI kann Ihnen helfen, zum Beispiel Fehler im Terminal erklären. Sie ist freiwillig."
+    later = "Menü KI, KI-Verwaltung"
+
+    def __init__(self, wizard) -> None:
+        super().__init__(wizard)
+        self.text = _lines("KI", [])
+        self.setup_button = QPushButton("KI &einrichten …")
+        self.setup_button.clicked.connect(self.setup_ai)
+        self.task = None
+        row = QHBoxLayout()
+        row.addWidget(self.setup_button)
+        row.addStretch(1)
+        self.layout_.addWidget(self.text)
+        self.layout_.addLayout(row)
+
+    def on_show(self) -> None:
+        tool = self.services.ai_tools.default()
+        self.done_text = f"Text-KI: {self.services.ai_tools.label(tool, False)}." if tool else ""
+        self.show_lines([])
+        if self.task is None:
+            self.check()
+
+    def show_lines(self, extra: list[str]) -> None:
+        tool = self.services.ai_tools.default()
+        lines = [f"Eingerichtet: {self.services.ai_tools.label(tool, False)}." if tool
+                 else "Es ist noch keine KI eingerichtet."]
+        lines += extra or ["Rechner und Ollama werden geprüft …"]
+        lines += ["Am einfachsten ist Ollama auf Ihrem Rechner. Dann verlässt nichts den Rechner.",
+                  "Sie können auch eine KI in der Firma oder einen Anbieter im Internet nutzen.",
+                  "Ohne KI funktioniert alles andere genauso. Dann überspringen Sie den Schritt.",
+                  "Mit Tab kommen Sie zu KI einrichten."]
+        row = max(0, self.text.currentRow())
+        self.text.clear()
+        self.text.addItems(lines)
+        self.text.setCurrentRow(min(row, self.text.count() - 1))
+
+    def check(self) -> None:
+        from cockpit.ai import ollama
+        from cockpit.core import hardware
+        from cockpit.ui.ai_dialogs import manual_ram, recommendation_line
+        manual = manual_ram(self.services)
+
+        def work(task):
+            machine = hardware.detect(manual)
+            return machine.lines()[:1] + [recommendation_line(machine.ram_gb), ollama.state()]
+
+        self.task = Task(work, self)
+        self.task.result.connect(self.show_lines)
+        self.task.error.connect(lambda message, details: self.show_lines([message]))
+        self.task.finished.connect(self._checked)
+        self.task.start()
+
+    def _checked(self) -> None:
+        task, self.task = self.task, None
+        if task is not None:
+            task.deleteLater()
+
+    def setup_ai(self) -> None:
+        from cockpit.ui.ai_dialogs import AIManagerDialog
+        AIManagerDialog(self.services, self.wizard).exec()
+        self.on_show()
+        self.setup_button.setFocus()
+
+    def first_focus(self):
+        return self.text
+
+
 class SummaryPage(Page):
     title = "Zusammenfassung"
     intro = "Die Einrichtung ist fertig. Die Liste zeigt, was eingerichtet wurde."
@@ -391,7 +461,7 @@ class SetupWizard(FocusDialog):
         self.setWindowTitle(f"{APP_NAME} einrichten")
         self.pages: list[Page] = [WelcomePage(self), GitPage(self), VaultPage(self),
                                   PlatformPage(self), FolderPage(self), IdentityPage(self),
-                                  SummaryPage(self)]
+                                  AIPage(self), SummaryPage(self)]
         self.stack = QStackedWidget()
         for page in self.pages:
             self.stack.addWidget(page)
@@ -457,6 +527,12 @@ class SetupWizard(FocusDialog):
     def back(self) -> None:
         if self.index > 0:
             self.show_page(self.index - 1)
+
+    def done(self, code: int) -> None:
+        from cockpit.ui.accounts_dialog import wait_for
+        for page in self.pages:
+            wait_for(getattr(page, "task", None))      # laufende Prüfungen nicht zerstören
+        super().done(code)
 
     def reject(self) -> None:
         if self.services.settings.load().setup_done:

@@ -38,8 +38,11 @@ class _Field:
 
 class SettingsForm(QWidget):
     def __init__(self, fields: list[sf.SettingField], values: dict[str, Any] | None = None,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None,
+                 tool_options: list[tuple[str, int]] | None = None) -> None:
+        """tool_options: Möglichkeiten für AIToolChoice als (Text, Nummer), zuerst Standard."""
         super().__init__(parent)
+        self.tool_options = tool_options or [("Standard-Werkzeug", 0)]
         self.layout_ = QFormLayout(self)
         self.fields: dict[str, _Field] = {}
         self._order: list[QWidget] = []
@@ -68,6 +71,17 @@ class SettingsForm(QWidget):
             self._order.append(combo)
             return _Field(spec, combo, combo, combo.currentText,
                           lambda v: combo.setCurrentIndex(max(0, combo.findText(str(v)))))
+        if isinstance(spec, sf.AIToolChoice):
+            combo = QComboBox()
+            for text, number in self.tool_options:
+                combo.addItem(text, number)
+            self._order.append(combo)
+
+            def set_tool(value: Any) -> None:
+                index = combo.findData(int(value or 0))
+                combo.setCurrentIndex(max(0, index))
+
+            return _Field(spec, combo, combo, lambda: combo.currentData() or 0, set_tool)
         if isinstance(spec, sf.Number):
             spin = QSpinBox()
             spin.setRange(spec.minimum if spec.minimum is not None else -1_000_000,

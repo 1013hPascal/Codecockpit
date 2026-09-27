@@ -94,6 +94,17 @@ class Result:
         return self.code == 0
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
+
+
+def clean_line(raw: str) -> str:
+    """Farb- und Steuerzeichen entfernen. Fortschrittsanzeigen (zum Beispiel bei ollama pull)
+    überschreiben ihre Zeile mit Wagenrücklauf. Davon bleibt nur der letzte Stand."""
+    text = _ANSI.sub("", raw).rstrip("\r\n")
+    parts = [p for p in text.split("\r") if p.strip()]
+    return (parts[-1] if parts else "").rstrip()
+
+
 def _masker(extra: Mapping[str, str] | None) -> Callable[[str], str]:
     """Verdeckt bekannte Geheimnisse und die Werte der Zugangsdaten für Git."""
     values = [v for k, v in (extra or {}).items() if "VALUE" in k and len(v) > 8]
@@ -139,7 +150,7 @@ def run(command: str, cwd: Path, on_line: Callable[[str], None] | None = None,
     try:
         assert process.stdout is not None
         for raw in process.stdout:
-            line = mask(raw.decode("utf-8", "replace").rstrip())
+            line = mask(clean_line(raw.decode("utf-8", "replace")))
             if not line.strip():
                 continue                      # leere Zeilen stören auf der Braillezeile
             lines.append(line)

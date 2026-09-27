@@ -70,6 +70,8 @@ SHORTCUTS = [
     "Liste der letzten Meldungen, Strg+Umschalt+L",
     "Menüs",
     "Datei, Alt+D",
+    "Features, Alt+F",
+    "KI, Alt+K",
     "Konten, Alt+O",
     "Einstellungen, Alt+E",
     "Hilfe, Alt+H",
@@ -173,6 +175,11 @@ class MainWindow(QMainWindow):
         bar.addMenu(features_menu)
         self._action(features_menu, "Feature-&Verwaltung …", self.open_features)
 
+        ai_menu = AccessibleMenu("&KI", self)
+        bar.addMenu(ai_menu)
+        self._action(ai_menu, "KI-&Verwaltung …", self.open_ai_manager)
+        self._action(ai_menu, "KI-&Features …", self.open_ai_features)
+
         accounts_menu = AccessibleMenu("K&onten", self)
         bar.addMenu(accounts_menu)
         self._action(accounts_menu, "&Kontenverwaltung …", self.open_accounts)
@@ -196,13 +203,30 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "&Git installieren …", self.show_git_guide)
         self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
         self._action(help_menu, "B&ranches verstehen …", self.show_branches_guide)
+        self._action(help_menu, "Oll&ama installieren …",
+                     lambda: self.show_guide("anleitungen/ollama-installieren.md",
+                                             "Ollama installieren"))
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
 
-    def open_features(self) -> None:
+    def open_ai_manager(self) -> None:
+        """KI-Werkzeuge für Text, lokal oder extern (Konzept 11.1)."""
+        from cockpit.ui.ai_dialogs import AIManagerDialog
+        AIManagerDialog(self.services, self).exec()
+        self.services.forget_platforms()
+        self.refresh_actions(keep_selection=True)
+
+    def open_ai_features(self) -> None:
+        """Feature-Verwaltung, markiert beim ersten KI-Feature (Konzept 11.1)."""
+        ai_features = [m.id for m in self.services.registry.all() if "ai" in m.requires_services]
+        self.open_features(select=ai_features[0] if ai_features else None)
+
+    def open_features(self, select: str | None = None) -> None:
         """Feature-Verwaltung für alle Projekte (Konzept 8.5)."""
         from cockpit.ui.features_dialogs import GlobalFeaturesDialog
         dialog = GlobalFeaturesDialog(self.services, self)
+        if select is not None:
+            dialog.select(select)
         dialog.exec()
         if dialog.changed:
             self.refresh_actions(keep_selection=True)
@@ -591,6 +615,8 @@ class MainWindow(QMainWindow):
                 task.wait(5000)
         if self._show_status in announcer.listeners:
             announcer.listeners.remove(self._show_status)
+        from cockpit.ai import ollama
+        ollama.server().stop()                      # nur ein selbst gestartetes Ollama
         super().closeEvent(event)
 
 

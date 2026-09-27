@@ -254,7 +254,7 @@ def test_menu_and_project_action(qtbot, services, projects_root):
     win = MainWindow(services)
     qtbot.addWidget(win)
     titles = [a.text() for a in win.menuBar().actions()]
-    assert titles[:3] == ["&Datei", "&Features", "K&onten"]
+    assert titles[:4] == ["&Datei", "&Features", "&KI", "K&onten"]
     features_menu = win.menuBar().actions()[1].menu()
     assert [a.text() for a in features_menu.actions()] == ["Feature-&Verwaltung …"]
     win.reload_projects(refresh=False)

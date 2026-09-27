@@ -230,6 +230,6 @@ def test_services_availability_and_privacy_rule(make_services):
     cloud = FakeAI(is_local=False)
     services = make_services(ai=cloud, automation=FakeAutomation(), email=FakeEmail())
     assert services.service_availability("ai") and services.service_availability("email")
-    assert services.ai_for("commit_message") is cloud
+    assert services.ai_for("commit_message").provider is cloud
     services.settings.update(ai_local_only=True)
     assert services.ai_for("commit_message") is None

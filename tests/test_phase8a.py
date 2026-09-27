@@ -184,7 +184,7 @@ def test_open_terminal_warns_once(qtbot, make_services, tmp_path, monkeypatch):
     monkeypatch.setattr(common, "show_info", lambda p, t, text: infos.append(text))
 
     class FakeDialog:
-        def __init__(self, folder, title, env, parent=None):
+        def __init__(self, folder, title, env, parent=None, explainer=None, command=""):
             opened.append((folder, title))
 
         def exec(self):

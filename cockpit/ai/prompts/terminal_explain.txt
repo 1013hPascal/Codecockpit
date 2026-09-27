@@ -1,0 +1,5 @@
+Befehl: <<befehl>>
+Rückgabewert: <<rueckgabewert>>
+
+Ausgabe des Befehls:
+<<ausgabe>>

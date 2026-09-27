@@ -124,7 +124,8 @@ def test_requirements_text_like_in_the_concept(project):
     assert services.features.requirements_text("drafts", pdf) == (
         "Antwortentwürfe benötigt Rückmeldungen, KI und Automation. "
         "Rückmeldungen ist für dieses Projekt ausgeschaltet. "
-        "Es ist kein KI-Anbieter eingerichtet. Es ist keine Automation eingerichtet.")
+        "Es ist keine Text-KI eingerichtet. Das geht im Menü KI, KI-Verwaltung. "
+        "Es ist keine Automation eingerichtet.")
 
 
 def test_enable_asks_for_dependencies(project):

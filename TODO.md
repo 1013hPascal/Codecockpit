@@ -26,6 +26,13 @@ Ideen für später:
 - Alternative: Text in ein Statusfeld im Dialog schreiben, das NVDA als Live-Region liest.
 
 
+## KI (aus Phase 8b)
+
+- Zusätzliche Header für Firmen-Gateways beim OpenAI-kompatiblen Konto (Konzept 11). Kommen, sobald jemand sie braucht, spätestens in Phase 15.
+- KI-Features in der Feature-Verwaltung als ein Eintrag „KI“ mit Unterpunkten, sobald es mehr als ein KI-Feature gibt (ab 8c).
+- Sprach-KI in der KI-Verwaltung kommt mit der Spracheingabe in 8d.
+
+
 ## Geheimnis in einem früheren Commit (aus Phase 5b)
 
 Findet die Sicherheitsprüfung ein Geheimnis in einem Commit, der noch nicht hochgeladen ist, stoppt sie das Hochladen. Bereinigen geht bisher nur im Terminal. Idee für später: die noch nicht hochgeladenen Commits zu einem neuen Commit ohne das Geheimnis zusammenfassen. Das ist erlaubt, weil diese Commits noch nicht auf der Plattform sind. Es ist kein force push.

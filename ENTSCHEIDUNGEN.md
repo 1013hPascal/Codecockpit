@@ -652,9 +652,26 @@ Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konz
 
 - „Terminal …“ auf der Projektzeile (Ordner des Projekts) und bei Code (Ordner Code).
 - Fehler von PowerShell kommen als einfacher Text, nur mit der Meldung selbst. Leere Zeilen und Leerzeichen am Zeilenende fallen weg, weil sie auf der Braillezeile stören.
-- Jede Ausgabe beginnt mit „> Befehl“ und endet mit „Fertig.“ oder „Fehler, Rückgabewert N.“ Die Ansage nennt dazu die Anzahl der Zeilen. Der Fokus bleibt im Befehlsfeld.
+- Jede Ausgabe beginnt mit dem Befehl (seit dem Test: „Anfrage um Uhrzeit: Befehl“) und endet mit „Fertig.“ oder „Fehler, Rückgabewert N.“ Die Ansage nennt dazu die Anzahl der Zeilen. Der Fokus bleibt im Befehlsfeld.
 - Git öffnet im Terminal weder Pager noch Editor und fragt nie nach einem Passwort. Befehle bekommen keine Eingabe. So bleibt nichts hängen.
 - Tokens und die Zugangsdaten für Git werden in jeder Zeile der Ausgabe durch *** ersetzt. Die Zugangsdaten gibt es nur, wenn der Tresor offen ist. Das Terminal fragt dafür nicht nach dem Master-Passwort.
 - Die Ausgabe behält höchstens 5000 Zeilen.
 - Nach dem ersten NVDA-Test von 8a: Enter im Befehlsfeld drückt keinen Knopf mehr von selbst. Vorher löste es zugleich „Abbrechen“ aus. Jede Ausgabe beginnt mit „Anfrage um Uhrzeit: Befehl“.
 - Wunsch aus dem Test von 8a für alle Textlisten: Umschalt+Pfeil und Strg+Umschalt+Pfeil wählen mehrere Zeilen aus, Strg+A alle, Strg+C kopiert die Auswahl. Gilt für Terminal, Anleitungen, Einführungen, Meldungen und die Listen mit Angaben und Kommentaren. Listen zum Auswählen einer Sache, wie die Projektliste oder die Aktionsliste, bleiben bei einer Auswahl.
+
+### Entscheidungen in Phase 8b (KI-Verwaltung und Terminal-Erklärung)
+
+- Menü „KI“ zwischen Features und Konten, mit Alt+K. „KI-Features …“ öffnet die Feature-Verwaltung und markiert das erste KI-Feature. Die Gruppe „KI“ in der Feature-Verwaltung kommt, sobald es mehr als ein KI-Feature gibt (TODO.md).
+- Ein KI-Werkzeug ist eine KI mit Modell: „Ollama auf diesem Rechner, gemma4:12b“ oder ein KI-Konto mit Modell, zum Beispiel „Firmen-KI, gpt-4o“. Man kann mehrere einrichten. Das erste wird Standard. Sprach-KI kommt in 8d.
+- Ollama braucht kein Konto. Externe KI ist ein Konto der Art „OpenAI-kompatibel“ mit Adresse, API-Schlüssel im Tresor und dem Kästchen „Läuft im eigenen Netz oder in der Firma“. „Extern: neues KI-Konto einrichten …“ öffnet gleich das Konto-Fenster für diese Art.
+- Modellstufen nach Arbeitsspeicher, geprüft gegen die Bibliothek von Ollama: ab 16 GB gemma4:e4b, ab 32 GB gemma4:12b, ab 64 GB gemma4:26b. Für Whisper small, medium, large-v3-turbo. Sie stehen nur in cockpit/ai/models.py. Windows meldet etwas weniger Speicher, deshalb reichen 90 Prozent der Stufe.
+- Der Arbeitsspeicher kommt direkt von Windows, der Prozessor aus der Registry, die Grafikkarte über PowerShell im Hintergrund. Man kann den Arbeitsspeicher auch von Hand eingeben. Dann gilt diese Angabe.
+- Ein vorgeschlagenes, nicht installiertes Modell öffnet das Terminal im Benutzerordner mit „ollama pull …“ im Befehlsfeld. Das Terminal zeigt bei Fortschrittsanzeigen nur den letzten Stand einer Zeile und entfernt Farbcodes.
+- Das Cockpit startet Ollama bei Bedarf und beendet es beim Schließen nur, wenn es Ollama selbst gestartet hat. Die Anleitung „Ollama installieren“ steht im Menü Hilfe.
+- Ollama bekommt „think: false“. Test mit gemma4:12b: Mit Nachdenken war die Antwort leer, weil das Nachdenken die ganze Länge verbrauchte. Kennt ein Modell den Schalter nicht, fragt das Cockpit ohne ihn noch einmal.
+- Grenze für die Textmenge: neue Grundeinstellung „Höchstens so viele Zeichen an die KI senden“, Vorgabe 8000. Sie gilt auch für lokale KI.
+- Datenschutz: Die Rückfrage kommt beim ersten Senden pro Aufgabe und KI, Vorgabe „Nicht senden“. Ein Ja wird gemerkt, ein Nein nicht. So kann man später doch noch zustimmen. Die Grundeinstellung „nur lokale oder firmeninterne KI“ sperrt externe KI ganz.
+- Prompts liegen als Textdateien in cockpit/ai/prompts. Eine gleichnamige Datei im Datenordner unter „prompts“ hat Vorrang. Platzhalter stehen in doppelten spitzen Klammern, weil geschweifte Klammern in Befehlen vorkommen.
+- Feature „Terminal-Erklärung“: für neue Projekte eingeschaltet. Das Feld „Erklärung der KI“ gibt es nur, wenn das Feature aktiv ist, also eingeschaltet und mit eingerichteter Text-KI. Es ist eine Liste mit einem Satz pro Zeile, mit Tab nach dem Befehlsfeld. Die KI bekommt Befehl, Rückgabewert und das Ende der Ausgabe ohne Geheimnisse. Die Erklärung kommt nur bei einem Fehler, im Hintergrund, mit der Ansage „Erklärung der KI bereit.“ Ein neuer Befehl bricht eine laufende Erklärung ab.
+- Die Einstellung „KI für Erklärungen“ wählt ein Werkzeug, Vorgabe ist das Standard-Werkzeug.
+- Der Einrichtungsassistent hat die Seite „KI“ nach der Git-Identität. Sie zeigt Rechner, Empfehlung und Zustand von Ollama und öffnet mit „KI einrichten …“ die KI-Verwaltung.

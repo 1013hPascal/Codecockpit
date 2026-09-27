@@ -109,6 +109,8 @@ class AccountStore:
             if f.secret:
                 if with_secrets:
                     result[f.key] = self.vault.read(self._secret_name(account.id, f.key))
+            elif f.yes_no:
+                result[f.key] = account.extra.get(f.key, f.default) == "ja"
             elif f.key in _COLUMNS:
                 result[f.key] = getattr(account, f.key)
             else:
@@ -191,6 +193,8 @@ class AccountStore:
         if not display_name.strip():
             raise CockpitError("Bitte einen Anzeigenamen eingeben.")
         for f in account_type.fields:
+            if f.yes_no:
+                continue
             value = values.get(f.key)
             text = value.reveal() if isinstance(value, Secret) else str(value or "")
             if f.required and not text.strip() and (new or not f.secret):
@@ -201,6 +205,10 @@ class AccountStore:
         columns, extra = {}, {}
         for f in account_type.fields:
             if f.secret:
+                continue
+            if f.yes_no:
+                value = values.get(f.key, f.default == "ja")
+                extra[f.key] = "ja" if value is True or value == "ja" else "nein"
                 continue
             text = str(values.get(f.key) or f.default).strip()
             (columns if f.key in _COLUMNS else extra)[f.key] = text

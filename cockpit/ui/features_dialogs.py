@@ -197,6 +197,12 @@ class GlobalFeaturesDialog(_FeatureListDialog):
         self.default_box.blockSignals(False)
         self.settings_button.setVisible(manifest is not None and bool(manifest.settings))
 
+    def select(self, feature_id: str) -> None:
+        """Markierung auf ein Feature setzen, zum Beispiel für "KI-Features …"."""
+        row = next((i for i, m in enumerate(self.manifests) if m.id == feature_id), None)
+        if row is not None:
+            self.list.setCurrentRow(row)
+
     def toggle_default(self, on: bool) -> None:
         manifest = self.current()
         if manifest is None:
@@ -316,7 +322,12 @@ class FeatureSettingsDialog(FocusDialog):
         self.manifest = manifest
         self.setWindowTitle(f"Einstellungen: {manifest.name}")
         values = {f.key: services.features.setting(manifest.id, f.key) for f in manifest.settings}
-        self.form = SettingsForm(list(manifest.settings), values)
+        tools = services.ai_tools
+        default = tools.default()
+        options = [(f"Standard-Werkzeug ({tools.label(default, mark_default=False)})"
+                    if default else "Standard-Werkzeug", 0)]
+        options += [(tools.label(t, mark_default=False), t.id) for t in tools.all()]
+        self.form = SettingsForm(list(manifest.settings), values, tool_options=options)
         save = QPushButton("&Speichern")
         save.setDefault(True)
         save.clicked.connect(self.save)

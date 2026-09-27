@@ -11,8 +11,8 @@ from typing import Any
 
 from cockpit.core import paths
 from cockpit.core.database import Database
-from cockpit.core.features.settings_fields import (Choice, Email, Folder, SettingField, Text,
-                                                   YesNo)
+from cockpit.core.features.settings_fields import (Choice, Email, Folder, Number, SettingField,
+                                                   Text, YesNo)
 
 LICENSES = ("MIT", "Apache-2.0", "BSD-3-Clause", "GPL-3.0", "LGPL-3.0", "MPL-2.0",
             "Keine Lizenz / firmenintern")
@@ -29,6 +29,8 @@ def setting_fields() -> list[SettingField]:
         YesNo("default_private", "Neue Repositories privat anlegen", True),
         Choice("default_license", "Standard-Lizenz für neue Projekte", "MIT", options=LICENSES),
         YesNo("ai_local_only", "Code-Auszüge nur an lokale oder firmeninterne KI senden", False),
+        Number("ai_max_chars", "Höchstens so viele Zeichen an die KI senden", 8000,
+               minimum=1000, maximum=200000),
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
     ]
 
@@ -41,6 +43,7 @@ class Settings:
     default_private: bool = True
     default_license: str = "MIT"
     ai_local_only: bool = False
+    ai_max_chars: int = 8000                      # Grenze für die Textmenge, auch bei lokaler KI
     # Bis Phase 6 in den Grundeinstellungen. Ab Phase 7 steht die Vorauswahl in der
     # Feature-Verwaltung (default_features). Der alte Wert gilt nur, solange dort nichts steht.
     branches_by_default: bool = False

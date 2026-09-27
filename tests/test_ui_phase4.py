@@ -193,7 +193,7 @@ def go_to(dialog, title: str) -> None:
 def test_wizard_github_page_needs_account_or_skip(wizard):
     dialog, services = wizard
     go_to(dialog, "GitHub-Konto")
-    assert dialog.heading.text() == "Schritt 4 von 7: GitHub-Konto"
+    assert dialog.heading.text() == "Schritt 4 von 8: GitHub-Konto"
     assert dialog.focusWidget() is dialog.page.text
     assert dialog.page.setup_button.text() == "GitHub-Konto &einrichten …"
     dialog.next()

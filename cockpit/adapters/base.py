@@ -18,6 +18,7 @@ class AccountField:
     required: bool = True
     default: str = ""
     auto: bool = False       # True: trägt das Cockpit selbst ein (zum Beispiel den Benutzernamen)
+    yes_no: bool = False     # True: Kontrollkästchen, gespeichert als "ja" oder "nein"
 
 
 @dataclass(frozen=True)

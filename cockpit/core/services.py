@@ -12,8 +12,10 @@ from typing import TYPE_CHECKING
 from cockpit.adapters import registry as adapter_registry
 from cockpit.core import paths
 from cockpit.core.accounts import AccountStore
+from cockpit.core.ai_tools import TEXT, AITool, AIToolStore, TextAI
 from cockpit.core.availability import Availability
 from cockpit.core.database import Database
+from cockpit.core.errors import CockpitError
 from cockpit.core.features.manager import FeatureManager
 from cockpit.core.features.registry import FeatureRegistry
 from cockpit.core.flows.engine import FlowEngine
@@ -30,7 +32,9 @@ if TYPE_CHECKING:
     from cockpit.platforms.base import Capability, Platform
     from cockpit.vault.base import Vault
 
-NO_AI = "Es ist kein KI-Anbieter eingerichtet."
+NO_AI = "Es ist keine Text-KI eingerichtet. Das geht im Menü KI, KI-Verwaltung."
+LOCAL_ONLY = ("Die Grundeinstellungen erlauben nur KI auf diesem Rechner oder im eigenen Netz. "
+              "Die gewählte KI läuft außerhalb.")
 NO_AUTOMATION = "Es ist keine Automation eingerichtet."
 NO_EMAIL = "Es ist kein E-Mail-Konto eingerichtet."
 
@@ -48,6 +52,7 @@ class Services:
     automation: "Automation | None" = None
     email: "EmailSender | None" = None
     accounts: AccountStore = field(init=False)
+    ai_tools: AIToolStore = field(init=False)
     remote_repos: RemoteRepoStore = field(init=False)
     pull_request_cache: "PullRequestCache" = field(init=False)
     features: FeatureManager = field(init=False)
@@ -58,6 +63,7 @@ class Services:
             self.vault = VaultService(self.vault or self._configured_vault(),
                                       NameIndex(self.database))
         self.accounts = AccountStore(self.database, self.vault)
+        self.ai_tools = AIToolStore(self.database, self.accounts)
         self.remote_repos = RemoteRepoStore(self.database)
         from cockpit.core.pull_requests import PullRequestCache
         self.pull_request_cache = PullRequestCache(self.database)
@@ -97,7 +103,8 @@ class Services:
     # -- Dienste für Features -------------------------------------------------------------
     def service_availability(self, name: str) -> Availability:
         if name == "ai":
-            return Availability.yes() if self.ai is not None else Availability.no(NO_AI)
+            problem = self.ai_problem()
+            return Availability.no(problem) if problem else Availability.yes()
         if name == "automation":
             configured = self.automation is not None and self.automation.configured
             return Availability.yes() if configured else Availability.no(NO_AUTOMATION)
@@ -147,10 +154,40 @@ class Services:
         platform = self.platform_for(project)
         return platform.capabilities() if platform is not None else None
 
-    def ai_for(self, task: str, project: Project | None = None) -> "AIProvider | None":
-        """KI für eine Aufgabe. Die Datenschutz-Regel wird hier geprüft (ab Phase 7)."""
-        if self.ai is None:
+    def text_tool(self, tool_id: int | None = None) -> "AITool | None":
+        """Werkzeug für Text-KI: das gewählte, sonst das Standard-Werkzeug."""
+        return (self.ai_tools.get(tool_id) if tool_id else None) or self.ai_tools.default(TEXT)
+
+    def ai_problem(self, tool_id: int | None = None) -> str:
+        """Warum es keine Text-KI gibt, leer wenn es eine gibt (ohne Tresor)."""
+        if self.ai is not None:
+            local = self.ai.is_local
+        else:
+            tool = self.text_tool(tool_id)
+            if tool is None:
+                return NO_AI
+            local = self.ai_tools.is_local(tool)
+        if self.settings.load().ai_local_only and not local:
+            return LOCAL_ONLY
+        return ""
+
+    def ai_for(self, task: str, project: Project | None = None,
+               tool_id: int | None = None) -> "TextAI | None":
+        """Text-KI für eine Aufgabe, None wenn es keine gibt oder die Datenschutz-Regel sie
+        sperrt. Bei einem KI-Konto muss der Tresor offen sein (sonst VaultLocked)."""
+        settings = self.settings.load()
+        if self.ai is not None:                       # Tests und fest vorgegebene KI
+            provider, model, name = self.ai, "", self.ai.display_name
+            try:
+                model = (self.ai.models() or [""])[0]
+            except CockpitError:
+                pass
+        else:
+            tool = self.text_tool(tool_id)
+            if tool is None:
+                return None
+            provider = self.ai_tools.provider(tool)
+            model, name = tool.model, self.ai_tools.label(tool, mark_default=False)
+        if settings.ai_local_only and not provider.is_local:
             return None
-        if self.settings.load().ai_local_only and not self.ai.is_local:
-            return None
-        return self.ai
+        return TextAI(provider, model, name, settings.ai_max_chars)
