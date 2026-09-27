@@ -88,6 +88,12 @@ class ProjectController:
             Action("create_pull", "Pull Request erstellen …", Target.CODE,
                    self.create_pull_action, availability=self._account_availability,
                    visible=_on_other_branch, order=27),
+            Action("pull_feature_on", "Hochladen über Pull Requests einschalten …",
+                   Target.CODE, lambda c: self.pull_feature_action(c, True),
+                   visible=lambda c: self._pull_feature_visible(c, False), order=28),
+            Action("pull_feature_off", "Hochladen über Pull Requests ausschalten …",
+                   Target.CODE, lambda c: self.pull_feature_action(c, False),
+                   visible=lambda c: self._pull_feature_visible(c, True), order=28),
             Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
                    availability=_discard_availability, visible=_has_commits, order=36),
             Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
@@ -491,6 +497,44 @@ class ProjectController:
     def create_pull_action(self, context: ActionContext) -> None:
         from cockpit.ui.pull_request_flow import PullRequestRunner
         PullRequestRunner(self, context.project).create()
+
+    # -- Feature "Branches und Pull Requests" bis Phase 7 (ENTSCHEIDUNGEN.md) --------------------
+    def _pull_feature_visible(self, context: ActionContext, enabled: bool) -> bool:
+        from cockpit.features.branches_prs.manifest import FEATURE_ID
+        features = self.services.features
+        if not _has_remote(context) or FEATURE_ID not in self.services.registry:
+            return False
+        try:
+            return features.enabled_in_project(FEATURE_ID, context.project) == enabled
+        except CockpitError:
+            return False
+
+    def pull_feature_action(self, context: ActionContext, enable: bool) -> None:
+        from cockpit.features.branches_prs.manifest import FEATURE_ID
+        project = context.project
+        title = "Hochladen über Pull Requests"
+        if enable:
+            text = ("Danach fragt „Änderungen hochladen“ auf main, in welchen Branch hochgeladen "
+                    "wird, und bietet danach einen Pull Request an. Die Einstellung steht in der "
+                    "Datei cockpit.toml im Ordner Code und wird mit hochgeladen. Einschalten?")
+            yes = "Einschalten"
+        else:
+            text = ("Danach lädt „Änderungen hochladen“ wieder direkt in den aktuellen Branch "
+                    "hoch, auch in main. Ausschalten?")
+            yes = "Ausschalten"
+        if not confirm(self.window, title, text, yes=yes, no="Abbrechen"):
+            return
+        try:
+            if enable:
+                self.services.features.enable(FEATURE_ID, project)
+            else:
+                self.services.features.disable(FEATURE_ID, project)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        self.window.refresh_status([project.id])
+        announce("Hochladen über Pull Requests eingeschaltet." if enable
+                 else "Hochladen über Pull Requests ausgeschaltet.")
 
     def stash_push_action(self, context: ActionContext) -> None:
         from cockpit.core import branches, sync

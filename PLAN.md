@@ -109,6 +109,7 @@ Die Namen im Code sind englisch, Kommentare und Texte deutsch.
   - `trash.py`: Dateien in den Papierkorb von Windows, ab Phase 5d.
   - `repo_admin.py`: Links, Sicherheitsprüfung vor dem Veröffentlichen, Verbindung lösen nach dem Löschen, ab Phase 5e.
   - `branches.py`: Branches und beiseitegelegte Änderungen, ab Phase 5f.
+  - `pull_requests.py`: Pull Requests, Reviews und Aufräumen, ab Phase 6.
 - `cockpit\adapters\`: gemeinsame Grundlagen aller Adapter.
   - `base.py`: Basisklasse, Kontofelder, Testergebnis.
   - `registry.py`: Tabelle aller Adapter pro Art.

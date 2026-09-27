@@ -27,7 +27,8 @@ from cockpit.core.availability import Availability
 from cockpit.core.errors import Cancelled, CockpitError
 from cockpit.core.secret import Secret
 from cockpit.core.text import join_words
-from cockpit.platforms.base import (BrowserLogin, Capability, Collaborator, GitCredentials,
+from cockpit.platforms.base import (BranchProtection, BrowserLogin, Capability, Collaborator,
+                                    GitCredentials, SupportsBranchProtection,
                                     NetworkError, NewRepo, NotAuthenticated, NotFound,
                                     PendingApproval, PermissionMissing, Platform, PlatformError,
                                     MERGE_METHODS, PullRequest, PullRequestComment,
@@ -95,7 +96,7 @@ def _message(response: httpx.Response) -> str:
 
 
 class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
-                     SupportsPullRequests):
+                     SupportsPullRequests, SupportsBranchProtection):
     kind = "github"
     display_name = "GitHub"
     account_fields = (
@@ -195,6 +196,13 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
         if status == 403 and ("approv" in lowered or "pending" in lowered):
             return PendingApproval("Der Token wartet auf die Genehmigung durch die "
                                    "Organisation. Das erledigt dort ein Administrator.", details)
+        if status == 403 and "upgrade to github pro" in lowered:
+            return PlatformError("Schutzregeln für private Repositories gibt es bei GitHub nur mit "
+                                 "GitHub Pro oder in Organisationen mit bezahltem Plan. Für "
+                                 "öffentliche Repositories sind sie kostenlos.", details)
+        if status == 403 and capability is Capability.BRANCH_PROTECTION:
+            return PermissionMissing(capability, "Schutzregeln darf nur ändern, wer Administrator "
+                                     "des Repositories ist.", details)
         if status == 403:
             return PermissionMissing(capability, f"Dem Token fehlt ein Recht für diese "
                                      f"Aktion{doing}.", details)
@@ -481,6 +489,44 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
     def merge_pull_request(self, repo: RepoRef, number: int, method: str) -> None:
         self.request("PUT", f"/repos/{repo.owner}/{repo.name}/pulls/{number}/merge",
                      "Übernehmen", Capability.PULL_REQUESTS, json={"merge_method": method})
+
+    # -- Schutzregeln -----------------------------------------------------------------------------
+    def branch_protection(self, repo: RepoRef, branch: str) -> BranchProtection | None:
+        try:
+            data = self.request("GET", f"/repos/{repo.owner}/{repo.name}/branches/{branch}/"
+                                "protection", "Schutzregeln lesen",
+                                Capability.BRANCH_PROTECTION).json()
+        except NotFound:
+            return None                                  # "Branch not protected"
+        reviews = data.get("required_pull_request_reviews")
+        return BranchProtection(
+            reviews is not None,
+            int((reviews or {}).get("required_approving_review_count") or 0),
+            bool((reviews or {}).get("dismiss_stale_reviews")),
+            bool((data.get("enforce_admins") or {}).get("enabled")),
+            not bool((data.get("allow_deletions") or {}).get("enabled")))
+
+    def set_branch_protection(self, repo: RepoRef, branch: str,
+                              rules: BranchProtection | None) -> None:
+        path = f"/repos/{repo.owner}/{repo.name}/branches/{branch}/protection"
+        if rules is None or rules.empty:
+            try:
+                self.request("DELETE", path, "Schutzregeln entfernen",
+                             Capability.BRANCH_PROTECTION)
+            except NotFound:
+                pass                                     # war schon ungeschützt
+            return
+        reviews = ({"required_approving_review_count": rules.approvals,
+                    "dismiss_stale_reviews": rules.dismiss_stale}
+                   if rules.pull_request_required else None)
+        self.request("PUT", path, "Schutzregeln speichern", Capability.BRANCH_PROTECTION, json={
+            "required_status_checks": None,
+            "enforce_admins": rules.enforce_admins,
+            "required_pull_request_reviews": reviews,
+            "restrictions": None,
+            "allow_force_pushes": False,             # nie (CLAUDE.md)
+            "allow_deletions": not rules.prevent_deletion,
+        })
 
     def links(self, repo: RepoRef) -> RepoLinks:
         page = f"{web_base(self.url)}/{repo.owner}/{repo.name}"

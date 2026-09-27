@@ -35,6 +35,7 @@ class Capability(Enum):
     PULL_REQUESTS = auto()
     SECURITY_ALERTS = auto()
     COLLABORATORS = auto()
+    BRANCH_PROTECTION = auto()
 
 
 # Deutsche Namen für Begründungen ("Die Plattform kennt keine Releases.")
@@ -54,6 +55,7 @@ CAPABILITY_NAMES = {
     Capability.PULL_REQUESTS: "Pull Requests",
     Capability.SECURITY_ALERTS: "Sicherheitswarnungen",
     Capability.COLLABORATORS: "Mitarbeiter",
+    Capability.BRANCH_PROTECTION: "Schutzregeln",
 }
 
 
@@ -310,6 +312,32 @@ class SupportsPullRequests:
         raise NotImplementedError
 
     def merge_pull_request(self, repo: RepoRef, number: int, method: str) -> None:
+        raise NotImplementedError
+
+
+# -- Schutzregeln (Phase 6c) --------------------------------------------------------------------
+@dataclass(frozen=True)
+class BranchProtection:
+    """Schutzregeln für einen Branch, zum Beispiel main. Force push bleibt immer verboten."""
+    pull_request_required: bool = False      # nur über Pull Request
+    approvals: int = 0                       # so viele Genehmigungen sind nötig
+    dismiss_stale: bool = False              # Genehmigungen verfallen bei neuen Commits
+    enforce_admins: bool = False             # gilt auch für Administratoren
+    prevent_deletion: bool = True            # der Branch darf nicht gelöscht werden
+
+    @property
+    def empty(self) -> bool:
+        return not (self.pull_request_required or self.enforce_admins or self.prevent_deletion)
+
+
+class SupportsBranchProtection:
+    def branch_protection(self, repo: RepoRef, branch: str) -> BranchProtection | None:
+        """Die Schutzregeln, None wenn der Branch keine hat."""
+        raise NotImplementedError
+
+    def set_branch_protection(self, repo: RepoRef, branch: str,
+                              rules: BranchProtection | None) -> None:
+        """Schutzregeln setzen. None oder leere Regeln: Schutz entfernen."""
         raise NotImplementedError
 
 

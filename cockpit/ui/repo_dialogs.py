@@ -17,14 +17,15 @@ from typing import TYPE_CHECKING, Callable
 
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLineEdit, QListWidget, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QListWidget,
+                               QPushButton, QVBoxLayout, QWidget)
 
 from cockpit.core import repo_admin
 from cockpit.core.errors import CockpitError
 from cockpit.core.text import count, join_words
-from cockpit.platforms.base import (PERMISSION_NAMES, Capability, Collaborator,
-                                    PermissionMissing, RepoInfo, SupportsCollaborators)
+from cockpit.platforms.base import (PERMISSION_NAMES, BranchProtection, Capability,
+                                    Collaborator, PermissionMissing, RepoInfo,
+                                    SupportsBranchProtection, SupportsCollaborators)
 from cockpit.ui import browser_login_dialog
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, ask_buttons, confirm, label_for, name_widget
@@ -164,6 +165,9 @@ class ManageRepoDialog(FocusDialog):
         self.visibility_button.clicked.connect(self.change_visibility)
         self.people_button = QPushButton("&Mitarbeiter …")
         self.people_button.clicked.connect(self.show_collaborators)
+        self.rules_button = QPushButton(
+            f"&Schutzregeln für {info.default_branch.replace('&', '&&')} …")
+        self.rules_button.clicked.connect(self.show_protection)
         self.archive_button = QPushButton()
         self.archive_button.clicked.connect(self.change_archive)
         self.delete_button = QPushButton("&Löschen …")
@@ -173,7 +177,8 @@ class ManageRepoDialog(FocusDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 1)
         layout.addLayout(_buttons(self.visibility_button, self.people_button,
-                                  self.archive_button, self.delete_button, None, close))
+                                  self.rules_button, self.archive_button, self.delete_button,
+                                  None, close))
         self.resize(720, 300)
         self.initial_focus_widget = self.list
         self.fill()
@@ -267,6 +272,36 @@ class ManageRepoDialog(FocusDialog):
             return
         CollaboratorsDialog(self.platform, self.ref, self.platform_name, self).exec()
         self.people_button.setFocus()
+
+    # -- Schutzregeln (Phase 6c) ------------------------------------------------------------------
+    def show_protection(self) -> None:
+        branch = self.info.default_branch
+        if not isinstance(self.platform, SupportsBranchProtection):
+            show_error(self, "Schutzregeln", f"{self.platform_name} kennt keine Schutzregeln.")
+            return
+        platform, ref = self.platform, self.ref
+
+        def edit(rules) -> None:
+            dialog = ProtectionDialog(branch, rules, self)
+            if not dialog.exec():
+                self.rules_button.setFocus()
+                return
+            new = dialog.rules
+            text = protection_summary(branch, new)
+            if not confirm(self, "Schutzregeln", f"{text} Speichern?", yes="Speichern",
+                           no="Abbrechen"):
+                self.rules_button.setFocus()
+                return
+
+            def saved(_value) -> None:
+                self.rules_button.setFocus()
+                announce(f"Schutzregeln für {branch} gespeichert." if not new.empty
+                         else f"{branch} ist nicht mehr geschützt.")
+
+            self.worker.run(lambda: platform.set_branch_protection(ref, branch, new), saved)
+
+        self.worker.run(lambda: platform.branch_protection(ref, branch), edit,
+                        speak="Schutzregeln werden abgefragt.")
 
     # -- Archivieren -------------------------------------------------------------------------
     def change_archive(self) -> None:
@@ -636,6 +671,73 @@ class InviteDialog(FocusDialog):
             return
         self.login = login
         self.permission = INVITE_CHOICES[self.rights.currentIndex()]
+        self.accept()
+
+
+# -- Schutzregeln (Phase 6c) --------------------------------------------------------------------
+APPROVAL_CHOICES = [0, 1, 2, 3]
+
+
+def protection_summary(branch: str, rules: BranchProtection) -> str:
+    """Was die Regeln bedeuten, in einfachen Sätzen, für die Rückfrage vor dem Speichern."""
+    if rules.empty:
+        return f"{branch} wird nicht mehr geschützt. Jeder mit Schreibrecht kann direkt hochladen."
+    parts = []
+    if rules.pull_request_required:
+        need = (f" mit mindestens {count(rules.approvals, 'Genehmigung', 'Genehmigungen')}"
+                if rules.approvals else "")
+        parts.append(f"Änderungen kommen nur über einen Pull Request{need} in {branch}.")
+        if rules.dismiss_stale and rules.approvals:
+            parts.append("Genehmigungen verfallen, wenn neue Commits dazukommen.")
+    if rules.enforce_admins:
+        parts.append("Das gilt auch für Administratoren, also auch für Sie.")
+    if rules.prevent_deletion:
+        parts.append(f"{branch} darf nicht gelöscht werden.")
+    parts.append("Force push bleibt immer verboten.")
+    return " ".join(parts)
+
+
+class ProtectionDialog(FocusDialog):
+    """Schutzregeln als Kontrollkästchen. Nach accept() stehen sie in rules."""
+
+    def __init__(self, branch: str, rules: BranchProtection | None,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        current = rules or BranchProtection(prevent_deletion=False)
+        self.rules = current
+        self.setWindowTitle(f"Schutzregeln für {branch}: "
+                            f"{'geschützt' if rules is not None else 'nicht geschützt'}")
+        self.pull_box = QCheckBox(f"Nur über &Pull Request in {branch}")
+        self.pull_box.setChecked(current.pull_request_required)
+        self.approvals = QComboBox()
+        approvals_label = label_for(self.approvals, "&Mindestens so viele Genehmigungen:")
+        self.approvals.addItems([str(n) for n in APPROVAL_CHOICES])
+        self.approvals.setCurrentIndex(min(current.approvals, APPROVAL_CHOICES[-1]))
+        self.stale_box = QCheckBox("Genehmigungen &verfallen, wenn neue Commits dazukommen")
+        self.stale_box.setChecked(current.dismiss_stale)
+        self.admins_box = QCheckBox("Regeln gelten auch für &Administratoren")
+        self.admins_box.setChecked(current.enforce_admins)
+        self.delete_box = QCheckBox(f"{branch} darf nicht &gelöscht werden")
+        self.delete_box.setChecked(current.prevent_deletion)
+        ok = QPushButton("&Weiter …")
+        ok.setDefault(True)
+        ok.clicked.connect(self.check)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        layout = QVBoxLayout(self)
+        for widget in (self.pull_box, approvals_label, self.approvals, self.stale_box,
+                       self.admins_box, self.delete_box):
+            layout.addWidget(widget)
+        layout.addLayout(_buttons(None, ok, cancel))
+        self.resize(520, 320)
+        self.initial_focus_widget = self.pull_box
+
+    def check(self) -> None:
+        required = self.pull_box.isChecked()
+        self.rules = BranchProtection(
+            required, APPROVAL_CHOICES[self.approvals.currentIndex()] if required else 0,
+            required and self.stale_box.isChecked(), self.admins_box.isChecked(),
+            self.delete_box.isChecked())
         self.accept()
 
 

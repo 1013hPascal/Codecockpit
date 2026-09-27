@@ -72,10 +72,19 @@ class FeatureManager:
 
     # -- Pro Projekt ----------------------------------------------------------------------
     def default_features(self) -> set[str]:
-        chosen = self.settings.load().default_features
+        settings = self.settings.load()
+        chosen = settings.default_features
         if chosen is None:
-            return {m.id for m in self.registry.all() if m.enabled_by_default}
-        return {f for f in chosen if f in self.registry}
+            result = {m.id for m in self.registry.all() if m.enabled_by_default}
+        else:
+            result = {f for f in chosen if f in self.registry}
+        for manifest in self.registry.all():
+            if manifest.default_setting:
+                if getattr(settings, manifest.default_setting, False):
+                    result.add(manifest.id)
+                else:
+                    result.discard(manifest.id)
+        return result
 
     def project_features(self, project: "Project") -> set[str]:
         """Im Projekt eingeschaltete Features (ohne Rücksicht auf Verfügbarkeit)."""

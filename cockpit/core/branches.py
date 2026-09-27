@@ -438,3 +438,29 @@ def _show(code_dir: Path, ref: str, relative: str) -> bytes | None:
                             capture_output=True,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     return result.stdout if result.returncode == 0 else None
+
+
+# -- Geschützter Haupt-Branch (Phase 6c) ------------------------------------------------------
+MOVED_REF = "refs/codecockpit/vor-dem-verschieben/"
+
+
+def move_commits_to_new_branch(code_dir: Path, name: str) -> str:
+    """Die Commits, die noch nicht hochgeladen sind, in einen neuen Branch verschieben (Konzept
+    10.14: main ist geschützt). Der neue Branch beginnt beim jetzigen Stand, Sie wechseln zu ihm.
+    Der alte Branch kommt auf den Stand der Plattform. Keine Datei ändert sich, und der alte Stand
+    bleibt unter refs/codecockpit/vor-dem-verschieben/ erreichbar. Gibt den alten Branch zurück."""
+    state = git.status(code_dir)
+    old = state.branch
+    if not old:
+        raise CockpitError("Es ist gerade kein Branch ausgewählt.")
+    problem = name_problem(code_dir, name)
+    if problem:
+        raise CockpitError(problem)
+    keep = f"{MOVED_REF}{old}-{datetime.now():%Y-%m-%d_%H-%M-%S}"
+    git.run(["update-ref", keep, "HEAD"], code_dir, action="Branch anlegen")
+    git.run(["switch", "-q", "-c", name], code_dir, action="Branch anlegen")
+    if state.upstream:
+        git.run(["branch", "-f", old, state.upstream], code_dir, action="Branch anlegen")
+    log.info("Commits von %s nach %s verschoben, alter Stand unter %s", old, name, keep)
+    return old
+

@@ -569,3 +569,13 @@ Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind a
 - Übernehmen: Das Fenster nennt den Stand und bietet die Arten an, die das Repository erlaubt. Vorgabe beim Knopf ist „Abbrechen“, weil sich Übernehmen auf GitHub nicht einfach rückgängig machen lässt.
 - Danach fragt das Cockpit, ob es aufräumen soll: zu main wechseln, holen, den Branch hier und auf GitHub löschen. Vorgabe ist „Später“. Gibt es Änderungen ohne Commit, räumt es nicht auf und sagt warum.
 - Nach dem NVDA-Test von 6b: Wer nach dem Übernehmen „Später“ wählt, findet in der Liste der Pull Requests bei dem übernommenen Pull Request den Knopf „Aufräumen …“. Er erscheint, solange der Branch noch existiert.
+
+
+## 27.09.2026: Entscheidungen in Phase 6c
+
+- „Repository verwalten“ hat „Schutzregeln für main …“ mit Kontrollkästchen: nur über Pull Request, Anzahl der Genehmigungen (0 bis 3), Genehmigungen verfallen bei neuen Commits, gilt auch für Administratoren, main darf nicht gelöscht werden. Vor dem Speichern sagt eine Rückfrage in Sätzen, was die Regeln bedeuten. Sind alle Kästchen leer, entfernt das Cockpit den Schutz.
+- Force push auf main bleibt immer verboten, das Cockpit schickt dafür immer „nein“ an GitHub.
+- Lehnt GitHub das Hochladen ab, weil der Branch geschützt ist, verschiebt das Cockpit nach Rückfrage die Commits in einen neuen Branch, lädt ihn hoch und öffnet „Pull Request erstellen“. Der alte Branch kommt auf den Stand von GitHub. Weil sich dabei keine Datei ändert, gibt es keine Sicherheitskopie der Dateien. Der alte Stand bleibt aber unter refs/codecockpit/vor-dem-verschieben/ erreichbar.
+- Das Feature „Branches und Pull Requests“ ist das erste Feature-Paket (cockpit/features/branches_prs). Bis Phase 7 schaltet man es bei Code mit „Hochladen über Pull Requests einschalten …“ ein. Die Einstellung steht wie geplant in cockpit.toml im Ordner Code.
+- Ein Manifest kann jetzt auf eine Ja-Nein-Grundeinstellung zeigen (default_setting). So gilt „Neue Projekte mit Branches und Pull Requests“ für dieses Feature, ohne dass der Kern den Namen des Features kennt.
+- Mit aktivem Feature fragt „Änderungen hochladen“ auf main nach dem Branch: neuer Branch (Name aus der Nachricht), vorhandener Branch oder direkt in main. Gibt es auf main schon Commits, die nicht hochgeladen sind, kommen sie in den neuen Branch, und vorhandene Branches stehen nicht zur Wahl. Nach dem Hochladen eines Branches ohne offenen Pull Request fragt das Cockpit, ob es einen erstellen soll. Vorgabe ist „Später“.

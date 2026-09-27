@@ -8,6 +8,11 @@ Hochladen (PushRunner):
 4. Im Hintergrund der Ablauf PUSH_CHANGES mit "Schritt 1 von 3: …".
 5. Gibt es auf der Plattform neue Commits, bietet das Cockpit an, sie zu holen und danach
    hochzuladen. Vorgabe ist "Später".
+Ab Phase 6c:
+- Ist das Feature "Branches und Pull Requests" aktiv und Sie sind auf main, fragt das Cockpit
+  nach der Nachricht, in welchen Branch hochgeladen wird. Danach bietet es einen Pull Request an.
+- Lehnt die Plattform das Hochladen ab, weil der Branch geschützt ist, bietet das Cockpit an, die
+  Commits in einen neuen Branch zu verschieben, hochzuladen und einen Pull Request zu erstellen.
 
 Holen (PullRunner):
 1. Im Hintergrund: git fetch.
@@ -21,7 +26,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import git, history, sync, upload
+from cockpit.core import branches, git, history, sync, upload
 from cockpit.core.errors import CockpitError
 from cockpit.core.flows.engine import FlowContext
 from cockpit.core.projects import Project
@@ -29,7 +34,7 @@ from cockpit.core.sync import ConflictKind, Incoming, MergeOutcome
 from cockpit.core.text import count, join_words
 from cockpit.ui import sync_dialogs, upload_dialogs, vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import ask_buttons, confirm
+from cockpit.ui.common import ask_buttons, choose_from_list, confirm
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.tasks import Task
 
@@ -108,12 +113,61 @@ class PushRunner(_Runner):
                            f"{commits} noch nicht auf {self.platform_name}. Jetzt hochladen?",
                            yes="Hochladen", no="Abbrechen"):
                 return
-            self.check()
+            self.choose_target(state)
             return
         dialog = sync_dialogs.CommitDialog(self.title, changes, self.window)
         if not dialog.exec():
             return
         self.message = dialog.message
+        self.choose_target(state)
+
+    # -- 2b. Branch wählen (Feature "Branches und Pull Requests", Phase 6c) ------------------------
+    def pull_requests_active(self) -> bool:
+        from cockpit.features.branches_prs.manifest import FEATURE_ID
+        services = self.services
+        try:
+            return (FEATURE_ID in services.registry
+                    and services.features.active(FEATURE_ID, self.project))
+        except CockpitError:
+            return False
+
+    def choose_target(self, state) -> None:
+        """Auf main mit aktivem Feature: in welchen Branch? Sonst gleich weiter."""
+        main = state.default_branch
+        if self.then is not None or state.branch != main or not self.pull_requests_active():
+            self.check()
+            return
+        code_dir = self.project.code_dir
+        subject = self.message.splitlines()[0] if self.message else git.run(
+            ["log", "-1", "--format=%s"], code_dir, check=False).stdout.strip()
+        suggestion = branches.suggest_name(subject) or "neue-aenderung"
+        others = [] if state.ahead else [
+            b.name for b in branches.list_branches(code_dir) if b.local and not b.default]
+        items = ([f"Neuer Branch: {suggestion} …"] + [f"Vorhandener Branch: {b}" for b in others]
+                 + [f"Direkt in {main}"])
+        index = choose_from_list(self.window, "In welchen Branch hochladen?", "Branches", items)
+        if index is None:
+            announce("Hochladen abgebrochen.")
+            return
+        try:
+            if index == 0:
+                from cockpit.ui.branch_dialogs import BranchNameDialog
+                dialog = BranchNameDialog("Neuer Branch", f"Ihre Änderungen kommen in diesen "
+                                          f"neuen Branch. {main} bleibt, wie es ist.", code_dir,
+                                          suggestion, self.window)
+                if not dialog.exec():
+                    announce("Hochladen abgebrochen.")
+                    return
+                if state.ahead:
+                    branches.move_commits_to_new_branch(code_dir, dialog.name)
+                else:
+                    branches.create(code_dir, dialog.name)
+            elif index <= len(others):
+                branches.switch(code_dir, others[index - 1])
+        except CockpitError as exc:
+            show_error(self.window, self.title, exc.message, exc.details)
+            self.refresh()
+            return
         self.check()
 
     # -- 3. Identität und Sicherheitsprüfung -------------------------------------------------
@@ -175,6 +229,11 @@ class PushRunner(_Runner):
             if self.then is not None:
                 then, self.then = self.then, None
                 then()
+                return
+            self.offer_pull_request(data.get("branch", ""))
+            return
+        if data.get("protected"):
+            self.offer_new_branch(data["protected"])
             return
         behind = data.get("behind")
         if behind:
@@ -191,6 +250,53 @@ class PushRunner(_Runner):
             return
         failure = summary.results[-1][1] if summary.results else None
         show_error(self.window, self.title, summary.text(), failure.details if failure else "")
+
+    # -- 6. Pull Request (Phase 6c) --------------------------------------------------------------
+    def offer_pull_request(self, branch: str) -> None:
+        """Mit aktivem Feature nach dem Hochladen eines Branches einen Pull Request anbieten, wenn
+        es für ihn noch keinen offenen gibt."""
+        state = git.status(self.project.code_dir)
+        if not branch or branch == state.default_branch or not self.pull_requests_active():
+            return
+        if self.services.pull_request_cache.count_for_branch(self.project.remote, branch):
+            return
+        if confirm(self.window, "Pull Request erstellen",
+                   f"{branch} ist hochgeladen. Jetzt einen Pull Request erstellen, damit die "
+                   f"Änderungen nach einer Prüfung in {state.default_branch} kommen?",
+                   yes="Pull Request erstellen …", no="Später"):
+            from cockpit.ui.pull_request_flow import PullRequestRunner
+            PullRequestRunner(self.controller, self.project).create()
+
+    def offer_new_branch(self, protected: str) -> None:
+        """Die Plattform lässt in diesen Branch nichts direkt hochladen (Konzept 10.14)."""
+        code_dir = self.project.code_dir
+        text = (f"{self.platform_name} lässt in {protected} nichts direkt hochladen. Der Branch "
+                "ist geschützt, Änderungen kommen nur über einen Pull Request hinein. Ihr Commit "
+                "ist gespeichert, aber nicht hochgeladen. Das Cockpit kann die Commits in einen "
+                "neuen Branch verschieben, ihn hochladen und einen Pull Request erstellen. "
+                f"{protected} kommt dabei auf den Stand von {self.platform_name}. Ihre Dateien "
+                "bleiben unverändert.")
+        choice = ask_buttons(self.window, self.title, text,
+                             ["In neuen Branch hochladen …", "Später"], default=1, escape=1)
+        if choice != 0:
+            return
+        subject = git.run(["log", "-1", "--format=%s"], code_dir, check=False).stdout.strip()
+        from cockpit.ui.branch_dialogs import BranchNameDialog
+        dialog = BranchNameDialog("Neuer Branch", f"Die Commits, die noch nicht hochgeladen sind, "
+                                  f"kommen in diesen Branch.", code_dir,
+                                  branches.suggest_name(subject) or "neue-aenderung",
+                                  self.window)
+        if not dialog.exec():
+            return
+        try:
+            branches.move_commits_to_new_branch(code_dir, dialog.name)
+        except CockpitError as exc:
+            show_error(self.window, self.title, exc.message, exc.details)
+            return
+        self.refresh()
+        from cockpit.ui.pull_request_flow import PullRequestRunner
+        runner = PullRequestRunner(self.controller, self.project)
+        PushRunner(self.controller, self.project, confirmed=True, then=runner.create).start()
 
 
 class PullRunner(_Runner):

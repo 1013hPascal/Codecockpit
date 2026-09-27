@@ -196,8 +196,13 @@ def _step_push(context: FlowContext) -> StepResult:
         return StepResult(True, "Es war schon alles hochgeladen.")
     args = ["push", "origin", state.branch] if state.upstream else [
         "push", "-u", "origin", state.branch]
-    git.run(args, code_dir, env=env, timeout=None, cancel=context.cancel_event,
-            action="Hochladen")
+    try:
+        git.run(args, code_dir, env=env, timeout=None, cancel=context.cancel_event,
+                action="Hochladen")
+    except git.GitError as exc:
+        if "geschützt" in exc.message:
+            context.data["protected"] = state.branch       # Angebot: neuer Branch (6c)
+        raise
     context.data["branch"] = state.branch
     return StepResult(True, f"Branch {state.branch} ist hochgeladen.")
 
