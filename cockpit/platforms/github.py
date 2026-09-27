@@ -30,7 +30,8 @@ from cockpit.core.text import join_words
 from cockpit.platforms.base import (BrowserLogin, Capability, Collaborator, GitCredentials,
                                     NetworkError, NewRepo, NotAuthenticated, NotFound,
                                     PendingApproval, PermissionMissing, Platform, PlatformError,
-                                    PullRequest, PullRequestComment, PullRequestFile,
+                                    MERGE_METHODS, PullRequest, PullRequestComment,
+                                    PullRequestFile, Review,
                                     RemoteRepo, RepoInfo, RepoLinks, RepoRef,
                                     SsoAuthorizationRequired, SupportsBrowserLogin,
                                     SupportsCollaborators, SupportsPullRequests, User)
@@ -200,6 +201,14 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
         if status == 404:
             return NotFound(f"Nicht gefunden{doing}. Möglicherweise fehlt dem Token der "
                             "Zugriff auf dieses Repository.", details)
+        if status in (405, 409) and capability is Capability.PULL_REQUESTS:
+            return PlatformError(f"GitHub kann den Pull Request so nicht übernehmen: {message}",
+                                 details)
+        if status == 422 and capability is Capability.PULL_REQUESTS and "own pull request" in \
+                response.text.lower():
+            return PlatformError("Den eigenen Pull Request können Sie nicht genehmigen und keine "
+                                 "Änderungen anfordern. Das geht nur mit einem Kommentar.",
+                                 details)
         if status == 422 and capability is Capability.PULL_REQUESTS:
             text = response.text.lower()             # die Gründe stehen unter "errors"
             if "no commits between" in text:
@@ -450,6 +459,29 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
             raise PlatformError("GitHub hat die Freigabe abgelehnt.",
                                 str(data["errors"][0].get("message", "")))
 
+    def reviews(self, repo: RepoRef, number: int) -> list[Review]:
+        items = self.request("GET", f"/repos/{repo.owner}/{repo.name}/pulls/{number}/reviews",
+                             "Reviews lesen", Capability.PULL_REQUESTS,
+                             params={"per_page": 100}).json()
+        return [Review(_login(r), r.get("state", ""), r.get("body") or "",
+                       r.get("submitted_at") or "") for r in items]
+
+    def submit_review(self, repo: RepoRef, number: int, event: str, body: str) -> None:
+        self.request("POST", f"/repos/{repo.owner}/{repo.name}/pulls/{number}/reviews",
+                     "Review abgeben", Capability.PULL_REQUESTS,
+                     json={"event": event, "body": body})
+
+    def merge_methods(self, repo: RepoRef) -> list[str]:
+        data = self.request("GET", f"/repos/{repo.owner}/{repo.name}", "Repository lesen").json()
+        allowed = {"merge": data.get("allow_merge_commit", True),
+                   "squash": data.get("allow_squash_merge", True),
+                   "rebase": data.get("allow_rebase_merge", True)}
+        return [m for m in MERGE_METHODS if allowed[m]]
+
+    def merge_pull_request(self, repo: RepoRef, number: int, method: str) -> None:
+        self.request("PUT", f"/repos/{repo.owner}/{repo.name}/pulls/{number}/merge",
+                     "Übernehmen", Capability.PULL_REQUESTS, json={"merge_method": method})
+
     def links(self, repo: RepoRef) -> RepoLinks:
         page = f"{web_base(self.url)}/{repo.owner}/{repo.name}"
         return RepoLinks(page, f"{page}#readme", f"{page}/releases/latest")
@@ -587,4 +619,5 @@ def _pull(data: dict) -> PullRequest:
                        (data.get("base") or {}).get("ref", ""), _login(data), state,
                        bool(data.get("draft")), data.get("body") or "",
                        data.get("created_at", ""), data.get("html_url", ""), reviewers,
-                       data.get("node_id", ""))
+                       data.get("node_id", ""), data.get("mergeable"),
+                       data.get("mergeable_state") or "")

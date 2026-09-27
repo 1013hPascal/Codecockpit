@@ -62,19 +62,21 @@ class PullRequestRunner:
 
         def work(task: Task):
             platform = self._platform()
-            pulls = platform.pull_requests(repo_admin.repo_ref(project), "open")
+            ref = repo_admin.repo_ref(project)
+            pulls = platform.pull_requests(ref, "open")
             services.pull_request_cache.replace(project.remote, pulls)
-            return platform, pulls
+            summaries = pull_request_dialogs.load_summaries(platform, ref, pulls)
+            return platform, pulls, summaries, sync.environment(services, project)
 
         self.controller.run_task(self.key, work, self._show_list, "Pull Requests")
 
     def _show_list(self, outcome) -> None:
-        platform, pulls = outcome
+        platform, pulls, summaries, env = outcome
         project = self.project
         dialog = pull_request_dialogs.PullRequestsDialog(
             platform, repo_admin.repo_ref(project), project.remote,
             self.services.pull_request_cache, pulls, self.create, self.platform_name,
-            self.window)
+            self.window, summaries, project, env, getattr(platform, "username", "") or "")
         dialog.exec()
         self.window.refresh_status([project.id])
 

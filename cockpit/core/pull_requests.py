@@ -66,12 +66,14 @@ def _day(iso: str) -> str:
         return ""
 
 
-def pull_line(pull: PullRequest) -> str:
-    """"Nr. 12: Suche in PDFs, von design nach main, von Anna, Entwurf"."""
+def pull_line(pull: PullRequest, reviews: str = "") -> str:
+    """"Nr. 12: Suche in PDFs, von design nach main, von Anna, 1 Genehmigung"."""
     parts = [f"Nr. {pull.number}: {pull.title}", f"von {pull.head} nach {pull.base}",
              f"von {pull.author}"]
     if pull.draft:
         parts.append("Entwurf")
+    if reviews:
+        parts.append(reviews)
     if pull.state != "open":
         parts.append(STATES.get(pull.state, pull.state))
     return ", ".join(parts)
@@ -151,3 +153,138 @@ def upload_needed(code_dir: Path, branch: str) -> int:
         return int(result.stdout.strip() or 0)
     except ValueError:
         return 0
+
+
+# -- Reviews (Phase 6b) --------------------------------------------------------------------------
+REVIEW_EVENTS = [("COMMENT", "Nur kommentieren"), ("APPROVE", "Genehmigen"),
+                 ("REQUEST_CHANGES", "Änderungen anfordern")]
+
+
+def review_summary(reviews) -> tuple[int, int]:
+    """Genehmigungen und Anforderungen von Änderungen. Wie GitHub zählt pro Person nur das letzte
+    Review, das genehmigt oder Änderungen anfordert."""
+    latest: dict[str, str] = {}
+    for review in sorted(reviews, key=lambda r: r.submitted):
+        if review.state in ("APPROVED", "CHANGES_REQUESTED", "DISMISSED"):
+            latest[review.author] = review.state
+    states = list(latest.values())
+    return states.count("APPROVED"), states.count("CHANGES_REQUESTED")
+
+
+def summary_text(approvals: int, changes: int) -> str:
+    """"1 Genehmigung, Änderungen angefordert" oder leer."""
+    parts = []
+    if approvals:
+        parts.append(count(approvals, "Genehmigung", "Genehmigungen"))
+    if changes:
+        parts.append("Änderungen angefordert")
+    return ", ".join(parts)
+
+
+def review_line(review) -> str:
+    """Review als Zeile in der Liste der Kommentare. Leer bei Reviews ohne Aussage."""
+    verbs = {"APPROVED": "hat genehmigt", "CHANGES_REQUESTED": "fordert Änderungen an",
+             "COMMENTED": "Review", "DISMISSED": "Review verworfen"}
+    if review.state == "COMMENTED" and not review.body.strip():
+        return ""
+    head = f"{review.author} {verbs.get(review.state, review.state)}"
+    day = _day(review.submitted)
+    text = " ".join(review.body.split())
+    head = f"{head}, {day}" if day else head
+    return f"{head}: {text}" if text else head
+
+
+def merge_state_text(pull: PullRequest) -> str:
+    """Ob GitHub den Pull Request übernehmen kann, in einfachen Worten. Leer, wenn unbekannt."""
+    state = pull.mergeable_state
+    if pull.state != "open":
+        return ""
+    if pull.draft or state == "draft":
+        return "Entwurf, muss erst zum Prüfen freigegeben werden"
+    if state == "dirty" or pull.mergeable is False:
+        return f"Hat Konflikte mit {pull.base}, lässt sich so nicht übernehmen"
+    if state == "blocked":
+        return "Schutzregeln blockieren das Übernehmen, zum Beispiel fehlt eine Genehmigung"
+    if state == "behind":
+        return f"{pull.base} ist weiter als der Branch, übernehmen geht trotzdem"
+    if state == "unstable":
+        return "Automatische Prüfungen sind fehlgeschlagen oder laufen noch"
+    if state in ("clean", "has_hooks") or pull.mergeable:
+        return "Kann übernommen werden"
+    return ""
+
+
+METHOD_TEXTS = {
+    "merge": "Merge-Commit: Alle Commits bleiben, dazu kommt ein Commit für das Übernehmen",
+    "squash": "Squash: Alle Commits werden zu einem einzigen zusammengefasst",
+    "rebase": "Rebase: Die Commits werden einzeln oben auf den Ziel-Branch gesetzt",
+}
+
+
+def diff_lines(patch: str) -> list[str]:
+    """Änderungen einer Datei lesbar, eine Zeile pro Änderung (Wunsch aus den Fragen zu Phase 6):
+    "Neu Zeile 12: print('x')" und "Weg Zeile 8: alt". Zeilen ohne Änderung fehlen."""
+    if not patch:
+        return []
+    result: list[str] = []
+    old = new = 0
+    for line in patch.splitlines():
+        if line.startswith("@@"):
+            try:
+                ranges = line.split("@@")[1].split()
+                old = int(ranges[0][1:].split(",")[0])
+                new = int(ranges[1][1:].split(",")[0])
+            except (IndexError, ValueError):
+                continue
+            continue
+        if line.startswith("\\"):
+            continue                                 # "\ No newline at end of file"
+        text = line[1:] if line else ""
+        shown = text if text.strip() else "(leere Zeile)"
+        if line.startswith("+"):
+            result.append(f"Neu Zeile {new}: {shown}")
+            new += 1
+        elif line.startswith("-"):
+            result.append(f"Weg Zeile {old}: {shown}")
+            old += 1
+        else:
+            old += 1
+            new += 1
+    return result
+
+
+# -- Aufräumen nach dem Übernehmen (Phase 6b) ----------------------------------------------------
+def clean_up(code_dir: Path, project_name: str, head: str,
+             env: dict[str, str] | None = None) -> list[str]:
+    """Nach dem Übernehmen: zu main wechseln, holen, den Branch hier und auf der Plattform
+    löschen (Konzept 10.14). Gibt kurze Sätze zurück, was passiert ist."""
+    from cockpit.core import branches, sync
+    from cockpit.core.errors import CockpitError
+    if sync.changes(code_dir):
+        raise CockpitError("Es gibt Änderungen ohne Commit. Laden Sie sie zuerst hoch oder legen "
+                           "Sie sie beiseite. Es wurde nichts verändert.")
+    main = git.status(code_dir).default_branch
+    branches.refresh(code_dir, env)
+    done = []
+    if git.status(code_dir).branch != main:
+        branches.switch(code_dir, main)
+        done.append(f"Sie sind auf {main}.")
+    incoming = sync.fetch(code_dir, env)
+    if incoming.behind:
+        sync.backup(code_dir, project_name, incoming)
+        outcome = sync.merge(code_dir, stash=False)
+        if outcome.kind is not sync.ConflictKind.NONE:
+            sync.abort(code_dir, outcome.kind)
+            raise CockpitError(f"Beim Holen von {main} gab es Konflikte. Das Holen wurde "
+                               "abgebrochen. Nehmen Sie bei Code „Änderungen holen“, dann können "
+                               "Sie die Konflikte lösen.")
+        done.append(f"Die Änderungen von {main} sind geholt.")
+    names = {b.name: b for b in branches.list_branches(code_dir)}
+    item = names.get(head)
+    if item is not None and head != main:
+        if item.local:
+            branches.delete_local(code_dir, head)
+        if item.remote:
+            branches.delete_remote(code_dir, head, env)
+        done.append(f"Der Branch {head} ist gelöscht.")
+    return done

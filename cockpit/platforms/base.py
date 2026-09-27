@@ -230,6 +230,8 @@ class PullRequest:
     url: str = ""
     reviewers: tuple[str, ...] = ()  # angefragte Prüfer
     node_id: str = ""                # für GraphQL (Entwurf freigeben)
+    mergeable: bool | None = None    # None: GitHub rechnet noch
+    mergeable_state: str = ""        # "clean", "dirty" (Konflikte), "blocked", "behind" ...
 
 
 @dataclass(frozen=True)
@@ -239,6 +241,18 @@ class PullRequestComment:
     body: str
     path: str = ""                   # Kommentar zu einer Zeile: Datei
     line: int = 0                    # und Zeile
+
+
+@dataclass(frozen=True)
+class Review:
+    author: str
+    state: str                       # "APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED"
+    body: str = ""
+    submitted: str = ""              # ISO
+
+
+# Art des Übernehmens: Wert der Plattform
+MERGE_METHODS = ("merge", "squash", "rebase")
 
 
 @dataclass(frozen=True)
@@ -280,6 +294,22 @@ class SupportsPullRequests:
 
     def mark_ready_for_review(self, repo: RepoRef, pull: PullRequest) -> None:
         """Entwurf zum Prüfen freigeben."""
+        raise NotImplementedError
+
+    # -- Phase 6b ------------------------------------------------------------------------------
+    def reviews(self, repo: RepoRef, number: int) -> list[Review]:
+        """Alle Reviews, älteste zuerst."""
+        raise NotImplementedError
+
+    def submit_review(self, repo: RepoRef, number: int, event: str, body: str) -> None:
+        """event: "APPROVE", "REQUEST_CHANGES" oder "COMMENT"."""
+        raise NotImplementedError
+
+    def merge_methods(self, repo: RepoRef) -> list[str]:
+        """Erlaubte Arten des Übernehmens aus MERGE_METHODS, in dieser Reihenfolge."""
+        raise NotImplementedError
+
+    def merge_pull_request(self, repo: RepoRef, number: int, method: str) -> None:
         raise NotImplementedError
 
 

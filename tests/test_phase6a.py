@@ -81,6 +81,9 @@ class PullFake(FakePlatform, SupportsPullRequests, SupportsCollaborators):
     def collaborators(self, repo):
         return [Collaborator("ben", "write"), Collaborator("max", "read", 7)]
 
+    def reviews(self, repo, number):                   # ab 6b fragen Details und Kommentare
+        return []
+
 
 def idle(qtbot, dialog):
     qtbot.waitUntil(lambda: not dialog.worker.busy, timeout=10000)
@@ -269,7 +272,7 @@ def test_open_list_from_the_window(live, qtbot, account, tmp_path, projects_root
 
     class FakeList:
         def __init__(self, platform, ref, address, cache, pulls, create, platform_name,
-                     parent=None):
+                     parent=None, *more):
             shown.append([p.number for p in pulls])
 
         def exec(self):

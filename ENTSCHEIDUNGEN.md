@@ -557,3 +557,14 @@ Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind a
 - „Details …“ zeigt Angaben und geänderte Dateien. „Kommentare …“ zeigt die Kommentare mit dem Feld für einen neuen Kommentar.
 - Der Knopf zum Wechseln in der Übersicht Branches nennt den Branch, zum Beispiel „Zu main wechseln“. Beim aktuellen Branch erscheint er nicht.
 
+
+
+## 27.09.2026: Entscheidungen in Phase 6b
+
+- In der Liste der Pull Requests gibt es bei offenen Pull Requests, die kein Entwurf sind, „Prüfen …“ und „In main übernehmen …“. Der Knopf nennt den Ziel-Branch.
+- Die Liste nennt Genehmigungen, zum Beispiel „1 Genehmigung“ oder „Änderungen angefordert“. Wie bei GitHub zählt pro Person das letzte Review. Abgefragt werden höchstens 30 offene Pull Requests, damit die Liste schnell kommt.
+- Prüfen: „Nur kommentieren“ (Vorgabe), „Genehmigen“ oder „Änderungen anfordern“. Nur beim Genehmigen darf der Kommentar fehlen. Beim eigenen Pull Request bietet das Cockpit nur „Nur kommentieren“ an und sagt warum, weil GitHub mehr nicht erlaubt.
+- Die Details nennen die Genehmigungen und ob GitHub übernehmen kann, zum Beispiel „Kann übernommen werden“ oder „Hat Konflikte mit main“. Enter auf einer Datei zeigt ihre Änderungen, eine Zeile pro Änderung: „Neu Zeile 12: …“, „Weg Zeile 8: …“. Unveränderte Zeilen fehlen.
+- Die Kommentare zeigen auch Reviews, zum Beispiel „ben hat genehmigt, 24.09.2026: Passt“.
+- Übernehmen: Das Fenster nennt den Stand und bietet die Arten an, die das Repository erlaubt. Vorgabe beim Knopf ist „Abbrechen“, weil sich Übernehmen auf GitHub nicht einfach rückgängig machen lässt.
+- Danach fragt das Cockpit, ob es aufräumen soll: zu main wechseln, holen, den Branch hier und auf GitHub löschen. Vorgabe ist „Später“. Gibt es Änderungen ohne Commit, räumt es nicht auf und sagt warum.
