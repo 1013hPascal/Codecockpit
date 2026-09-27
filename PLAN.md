@@ -34,7 +34,12 @@ Inhalt:
   - [x] 6b: Reviews, Änderungen ansehen, in main übernehmen und aufräumen
   - [x] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
 - [x] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten. Abgeschlossen am 27.09.2026
-- [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
+- [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, KI-Verwaltung, Terminal, KI-Features (ergänzt am 27.09.2026)
+  - [ ] 8a: Eingebautes Terminal
+  - [ ] 8b: Menü KI, KI-Verwaltung, lokale KI passend zum Rechner, Feature Terminal-Erklärung
+  - [ ] 8c: Feature KI-Assistent
+  - [ ] 8d: Feature Spracheingabe mit Whisper
+  - [ ] 8e: Feature KI-Hilfe
 - [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags
 - [ ] Phase 10: Features Exe-Erstellung mit Einrichtungsprüfung, Windows-Warnungen und Selbstaktualisierung, Externe Ressourcen, Lizenzprüfung
 - [ ] Phase 11: n8n-Grundlagen, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen

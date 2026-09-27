@@ -612,3 +612,38 @@ Die Fragen und Antworten stehen in `fragen\phase-07.md`. Alle Vorschläge sind a
 ### Test
 
 - Nur mit `start_testdaten.bat` gibt es „Beispiel Grundlage“ (Einstellungen und die Aktion „Beispiel-Gruß“ bei Code) und „Beispiel Aufbau“ (braucht die Grundlage). Sie liegen in cockpit/testdata_features.
+
+
+## 27.09.2026: Antworten auf die Fragen zu Phase 8
+
+Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konzept um Terminal, Spracheingabe, Terminal-Erklärung, KI-Hilfe und KI-Verwaltung ergänzt (Konzept 9.9, 10.15 bis 10.17, 11.1).
+
+### Ablauf
+
+- Phase 8 kommt in fünf Teilschritten. Das Terminal kommt zuerst, weil es keine KI braucht und die KI-Verwaltung es nutzt, um Modelle herunterzuladen:
+  - 8a: Eingebautes Terminal (Kern).
+  - 8b: Menü KI, KI-Verwaltung mit Ollama und OpenAI-kompatibel, Rechner auslesen, Modellstufen, Seite KI im Assistenten, Datenschutz, Feature Terminal-Erklärung.
+  - 8c: Feature KI-Assistent.
+  - 8d: Feature Spracheingabe mit Whisper.
+  - 8e: Feature KI-Hilfe.
+- Getestet wird mit Ollama und gemma4:12b auf dem Rechner des Nutzers.
+
+### KI-Verwaltung und Modelle
+
+- Menü KI mit „KI-Verwaltung …“ und „KI-Features …“. Einen eigenen Schalter „KI aktivieren“ gibt es nicht.
+- In der Feature-Verwaltung erscheinen die KI-Features als ein Eintrag „KI“. Mit Tab kommt man zu den einzelnen KI-Features (Assistent, Spracheingabe, Terminal-Erklärung, Hilfe). Umgesetzt, sobald es mehr als ein KI-Feature gibt.
+- Modell wählen: eine Liste der installierten Modelle, mit Tab eine Liste vorgeschlagener Modelle, zum Beispiel „gemma4:12b, ab 32 GB Arbeitsspeicher“. Wählt man ein vorgeschlagenes, öffnet sich das Terminal mit dem Befehl zum Herunterladen. Ausgeführt wird er erst mit Enter.
+- Auch bei lokaler KI gilt eine Grenze für die Menge an Text, die sie bekommt.
+
+### KI-Assistent
+
+- Der Knopf heißt „Vorschlag der KI“ (Alt+V), damit klar ist, dass die KI ihn macht.
+
+### Spracheingabe
+
+- Strg+D startet und beendet das Diktieren, Strg+Umschalt+D bricht ab. Strg+Umschalt+M ist schon für „Letzte Meldung wiederholen“ belegt.
+- Neue Bibliotheken faster-whisper, sounddevice und numpy sind erlaubt.
+
+### Terminal
+
+- PowerShell. Beim ersten Öffnen einmal der Hinweis, dass Befehle ohne Rückfrage und ohne Sicherheitskopie laufen. Gesperrt ist nur der force push.

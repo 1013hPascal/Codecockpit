@@ -760,7 +760,7 @@ In Unternehmen ist das direkte Hochladen in den Hauptzweig oft gesperrt. Man arb
 Ergänzt am 27.09.2026 (Wunsch des Nutzers).
 
 - Diktieren in jedes Eingabefeld des Cockpits, zum Beispiel die Commit-Nachricht oder einen Kommentar.
-- Ein Tastenkürzel startet die Aufnahme, dasselbe Kürzel beendet sie. Der erkannte Text wird an der Schreibmarke eingefügt. Ein zweites Kürzel bricht die Aufnahme ab, ohne etwas einzufügen. Vorschlag: Strg+K und Strg+Umschalt+K, wenn diese frei sind.
+- Ein Tastenkürzel startet die Aufnahme, dasselbe Kürzel beendet sie. Der erkannte Text wird an der Schreibmarke eingefügt. Ein zweites Kürzel bricht die Aufnahme ab, ohne etwas einzufügen. Strg+D startet und beendet, Strg+Umschalt+D bricht ab (D wie Diktieren).
 - Ansagen: „Aufnahme läuft.“, „Text eingefügt.“, „Aufnahme abgebrochen.“
 - Spracherkennung mit Whisper, lokal auf dem Rechner oder bei einem externen Anbieter (Abschnitt 11.1). Vorbild ist das Tagebuch des Nutzers (faster-whisper und sounddevice).
 

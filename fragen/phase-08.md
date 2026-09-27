@@ -63,17 +63,17 @@ Also in der KI Verwaltung kann man merhere ki Tools aktiviern, lokal oder extern
 unter ki menü kann man auch ki feature aktivieren, wobei man dann in das menü Features springt. aktiviert man dort ki feature, kommt man mit tab in die verschiedenen ki Features, sprache, text ki. und hier kann man dan für sprachki entwder die lokalen oder externen ki auswählen, di man bei ki Tools in abschnitt neü ki aktiviert hat. 
 so würde ich das machen.
 
-[ ] 5. Modell wählen
+[?] 5. Modell wählen
 Frage: Wie wählen Sie das Modell?
 Vorschlag: Nach „Verbindung testen“ fragt das Cockpit die verfügbaren Modelle ab und zeigt sie als Auswahl. Ist bei Ollama noch kein Modell installiert, erklärt es den Befehl, zum Beispiel `ollama pull gemma3:4b`. Das Cockpit lädt keine Modelle selbst herunter.
-Antwort:
+Antwort: können vir nicht eine liste machen, schon heruntergeladne oder noch mit tab, vorgeschlagene modelle. und wenn man da eins asuwählt, da steht dann gemma4 12b für min 32 ram etc. dann kann man draufklicken und ein terminal öffnet sihch, wo der befehl drinne steht?
 
-[ ] 6. Ollama starten
+[x] 6. Ollama starten
 Frage: Was, wenn Ollama installiert ist, aber nicht läuft?
 Vorschlag: Wie im Chatbot: Das Cockpit startet Ollama bei Bedarf selbst. Läuft es schon, wird es mitbenutzt. Beim Beenden stoppt das Cockpit nur ein Ollama, das es selbst gestartet hat.
 Antwort:
 
-[ ] 7. Einrichtungsassistent
+[x] 7. Einrichtungsassistent
 Frage: Laut Konzept 8.7 hat der Assistent eine Seite „KI“. Soll sie jetzt kommen?
 Vorschlag: Ja. Die Seite prüft, ob Ollama läuft, und listet die Modelle. Sie können dort ein Modell wählen, einen anderen Anbieter einrichten oder ohne KI weitermachen.
 Antwort:
@@ -81,20 +81,20 @@ Antwort:
 
 ## C. Datenschutz
 
-[ ] 8. Was bekommt die KI?
+[x] 8. Was bekommt die KI?
 Frage: Für eine Commit-Nachricht braucht die KI die Änderungen. Was genau wird gesendet?
 Vorschlag:
 - Die Liste der geänderten Dateien und die geänderten Zeilen, höchstens etwa 8000 Zeichen. Nie der ganze Code.
 - Dateien, die die Sicherheitsprüfung als Geheimnis erkennt, zum Beispiel `.env`, gehen nie mit.
 - Zeilen mit einem gefundenen Geheimnis werden vor dem Senden durch „[entfernt]“ ersetzt.
-Antwort:
+Antwort: Bei lokaler ki ja ncht so schlimm, aber dort ist zeichenbegrenzung vielleicht ganz gut. 
 
-[ ] 9. Anbieter außerhalb des Rechners
+[x] 9. Anbieter außerhalb des Rechners
 Frage: Geht etwas an einen Anbieter außerhalb Ihres Rechners, zum Beispiel OpenAI, soll das Cockpit einmal nachfragen. Wie genau?
 Vorschlag: Beim ersten Vorschlag pro Anbieter und Aufgabe fragt es: „Für Commit-Vorschläge werden Auszüge aus Ihrem Code an OpenAI gesendet. Einverstanden?“ Vorgabe ist „Nein“. Die Antwort merkt es sich. Die Grundeinstellung „Code-Auszüge nur an lokale oder firmeninterne KI senden“ gibt es schon, sie sperrt solche Anbieter ganz.
 Antwort:
 
-[ ] 10. Firmeninterne Anbieter
+[x] 10. Firmeninterne Anbieter
 Frage: Ein Firmen-Server ist nicht auf Ihrem Rechner, gilt aber als sicher. Woran erkennt das Cockpit das?
 Vorschlag: Beim OpenAI-kompatiblen Anbieter gibt es das Kästchen „Läuft im eigenen Netz oder in der Firma“. Ist es angekreuzt, gilt er wie ein lokaler Anbieter.
 Antwort:
@@ -102,22 +102,22 @@ Antwort:
 
 ## D. KI-Assistent
 
-[ ] 11. Commit-Nachricht vorschlagen
+[?] 11. Commit-Nachricht vorschlagen
 Frage: Wie kommt der Vorschlag ins Fenster „Änderungen hochladen“?
 Vorschlag: Das Fenster bekommt den Knopf „Vorschlag erstellen lassen“ (Alt+V). Er füllt „Was haben Sie geändert?“ und „Beschreibung“. NVDA sagt „Vorschlag eingefügt.“, und der Fokus geht in das erste Feld. Sie können alles ändern. Solange die KI arbeitet, bleibt das Fenster bedienbar, und Escape bricht den Vorschlag ab.
-Antwort:
+Antwort: ich würd eden schalter Vorschlag von KI oder so nenne, das klar ist, das die das macht, ansonsten so machen wie vorgeschlagen.
 
-[ ] 12. Weitere Vorschläge
+[x] 12. Weitere Vorschläge
 Frage: Wo soll die KI sonst noch helfen?
 Vorschlag: Beim Pull Request für Titel und Beschreibung und beim ersten Hochladen für die Kurzbeschreibung. Jeweils mit demselben Knopf „Vorschlag erstellen lassen“.
 Antwort:
 
-[ ] 13. Sprache
+[x] 13. Sprache
 Frage: In welcher Sprache sollen die Vorschläge sein?
 Vorschlag: Das Feature hat die Einstellung „Sprache der Vorschläge“ mit Deutsch als Vorgabe und Englisch als Alternative. Viele öffentliche Projekte schreiben Commit-Nachrichten auf Englisch.
 Antwort:
 
-[ ] 14. Prompts
+[x] 14. Prompts
 Frage: Laut Konzept liegen die Prompts in eigenen Dateien und lassen sich anpassen. Wie?
 Vorschlag: Die Prompts liegen als Textdateien beim Cockpit. Legen Sie eine Datei mit demselben Namen in den Ordner „prompts“ im Datenordner, nimmt das Cockpit Ihre Fassung. Eine eigene Oberfläche dafür gibt es vorerst nicht.
 Antwort:
@@ -127,7 +127,7 @@ Antwort:
 
 Ihre Ideen stehen jetzt im Konzept: Terminal (9.9), Spracheingabe (10.15), Terminal-Erklärung (10.16), KI-Hilfe (10.17) und KI-Verwaltung mit lokaler KI (11.1). Hier die Einzelheiten, bei denen Sie entscheiden.
 
-[ ] 15. Neue Aufteilung von Phase 8
+[x] 15. Neue Aufteilung von Phase 8
 Frage: Phase 8 wird dadurch deutlich größer. Wie teilen wir sie auf?
 Vorschlag: Fünf Teilschritte, jeder mit eigenen Tests und Checkliste. Es bleibt bei 17 Phasen.
 - 8a: Menü KI, KI-Verwaltung, Ollama und OpenAI-kompatibel, Rechner auslesen und Modell nach Stufe vorschlagen, Seite KI im Assistenten, Datenschutz.
@@ -141,34 +141,38 @@ Antwort:
 [ ] 16. Menü KI
 Frage: Habe ich Ihre Antwort zu Frage 3 richtig verstanden?
 Vorschlag: Neues Menü „KI“ mit zwei Einträgen. „KI-Verwaltung …“ zeigt die Werkzeuge nach Art (Text-KI, Sprach-KI), jedes lokal oder extern. Extern führt in die Kontenverwaltung. „KI-Features …“ öffnet die Feature-Verwaltung und markiert dort das erste KI-Feature. Einen eigenen Eintrag „KI aktivieren“ gibt es nicht, weil das Ein- und Ausschalten schon in der Feature-Verwaltung passiert. So gibt es für jede Sache genau einen Ort.
-Antwort:
+Antwort: ja, wobei du könntest auch bi Features nur einen eintrag ki machen und wenn man da dann tab drückt, kommt man auf die unterfeatures von ki, also sprache, hilfe, etc. aber ansonsten ja richtig.
 
-[ ] 17. Welche Shell im Terminal?
+
+[x] 17. Welche Shell im Terminal?
 Frage: Das Terminal braucht eine Shell, in der die Befehle laufen. Welche?
 Vorschlag: PowerShell, wie in Windows üblich. Befehle wie `git log` oder `git rebase` laufen dort genauso. Das Programm gh von GitHub geht auch, wenn es installiert ist, es ist aber nicht nötig.
 Antwort:
 
-[ ] 18. Sicherheit im Terminal
+[x] 18. Sicherheit im Terminal
 Frage: Im Terminal kann man alles eingeben, auch Befehle, die Dateien löschen. Die Regel „vorher Sicherheitskopie“ lässt sich dort nicht einhalten. Wie gehen wir damit um?
 Vorschlag: Beim ersten Öffnen sagt das Cockpit einmal: „Befehle im Terminal laufen ohne Rückfrage und ohne Sicherheitskopie.“ Gesperrt ist nur der force push, wie überall im Cockpit. Sonst ist es Ihr Terminal.
 Antwort:
 
-[ ] 19. Neue Bibliotheken für Whisper
+[x] 19. Neue Bibliotheken für Whisper
 Frage: Für die Spracheingabe braucht das Cockpit drei neue Bibliotheken: faster-whisper (Spracherkennung), sounddevice (Mikrofon) und numpy. Das Tagebuch nutzt dieselben. Nach der Regel „keine neuen Bibliotheken ohne Rückfrage“ frage ich Sie. Einverstanden?
 Vorschlag: Ja. Das Whisper-Modell lädt das Cockpit beim ersten Diktieren herunter, mit Ansage des Fortschritts. Das Modell „small“ ist etwa 500 MB groß.
 Antwort:
 
-[ ] 20. Tastenkürzel für die Spracheingabe
+[?] 20. Tastenkürzel für die Spracheingabe
 Frage: Strg+K und Strg+Umschalt+K sind im Cockpit noch frei. Passt das?
 Vorschlag: Ja: Strg+K startet und beendet die Aufnahme, Strg+Umschalt+K bricht ab. Beide stehen in der Liste der Tastenkürzel (F1).
-Antwort:
+Antwort: ist Strg+d und Strg+Umschalt+d auch noch frei, für diktieren.
+oder 
+Strg+M und Strg+Umschalt+M für microphone
+das wäre etwas intuitiver vielleicht   
 
-[ ] 21. Stufen für die lokale KI
+[x] 21. Stufen für die lokale KI
 Frage: Welche Modelle schlägt das Cockpit für 16, 32 und 64 GB Arbeitsspeicher vor?
 Vorschlag: Für Text: ab 16 GB ein kleines Modell mit etwa 4 Milliarden Parametern, ab 32 GB eines mit etwa 12 Milliarden (wie Ihr gemma4:12b), ab 64 GB eines mit etwa 27 Milliarden. Für Whisper: ab 16 GB „small“, ab 32 GB „medium“, ab 64 GB oder mit passender Grafikkarte „large-v3-turbo“. Die genauen Namen prüfe ich beim Bauen gegen das, was es dann bei Ollama gibt. Sie stehen an einer Stelle und lassen sich ändern.
 Antwort:
 
-[ ] 22. Grundlage der KI-Hilfe
+[] 22. Grundlage der KI-Hilfe
 Frage: Damit die KI-Hilfe richtig antwortet, braucht sie eine Beschreibung des Cockpits. Woher kommt die?
 Vorschlag: Aus drei Quellen: den Anleitungen im Menü Hilfe, den Einführungen der Features und einer Liste aller Menüs und Aktionen, die das Cockpit selbst beim Fragen erzeugt. So ist sie immer auf dem aktuellen Stand, auch wenn später Features dazukommen. Weiß die KI etwas nicht, sagt sie das, statt zu raten.
 Antwort:
