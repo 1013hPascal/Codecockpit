@@ -382,14 +382,16 @@ Mit **Tab** springt man vom ausgewählten Eintrag im Baum in die Aktionsliste. D
 - Branch wechseln, Pull Request erstellen (Feature Branches und Pull Requests)
 - Code-Ordner öffnen
 
-**Exe ausgewählt** (nur bei aktivem Feature Exe-Erstellung):
+**Exe ausgewählt** (überarbeitet am 27.09.2026, Einzelheiten in 10.4):
 - Exe starten
-- Exe neu erstellen
+- Exe aus dem Code erstellen bzw. aktualisieren (Feature Exe-Erstellung)
+- Exe-Datei wählen
+- Exe veröffentlichen, Exe aus dem Release holen
 - Exe-Einrichtung prüfen
-- Download-Link kopieren (Feature Releases)
 - Exe-Ordner öffnen
+- Wie funktioniert die Exe?
 
-Hat ein Projekt noch keine Exe, aber das Feature Exe-Erstellung ist aktiv, gibt es bei „Code“ zusätzlich die Aktion **„Erste Exe erstellen“**.
+Hat ein Projekt noch keinen Ordner `Exe`, gibt es auf der Projektzeile die Aktion **„Exe hinzufügen …“**. Danach erscheint der Eintrag „Exe“.
 
 ### 8.4 Features dieses Projekts
 
@@ -599,42 +601,62 @@ Welche Abschnitte vorkommen, ist in den Feature-Einstellungen wählbar.
 
 ### 10.4 Exe-Erstellung
 
-**Build:**
-- Eigene virtuelle Umgebung pro Projekt (`.venv`), wird bei Bedarf angelegt, `requirements.txt` wird installiert.
-- Build mit PyInstaller in einem temporären Ordner ohne Ballast. Die funktionierende Konfiguration wird als `.spec`-Datei im Projekt gespeichert und wiederverwendet.
-- **Alte Exe wird ersetzt:** Im Ordner `Exe` liegt immer nur die aktuelle Version. Ablauf:
-  1. Die neue Exe wird in einem temporären Ordner gebaut und dort getestet.
-  2. Nur wenn der Test bestanden ist, wird der Inhalt von `Exe` gelöscht und die neue Exe hineinverschoben.
-  3. Schlägt der Test fehl, bleibt die alte Exe unverändert, und die neue wird verworfen.
-  So gibt es nie einen Zustand, in dem gar keine funktionierende Exe vorhanden ist.
-- Läuft die alte Exe gerade und kann deshalb nicht gelöscht werden, meldet das Cockpit das und bittet, das Programm zu schließen.
-- Ältere Versionen bleiben als Download in den früheren Releases erhalten (Feature Releases). Ist dieses Feature aus, lässt sich eine ältere Version bei Bedarf aus dem entsprechenden Versionsstand des Codes neu bauen.
-- Beim ersten Mal führt das Cockpit durch nötige Anpassungen (zusätzliche Dateien, versteckte Imports).
-- **Bauart:** eine einzelne Exe-Datei (Standard, gut für kleine Programme) oder ein Programmordner, der als ZIP-Datei veröffentlicht wird (besser für große Programme, startet schneller, weil beim Start nichts entpackt werden muss).
-- **Was im ersten Build steckt, bleibt drin:** Dateien, die beim ersten erfolgreichen Build eingebunden waren (z. B. ein Modell), werden auch künftig mitgenommen, weil sie in der `.spec`-Datei stehen. Die Exe-Einrichtungsprüfung warnt aber, wenn dadurch Grenzen überschritten werden (Prüfpunkt 10).
+Überarbeitet am 27.09.2026 (Wunsch des Nutzers). Viele Projekte haben neben dem Code eine fertige Exe. Die Exe ist deshalb ein eigener Eintrag im Projekt, wie „Code“. Offene Einzelheiten stehen in `fragen\phase-10.md`.
+
+**Der Eintrag „Exe“:**
+- Ein Projekt hat den Eintrag „Exe“, sobald es den Ordner `Exe` gibt. Fehlt er, gibt es auf der Projektzeile die Aktion „Exe hinzufügen …“. Sie legt den Ordner an (oder verknüpft bei verknüpften Projekten einen vorhandenen Ordner). Danach erscheint „Exe“ unter „Code“.
+- Die Zeile nennt das Wichtigste vorne, zum Beispiel:
+  - „Exe, noch keine Exe-Datei“
+  - „Exe, Version 1.4.0, erstellt am 23.09.2026, aktuell“
+  - „Exe, erstellt am 23.09.2026, älter als der Code“ (der Code hat seit dem Bau neue Commits)
+  - „Exe, von Hand hinzugefügt am 20.09.2026“ oder „Exe, aus dem Release 1.3.0“
+- Das Cockpit merkt sich in `cockpit.toml` unter `[exe]`, woher die Exe kommt (vom Cockpit gebaut, von Hand gewählt, aus einem Release), wann, aus welchem Commit und mit welcher Version. So weiß es, ob die Exe zum Code passt und ob es sie selbst aktualisieren kann.
+
+**Aktionen bei „Exe“** (Tab vom Eintrag, Knöpfe, die nicht passen, fehlen):
+- **Exe starten** (Enter auf dem Eintrag).
+- **Exe aus dem Code erstellen …** bzw. **Exe aus dem Code aktualisieren …**, wenn schon eine da ist. Nur mit Feature „Exe-Erstellung“.
+- **Exe-Datei wählen …**: eine vorhandene Exe von woanders in den Ordner `Exe` übernehmen, zum Beispiel wenn man sie selbst gebaut hat. Mit Rückfrage und Sicherheitskopie der bisherigen Exe.
+- **Exe veröffentlichen …**: Release auf GitHub mit Versionsnummer anlegen und die Exe anhängen (siehe 10.5).
+- **Exe aus dem Release holen …**: die Exe des neuesten Releases herunterladen. Nur, wenn das Repository Releases mit einer Exe hat, zum Beispiel bei heruntergeladenen Projekten anderer Personen.
+- **Exe-Einrichtung prüfen**.
+- **Exe-Ordner öffnen**.
+- **Wie funktioniert die Exe? …**: Anleitung wie „Branches verstehen“, auch im Menü Hilfe.
+
+**Bauen:**
+- Gebaut wird mit PyInstaller. Das Cockpit braucht dafür Python auf dem Rechner. Fehlt es, erklärt eine Anleitung die Installation (wie bei Git), und „Exe aus dem Code erstellen“ sagt, warum es nicht geht.
+- Jedes Projekt bekommt eine eigene virtuelle Umgebung (`Code\.venv`). Das Cockpit legt sie bei Bedarf an, installiert `requirements.txt` und PyInstaller. PyInstaller wird so erst beim ersten Bauen heruntergeladen und steckt nicht im Cockpit selbst.
+- Beim ersten Bauen fragt ein kurzer Dialog: Startdatei (Vorschlag: `main.py`), Name der Exe (Vorschlag: Projektname), Bauart (eine Datei oder Programmordner), Symbol (freiwillig). Daraus entsteht eine `.spec`-Datei im Code-Ordner. Sie wird hochgeladen und bei jedem weiteren Bau wiederverwendet.
+- Der Bau läuft im Hintergrund in einem temporären Ordner, mit Fortschritt als Text („Schritt 2 von 4: Bibliotheken werden installiert“). Die Ausgabe von PyInstaller steht in einer Liste, eine Zeile pro Zeile, wie im Terminal. Schlägt der Bau fehl, erklärt das Cockpit den Fehler, mit KI, falls das Feature Terminal-Erklärung aktiv ist.
+- **Alte Exe wird ersetzt, aber nie ohne funktionierende Exe:**
+  1. Die neue Exe wird im temporären Ordner gebaut und getestet.
+  2. Nur wenn der Test bestanden ist, kommt die bisherige Exe als Sicherheitskopie in den Ordner `backups`, und die neue Exe ersetzt sie.
+  3. Schlägt der Test fehl, bleibt die alte Exe unverändert.
+- Läuft die alte Exe gerade, bittet das Cockpit, sie zu schließen.
+- **Bauart:** eine einzelne Exe-Datei (Standard, gut für kleine Programme) oder ein Programmordner (besser für große Programme, startet schneller, wird als ZIP-Datei veröffentlicht).
+- **Was im ersten Build steckt, bleibt drin:** Dateien, die in der `.spec`-Datei stehen, kommen immer mit. Die Einrichtungsprüfung warnt bei zu großen Exe-Dateien (Prüfpunkt 10).
 
 **Test:**
-1. Start-Test: Exe starten, läuft sie nach 10 Sekunden noch ohne Absturz, ist der Test bestanden.
+1. Start-Test: Exe starten. Läuft sie nach 10 Sekunden noch ohne Absturz, ist der Test bestanden. Danach beendet das Cockpit sie.
 2. Selbsttest (empfohlen): Das Programm unterstützt `--selbsttest`, prüft selbst alles Wichtige und beendet sich mit Code 0. Das Cockpit kann anbieten, diese Option einzubauen.
 
 **Warnungen von Windows und Virenscannern:**
-- Exe-Dateien, die mit PyInstaller gebaut und nicht digital signiert sind, lösen bei anderen Nutzern oft eine Warnung von Windows SmartScreen aus („Der Computer wurde durch Windows geschützt“). Manche Virenscanner melden sie außerdem fälschlich als verdächtig.
-- Das Cockpit fügt der README einen kurzen, verständlichen Hinweis hinzu: warum die Warnung erscheint und wie man das Programm trotzdem startet („Weitere Informationen“, dann „Trotzdem ausführen“). Dazu die Prüfsumme (SHA-256) der Exe, damit Nutzer die Echtheit prüfen können. Die Prüfsumme wird auch in den Versionshinweisen des Releases angegeben.
-- **Signieren (optional):** Ist ein Code-Signing-Zertifikat vorhanden (in Unternehmen häufig), kann das Cockpit die Exe nach dem Build signieren. Zertifikat und Passwort liegen im Tresor. Privat entfällt das, weil solche Zertifikate kostenpflichtig sind.
-- Bei der Bauart „einzelne Exe-Datei“ sind Fehlalarme von Virenscannern häufiger. Treten sie auf, schlägt das Cockpit die Bauart „Programmordner“ vor.
+- Nicht signierte Exe-Dateien lösen bei anderen Nutzern oft eine Warnung von Windows SmartScreen aus („Der Computer wurde durch Windows geschützt“). Manche Virenscanner melden sie fälschlich als verdächtig.
+- Das Cockpit fügt der README einen kurzen Hinweis hinzu: warum die Warnung erscheint und wie man das Programm trotzdem startet („Weitere Informationen“, dann „Trotzdem ausführen“). Dazu die Prüfsumme (SHA-256) der Exe. Die Prüfsumme steht auch in den Versionshinweisen des Releases.
+- **Signieren (optional, später):** Ist ein Code-Signing-Zertifikat vorhanden, kann das Cockpit die Exe nach dem Build signieren. Zertifikat und Passwort liegen im Tresor.
+- Bei der Bauart „einzelne Exe-Datei“ sind Fehlalarme häufiger. Treten sie auf, schlägt das Cockpit „Programmordner“ vor.
 
 **Sonderfall: Das Cockpit baut seine eigene Exe.**
 Das Cockpit liegt selbst als Projekt im Projekte-Hauptordner und kann sich damit selbst verwalten. Windows erlaubt aber nicht, eine Exe zu löschen, die gerade läuft. Deshalb:
 1. Die neue Exe wird wie gewohnt in einem temporären Ordner gebaut und getestet.
-2. Nach bestandenem Test wird sie im Ordner `Exe` als „wartende Aktualisierung“ abgelegt (z. B. in `Exe\_neu\`).
+2. Nach bestandenem Test wird sie im Ordner `Exe` als „wartende Aktualisierung“ abgelegt (`Exe\_neu\`).
 3. Das Cockpit meldet: „Die neue Version wird beim nächsten Start übernommen. Jetzt neu starten?“
-4. Beim Neustart übernimmt ein kleines Hilfsprogramm (bzw. ein Startskript) den Austausch: Es wartet, bis das alte Cockpit beendet ist, ersetzt die Exe, startet die neue Version und räumt `_neu` auf.
+4. Beim Neustart übernimmt ein kleines Startskript den Austausch: Es wartet, bis das alte Cockpit beendet ist, ersetzt die Exe, startet die neue Version und räumt `_neu` auf.
 5. Startet die neue Version nicht, wird die alte wiederhergestellt.
-Das Cockpit erkennt sich selbst an einem Eintrag in seiner `cockpit.toml` (`ist_cockpit = true`).
+Das Cockpit erkennt sich selbst an `is_cockpit = true` in seiner `cockpit.toml`. Seine Exe braucht kein installiertes Python.
 
-**Exe-Einrichtung prüfen** (eigene Aktion): prüft, ob die Exe künftig ohne Handarbeit gebaut werden kann. Übernimmt bei Bedarf eine selbst gebaute Einrichtung (vorhandene `.spec`-Datei oder den damals genutzten PyInstaller-Befehl). Geprüft wird:
+**Exe-Einrichtung prüfen** (eigene Aktion): prüft, ob die Exe künftig ohne Handarbeit gebaut werden kann. Übernimmt bei Bedarf eine selbst gebaute Einrichtung (vorhandene `.spec`-Datei). Geprüft wird:
 
-1. `cockpit.toml` und `.spec` vorhanden, Startdatei und Symbol existieren
+1. `.spec` vorhanden, Startdatei und Symbol existieren
 2. keine festen Pfade wie `C:\Users\…`, alle Pfade relativ zum Projekt
 3. alle eingebundenen Dateien liegen im Projektordner
 4. alle importierten Bibliotheken stehen in `requirements.txt`
@@ -643,12 +665,13 @@ Das Cockpit erkennt sich selbst an einem Eintrag in seiner `cockpit.toml` (`ist_
 7. Auswertung der PyInstaller-Warnungen mit Vorschlägen für versteckte Imports
 8. Start-Test bzw. Selbsttest der Probe-Exe
 9. externe Voraussetzungen (z. B. Ollama-Modell) sind dokumentiert
-10. **Größe:** Warnung, wenn eine einzelne Exe größer als 500 MB ist (langsamer Start, weil sie bei jedem Start entpackt wird). Fehler bei mehr als 2 GB, weil GitHub einzelne Download-Dateien nur bis 2 GB annimmt. Große eingebundene Dateien werden einzeln genannt, mit dem Vorschlag, sie als externe Ressource auszulagern (10.12) oder die Bauart „Programmordner“ zu wählen.
+10. **Größe:** Warnung, wenn eine einzelne Exe größer als 500 MB ist. Fehler bei mehr als 2 GB, weil GitHub einzelne Download-Dateien nur bis 2 GB annimmt. Große eingebundene Dateien werden einzeln genannt, mit dem Vorschlag, sie auszulagern (10.12) oder „Programmordner“ zu wählen.
 
-Ergebnis als Liste, Ergebnis jeweils vorne („In Ordnung: …“, „Problem: …“, „Warnung: …“), oben eine Gesamtbewertung. Sicher behebbare Probleme lassen sich per „Automatisch beheben“ nach Bestätigung korrigieren. Ist die Einrichtung unvollständig, erscheint das im Projektbaum beim Eintrag „Exe“.
+Ergebnis als Liste, Ergebnis jeweils vorne („In Ordnung: …“, „Problem: …“, „Warnung: …“), oben eine Gesamtbewertung. Sicher behebbare Probleme lassen sich per „Automatisch beheben“ nach Bestätigung korrigieren.
 
 ### 10.5 Releases
 
+- Ergänzt am 27.09.2026: Schon in Phase 10 gibt es bei „Exe“ die Aktionen „Exe veröffentlichen …“ (Release mit Versionsnummer anlegen, Exe anhängen, direkt über die Schnittstelle von GitHub) und „Exe aus dem Release holen …“. Phase 14 ergänzt Versionshinweise, n8n und GitHub Actions.
 - Nach erfolgreichem Build und Test: Release auf der Plattform anlegen, Versionshinweise aus den Commit-Nachrichten formulieren (mit KI, falls verfügbar), Exe anhängen.
 - Stabiler Download-Link, der immer auf die neueste Version zeigt: `https://github.com/NUTZER/PROJEKT/releases/latest/download/PROJEKT.exe`
 - Funktioniert auch ohne Exe-Feature (dann Release nur mit Quellcode).

@@ -37,11 +37,16 @@ Inhalt:
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, KI-Verwaltung, Terminal, KI-Features (ergänzt am 27.09.2026)
   - [x] 8a: Eingebautes Terminal
   - [x] 8b: Menü KI, KI-Verwaltung, lokale KI passend zum Rechner, Feature Terminal-Erklärung
-  - [ ] 8c: Feature KI-Assistent
-  - [ ] 8d: Feature Spracheingabe mit Whisper
-  - [ ] 8e: Feature KI-Hilfe
-- [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags
-- [ ] Phase 10: Features Exe-Erstellung mit Einrichtungsprüfung, Windows-Warnungen und Selbstaktualisierung, Externe Ressourcen, Lizenzprüfung
+  - [x] 8c: Feature KI-Assistent
+  - [ ] 8d: Feature Spracheingabe mit Whisper (verschoben, erst nach Phase 10)
+  - [ ] 8e: Feature KI-Hilfe (verschoben, erst nach Phase 10)
+- [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags (verschoben, erst nach Phase 10)
+- [ ] Phase 10: Exe (überarbeitet am 27.09.2026, vorgezogen vor 8d, 8e und 9)
+  - [ ] 10a: Eintrag Exe, Exe hinzufügen, Exe-Datei wählen, Zustand in cockpit.toml, Anleitung
+  - [ ] 10b: Exe aus dem Code erstellen und aktualisieren mit PyInstaller, Start-Test, Ersetzen mit Sicherheitskopie
+  - [ ] 10c: Exe veröffentlichen und aus dem Release holen
+  - [ ] 10d: Die eigene Exe des Cockpits mit Aktualisierung beim Neustart, Exe-Einrichtung prüfen
+  - [ ] Später: Externe Ressourcen, Lizenzprüfung, Signieren
 - [ ] Phase 11: n8n-Grundlagen, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
 - [ ] Phase 12: E-Mail-Konten, Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
 - [ ] Phase 13: Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung
