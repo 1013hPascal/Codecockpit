@@ -35,7 +35,7 @@ Inhalt:
   - [x] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
 - [x] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten. Abgeschlossen am 27.09.2026
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, KI-Verwaltung, Terminal, KI-Features (ergänzt am 27.09.2026)
-  - [ ] 8a: Eingebautes Terminal
+  - [x] 8a: Eingebautes Terminal
   - [ ] 8b: Menü KI, KI-Verwaltung, lokale KI passend zum Rechner, Feature Terminal-Erklärung
   - [ ] 8c: Feature KI-Assistent
   - [ ] 8d: Feature Spracheingabe mit Whisper

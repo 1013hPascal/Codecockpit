@@ -43,7 +43,7 @@ Ergebnis:
 
 ## B. Befehle
 
-[!] 3. Ein Git-Befehl
+[X] 3. Ein Git-Befehl
 Tasten: `git log --oneline -3` eintippen, Enter. Dann Umschalt+Tab und die Ausgabe lesen.
 Erwartet: NVDA sagt „Läuft.“ und danach „Fertig. 3 Zeilen Ausgabe.“ Der Fokus bleibt im Befehlsfeld, das wieder leer ist. In der Ausgabe stehen „Anfrage um <Uhrzeit>: git log --oneline -3“, drei Zeilen mit Commits (die neueste zuerst, „Hilfetext geändert“) und „Fertig.“ Die Markierung steht auf der letzten Zeile.
 Ergebnis:
@@ -57,7 +57,7 @@ Und es wäre auch tugt, dass man immer sieht, im terminal, anfrge von: Uhrzeit e
 
 Antwort von Claude: Den Fehler habe ich gefunden, er lag nicht an Ihrem Konto. Enter im Befehlsfeld startete den Befehl und drückte gleichzeitig den Knopf „Abbrechen“, der in diesem Moment sichtbar wurde. Deshalb kam sofort „Abgebrochen.“ Jetzt drückt Enter keinen Knopf mehr von selbst, und ein neuer Test drückt wirklich Enter. Ihre Wünsche sind eingebaut: Jede Ausgabe beginnt mit „Anfrage um 16:42:10: git log --oneline -3“. In den Listen mit Text wählen Sie mit Umschalt+Pfeil oder Strg+Umschalt+Pfeil mehrere Zeilen aus, mit Strg+A alle. Strg+C kopiert dann alle ausgewählten Zeilen, NVDA sagt zum Beispiel „3 Zeilen kopiert.“ Das gilt für die Ausgabe des Terminals, die Anleitungen und Einführungen, die Meldungen, die Angaben im Verlauf, bei Repository verwalten und bei Pull Requests sowie für die Kommentare. Bitte die Punkte ab 3 noch einmal prüfen, nach einem Neustart von start_testdaten.bat.
 
-[!] 4. Ein Fehler
+[X] 4. Ein Fehler
 Tasten: Im Befehlsfeld `git checkout gibt-es-nicht` eintippen, Enter. Ausgabe lesen.
 Erwartet: NVDA sagt „Fehler, Rückgabewert 1. …“. In der Ausgabe steht die Meldung von Git, zum Beispiel „error: pathspec 'gibt-es-nicht' did not match …“, und „Fehler, Rückgabewert 1.“
 Ergebnis: selbes Problem wie bei 3
@@ -76,7 +76,7 @@ Ergebnis: wunsch von oben
 
 Antwort von Claude: Eingebaut, siehe Punkt 3.
 
-[ ] 7. PowerShell-Befehl und Umlaute
+[X] 7. PowerShell-Befehl und Umlaute
 Tasten: `Get-ChildItem -Name` eintippen, Enter. Dann `echo 'Grüße aus dem Terminal'`, Enter.
 Erwartet: Die Ausgabe listet die Dateien im Ordner Code, eine pro Zeile, ohne leere Zeilen. Danach steht „Grüße aus dem Terminal“ mit richtigen Umlauten.
 Ergebnis:
@@ -84,17 +84,17 @@ Ergebnis:
 
 ## C. Abbrechen und Sperren
 
-[ ] 8. Laufenden Befehl abbrechen
+[X] 8. Laufenden Befehl abbrechen
 Tasten: `Start-Sleep -Seconds 60` eintippen, Enter. Nach ein paar Sekunden Escape. Dann noch einmal Escape.
 Erwartet: Während der Befehl läuft, gibt es den Knopf „Abbrechen“. Das erste Escape sagt „Wird abgebrochen.“ und danach „Abgebrochen.“, das Fenster bleibt offen. Das zweite Escape schließt das Terminal.
 Ergebnis:
 
-[ ] 9. Force push gesperrt
+[X] 9. Force push gesperrt
 Tasten: Terminal wieder öffnen (kein Hinweis mehr). `git push --force` eintippen, Enter.
 Erwartet: Es kommt kein Hinweis mehr wie in Punkt 1. NVDA sagt „Gesperrt. Ein force push überschreibt die Geschichte auf der Plattform …“. Nichts wird ausgeführt.
 Ergebnis:
 
-[ ] 10. Terminal beim Projekt
+[X] 10. Terminal beim Projekt
 Tasten: Escape. Auf der Projektzeile PDF-Chat „Terminal …“. `Get-ChildItem -Name` eintippen, Enter.
 Erwartet: Das Fenster heißt „Terminal: PDF-Chat“. Die Ausgabe nennt die Ordner Code und Exe.
 Ergebnis:
@@ -102,7 +102,7 @@ Ergebnis:
 
 ## D. Mit GitHub (freiwillig)
 
-[ ] 11. Holen mit Zugangsdaten
+[X] 11. Holen mit Zugangsdaten
 Tasten: Nur mit einem Projekt auf Ihrem echten GitHub-Konto, zum Beispiel Wetter aus Phase 6, falls noch vorhanden. Terminal bei Code, `git fetch --dry-run -v` eintippen, Enter.
 Erwartet: Git holt ohne Nachfrage nach Benutzer oder Passwort. In der Ausgabe steht kein Token.
 Ergebnis:
