@@ -57,11 +57,9 @@ def project_label(project: Project, status: ProjectStatus | None = None,
 
 
 def exe_label(project: Project) -> str:
-    exe = project.newest_exe()
-    if exe is None:
-        return "Exe, leer"
-    created = datetime.fromtimestamp(exe.stat().st_mtime)
-    return f"Exe, {exe.name}, erstellt am {created:%d.%m.%Y}"
+    """Zum Beispiel "Exe, vom Cockpit erstellt am 23.09.2026, aktuell" (Konzept 10.4)."""
+    from cockpit.core.exe import status_line
+    return status_line(project)
 
 
 def children_of(project: Project, status: ProjectStatus | None = None,

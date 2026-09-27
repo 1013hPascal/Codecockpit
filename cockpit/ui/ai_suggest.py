@@ -27,7 +27,8 @@ INSERTED = "Vorschlag eingefügt."
 CANCELLED = "Vorschlag abgebrochen."
 WHAT = {"commit": "die Liste der geänderten Dateien und die geänderten Zeilen",
         "pull_request": "die Commit-Nachrichten und die geänderten Zeilen",
-        "description": "die Dateiliste, der Anfang der README und die Imports"}
+        "description": "die Dateiliste, der Anfang der README und die Imports",
+        "release": "die Commit-Nachrichten seit dem letzten Release"}
 
 
 @dataclass
@@ -180,6 +181,15 @@ def for_pull_request(services, project, head: str, base: Callable[[], str]
         return prepare(parent)
     source.prepare = prepare_with_base
     return source
+
+
+def for_release_notes(services, project, tags: list[str]) -> SuggestionSource | None:
+    """Versionshinweise beim Veröffentlichen der Exe (Phase 10). tags: neuestes zuerst."""
+    from cockpit.features.ai_assistant import suggest
+    code_dir, last = project.code_dir, (tags[0] if tags else "")
+    return _source(services, project, "release",
+                   lambda ai, language, cancel: suggest.release_notes(ai, code_dir, last,
+                                                                      language, cancel))
 
 
 def for_description(services, project) -> SuggestionSource | None:

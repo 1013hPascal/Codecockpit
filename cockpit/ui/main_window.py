@@ -203,6 +203,12 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "&Git installieren …", self.show_git_guide)
         self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
         self._action(help_menu, "B&ranches verstehen …", self.show_branches_guide)
+        self._action(help_menu, "&Python installieren …",
+                     lambda: self.show_guide("anleitungen/python-installieren.md",
+                                             "Python installieren"))
+        self._action(help_menu, "Wie funktioniert die &Exe? …",
+                     lambda: self.show_guide("anleitungen/exe-verstehen.md",
+                                             "Wie funktioniert die Exe?"))
         self._action(help_menu, "Oll&ama installieren …",
                      lambda: self.show_guide("anleitungen/ollama-installieren.md",
                                              "Ollama installieren"))

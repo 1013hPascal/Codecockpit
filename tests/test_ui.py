@@ -180,7 +180,7 @@ def test_right_expands_and_says_so(window, qtbot):
     press(qtbot, win.project_list, Qt.Key.Key_Right)
     texts = win.project_list.texts()
     row = texts.index("PDF-Chat, ausgeklappt")
-    assert texts[row + 1:row + 3] == ["Code", "Exe, leer"]
+    assert texts[row + 1:row + 3] == ["Code", "Exe, noch keine Exe-Datei"]
     assert current_text(win) == "PDF-Chat, ausgeklappt"            # Fokus bleibt
     assert announcer.last_text == "Ausgeklappt, 2 Unterordner."
 
@@ -217,7 +217,7 @@ def test_right_goes_to_child_left_collapses_back_to_project(window, qtbot):
     press(qtbot, win.project_list, Qt.Key.Key_Right)
     assert current_text(win) == "Code"
     press(qtbot, win.project_list, Qt.Key.Key_Down)
-    assert current_text(win) == "Exe, leer"
+    assert current_text(win) == "Exe, noch keine Exe-Datei"
     press(qtbot, win.project_list, Qt.Key.Key_Left)
     assert current_text(win) == "PDF-Chat"
     assert win.project_list.texts().count("Code") == 0              # wieder die normale Liste
@@ -278,7 +278,8 @@ def test_exe_label_names_file_and_date(window, projects_root):
     win.reload_projects()
     select_project(win, "PDF-Chat")
     win.project_list.expand(win.project_list.current_target()[1])
-    assert any(t.startswith("Exe, PDF-Chat.exe, erstellt am ") for t in win.project_list.texts())
+    assert any(t.startswith("Exe, PDF-Chat.exe, vom ") and t.endswith("Herkunft unbekannt")
+               for t in win.project_list.texts())
 
 
 # -- Aktionen -------------------------------------------------------------------------------
@@ -299,7 +300,7 @@ def test_actions_follow_the_tree_selection(window):
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
         "Projekt neu einlesen", "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.",
-        "Exe-Ordner öffnen"]
+        "Exe-Datei wählen …", "Exe-Ordner öffnen", "Wie funktioniert die Exe? …"]
 
 
 def test_unavailable_action_announces_reason(window, qtbot):

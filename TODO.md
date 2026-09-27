@@ -32,6 +32,13 @@ Ideen für später:
 - Sprach-KI in der KI-Verwaltung kommt mit der Spracheingabe in 8d.
 
 
+## Exe (aus Phase 10)
+
+- Intelligente App-Steuerung (Smart App Control) von Windows 11 blockiert selbst gebaute Exe-Dateien ohne Signatur, auch bei anderen Nutzern. Auf dem Rechner des Nutzers ist sie an. Lösungen: sie ausschalten (lässt sich danach nicht wieder einschalten, ohne Windows neu aufzusetzen) oder die Exe signieren (Zertifikat nötig). Entscheidung des Nutzers offen.
+- Externe Ressourcen, Lizenzprüfung und Signieren.
+- Nach dem Austausch der eigenen Exe: alte Version selbst wiederherstellen, wenn die neue nicht startet.
+
+
 ## Geheimnis in einem früheren Commit (aus Phase 5b)
 
 Findet die Sicherheitsprüfung ein Geheimnis in einem Commit, der noch nicht hochgeladen ist, stoppt sie das Hochladen. Bereinigen geht bisher nur im Terminal. Idee für später: die noch nicht hochgeladenen Commits zu einem neuen Commit ohne das Geheimnis zusammenfassen. Das ist erlaubt, weil diese Commits noch nicht auf der Plattform sind. Es ist kein force push.

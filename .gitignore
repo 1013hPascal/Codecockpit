@@ -18,3 +18,11 @@ Exe/
 *.sqlite
 *.log
 logs/
+
+# Ergänzt von CodeCockpit
+# Virtuelle Umgebungen und Caches
+env/
+.mypy_cache/
+# Geheimnisse und private Daten
+!.env.example
+*.sqlite3

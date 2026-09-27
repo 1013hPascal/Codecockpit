@@ -147,3 +147,14 @@ def project_context(code_dir: Path, name: str, max_chars: int) -> str:
         text = (code_dir / "requirements.txt").read_text(encoding="utf-8", errors="replace")
         parts += ["", "requirements.txt:", "\n".join(text.splitlines()[:40])]
     return limit_text(redact("\n".join(parts)), max_chars)
+
+
+def release_context(code_dir: Path, last_tag: str, max_chars: int) -> str:
+    """Commit-Nachrichten seit dem letzten Release, sonst die letzten 30."""
+    known = last_tag and git.run(["rev-parse", "-q", "--verify", f"refs/tags/{last_tag}"],
+                                 code_dir, check=False).returncode == 0
+    args = ["log", "--format=%s", f"{last_tag}..HEAD"] if known else ["log", "-30", "--format=%s"]
+    subjects = git.run(args, code_dir, check=False).stdout.strip()
+    parts = [f"Letztes Release: {last_tag}" if last_tag else "Es ist das erste Release.", "",
+             "Commit-Nachrichten seit dem letzten Release:", subjects or "(keine)"]
+    return limit_text(redact("\n".join(parts)), max_chars)

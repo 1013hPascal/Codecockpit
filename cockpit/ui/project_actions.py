@@ -57,6 +57,8 @@ class ProjectController:
         self.tasks: list[Task] = []
         self.upload = None                        # laufendes Hochladen (UploadRunner)
         self.pull_runner = None                   # laufender Ablauf für Pull Requests
+        from cockpit.ui.exe_flow import ExeActions
+        self.exe = ExeActions(self)                # Phase 10
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
@@ -129,7 +131,7 @@ class ProjectController:
                    availability=self._download_availability, is_default=True, order=10),
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
-        ]
+        ] + self.exe.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],

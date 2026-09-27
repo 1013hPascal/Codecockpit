@@ -45,7 +45,8 @@ def _exe_found(context: ActionContext) -> Availability:
     state = _exe_dir_found(context)
     if not state:
         return state
-    if context.project.newest_exe() is None:
+    from cockpit.core.exe import current_exe
+    if current_exe(context.project) is None:
         return Availability.no("Im Ordner Exe liegt keine Exe.")
     return Availability.yes()
 
@@ -67,8 +68,16 @@ def _open_exe_dir(context: ActionContext) -> None:
 
 
 def _run_exe(context: ActionContext) -> None:
-    exe = context.project.newest_exe()
-    start_program(exe)
+    from cockpit.core.exe import current_exe
+    from cockpit.core.errors import CockpitError
+    from cockpit.core.exe import BLOCKED, is_blocked
+    exe = current_exe(context.project)
+    try:
+        start_program(exe)
+    except OSError as exc:
+        if is_blocked(exc):
+            raise CockpitError(BLOCKED, repr(exc)) from None
+        raise
     context.announce(f"{exe.name} wird gestartet.")
 
 

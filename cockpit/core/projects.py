@@ -227,6 +227,12 @@ class ProjectStore:
             (remote.host if remote else "", remote.owner if remote else "",
              remote.name if remote else "", last_updated or None, project.id))
 
+    def set_exe_dir(self, project: Project, exe_dir: Path) -> Project:
+        """Exe-Ordner eines verknüpften Projekts festlegen (Phase 10, "Exe hinzufügen")."""
+        self.database.execute("UPDATE projects SET exe_dir = ? WHERE id = ?",
+                              (str(exe_dir.resolve()), project.id))
+        return self.get(project.id)
+
     def set_account(self, project: Project, account_id: int | None) -> None:
         self.database.execute("UPDATE projects SET account_id = ? WHERE id = ?",
                               (account_id, project.id))

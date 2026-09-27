@@ -1,0 +1,7 @@
+Schlagen Sie Versionshinweise für ein neues Release vor. Sie stehen auf GitHub beim Download der Exe.
+
+Zeile 1: ein kurzer Satz, was die neue Version bringt.
+Dann eine Leerzeile.
+Danach zwei bis fünf kurze Sätze zu den wichtigsten Änderungen, für Nutzer des Programms verständlich.
+
+<<aenderungen>>

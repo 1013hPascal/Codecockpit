@@ -68,3 +68,12 @@ def description(ai: TextAI, code_dir: Path, name: str, language: str,
     found = parse(ai.ask(request, _system(language), cancel, 200), MAX_DESCRIPTION)
     text = " ".join(p for p in (found.summary, found.details.replace("\n", " ")) if p)
     return Suggestion(text[:MAX_DESCRIPTION].rstrip())
+
+
+def release_notes(ai: TextAI, code_dir: Path, last_tag: str, language: str,
+                  cancel: threading.Event | None = None) -> Suggestion:
+    """Versionshinweise aus den Commit-Nachrichten seit dem letzten Release (Phase 10)."""
+    request = prompt_files.fill(prompt_files.load("ai_assistant_release"),
+                                aenderungen=context.release_context(code_dir, last_tag,
+                                                                    ai.max_chars))
+    return parse(ai.ask(request, _system(language), cancel, MAX_ANSWER_TOKENS))

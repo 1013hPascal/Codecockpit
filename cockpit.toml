@@ -1,2 +1,13 @@
 # Projekteinstellungen von CodeCockpit (ohne Geheimnisse, wird mitversioniert)
 is_cockpit = true
+
+[exe.build]
+start_file = "main.py"
+name = "CodeCockpit"
+one_file = true
+windowed = true
+icon = ""
+datas = []
+hidden_imports = []
+self_test = true
+test_seconds = 10

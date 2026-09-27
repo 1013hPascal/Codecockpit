@@ -687,3 +687,21 @@ Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konz
 - Antworten der KI werden bereinigt: kein Markdown, keine Anführungszeichen um den Vorschlag, keine Vorsätze wie „Titel:“. Die Zusammenfassung hat höchstens 100 Zeichen, die Kurzbeschreibung höchstens 350.
 - Test mit gemma4:12b: Ein Vorschlag dauert etwa 30 Sekunden.
 - Gruppe „KI“: Ab zwei KI-Features stehen sie in der Feature-Verwaltung und bei „Features dieses Projekts …“ als ein Eintrag, zum Beispiel „KI, 2 von 2 KI-Features eingeschaltet“. Ist er markiert, führt Tab in die Liste „KI-Features“ mit einem Kontrollkästchen pro KI-Feature. Beschreibung, „Einführung …“ und „Einstellungen …“ gelten für das dort markierte Feature. „KI-Features …“ im Menü KI markiert gleich diese Gruppe.
+
+
+## 27.09.2026: Phase 10 (Exe)
+
+Das Konzept 10.4 ist überarbeitet (Wunsch des Nutzers). Die Fragen und Antworten stehen in `fragen\phase-10.md`. Phase 10 kommt vor 8d, 8e und Phase 9.
+
+- Phase 10 kommt in einem Rutsch mit einer Checkliste, nicht in Teilschritten (Antwort 1: spart Tokens). Externe Ressourcen, Lizenzprüfung und Signieren kommen später.
+- Kern: „Exe hinzufügen …“ auf der Projektzeile (bei verknüpften Projekten mit Ordnerwahl), der Eintrag Exe, Exe starten, Exe-Datei wählen, Exe aus dem Release holen, Exe-Ordner öffnen, „Wie funktioniert die Exe? …“. Feature „Exe-Erstellung“ (für neue Projekte eingeschaltet): Exe aus dem Code erstellen bzw. aktualisieren, Exe veröffentlichen, Exe-Einrichtung prüfen.
+- Die Zeile Exe nennt die Herkunft: „vom Cockpit erstellt“, „extern erstellt“ (Antwort 7) oder „aus dem Release“, dazu Datum und Version. „aktuell“ oder „älter als der Code“ nur bei Exe-Dateien, die das Cockpit gebaut hat. Ohne Angabe in cockpit.toml: „Herkunft unbekannt“.
+- Zustand in cockpit.toml unter [exe], Einstellungen zum Bauen unter [exe.build]. Die .spec-Datei liegt im Ordner Code und wird mit hochgeladen. Eine vorhandene .spec-Datei wird nie überschrieben.
+- Bauen: Python vom Rechner (beim Start aus dem Code das eigene, sonst py oder python), eigene .venv im Ordner Code, dort pip install -r requirements.txt und pyinstaller. Der Bau läuft in einem temporären Ordner, die Ausgabe steht im Fenster „Exe erstellen“ Zeile für Zeile, die vier Schritte sagt NVDA an.
+- Test: Start-Test mit Wartezeit aus der Einstellung des Features (Vorgabe 10 Sekunden). Beendet sich das Programm vorher mit Rückgabewert 0, gilt der Test auch als bestanden. Mit self_test = true in [exe.build] läuft stattdessen --selbsttest.
+- Ersetzen: erst nach bestandenem Test. Die bisherige Exe kommt in die Sicherheitskopien. Lässt sie sich nicht verschieben (läuft sie?), kommt alles zurück, und nichts wird ersetzt.
+- Veröffentlichen: Version mit Vorschlag der nächsten Nummer, Tag vVersion auf dem Commit der Exe, wenn er schon auf GitHub ist, sonst auf dem Haupt-Branch. Ein Programmordner wird als ZIP-Datei angehängt. Versionshinweise selbst oder mit „Vorschlag der KI“ (Alt+I, weil Alt+V für Version belegt ist). Der Link kommt in die Zwischenablage.
+- Holen: aus dem neuesten Release mit einer Exe- oder ZIP-Datei. Ob es eine gibt, fragt das Cockpit erst beim Ausführen, damit die Aktionsliste ohne Netz auskommt.
+- Die eigene Exe des Cockpits: CodeCockpit.spec liegt im Code (mit allen Modulen von cockpit, Anleitungen, Prompts und Einführungen), eine einzelne Datei in Codecockpit\Exe\CodeCockpit.exe (Antwort 10). Läuft das Cockpit selbst als diese Exe, wartet die neue in Exe\_neu, und ein Startskript tauscht sie beim Neustart aus. Abweichung vom Konzept: Startet die neue Version nicht, stellt das Skript die alte nicht selbst wieder her. Sie liegt aber in den Sicherheitskopien (Menü Datei).
+- Der Selbsttest (--selbsttest) läuft in einem leeren, eigenen Datenordner und berührt nie die echten Daten. Er prüft zusätzlich, ob Anleitungen, Prompts und Einführungen in der Exe sind.
+- Anleitungen „Python installieren“ und „Wie funktioniert die Exe?“ im Menü Hilfe.

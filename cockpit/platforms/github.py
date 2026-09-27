@@ -27,6 +27,7 @@ from cockpit.core.availability import Availability
 from cockpit.core.errors import Cancelled, CockpitError
 from cockpit.core.secret import Secret
 from cockpit.core.text import join_words
+from cockpit.platforms.base import Release, ReleaseAsset, SupportsReleases
 from cockpit.platforms.base import (BranchProtection, BrowserLogin, Capability, Collaborator,
                                     GitCredentials, SupportsBranchProtection,
                                     NetworkError, NewRepo, NotAuthenticated, NotFound,
@@ -96,7 +97,7 @@ def _message(response: httpx.Response) -> str:
 
 
 class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
-                     SupportsPullRequests, SupportsBranchProtection):
+                     SupportsPullRequests, SupportsBranchProtection, SupportsReleases):
     kind = "github"
     display_name = "GitHub"
     account_fields = (
@@ -161,6 +162,7 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
         if not self.token.reveal():
             raise NotAuthenticated("Es ist kein Token eingetragen.")
         headers = {"Authorization": f"Bearer {self.token.reveal()}"}
+        headers.update(kwargs.pop("headers_extra", None) or {})
         try:
             response = self.client().request(method, path, headers=headers, **kwargs)
         except httpx.TimeoutException as exc:
@@ -621,6 +623,52 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
                 raise CockpitError("Die Anmeldung im Browser ist fehlgeschlagen.", error)
         raise CockpitError("Der Code ist abgelaufen. Bitte starten Sie die Anmeldung neu.")
 
+    # -- Releases (Phase 10) ---------------------------------------------------------------------
+    def releases(self, repo: RepoRef) -> list[Release]:
+        data = self.request("GET", f"/repos/{repo.owner}/{repo.name}/releases",
+                            "Releases lesen", params={"per_page": 30}).json()
+        return [_release(item) for item in data if not item.get("draft")]
+
+    def create_release(self, repo: RepoRef, tag: str, name: str, body: str,
+                       target: str) -> Release:
+        data = self.request("POST", f"/repos/{repo.owner}/{repo.name}/releases",
+                            "Release anlegen", Capability.RELEASES,
+                            json={"tag_name": tag, "target_commitish": target, "name": name,
+                                  "body": body}).json()
+        return _release(data)
+
+    def upload_asset(self, repo: RepoRef, release: Release, path) -> ReleaseAsset:
+        url = release.upload_url
+        if not url:
+            raise PlatformError("GitHub hat keine Adresse zum Hochladen genannt.",
+                                f"Release {release.tag}")
+        with open(path, "rb") as file:
+            data = self.request("POST", url, "Datei hochladen", Capability.RELEASES,
+                                params={"name": path.name}, content=file,
+                                headers_extra={"Content-Type": "application/octet-stream"},
+                                timeout=httpx.Timeout(3600, connect=15)).json()
+        return ReleaseAsset(int(data["id"]), data["name"], int(data.get("size", 0)))
+
+    def download_asset(self, repo: RepoRef, asset: ReleaseAsset, target, cancel=None) -> None:
+        """Mit Accept: application/octet-stream leitet GitHub zur Datei weiter. Der Token geht
+        dabei nicht mit, weil httpx ihn bei einem anderen Rechner weglässt."""
+        path = f"/repos/{repo.owner}/{repo.name}/releases/assets/{asset.id}"
+        headers = {"Authorization": f"Bearer {self.token.reveal()}",
+                   "Accept": "application/octet-stream"}
+        try:
+            with self.client().stream("GET", path, headers=headers,
+                                      timeout=httpx.Timeout(3600, connect=15)) as response:
+                if response.status_code >= 400:
+                    response.read()
+                    raise self._error(response, "GET", path, "Datei herunterladen", None)
+                with open(target, "wb") as file:
+                    for chunk in response.iter_bytes(1024 * 256):
+                        if cancel is not None and cancel.is_set():
+                            raise Cancelled()
+                        file.write(chunk)
+        except httpx.HTTPError as exc:
+            raise NetworkError(NO_CONNECTION, repr(exc)) from None
+
     @classmethod
     def _wait(cls, seconds: float, cancel: threading.Event | None) -> None:
         """Warten, dabei auf Abbruch achten."""
@@ -633,6 +681,14 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
             raise Cancelled()
         if cancel.is_set():
             raise Cancelled()
+
+
+def _release(data: dict) -> Release:
+    assets = tuple(ReleaseAsset(int(a["id"]), a.get("name", ""), int(a.get("size", 0)))
+                   for a in data.get("assets", []))
+    return Release(int(data["id"]), data.get("tag_name", ""), data.get("name") or "",
+                   data.get("html_url", ""), data.get("published_at") or "", assets,
+                   (data.get("upload_url") or "").split("{")[0])
 
 
 def _role(person: dict) -> str:

@@ -12,6 +12,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
+from pathlib import Path
 
 from cockpit.adapters.base import Adapter
 from cockpit.core.availability import Availability
@@ -338,6 +339,43 @@ class SupportsBranchProtection:
     def set_branch_protection(self, repo: RepoRef, branch: str,
                               rules: BranchProtection | None) -> None:
         """Schutzregeln setzen. None oder leere Regeln: Schutz entfernen."""
+        raise NotImplementedError
+
+
+# -- Releases (Phase 10, Konzept 10.4 und 10.5) ----------------------------------------------------
+@dataclass(frozen=True)
+class ReleaseAsset:
+    id: int
+    name: str
+    size: int                                # Bytes
+
+
+@dataclass(frozen=True)
+class Release:
+    id: int
+    tag: str                                 # "v1.3.0"
+    name: str
+    url: str                                 # Seite des Releases
+    published: str                           # ISO-Datum
+    assets: tuple[ReleaseAsset, ...] = ()
+    upload_url: str = ""                     # nur für upload_asset
+
+
+class SupportsReleases:
+    def releases(self, repo: RepoRef) -> list[Release]:
+        """Veröffentlichte Releases, das neueste zuerst."""
+        raise NotImplementedError
+
+    def create_release(self, repo: RepoRef, tag: str, name: str, body: str,
+                       target: str) -> Release:
+        """Release mit neuem Tag auf dem Commit oder Branch target anlegen."""
+        raise NotImplementedError
+
+    def upload_asset(self, repo: RepoRef, release: Release, path: Path) -> ReleaseAsset:
+        raise NotImplementedError
+
+    def download_asset(self, repo: RepoRef, asset: ReleaseAsset, target: Path,
+                       cancel=None) -> None:
         raise NotImplementedError
 
 

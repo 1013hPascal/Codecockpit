@@ -1,0 +1,48 @@
+# Wie funktioniert die Exe?
+
+## Wozu eine Exe?
+
+Eine Exe ist Ihr Programm als eine einzige Datei für Windows. Andere starten sie mit einem Doppelklick oder mit Enter, ohne Python zu installieren.
+
+Im Cockpit hat ein Projekt dafür neben „Code“ den Eintrag „Exe“. Er gehört zum Ordner Exe im Projektordner.
+
+## Den Eintrag Exe bekommen
+
+Fehlt der Eintrag, wählen Sie auf der Projektzeile „Exe hinzufügen …“. Das Cockpit legt den Ordner Exe an. Danach steht „Exe“ unter „Code“.
+
+## Woher die Exe kommt
+
+Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
+
+1. Vom Cockpit erstellt: „Exe aus dem Code erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner.
+2. Extern erstellt: „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Exe.
+3. Aus dem Release: „Exe aus dem Release holen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
+
+## Was die Zeile Exe sagt
+
+- „noch keine Exe-Datei“: Der Ordner ist leer.
+- „aktuell“: Das Cockpit hat die Exe aus dem jetzigen Stand des Codes gebaut.
+- „älter als der Code“: Seit dem Bau gibt es neue Commits. Mit „Exe aus dem Code aktualisieren …“ bauen Sie neu.
+
+## Was beim Bauen passiert
+
+1. Das Cockpit legt im Ordner Code eine eigene virtuelle Umgebung an (.venv) und installiert die Bibliotheken aus requirements.txt und PyInstaller. Die .venv wird nie hochgeladen.
+2. PyInstaller baut die Exe in einem temporären Ordner. Die Ausgabe steht Zeile für Zeile im Fenster.
+3. Das Cockpit startet die neue Exe zum Test. Läuft sie 10 Sekunden ohne Absturz, ist der Test bestanden.
+4. Erst dann kommt die bisherige Exe in die Sicherheitskopien (Menü Datei, Sicherheitskopien), und die neue ersetzt sie.
+
+Klappt etwas nicht, bleibt die bisherige Exe, wie sie war.
+
+In die Exe kommt nur, was Ihre Startdatei wirklich importiert, dazu Dateien, die Sie in der .spec-Datei angeben. Tests und Beispieldaten bleiben draußen.
+
+## Veröffentlichen
+
+„Exe veröffentlichen …“ legt auf GitHub ein Release an, zum Beispiel Version 1.0.1, und hängt die Exe an. Das Cockpit schlägt die nächste Nummer vor. Die Versionshinweise schreiben Sie selbst oder mit „Vorschlag der KI“.
+
+## Warnung von Windows
+
+Exe-Dateien ohne digitale Signatur lösen bei anderen oft die Warnung „Der Computer wurde durch Windows geschützt“ aus. Man startet sie mit „Weitere Informationen“ und dann „Trotzdem ausführen“.
+
+## Exe-Einrichtung prüfen
+
+Diese Aktion prüft, ob sich die Exe künftig ohne Handarbeit bauen lässt: ob die .spec-Datei und die Startdatei da sind, ob alle Bibliotheken in requirements.txt stehen, ob die Versionen fest sind und ob die Exe zu groß ist.
