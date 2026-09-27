@@ -105,6 +105,10 @@ Das ist nicht Teil des Konzepts, sondern ein Wunsch für die eigene Nutzung.
 
 ### Wann ist es sinnvoll?
 
+Entschieden am 27.09.2026: Wir warten bis Phase 10. Dort baut das Cockpit Exe-Dateien selbst. Die Exe von CodeCockpit ist dann der erste echte Test für dieses Feature.
+
+Die Überlegung davor:
+
 Jetzt, zwischen Phase 6 und Phase 7. Die Grundfunktionen für Git und GitHub sind fertig und getestet. Damit können Sie Ihre Projekte schon im Alltag verwalten.
 
 Später kommen nur Features dazu. Ihre Daten liegen im Datenordner des Cockpits, nicht in der Exe. Sie bleiben also erhalten, wenn Sie später eine neue Exe nehmen. Das gilt auch für den Tresor und die Konten.
