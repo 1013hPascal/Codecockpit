@@ -469,3 +469,51 @@ def test_blocked_by_smart_app_control(tmp_path, monkeypatch):
     with pytest.raises(CockpitError, match="Intelligente App-Steuerung") as info:
         exe.start_test(tmp_path / "App.exe", 5)
     assert info.value.message.endswith("Die bisherige Exe bleibt.")
+
+
+def blocked_build(make_services, projects_root, tmp_path, monkeypatch):
+    services, project = project_with(make_services, projects_root)
+    fake_exe(project.exe_dir, "Rechner.exe", "alt")
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel: Path("py.exe"))
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    (tmp_path / "cache").mkdir(exist_ok=True)
+    monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,
+                        cancel: fake_exe(work / "dist", "Rechner.exe", "neu"))
+
+    def blocked(path, seconds, self_test, cancel):
+        raise exe.BlockedByWindows(exe.BLOCKED)
+    monkeypatch.setattr(exe, "start_test", blocked)
+    return services, project
+
+
+def test_blocked_test_leaves_the_choice(make_services, projects_root, tmp_path, monkeypatch):
+    """Wunsch aus Phase 10: Kann das Cockpit nicht prüfen, prüft der Nutzer selbst."""
+    services, project = blocked_build(make_services, projects_root, tmp_path, monkeypatch)
+    result = exe.build(project, exe.BuildSettings(name="Rechner"), lambda s: None,
+                       lambda s: None)
+    assert result.untested and result.built.read_text() == "neu"
+    assert (project.exe_dir / "Rechner.exe").read_text() == "alt"       # noch nicht übernommen
+    installed = exe.install_untested(project, result)
+    assert installed.exe.read_text() == "neu" and not result.work.exists()
+    assert exe.status_line(project, head="").endswith("nicht geprüft")
+
+
+@pytest.mark.parametrize("answer", [True, False])
+def test_build_dialog_asks_when_blocked(qtbot, make_services, projects_root, tmp_path,
+                                        monkeypatch, answer):
+    from cockpit.ui import exe_flow
+    services, project = blocked_build(make_services, projects_root, tmp_path, monkeypatch)
+    questions = []
+    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **kw:
+                        questions.append(text) or answer)
+    dialog = exe_flow.BuildDialog(services, project, exe.BuildSettings(name="Rechner"))
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: not dialog.running, timeout=10000)
+    assert questions[0].startswith("Das Cockpit kann die neue Exe nicht selbst prüfen")
+    last = dialog.output.item(dialog.output.count() - 1).text()
+    if answer:
+        assert last.startswith("Exe erstellt, nicht geprüft und übernommen")
+        assert (project.exe_dir / "Rechner.exe").read_text() == "neu"
+    else:
+        assert last == "Die neue Exe wurde verworfen. Die bisherige bleibt."
+        assert (project.exe_dir / "Rechner.exe").read_text() == "alt"

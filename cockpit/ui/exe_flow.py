@@ -153,12 +153,37 @@ class BuildDialog(FocusDialog):
                                       QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     def finished_ok(self, result: exe.BuildResult) -> None:
+        if result.untested:
+            result = self.ask_untested(result)
+            if result is None:
+                return
         self.result = result
-        text = ("Exe erstellt und getestet. Sie wird beim nächsten Start übernommen."
-                if result.pending else f"Exe erstellt, getestet und übernommen: {result.exe.name}.")
+        tested = "getestet" if exe.read_record(self.project.code_dir) is None or \
+            exe.read_record(self.project.code_dir).tested else "nicht geprüft"
+        text = (f"Exe erstellt, {tested}. Sie wird beim nächsten Start übernommen."
+                if result.pending else f"Exe erstellt, {tested} und übernommen: "
+                                       f"{result.exe.name}.")
         if result.backup is not None:
             text += " Die bisherige Exe steht in den Sicherheitskopien."
         self.ended(text)
+
+    def ask_untested(self, result: exe.BuildResult) -> exe.BuildResult | None:
+        """Windows ließ den Test nicht zu: Der Nutzer prüft selbst (Wunsch aus Phase 10)."""
+        self.output.addItem("Das Cockpit kann die neue Exe nicht selbst prüfen, weil Windows den "
+                            "Start aus dem Cockpit blockiert.")
+        text = ("Das Cockpit kann die neue Exe nicht selbst prüfen, weil Windows den Start "
+                "blockiert. Soll sie trotzdem übernommen werden? Die bisherige kommt in die "
+                "Sicherheitskopien. Bitte starten Sie die neue Exe danach selbst und prüfen Sie "
+                "sie. Beim nächsten Bau versucht das Cockpit den Test wieder.")
+        if not confirm(self, "Exe nicht geprüft", text, yes="Übernehmen", no="Verwerfen"):
+            exe.discard(result)
+            self.ended("Die neue Exe wurde verworfen. Die bisherige bleibt.")
+            return None
+        try:
+            return exe.install_untested(self.project, result)
+        except CockpitError as exc:
+            self.ended(f"Fehler: {exc.message}", urgent=True)
+            return None
 
     def failed(self, message: str, details: str) -> None:
         if details:

@@ -93,7 +93,7 @@ Ergebnis:
 
 ## D. Die eigene Exe des Cockpits
 
-Wichtig: Auf Ihrem Rechner ist die Intelligente App-Steuerung von Windows eingeschaltet. Sie blockiert jede selbst gebaute Exe ohne Signatur. Solange sie an ist, schlagen der Test in Punkt 7 und die Punkte 12 und 13 fehl, mit der Meldung „Windows hat die Exe blockiert …“. Dann tragen Sie bitte ein, ob diese Meldung verständlich war.
+Hinweis: Kann das Cockpit eine neue Exe nicht selbst starten, weil Windows sie blockiert, fragt es: „Soll sie trotzdem übernommen werden?“ Vorgabe ist „Verwerfen“. Mit „Übernehmen“ heißt die Zeile danach „…, nicht geprüft“, und Sie prüfen die Exe selbst.
 
 [ ] 12. Exe starten
 Tasten: Schließen Sie das Cockpit. Starten Sie im Explorer `Codecockpit\Exe\CodeCockpit.exe`.

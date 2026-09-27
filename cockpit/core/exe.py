@@ -46,6 +46,10 @@ BLOCKED = ("Windows hat die Exe blockiert. Das macht die Intelligente App-Steuer
 BLOCKED_ERRORS = {4551, 1260}           # Anwendungssteuerungsrichtlinie, Gruppenrichtlinie
 
 
+class BlockedByWindows(CockpitError):
+    """Windows lässt das Cockpit die Exe nicht starten. Der Nutzer kann sie selbst prüfen."""
+
+
 def is_blocked(exc: OSError) -> bool:
     return getattr(exc, "winerror", None) in BLOCKED_ERRORS
 
@@ -62,6 +66,7 @@ class ExeRecord:
     commit: str = ""                    # nur bei "cockpit": Stand des Codes beim Bau
     version: str = ""                   # bei "release" und nach dem Veröffentlichen
     pending: bool = False               # wartet in Exe\_neu auf den Neustart
+    tested: bool = True                 # False: Windows ließ den Test nicht zu (Phase 10)
 
 
 @dataclass
@@ -86,14 +91,16 @@ def read_record(code_dir: Path) -> ExeRecord | None:
     if not isinstance(data, dict) or data.get("source") not in SOURCES:
         return None
     return ExeRecord(data["source"], str(data.get("date", "")), str(data.get("commit", "")),
-                     str(data.get("version", "")), bool(data.get("pending", False)))
+                     str(data.get("version", "")), bool(data.get("pending", False)),
+                     bool(data.get("tested", True)))
 
 
 def write_record(code_dir: Path, record: ExeRecord) -> None:
     data = read_config(code_dir)
     section = data.get(SECTION) if isinstance(data.get(SECTION), dict) else {}
     section.update({"source": record.source, "date": record.date, "commit": record.commit,
-                    "version": record.version, "pending": record.pending})
+                    "version": record.version, "pending": record.pending,
+                    "tested": record.tested})
     data[SECTION] = section
     write_config(code_dir, data)
 
@@ -171,6 +178,8 @@ def status_line(project: Project, head: str | None = None) -> str:
         head = head_commit(project.code_dir) if head is None else head
         if head:
             parts.append("aktuell" if head == record.commit else "älter als der Code")
+    if not record.tested:
+        parts.append("nicht geprüft")
     if record.pending:
         parts.append("neue Version wartet auf den Neustart")
     return ", ".join(parts)
@@ -380,6 +389,10 @@ class BuildResult:
     exe: Path                           # die übernommene (oder wartende) Exe
     pending: bool = False               # eigene Exe des Cockpits: wartet auf den Neustart
     backup: Path | None = None
+    untested: bool = False              # Test blockiert: noch nicht übernommen, wartet auf Ja
+    built: Path | None = None           # bei untested: die gebaute Exe im temporären Ordner
+    work: Path | None = None            # bei untested: temporärer Ordner, danach löschen
+    commit: str = ""
 
 
 def pyinstaller_build(code_dir: Path, python: Path, spec: Path, work: Path, on_line=None,
@@ -420,7 +433,7 @@ def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError as exc:
         if is_blocked(exc):
-            raise CockpitError(BLOCKED + " Die bisherige Exe bleibt.", repr(exc)) from None
+            raise BlockedByWindows(BLOCKED + " Die bisherige Exe bleibt.", repr(exc)) from None
         raise CockpitError("Die neue Exe ließ sich nicht starten.", repr(exc)) from None
     limit = 60 if self_test else seconds
     deadline = time.monotonic() + limit
@@ -455,7 +468,7 @@ def running_from(folder: Path) -> bool:
         return False
 
 
-def install(project: Project, built: Path, commit: str) -> BuildResult:
+def install(project: Project, built: Path, commit: str, tested: bool = True) -> BuildResult:
     """Getestete Exe übernehmen. Die eigene laufende Exe des Cockpits wartet in Exe\\_neu."""
     exe_dir = add_exe_dir(project)
     if is_cockpit(project) and running_from(exe_dir):
@@ -463,7 +476,8 @@ def install(project: Project, built: Path, commit: str) -> BuildResult:
         backups.remove_tree(pending)
         pending.mkdir()
         target = _put(built, pending, move=True)
-        write_record(project.code_dir, ExeRecord("cockpit", now(), commit, pending=True))
+        write_record(project.code_dir, ExeRecord("cockpit", now(), commit, pending=True,
+                                                 tested=tested))
         return BuildResult(exe_in(target), pending=True)
     backup = backup_current(project, "Exe ersetzt")
     try:
@@ -471,8 +485,21 @@ def install(project: Project, built: Path, commit: str) -> BuildResult:
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben. Die "
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
-    write_record(project.code_dir, ExeRecord("cockpit", now(), commit))
+    write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
     return BuildResult(exe_in(target), backup=backup)
+
+
+def install_untested(project: Project, result: BuildResult) -> BuildResult:
+    """Nach dem Ja des Nutzers: die nicht geprüfte Exe übernehmen (Wunsch aus Phase 10)."""
+    try:
+        return install(project, result.built, result.commit, tested=False)
+    finally:
+        discard(result)
+
+
+def discard(result: BuildResult) -> None:
+    if result.work is not None:
+        backups.remove_tree(result.work)
 
 
 def build(project: Project, settings: BuildSettings, on_status: Callable[[str], None],
@@ -488,15 +515,24 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
     python = prepare_venv(code_dir, on_line, cancel)
     spec = ensure_spec(code_dir, settings)
     work = Path(tempfile.mkdtemp(prefix="codecockpit-exe-", dir=paths.cache_dir()))
+    keep = False
     try:
         step(2)
         built = pyinstaller_build(code_dir, python, spec, work, on_line, cancel)
         step(3)
-        on_line(start_test(exe_in(built), settings.test_seconds, settings.self_test, cancel))
+        try:
+            on_line(start_test(exe_in(built), settings.test_seconds, settings.self_test,
+                               cancel))
+        except BlockedByWindows:
+            # Der Nutzer entscheidet in der Oberfläche, ob er selbst prüft (install_untested)
+            keep = True
+            return BuildResult(exe_in(built), untested=True, built=built, work=work,
+                               commit=commit)
         step(4)
         return install(project, built, commit)
     finally:
-        backups.remove_tree(work)
+        if not keep:
+            backups.remove_tree(work)
 
 
 # -- Eigene Exe: Austausch beim Neustart ------------------------------------------------------------
