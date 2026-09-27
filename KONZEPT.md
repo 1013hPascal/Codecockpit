@@ -303,6 +303,10 @@ Alles ist per Tastatur bedienbar. Status und Fortschritt werden als Text ausgege
 **Features**
 - Feature-Verwaltung … (Abschnitt 8.5)
 
+**KI** (ergänzt am 27.09.2026, Abschnitt 11.1)
+- KI-Verwaltung … (KI-Werkzeuge für Text und Sprache, lokal oder extern)
+- KI-Features … (öffnet die Feature-Verwaltung bei den KI-Features)
+
 **Konten**
 - Kontenverwaltung …
 - Tresor-Einstellungen …
@@ -517,6 +521,18 @@ In jedem Commit stehen ein Name und eine E-Mail-Adresse. Bei öffentlichen Repos
 - Das Cockpit erklärt, dass man bei GitHub zusätzlich die Einstellung „E-Mail-Adresse privat halten“ einschalten kann, dann lehnt GitHub Pushes mit der privaten Adresse ab.
 - Die Sicherheitsprüfung (9.6) warnt, wenn ein Repository öffentlich ist oder öffentlich gemacht werden soll und Commits eine private Adresse enthalten.
 
+### 9.9 Terminal
+
+Ergänzt am 27.09.2026 (Wunsch des Nutzers): Das Cockpit deckt nicht jede Möglichkeit von Git und GitHub ab. Für alles Übrige gibt es ein eingebautes Terminal. Es gehört zum Kern und ist immer da.
+
+- Aktion „Terminal …“ auf der Projektzeile und bei „Code“. Das Terminal startet im Ordner des Projekts bzw. im Ordner `Code`.
+- Aufbau des Fensters: ein Eingabefeld für den Befehl. Mit Umschalt+Tab erreicht man die Ausgabe, mit Tab die Erklärung der KI.
+- Die Ausgabe ist eine Liste, eine Zeile pro Zeile der Ausgabe, wie im Terminal: zuerst der eingegebene Befehl, dann die Ausgabe und Fehlermeldungen. So lässt sie sich mit Pfeiltasten und Braillezeile Zeile für Zeile lesen.
+- Schlägt ein Befehl fehl, schreibt die KI in das Feld „Erklärung der KI“, warum das wahrscheinlich passiert ist und was man tun kann. Das Feld gibt es nur, wenn das Feature „Terminal-Erklärung“ (10.16) aktiv ist. Ohne KI gibt es das Terminal ohne dieses Feld.
+- Git bekommt die Zugangsdaten des Kontos wie bei allen Aktionen des Cockpits über Umgebungsvariablen. Tokens erscheinen nie in der Ausgabe, auch nicht in der Erklärung.
+- Befehle, die auf eine Eingabe warten oder einen Editor öffnen würden, werden so gestartet, dass sie das nicht tun (zum Beispiel ohne Pager). Ein laufender Befehl lässt sich abbrechen.
+- Ein force push wird auch hier nie ausgeführt. Das Cockpit erklärt stattdessen, warum.
+
 ## 10. Features
 
 Jedes Feature ist global und pro Projekt schaltbar. Übersicht:
@@ -537,6 +553,9 @@ Jedes Feature ist global und pro Projekt schaltbar. Übersicht:
 | Externe Ressourcen | – | Große Modelle und Daten außerhalb der Exe bereitstellen |
 | Lizenzprüfung | – | Lizenzen der Bibliotheken prüfen und Konflikte melden |
 | Branches und Pull Requests | Plattform mit Pull Requests | Änderungen über eigene Zweige und Übernahme-Anträge |
+| Spracheingabe | Sprach-KI (Whisper) | In jedes Eingabefeld diktieren (ergänzt am 27.09.2026) |
+| Terminal-Erklärung | KI | Erklärt Fehler im eingebauten Terminal (ergänzt am 27.09.2026) |
+| KI-Hilfe | KI | Beantwortet Fragen zur Bedienung des Cockpits (ergänzt am 27.09.2026) |
 
 ### 10.1 KI-Assistent
 
@@ -736,6 +755,23 @@ In Unternehmen ist das direkte Hochladen in den Hauptzweig oft gesperrt. Man arb
 - **Geschützter Hauptzweig:** Lehnt die Plattform einen Push in den Hauptzweig ab, weil er geschützt ist, erklärt das Cockpit das und bietet an, dieses Feature für das Projekt einzuschalten und die Änderungen in einen neuen Zweig hochzuladen.
 - Exe-Erstellung und Releases laufen bei aktivem Feature standardmäßig erst, wenn Änderungen im Hauptzweig angekommen sind.
 
+### 10.15 Spracheingabe
+
+Ergänzt am 27.09.2026 (Wunsch des Nutzers).
+
+- Diktieren in jedes Eingabefeld des Cockpits, zum Beispiel die Commit-Nachricht oder einen Kommentar.
+- Ein Tastenkürzel startet die Aufnahme, dasselbe Kürzel beendet sie. Der erkannte Text wird an der Schreibmarke eingefügt. Ein zweites Kürzel bricht die Aufnahme ab, ohne etwas einzufügen. Vorschlag: Strg+K und Strg+Umschalt+K, wenn diese frei sind.
+- Ansagen: „Aufnahme läuft.“, „Text eingefügt.“, „Aufnahme abgebrochen.“
+- Spracherkennung mit Whisper, lokal auf dem Rechner oder bei einem externen Anbieter (Abschnitt 11.1). Vorbild ist das Tagebuch des Nutzers (faster-whisper und sounddevice).
+
+### 10.16 Terminal-Erklärung
+
+Ergänzt am 27.09.2026. Erklärt im eingebauten Terminal (9.9), warum ein Befehl fehlgeschlagen ist und was man tun kann. Die KI bekommt den Befehl und die Ausgabe, ohne Tokens und ohne gefundene Geheimnisse. Standard ist die lokale Text-KI.
+
+### 10.17 KI-Hilfe
+
+Ergänzt am 27.09.2026. Beantwortet Fragen zur Bedienung des Cockpits, zum Beispiel „Wo schalte ich Pull Requests ein?“. Grundlage sind die Anleitungen, die Einführungen der Features und eine Beschreibung der Menüs und Aktionen. Die Antwort nennt den Weg mit Tasten. Erreichbar über das Menü Hilfe.
+
 ## 11. KI-Anbieter
 
 Die KI ist ein Adapter. Unter Einstellungen, KI-Anbieter werden beliebig viele Anbieter eingerichtet. Jedes Profil wählt einen davon, und in den Feature-Einstellungen kann für einzelne Aufgaben ein anderer gewählt werden (z. B. lokale KI für Commit-Vorschläge, stärkere Cloud-KI für Übersetzungen).
@@ -756,6 +792,21 @@ Pro Anbieter: Name, Art, Adresse, Modell, API-Schlüssel (im Tresor), zusätzlic
 Alle Prompts liegen in eigenen Dateien und können angepasst werden.
 
 Die KI-Einstellungen werden auch an n8n übergeben, damit n8n für Antwortentwürfe und Versionshinweise denselben Anbieter nutzt.
+
+### 11.1 KI-Verwaltung und lokale KI
+
+Ergänzt am 27.09.2026 (Wunsch des Nutzers).
+
+- Das Menü „KI“ bündelt alles zur KI. „KI-Verwaltung …“ zeigt die KI-Werkzeuge, getrennt nach Art: Text-KI (für Vorschläge, Erklärungen, Hilfe) und Sprach-KI (für die Spracheingabe).
+- Jedes Werkzeug ist lokal oder extern. Lokal: Ollama für Text, Whisper für Sprache, beides auf dem eigenen Rechner. Extern: ein Anbieter aus der Kontenverwaltung. Wählt man „Extern einrichten …“, öffnet sich die Kontenverwaltung bei den KI-Anbietern.
+- Man kann mehrere Werkzeuge einrichten. Die KI-Features wählen in ihren Einstellungen, welches sie nutzen. Vorgabe ist das Standard-Werkzeug der jeweiligen Art.
+- „KI-Features …“ öffnet die Feature-Verwaltung (8.5) bei den KI-Features: KI-Assistent, Spracheingabe, Terminal-Erklärung, KI-Hilfe.
+
+**Lokale KI passend zum Rechner:**
+- Das Cockpit liest Arbeitsspeicher, Prozessor und Grafikkarte selbst aus. Gelingt das nicht, erklärt es, wo man die Angaben in Windows findet, und fragt sie ab.
+- Daraus schlägt es ein Modell vor, in drei Stufen nach Arbeitsspeicher: ab 16 GB, ab 32 GB und ab 64 GB. Mehr Stufen braucht es nicht, für größere Modelle gibt es firmeninterne Anbieter. Die Namen der Modelle stehen an einer einzigen Stelle und lassen sich anpassen.
+- Für Whisper gibt es ebenso eine Empfehlung nach Arbeitsspeicher und Grafikkarte.
+- Ist ein Modell noch nicht installiert, erklärt das Cockpit den Befehl (zum Beispiel `ollama pull …`) und bietet an, ihn im eingebauten Terminal auszuführen.
 
 ## 12. Automation mit n8n
 
@@ -886,7 +937,7 @@ Nach jeder Phase ist das Programm nutzbar.
 5. **Grundfunktionen:** Git-Identität mit noreply-Adresse, Projektaufbau mit `Code` und `Exe`, Projektbaum mit automatischem Zuklappen, Projekte hinzufügen und klonen, Reparatur nach dem Verschieben, neues Projekt hochladen, Änderungen hochladen und holen, Verlauf, Rückgängig machen, Links, Repository verwalten mit Mitarbeitern, Sicherheitsprüfung, Grundfunktionen für Branches
 6. **Feature Branches und Pull Requests** mit Reviews und Schutzregeln (vorgezogen, siehe ENTSCHEIDUNGEN.md)
 7. **Feature-Verwaltung** global und pro Projekt
-8. **KI-Adapter** (zuerst Ollama und OpenAI-kompatibel), Feature KI-Assistent
+8. **KI-Adapter** (zuerst Ollama und OpenAI-kompatibel), KI-Verwaltung mit lokaler KI passend zum Rechner, eingebautes Terminal mit Terminal-Erklärung, Feature KI-Assistent, Spracheingabe mit Whisper, KI-Hilfe (ergänzt am 27.09.2026)
 9. **Features README-Pflege** (mit Sprachen) und **Versionen** mit Tags
 10. **Feature Exe-Erstellung** inklusive „Exe-Einrichtung prüfen“, Hinweis zu Windows-Warnungen und Selbstaktualisierung des Cockpits, dazu **Feature Externe Ressourcen** und **Feature Lizenzprüfung**
 11. **n8n-Grundlagen:** Automations-Adapter, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
