@@ -29,10 +29,10 @@ Inhalt:
   - [x] 5d: Verlauf und Rückgängig machen, mit Sicherheitskopien
   - [x] 5e: Links, Repository verwalten mit Mitarbeitern, Aus der Liste entfernen
   - [x] 5f: Übersicht „Branches“ und Stash
-- [ ] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen)
+- [x] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen). Abgeschlossen am 27.09.2026
   - [x] 6a: Pull Requests erstellen, ansehen, kommentieren, Entwürfe, schließen und wieder öffnen
   - [x] 6b: Reviews, Änderungen ansehen, in main übernehmen und aufräumen
-  - [ ] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
+  - [x] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
 - [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
 - [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags
