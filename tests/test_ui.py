@@ -294,7 +294,7 @@ def test_actions_follow_the_tree_selection(window):
         "Projekt neu einlesen",
         "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
         "geht im Menü Features.",
-        "Projektordner öffnen", "Aus der Liste entfernen …"]
+        "Terminal …", "Projektordner öffnen", "Aus der Liste entfernen …"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
@@ -319,6 +319,7 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     win.focus_actions()
     press(qtbot, win.actions_list, Qt.Key.Key_Down)          # oben steht Projekt neu einlesen
     press(qtbot, win.actions_list, Qt.Key.Key_Down)          # dann Features dieses Projekts
+    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # dann Terminal
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)
     assert len(opened) == 2 and opened[0].name == "PDF-Chat"

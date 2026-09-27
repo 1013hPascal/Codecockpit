@@ -647,3 +647,12 @@ Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konz
 ### Terminal
 
 - PowerShell. Beim ersten Öffnen einmal der Hinweis, dass Befehle ohne Rückfrage und ohne Sicherheitskopie laufen. Gesperrt ist nur der force push.
+
+### Entscheidungen in Phase 8a (Terminal)
+
+- „Terminal …“ auf der Projektzeile (Ordner des Projekts) und bei Code (Ordner Code).
+- Fehler von PowerShell kommen als einfacher Text, nur mit der Meldung selbst. Leere Zeilen und Leerzeichen am Zeilenende fallen weg, weil sie auf der Braillezeile stören.
+- Jede Ausgabe beginnt mit „> Befehl“ und endet mit „Fertig.“ oder „Fehler, Rückgabewert N.“ Die Ansage nennt dazu die Anzahl der Zeilen. Der Fokus bleibt im Befehlsfeld.
+- Git öffnet im Terminal weder Pager noch Editor und fragt nie nach einem Passwort. Befehle bekommen keine Eingabe. So bleibt nichts hängen.
+- Tokens und die Zugangsdaten für Git werden in jeder Zeile der Ausgabe durch *** ersetzt. Die Zugangsdaten gibt es nur, wenn der Tresor offen ist. Das Terminal fragt dafür nicht nach dem Master-Passwort.
+- Die Ausgabe behält höchstens 5000 Zeilen.

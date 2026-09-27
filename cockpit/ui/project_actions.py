@@ -100,6 +100,14 @@ class ProjectController:
                    self.project_features_action, availability=self._features_availability,
                    visible=lambda c: c.project is not None and c.project.folder_found,
                    order=70),
+            Action("terminal_project", "Terminal …", Target.PROJECT,
+                   lambda c: self.terminal_action(c, False),
+                   visible=lambda c: c.project is not None and c.project.folder_found,
+                   order=75),
+            Action("terminal_code", "Terminal …", Target.CODE,
+                   lambda c: self.terminal_action(c, True),
+                   visible=lambda c: c.project is not None and c.project.folder_found,
+                   order=86),
             Action("links", "Links …", Target.PROJECT, self.links_action,
                    availability=self._account_availability, visible=_has_remote, order=20),
             Action("manage_repo", "Repository verwalten …", Target.PROJECT, self.manage_action,
@@ -495,6 +503,15 @@ class ProjectController:
     def create_pull_action(self, context: ActionContext) -> None:
         from cockpit.ui.pull_request_flow import PullRequestRunner
         PullRequestRunner(self, context.project).create()
+
+    # -- Terminal (Konzept 9.9, Phase 8a) --------------------------------------------------
+    def terminal_action(self, context: ActionContext, code: bool) -> None:
+        from cockpit.ui.terminal_dialog import open_terminal
+        project = context.project
+        folder = project.code_dir if code else project.project_dir
+        title = f"{project.name}, Code" if code else project.name
+        open_terminal(self.services, self.window, folder, title, project)
+        self.window.refresh_status([project.id])
 
     # -- Features dieses Projekts (Konzept 8.4, Phase 7) ----------------------------------------
     def _features_availability(self, context: ActionContext) -> Availability:
