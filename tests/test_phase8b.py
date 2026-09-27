@@ -597,3 +597,23 @@ def test_wizard_page_ai(qtbot, make_services, quiet_machine):
     page.on_show()
     qtbot.waitUntil(lambda: page.task is None, timeout=10000)
     assert page.done_text == "Text-KI: Ollama auf diesem Rechner, gemma4:12b."
+
+
+def test_enter_clicks_the_focused_button(qtbot, make_services, quiet_machine, monkeypatch):
+    """Test von 8b: Enter auf "Verbindung testen" tat nichts."""
+    from PySide6.QtCore import Qt
+    from cockpit.ui import ai_dialogs
+    services = make_services()
+    services.ai_tools.add(TEXT, OLLAMA, "gemma4:12b")
+    dialog = manager(qtbot, services)
+    clicked = []
+    monkeypatch.setattr(ai_dialogs.AIManagerDialog, "test_current",
+                        lambda self: clicked.append("test"))
+    dialog.test_button.clicked.disconnect()
+    dialog.test_button.clicked.connect(dialog.test_current)
+    dialog.show()
+    dialog.list.setCurrentRow(1)
+    dialog.test_button.setFocus()
+    qtbot.keyClick(dialog.test_button, Qt.Key.Key_Return)
+    assert clicked == ["test"]
+    assert dialog.isVisible()                                   # kein anderer Knopf ausgelöst

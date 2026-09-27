@@ -33,6 +33,18 @@ class FocusDialog(QDialog):
         announce_focus(widget)
 
 
+def click_focused_button(dialog: QWidget, event) -> bool:
+    """Für Dialoge ohne Standardknopf: Enter drückt den Knopf mit dem Fokus (Test von 8b: Enter
+    auf "Verbindung testen" tat nichts). True, wenn Enter verarbeitet wurde."""
+    from PySide6.QtWidgets import QPushButton
+    if event.key() not in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+        return False
+    focus = dialog.focusWidget()
+    if isinstance(focus, QPushButton) and focus.isEnabled():
+        focus.click()
+    return True
+
+
 def announce_focus(widget: QWidget) -> None:
     """Fokus-Ereignis für NVDA senden, bei Listen für den markierten Eintrag."""
     event = QAccessibleEvent(widget, QAccessible.Event.Focus)

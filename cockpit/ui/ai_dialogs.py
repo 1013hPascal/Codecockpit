@@ -24,8 +24,8 @@ from cockpit.core.ai_tools import ACCOUNT, OLLAMA, TEXT, AITool
 from cockpit.core.errors import CockpitError
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import (FocusDialog, choose_from_list, confirm, label_for, make_copyable,
-                               name_widget)
+from cockpit.ui.common import (FocusDialog, choose_from_list, click_focused_button, confirm,
+                               label_for, make_copyable, name_widget)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.repo_dialogs import _is_enter, button_row
 from cockpit.ui.tasks import Task
@@ -113,6 +113,10 @@ class AIManagerDialog(FocusDialog):
         self.initial_focus_widget = self.list
 
     # -- Liste ------------------------------------------------------------------------------
+    def keyPressEvent(self, event) -> None:
+        if not click_focused_button(self, event):
+            super().keyPressEvent(event)
+
     def eventFilter(self, watched, event) -> bool:
         if watched is self.list and _is_enter(event):
             self.open_current()
@@ -384,6 +388,10 @@ class ModelDialog(FocusDialog):
         self.fill_suggestions()
         self.load()
         self.initial_focus_widget = self.installed_list
+
+    def keyPressEvent(self, event) -> None:
+        if not click_focused_button(self, event):
+            super().keyPressEvent(event)
 
     def eventFilter(self, watched, event) -> bool:
         if _is_enter(event):
