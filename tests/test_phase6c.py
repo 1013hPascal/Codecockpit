@@ -258,34 +258,6 @@ def test_protected_main_offers_a_new_branch(live, qtbot, account, tmp_path, proj
     wait_idle(qtbot, win)
 
 
-def test_feature_toggle_actions(live, qtbot, account, tmp_path, projects_root, monkeypatch):
-    from cockpit.ui import project_actions
-    from tests.test_phase5e import connected_project
-    services, acc, _ = account
-    services.registry = FeatureRegistry([MANIFEST])
-    services.features.registry = services.registry
-    _, code, _ = setup_repo(tmp_path, projects_root)
-    project = connected_project(services, code, acc.id)
-    win = live(services)
-    select_code(win, services, code)
-    assert "Hochladen über Pull Requests einschalten …" in labels(win)
-    questions = []
-    monkeypatch.setattr(project_actions, "confirm",
-                        lambda p, t, text, **k: questions.append((text, k)) or True)
-    entry = next(e for e in win.current_entries() if e.action.id == "pull_feature_on")
-    win.run_entry(entry)
-    assert "cockpit.toml" in questions[0][0]
-    assert questions[0][1] == {"yes": "Einschalten", "no": "Abbrechen"}
-    assert said("Hochladen über Pull Requests eingeschaltet.")
-    assert services.features.enabled_in_project(FEATURE_ID, project)
-    win.refresh_actions()
-    assert "Hochladen über Pull Requests ausschalten …" in labels(win)
-    entry = next(e for e in win.current_entries() if e.action.id == "pull_feature_off")
-    win.run_entry(entry)
-    assert not services.features.enabled_in_project(FEATURE_ID, project)
-    wait_idle(qtbot, win)
-
-
 # -- Oberfläche: Schutzregeln -------------------------------------------------------------------
 class ProtectFake(FakePlatform, SupportsBranchProtection):
     def __init__(self, rules=None) -> None:

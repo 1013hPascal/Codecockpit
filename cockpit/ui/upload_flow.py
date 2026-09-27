@@ -93,13 +93,20 @@ class UploadRunner:
     def ask_details(self, outcome) -> None:
         self.platform, user, organizations = outcome
         settings = self.services.settings.load()
+        features = self.services.features
+        offered = [(m.id, m.name) for m in features.visible_features()]
         dialog = upload_dialogs.UploadDialog(
             self.title, upload.suggest_name(self.project.name), self.window.project_list.platform_name,
             user, organizations, settings.default_private, settings.default_license,
-            self.window)
+            self.window, offered, features.project_features(self.project))
         if not dialog.exec() or dialog.spec is None:
             return
         self.spec = dialog.spec
+        if self.spec.features is not None:
+            # Was ein gewähltes Feature braucht, kommt mit (Konzept 8.4)
+            needed = {d for f in self.spec.features
+                      for d in self.services.registry.dependencies(f)}
+            self.spec.features |= needed
         self.spec.account_id = self.account.id
         owner = self.spec.organization or user
         kind = "private" if self.spec.private else "öffentliche"

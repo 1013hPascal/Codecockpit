@@ -101,7 +101,8 @@ def test_no_fixed_colors(window):
 def test_menu_bar_order_and_unique_mnemonics(window):
     win = window()
     titles = [a.text() for a in win.menuBar().actions()]
-    assert [t.replace("&", "") for t in titles] == ["Datei", "Konten", "Einstellungen", "Hilfe"]
+    assert [t.replace("&", "") for t in titles] == ["Datei", "Features", "Konten",
+                                                    "Einstellungen", "Hilfe"]
     keys = [re.search(r"&(\w)", t).group(1).lower() for t in titles]
     assert len(keys) == len(set(keys))
     for top in win.menuBar().actions():
@@ -114,7 +115,7 @@ def test_menu_bar_order_and_unique_mnemonics(window):
 
 def test_help_menu_entries_and_shortcuts(window):
     win = window()
-    help_menu = win.menuBar().actions()[3].menu()
+    help_menu = win.menuBar().actions()[-1].menu()
     entries = {a.text().replace("&", ""): a.shortcut().toString()
                for a in help_menu.actions() if not a.isSeparator()}
     assert entries["Tastenkürzel"] == "F1"
@@ -289,8 +290,11 @@ def test_actions_follow_the_tree_selection(window):
         "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
-    assert win.actions_list.texts() == ["Projekt neu einlesen", "Projektordner öffnen",
-                                        "Aus der Liste entfernen …"]
+    assert win.actions_list.texts() == [
+        "Projekt neu einlesen",
+        "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
+        "geht im Menü Features.",
+        "Projektordner öffnen", "Aus der Liste entfernen …"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
@@ -314,6 +318,7 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     select_project(win, "PDF-Chat")
     win.focus_actions()
     press(qtbot, win.actions_list, Qt.Key.Key_Down)          # oben steht Projekt neu einlesen
+    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # dann Features dieses Projekts
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)
     assert len(opened) == 2 and opened[0].name == "PDF-Chat"

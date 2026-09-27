@@ -391,7 +391,7 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
 
     class FakeUploadDialog:
         def __init__(self, title, name, platform_name, user, organizations, private, license,
-                     parent=None):
+                     parent=None, *features):
             assert title == "Mein Rechner auf GitHub hochladen"
             assert (name, user, private, license) == ("Mein-Rechner", "tester", True, "MIT")
             self.spec = UploadSpec(name, "Rechnet", private, license)

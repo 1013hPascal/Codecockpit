@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cockpit.core import git, identity, safety_check
+from cockpit.core.projects import read_config, write_config
 from cockpit.core.errors import CockpitError
 from cockpit.core.flows.engine import Flow, FlowContext
 from cockpit.core.flows.hooks import Hook
@@ -41,6 +42,7 @@ class UploadSpec:
     organization: str = ""             # leer: eigenes Konto
     account_id: int | None = None
     accepted: set[tuple[str, str, str]] = field(default_factory=set)   # bestätigte Warnungen
+    features: set[str] | None = None   # Features für cockpit.toml (Phase 7), None: nichts ändern
 
 
 def suggest_name(folder_name: str) -> str:
@@ -98,6 +100,13 @@ def prepare(code_dir: Path, project_name: str, spec: UploadSpec, platform, git_n
             done.append(f"Lizenzdatei {spec.license} angelegt.")
         else:
             done.append("Die Lizenzvorlage war nicht erreichbar. Es wurde keine LICENSE angelegt.")
+    if spec.features is not None:
+        # Konzept 9.1: Die Features stehen in cockpit.toml und kommen mit in die erste Version
+        data = read_config(code_dir)
+        features = data.get("features") if isinstance(data.get("features"), dict) else {}
+        features["enabled"] = sorted(spec.features)
+        data["features"] = features
+        write_config(code_dir, data)
     return done
 
 

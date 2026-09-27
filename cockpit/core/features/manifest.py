@@ -35,8 +35,8 @@ class FeatureManifest:
     introduction: str = "EINFUEHRUNG.md"                 # Schritt-für-Schritt-Einführung
     n8n_workflows: str = ""                              # Ordner mit Workflows, leer: keine
     enabled_by_default: bool = False                     # Vorauswahl für neue Projekte
-    # Name einer Ja-Nein-Grundeinstellung, die die Vorauswahl bestimmt, zum Beispiel
-    # "branches_by_default" (Konzept 3.13). Leer: enabled_by_default gilt.
+    # Name einer alten Ja-Nein-Grundeinstellung, die die Vorauswahl bestimmt, solange in der
+    # Feature-Verwaltung noch keine Vorauswahl gespeichert ist (Phase 7). Leer: keine.
     default_setting: str = ""
     package_dir: Path | None = field(default=None, compare=False)
 

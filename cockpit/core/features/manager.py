@@ -72,19 +72,52 @@ class FeatureManager:
 
     # -- Pro Projekt ----------------------------------------------------------------------
     def default_features(self) -> set[str]:
+        """Vorauswahl für neue Projekte und für Projekte, die in cockpit.toml nichts festlegen.
+        Ist sie in der Feature-Verwaltung gespeichert, gilt nur sie (Phase 7)."""
         settings = self.settings.load()
         chosen = settings.default_features
-        if chosen is None:
-            result = {m.id for m in self.registry.all() if m.enabled_by_default}
-        else:
-            result = {f for f in chosen if f in self.registry}
+        if chosen is not None:
+            return {f for f in chosen if f in self.registry}
+        result = {m.id for m in self.registry.all() if m.enabled_by_default}
         for manifest in self.registry.all():
-            if manifest.default_setting:
-                if getattr(settings, manifest.default_setting, False):
-                    result.add(manifest.id)
-                else:
-                    result.discard(manifest.id)
+            if manifest.default_setting and getattr(settings, manifest.default_setting, False):
+                result.add(manifest.id)
         return result
+
+    def set_default_features(self, feature_ids: set[str]) -> None:
+        self.settings.update(default_features=sorted(f for f in feature_ids
+                                                     if f in self.registry))
+
+    def follows_default(self, project: "Project") -> bool:
+        """True, wenn cockpit.toml des Projekts nichts zu Features festlegt."""
+        return self.projects.enabled_features(project) is None
+
+    def set_project_features(self, project: "Project", feature_ids: set[str]) -> None:
+        """Die Auswahl fest in cockpit.toml schreiben (ohne Prüfung der Abhängigkeiten)."""
+        self.projects.set_enabled_features(project, {f for f in feature_ids
+                                                     if f in self.registry})
+
+    def project_count(self, feature_id: str) -> int:
+        """In wie vielen Projekten der Liste das Feature eingeschaltet ist."""
+        return len([p for p in self.projects.all()
+                    if p.folder_found and feature_id in self.project_features(p)])
+
+    def needs(self, feature_id: str) -> list[str]:
+        """Was das Feature braucht, als Namen: andere Features, Dienste, Fähigkeiten."""
+        manifest = self.registry.get(feature_id)
+        names = [self.registry.get(d).name for d in manifest.requires_features
+                 if d in self.registry]
+        names += [SERVICES[s] for s in manifest.requires_services]
+        names += [f"Plattform mit {CAPABILITY_NAMES[c]}" for c in manifest.requires_capabilities]
+        return names
+
+    # -- Einführung (ENTSCHEIDUNGEN.md: erscheint beim allerersten Einschalten) ----------------
+    def intro_seen(self, feature_id: str) -> bool:
+        return feature_id in (self.database.get_value("features.intro_seen", []) or [])
+
+    def mark_intro_seen(self, feature_id: str) -> None:
+        seen = set(self.database.get_value("features.intro_seen", []) or [])
+        self.database.set_value("features.intro_seen", sorted(seen | {feature_id}))
 
     def project_features(self, project: "Project") -> set[str]:
         """Im Projekt eingeschaltete Features (ohne Rücksicht auf Verfügbarkeit)."""
@@ -116,6 +149,22 @@ class FeatureManager:
             reason = self._capability_reason(manifest, project)
             if reason:
                 return Availability.no(reason)
+        return Availability.yes()
+
+    def availability_without_switch(self, feature_id: str) -> Availability:
+        """Wie availability ohne Projekt, aber ohne Rücksicht darauf, ob das Feature selbst
+        global eingeschaltet ist. Für die Feature-Verwaltung vor dem Speichern: Fehlt ein Dienst
+        wie KI oder Automation, auch bei einem benötigten Feature?"""
+        manifest = self.registry.get(feature_id)
+        for service in manifest.requires_services:
+            state = self.service_availability(service)
+            if not state:
+                return Availability.no(f"Benötigt {SERVICES[service]}. {state.reason}".strip())
+        for dependency in manifest.requires_features:
+            state = self.availability_without_switch(dependency)
+            if not state:
+                return Availability.no(f"Benötigt {self.registry.get(dependency).name}. "
+                                       f"{state.reason}")
         return Availability.yes()
 
     def _capability_reason(self, manifest: FeatureManifest, project: "Project") -> str:

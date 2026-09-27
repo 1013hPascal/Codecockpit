@@ -579,3 +579,36 @@ Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind a
 - Das Feature „Branches und Pull Requests“ ist das erste Feature-Paket (cockpit/features/branches_prs). Bis Phase 7 schaltet man es bei Code mit „Hochladen über Pull Requests einschalten …“ ein. Die Einstellung steht wie geplant in cockpit.toml im Ordner Code.
 - Ein Manifest kann jetzt auf eine Ja-Nein-Grundeinstellung zeigen (default_setting). So gilt „Neue Projekte mit Branches und Pull Requests“ für dieses Feature, ohne dass der Kern den Namen des Features kennt.
 - Mit aktivem Feature fragt „Änderungen hochladen“ auf main nach dem Branch: neuer Branch (Name aus der Nachricht), vorhandener Branch oder direkt in main. Gibt es auf main schon Commits, die nicht hochgeladen sind, kommen sie in den neuen Branch, und vorhandene Branches stehen nicht zur Wahl. Nach dem Hochladen eines Branches ohne offenen Pull Request fragt das Cockpit, ob es einen erstellen soll. Vorgabe ist „Später“.
+
+
+## 27.09.2026: Antworten auf die Fragen zu Phase 7 und Entscheidungen
+
+Die Fragen und Antworten stehen in `fragen\phase-07.md`. Alle Vorschläge sind angenommen.
+
+### Feature-Verwaltung (Menü Features)
+
+- Neues Menü „Features“ nach „Datei“ mit „Feature-Verwaltung …“.
+- Liste mit Kontrollkästchen, zum Beispiel „Branches und Pull Requests, eingeschaltet, in 2 Projekten aktiv“. Fehlt einem eingeschalteten Feature ein Dienst wie KI, sagt die Zeile „nicht verfügbar“ und warum.
+- Mit Tab: die Beschreibung (was es tut, was es braucht, Vorauswahl, in wie vielen Projekten eingeschaltet), das Kästchen „Für neue Projekte einschalten“, „Einführung …“, „Einstellungen …“ (nur bei Features mit Einstellungen), „Speichern“, „Abbrechen“.
+- Global ausgeschaltete Features verschwinden überall. Die Auswahl in den Projekten bleibt in cockpit.toml erhalten.
+
+### Features eines Projekts
+
+- „Features dieses Projekts …“ auf der Projektzeile. Die vorläufige Aktion bei Code aus Phase 6 ist entfallen.
+- Der Titel sagt, ob das Projekt der Vorauswahl folgt oder eine eigene Auswahl hat.
+- Beim Speichern gibt es eine Rückfrage. Sie nennt Features, die wegen Abhängigkeiten mit ein- oder ausgeschaltet werden, und dass die Auswahl in cockpit.toml steht. Statt zwei Fragen („Beide einschalten?“ und „Speichern?“) gibt es eine, damit es nicht zu viele Fragen hintereinander werden.
+- Ohne Änderung schreibt „Speichern“ nichts und sagt „Nichts geändert.“ So folgt ein Projekt weiter der Vorauswahl.
+
+### Vorauswahl
+
+- Sie steht in der Feature-Verwaltung. „Neue Projekte mit Branches und Pull Requests“ ist aus den Grundeinstellungen verschwunden. Ein dort früher gesetztes „Ja“ gilt, bis in der Feature-Verwaltung eine Vorauswahl gespeichert wird.
+- Die Vorauswahl gilt für neue Projekte und für alle, bei denen cockpit.toml nichts zu Features festlegt.
+- „Auf GitHub hochladen“ hat eine Liste „Features für dieses Projekt“, vorbelegt mit der Vorauswahl. Die Wahl kommt samt benötigten Features in cockpit.toml und damit in die erste Version.
+
+### Einführung
+
+- Erscheint beim allerersten Einschalten, global oder in einem Projekt, als Liste mit einem Satz pro Zeile. Danach mit „Einführung …“.
+
+### Test
+
+- Nur mit `start_testdaten.bat` gibt es „Beispiel Grundlage“ (Einstellungen und die Aktion „Beispiel-Gruß“ bei Code) und „Beispiel Aufbau“ (braucht die Grundlage). Sie liegen in cockpit/testdata_features.

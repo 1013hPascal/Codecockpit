@@ -169,6 +169,10 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
 
+        features_menu = AccessibleMenu("&Features", self)
+        bar.addMenu(features_menu)
+        self._action(features_menu, "Feature-&Verwaltung …", self.open_features)
+
         accounts_menu = AccessibleMenu("K&onten", self)
         bar.addMenu(accounts_menu)
         self._action(accounts_menu, "&Kontenverwaltung …", self.open_accounts)
@@ -194,6 +198,15 @@ class MainWindow(QMainWindow):
         self._action(help_menu, "B&ranches verstehen …", self.show_branches_guide)
         help_menu.addSeparator()
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
+
+    def open_features(self) -> None:
+        """Feature-Verwaltung für alle Projekte (Konzept 8.5)."""
+        from cockpit.ui.features_dialogs import GlobalFeaturesDialog
+        dialog = GlobalFeaturesDialog(self.services, self)
+        dialog.exec()
+        if dialog.changed:
+            self.refresh_actions(keep_selection=True)
+            self.refresh_status()
 
     def open_backups(self) -> None:
         from cockpit.ui.backups_dialog import BackupsDialog

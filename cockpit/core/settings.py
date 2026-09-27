@@ -29,7 +29,6 @@ def setting_fields() -> list[SettingField]:
         YesNo("default_private", "Neue Repositories privat anlegen", True),
         Choice("default_license", "Standard-Lizenz für neue Projekte", "MIT", options=LICENSES),
         YesNo("ai_local_only", "Code-Auszüge nur an lokale oder firmeninterne KI senden", False),
-        YesNo("branches_by_default", "Neue Projekte mit Branches und Pull Requests", False),
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
     ]
 
@@ -42,6 +41,8 @@ class Settings:
     default_private: bool = True
     default_license: str = "MIT"
     ai_local_only: bool = False
+    # Bis Phase 6 in den Grundeinstellungen. Ab Phase 7 steht die Vorauswahl in der
+    # Feature-Verwaltung (default_features). Der alte Wert gilt nur, solange dort nichts steht.
     branches_by_default: bool = False
     auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
     default_features: list[str] | None = None     # None: Standard der Features

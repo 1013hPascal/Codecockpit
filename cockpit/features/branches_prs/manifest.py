@@ -5,7 +5,7 @@ den Ablauf beim Hochladen: Auf main fragt "Änderungen hochladen", in welchen Br
 wird, und danach bietet das Cockpit an, einen Pull Request zu erstellen. Den Ablauf selbst steuert
 ui/sync_flow.py, weil er Rückfragen braucht.
 
-Bis Phase 7 schaltet man es mit einer Aktion bei Code ein und aus.
+Man schaltet es mit "Features dieses Projekts …" oder im Menü Features ein und aus.
 """
 from cockpit.core.features.manifest import FeatureManifest
 from cockpit.platforms.base import Capability

@@ -30,12 +30,15 @@ PRIVATE, PUBLIC = "Privat", "Öffentlich"
 class UploadDialog(FocusDialog):
     def __init__(self, title: str, name: str, platform_name: str, user: str,
                  organizations: list[str], private: bool, license: str,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None,
+                 features: list[tuple[str, str]] | None = None,
+                 chosen: set[str] | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.spec: UploadSpec | None = None
         self.targets = [f"Eigenes Konto {user}".strip(), *organizations]
         self.organizations = organizations
+        self.features = features or []           # (Kennung, Name), Phase 7
         fields = [
             sf.Text("name", f"Name auf {platform_name}", name, required=True),
             sf.Text("description", "Kurzbeschreibung", ""),
@@ -44,7 +47,14 @@ class UploadDialog(FocusDialog):
             sf.Choice("license", "Lizenz", license, options=LICENSES),
             sf.Choice("target", "Ziel", self.targets[0], options=tuple(self.targets)),
         ]
-        self.form = SettingsForm(fields)
+        if self.features:
+            names = [n for _, n in self.features]
+            fields.append(sf.MultiChoice(
+                "features", "Features für dieses Projekt",
+                [n for f, n in self.features if f in (chosen or set())], options=tuple(names)))
+        self.form = SettingsForm(fields, {"features": [n for f, n in self.features
+                                                        if f in (chosen or set())]}
+                                 if self.features else None)
         self.ok_button = QPushButton("&Weiter …")
         self.ok_button.setDefault(True)
         self.ok_button.clicked.connect(self.check)
@@ -77,6 +87,9 @@ class UploadDialog(FocusDialog):
         self.spec = UploadSpec(values["name"], values["description"],
                                values["visibility"] == PRIVATE, values["license"],
                                self.organizations[index - 1] if index > 0 else "")
+        if self.features:
+            by_name = {n: f for f, n in self.features}
+            self.spec.features = {by_name[n] for n in values.get("features", []) if n in by_name}
         self.accept()
 
 

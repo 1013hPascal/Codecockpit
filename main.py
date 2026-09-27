@@ -52,7 +52,13 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(paths.logs_dir())
     log.info("%s %s startet%s", APP_NAME, __version__, " mit Testdaten" if use_testdata else "")
 
-    services = Services.create(paths.database_path(),
+    registry = None
+    if use_testdata:
+        # Beispiel-Features nur mit Testdaten (ENTSCHEIDUNGEN.md, Phase 7)
+        from cockpit.core.features.registry import FeatureRegistry
+        registry = FeatureRegistry(FeatureRegistry.discover().all()
+                                   + FeatureRegistry.discover("cockpit.testdata_features").all())
+    services = Services.create(paths.database_path(), registry=registry,
                                vault_service_name=testdata.VAULT_SERVICE if use_testdata
                                else "CodeCockpit")
     if projects_root is not None:
