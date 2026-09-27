@@ -33,7 +33,7 @@ Inhalt:
   - [x] 6a: Pull Requests erstellen, ansehen, kommentieren, Entwürfe, schließen und wieder öffnen
   - [x] 6b: Reviews, Änderungen ansehen, in main übernehmen und aufräumen
   - [x] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
-- [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
+- [x] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten. Abgeschlossen am 27.09.2026
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent
 - [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags
 - [ ] Phase 10: Features Exe-Erstellung mit Einrichtungsprüfung, Windows-Warnungen und Selbstaktualisierung, Externe Ressourcen, Lizenzprüfung

@@ -2,7 +2,7 @@
 
 Stand: 27.09.2026. Pro Phase das Wichtigste in wenigen Stichpunkten. Die genaue Liste zum Abhaken steht in PLAN.md.
 
-Fertig sind die Phasen 1 bis 6. Offen sind die Phasen 7 bis 17.
+Fertig sind die Phasen 1 bis 7. Offen sind die Phasen 8 bis 17.
 
 
 ## Fertig
@@ -40,13 +40,13 @@ Fertig sind die Phasen 1 bis 6. Offen sind die Phasen 7 bis 17.
 - 6b: Prüfen, Änderungen ansehen, in main übernehmen und aufräumen.
 - 6c: Schutzregeln für main, geschütztes main beim Hochladen, Hochladen über Pull Requests.
 
-
-## Offen
-
 ### Phase 7: Feature-Verwaltung
 - Features global und pro Projekt ein- und ausschalten, als Liste mit Kontrollkästchen.
 - Abhängigkeiten zwischen Features erklären.
-- Einführung beim ersten Einschalten. Der Schalter „Hochladen über Pull Requests“ wandert hierher.
+- Einführung beim ersten Einschalten, Vorauswahl für neue Projekte.
+
+
+## Offen
 
 ### Phase 8: KI
 - Anbindung an Ollama auf dem eigenen Rechner und an OpenAI-kompatible Dienste.
