@@ -676,3 +676,14 @@ Die Fragen und Antworten stehen in `fragen\phase-08.md`. Der Nutzer hat das Konz
 - Die Einstellung „KI für Erklärungen“ wählt ein Werkzeug, Vorgabe ist das Standard-Werkzeug.
 - Der Einrichtungsassistent hat die Seite „KI“ nach der Git-Identität. Sie zeigt Rechner, Empfehlung und Zustand von Ollama und öffnet mit „KI einrichten …“ die KI-Verwaltung.
 - Nach dem NVDA-Test von 8b: In der KI-Verwaltung und bei „Modell wählen“ drückt Enter den Knopf mit dem Fokus. Vorher tat Enter dort nichts, weil die Knöpfe kein Standardknopf sein dürfen (sonst löst Enter in den Listen einen Knopf aus).
+
+### Entscheidungen in Phase 8c (KI-Assistent)
+
+- Feature „KI-Assistent“, für neue Projekte eingeschaltet. Einstellungen: „KI für Vorschläge“ (Vorgabe: Standard-Werkzeug) und „Sprache der Vorschläge“ (Deutsch oder Englisch).
+- Der Knopf heißt „Vorschlag der KI“ (Alt+V) in drei Fenstern: „Änderungen hochladen“ (füllt „Was haben Sie geändert?“ und „Beschreibung“), „Pull Request erstellen“ (Titel und Beschreibung, für den gerade gewählten Ziel-Branch) und „Auf GitHub hochladen“ (Kurzbeschreibung). Er steht jeweils mit Tab direkt nach den Feldern, die er füllt. Ohne aktives Feature gibt es ihn nicht.
+- Während die KI schreibt, bleibt das Fenster bedienbar. Escape bricht zuerst den Vorschlag ab, erst ein zweites Escape schließt das Fenster. Danach: „Vorschlag eingefügt.“ und der Fokus im ersten Feld. Klappt es nicht, erklärt ein Meldungsfenster den Grund.
+- Die KI bekommt beim Commit die Liste der geänderten Dateien, die geänderten Zeilen (git diff mit zwei Zeilen Umgebung) und von neuen Dateien die ersten 80 Zeilen. Beim Pull Request die Commit-Nachrichten, die Dateiliste und die geänderten Zeilen. Bei der Kurzbeschreibung die Dateiliste, den Anfang der README, die importierten Module und requirements.txt.
+- Dateien, die die Sicherheitsprüfung als Geheimnis oder private Daten erkennt, gehen nie mit. Die Übersicht nennt nur ihren Namen. Zeilen mit einem gefundenen Geheimnis werden durch „[entfernt]“ ersetzt. Die Grenze für die Zeichen gilt immer.
+- Antworten der KI werden bereinigt: kein Markdown, keine Anführungszeichen um den Vorschlag, keine Vorsätze wie „Titel:“. Die Zusammenfassung hat höchstens 100 Zeichen, die Kurzbeschreibung höchstens 350.
+- Test mit gemma4:12b: Ein Vorschlag dauert etwa 30 Sekunden.
+- Gruppe „KI“: Ab zwei KI-Features stehen sie in der Feature-Verwaltung und bei „Features dieses Projekts …“ als ein Eintrag, zum Beispiel „KI, 2 von 2 KI-Features eingeschaltet“. Ist er markiert, führt Tab in die Liste „KI-Features“ mit einem Kontrollkästchen pro KI-Feature. Beschreibung, „Einführung …“ und „Einstellungen …“ gelten für das dort markierte Feature. „KI-Features …“ im Menü KI markiert gleich diese Gruppe.

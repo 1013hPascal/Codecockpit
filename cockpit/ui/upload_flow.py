@@ -95,10 +95,12 @@ class UploadRunner:
         settings = self.services.settings.load()
         features = self.services.features
         offered = [(m.id, m.name) for m in features.visible_features()]
+        from cockpit.ui import ai_suggest
+        source = ai_suggest.for_description(self.services, self.project)
         dialog = upload_dialogs.UploadDialog(
             self.title, upload.suggest_name(self.project.name), self.window.project_list.platform_name,
             user, organizations, settings.default_private, settings.default_license,
-            self.window, offered, features.project_features(self.project))
+            self.window, offered, features.project_features(self.project), source=source)
         if not dialog.exec() or dialog.spec is None:
             return
         self.spec = dialog.spec

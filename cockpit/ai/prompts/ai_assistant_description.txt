@@ -1,0 +1,5 @@
+Schlagen Sie eine Kurzbeschreibung für das Repository vor. Sie erscheint auf GitHub oben auf der Seite des Projekts.
+
+Ein einziger Satz mit höchstens 200 Zeichen. Er sagt, was das Programm tut und für wen es ist.
+
+<<projekt>>

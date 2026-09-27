@@ -115,7 +115,9 @@ class PushRunner(_Runner):
                 return
             self.choose_target(state)
             return
-        dialog = sync_dialogs.CommitDialog(self.title, changes, self.window)
+        from cockpit.ui import ai_suggest
+        source = ai_suggest.for_commit(self.services, self.project)
+        dialog = sync_dialogs.CommitDialog(self.title, changes, self.window, source=source)
         if not dialog.exec():
             return
         self.message = dialog.message

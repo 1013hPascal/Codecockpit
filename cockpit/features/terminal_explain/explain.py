@@ -1,16 +1,13 @@
 """Erklärung eines fehlgeschlagenen Befehls durch die KI (Konzept 10.16)."""
 from __future__ import annotations
 
-import re
 import threading
 
 from cockpit.ai import prompt_files
-from cockpit.core.ai_tools import TextAI, limit_text
+from cockpit.core.ai_tools import TextAI, limit_text, plain_text
 from cockpit.core.logging_setup import mask_secrets
 
 MAX_ANSWER_TOKENS = 600
-
-_MARKDOWN = re.compile(r"^\s*(?:#+\s*|[-*•]\s+|\d+[.)]\s+)")
 
 
 def prompt(command: str, code: int, lines: list[str], max_chars: int) -> tuple[str, str]:
@@ -25,13 +22,8 @@ def prompt(command: str, code: int, lines: list[str], max_chars: int) -> tuple[s
 
 
 def clean(answer: str) -> str:
-    """Markdown entfernen, das auf der Braillezeile stört: Sternchen, Rauten, Aufzählungszeichen."""
-    lines = []
-    for line in answer.replace("**", "").replace("`", "").splitlines():
-        line = _MARKDOWN.sub("", line).strip()
-        if line:
-            lines.append(line)
-    return mask_secrets("\n".join(lines))
+    """Markdown entfernen, das auf der Braillezeile stört."""
+    return plain_text(answer)
 
 
 def explain(ai: TextAI, command: str, code: int, lines: list[str],

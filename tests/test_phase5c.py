@@ -435,7 +435,7 @@ def test_push_from_the_window(live, qtbot, make_services, projects_root, tmp_pat
     select_code(win, services, code)
 
     class FakeCommitDialog:
-        def __init__(self, title, changes, parent=None):
+        def __init__(self, title, changes, parent=None, source=None):
             assert changes.summary() == "1 Datei geändert"
             self.message = "Neue Suche"
 
@@ -473,7 +473,7 @@ def test_push_behind_offers_pull_then_push(live, qtbot, make_services, projects_
     select_code(win, services, code)
 
     class FakeCommitDialog:
-        def __init__(self, title, changes, parent=None):
+        def __init__(self, title, changes, parent=None, source=None):
             self.message = "Lokal"
 
         def exec(self):

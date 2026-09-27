@@ -29,7 +29,6 @@ Ideen für später:
 ## KI (aus Phase 8b)
 
 - Zusätzliche Header für Firmen-Gateways beim OpenAI-kompatiblen Konto (Konzept 11). Kommen, sobald jemand sie braucht, spätestens in Phase 15.
-- KI-Features in der Feature-Verwaltung als ein Eintrag „KI“ mit Unterpunkten, sobald es mehr als ein KI-Feature gibt (ab 8c).
 - Sprach-KI in der KI-Verwaltung kommt mit der Spracheingabe in 8d.
 
 

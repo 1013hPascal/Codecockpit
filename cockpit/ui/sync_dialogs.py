@@ -31,7 +31,9 @@ NO_MESSAGE = "Bitte schreiben Sie kurz, was Sie geändert haben."
 class CommitDialog(FocusDialog):
     """Commit-Nachricht. Nach accept() steht sie in message: erste Zeile, Leerzeile, Rest."""
 
-    def __init__(self, title: str, changes: Changes, parent: QWidget | None = None) -> None:
+    def __init__(self, title: str, changes: Changes, parent: QWidget | None = None,
+                 source=None) -> None:
+        """source: Vorschlag der KI (Feature KI-Assistent), None: kein Knopf."""
         super().__init__(parent)
         self.setWindowTitle(f"{title}: {changes.summary()}")
         self.message = ""
@@ -39,6 +41,11 @@ class CommitDialog(FocusDialog):
         summary_label = label_for(self.summary, "&Was haben Sie geändert?")
         self.details = PlainEdit()
         details_label = label_for(self.details, "&Beschreibung:")
+        self.suggest_button = None
+        if source is not None:
+            from cockpit.ui.ai_suggest import SuggestButton
+            self.suggest_button = SuggestButton(self, source, self.apply_suggestion,
+                                                self.summary)
         self.files = QListWidget()
         files_label = label_for(self.files, "Ä&nderungen:")
         self.files.addItems(changes.lines())
@@ -53,17 +60,38 @@ class CommitDialog(FocusDialog):
         buttons.addWidget(self.ok_button)
         buttons.addWidget(cancel)
         layout = QVBoxLayout(self)
-        for widget in (summary_label, self.summary, details_label, self.details, files_label,
-                       self.files):
+        for widget in (summary_label, self.summary, details_label, self.details):
+            layout.addWidget(widget)
+        if self.suggest_button is not None:
+            row = QHBoxLayout()
+            row.addWidget(self.suggest_button)
+            row.addStretch(1)
+            layout.addLayout(row)
+        for widget in (files_label, self.files):
             layout.addWidget(widget)
         layout.addLayout(buttons)
-        self.setTabOrder(self.summary, self.details)
-        self.setTabOrder(self.details, self.files)
-        self.setTabOrder(self.files, self.ok_button)
-        self.setTabOrder(self.ok_button, cancel)
-        self.resize(600, 420)
+        order = [self.summary, self.details, self.suggest_button, self.files, self.ok_button,
+                 cancel]
+        order = [w for w in order if w is not None]
+        for first, second in zip(order, order[1:]):
+            self.setTabOrder(first, second)
+        self.resize(600, 460)
         self.initial_focus_widget = self.summary
         self.summary.setFocus()
+
+    def apply_suggestion(self, suggestion) -> None:
+        self.summary.setText(suggestion.summary)
+        self.details.setPlainText(suggestion.details)
+
+    def reject(self) -> None:
+        from cockpit.ui.ai_suggest import handle_escape
+        if not handle_escape(self.suggest_button):
+            super().reject()
+
+    def done(self, code: int) -> None:
+        if self.suggest_button is not None:
+            self.suggest_button.wait()
+        super().done(code)
 
     def check(self) -> None:
         summary = " ".join(self.summary.text().split())

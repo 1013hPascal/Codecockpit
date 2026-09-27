@@ -1,0 +1,7 @@
+Schlagen Sie eine Commit-Nachricht für diese Änderungen vor.
+
+Zeile 1: eine Zusammenfassung mit höchstens 72 Zeichen, zum Beispiel „Suche in PDF-Dateien ergänzt“.
+Dann eine Leerzeile.
+Danach zwei bis vier kurze Sätze: was geändert wurde und warum, soweit es erkennbar ist.
+
+<<aenderungen>>

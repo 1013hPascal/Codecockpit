@@ -143,8 +143,14 @@ class PullRequestRunner:
             if sync.changes(code_dir):
                 note = ("Sie haben Änderungen ohne Commit. Sie sind nicht im Pull Request. Laden "
                         "Sie sie vorher mit „Änderungen hochladen“ hoch.")
+            from cockpit.ui import ai_suggest
+            holder: list = []
+            source = ai_suggest.for_pull_request(
+                services, project, head, lambda: holder[0].base_box.currentText())
             dialog = pull_request_dialogs.CreatePullRequestDialog(head, bases, main, title, body,
-                                                                  people, note, parent)
+                                                                  people, note, parent,
+                                                                  source=source)
+            holder.append(dialog)
             if not dialog.exec():
                 return
             self._create(platform, dialog, on_created)

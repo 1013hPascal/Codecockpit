@@ -15,6 +15,7 @@ Datenschutz (ENTSCHEIDUNGEN.md zu Phase 8):
 """
 from __future__ import annotations
 
+import re
 import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -44,6 +45,21 @@ class AITool:
     source: str                   # "ollama" oder "account"
     model: str
     account_id: int | None = None
+
+
+_MARKDOWN = re.compile(r"^\s*(?:#+\s*|[-*•]\s+|\d+[.)]\s+)")
+
+
+def plain_text(answer: str) -> str:
+    """Markdown aus Antworten der KI entfernen, das auf der Braillezeile stört: Sternchen,
+    Rauten, Aufzählungszeichen, Backticks. Leere Zeilen fallen weg, Geheimnisse werden verdeckt."""
+    from cockpit.core.logging_setup import mask_secrets
+    lines = []
+    for line in answer.replace("**", "").replace("`", "").splitlines():
+        line = _MARKDOWN.sub("", line).strip()
+        if line:
+            lines.append(line)
+    return mask_secrets("\n".join(lines))
 
 
 def limit_text(text: str, max_chars: int, keep_end: bool = False) -> str:

@@ -149,7 +149,7 @@ def test_upload_asks_for_a_branch_and_offers_a_pull_request(live, qtbot, pr_proj
     lists, questions = [], []
 
     class Message:
-        def __init__(self, title, changes, parent=None):
+        def __init__(self, title, changes, parent=None, source=None):
             self.message = "Suche in PDFs"
 
         def exec(self):
@@ -194,7 +194,7 @@ def test_upload_directly_into_main(live, qtbot, pr_project, monkeypatch):
     select_code(win, services, code)
 
     class Message:
-        def __init__(self, title, changes, parent=None):
+        def __init__(self, title, changes, parent=None, source=None):
             self.message = "Direkt"
 
         def exec(self):
@@ -223,7 +223,7 @@ def test_protected_main_offers_a_new_branch(live, qtbot, account, tmp_path, proj
     asked, created = [], []
 
     class Message:
-        def __init__(self, title, changes, parent=None):
+        def __init__(self, title, changes, parent=None, source=None):
             self.message = "Suche in PDFs"
 
         def exec(self):

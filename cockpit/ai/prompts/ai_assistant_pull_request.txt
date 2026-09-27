@@ -1,0 +1,7 @@
+Schlagen Sie Titel und Beschreibung für einen Pull Request vor.
+
+Zeile 1: der Titel mit höchstens 72 Zeichen.
+Dann eine Leerzeile.
+Danach zwei bis fünf kurze Sätze: was der Pull Request ändert und worauf Prüfer achten sollten.
+
+<<aenderungen>>

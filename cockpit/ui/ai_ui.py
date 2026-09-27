@@ -14,7 +14,8 @@ from cockpit.core.errors import CockpitError
 from cockpit.ui import vault_ui
 from cockpit.ui.common import confirm
 
-TASK_NAMES = {"terminal_explain": "Erklärungen im Terminal"}
+TASK_NAMES = {"terminal_explain": "Erklärungen im Terminal",
+              "ai_assistant": "Vorschläge des KI-Assistenten"}
 DECLINED = "Nicht gesendet. Sie haben der KI außerhalb Ihres Rechners nicht zugestimmt."
 
 

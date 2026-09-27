@@ -519,7 +519,9 @@ class CreatePullRequestDialog(FocusDialog):
     draft."""
 
     def __init__(self, head: str, bases: list[str], default_base: str, title: str, body: str,
-                 people: list[str], note: str = "", parent: QWidget | None = None) -> None:
+                 people: list[str], note: str = "", parent: QWidget | None = None,
+                 source=None) -> None:
+        """source: Vorschlag der KI (Feature KI-Assistent), None: kein Knopf."""
         super().__init__(parent)
         self.head = head
         self.bases = bases
@@ -565,12 +567,38 @@ class CreatePullRequestDialog(FocusDialog):
             hint.setMaximumHeight(50)
             hint.setWordWrap(True)
             layout.addWidget(hint)
-        for widget in (title_label, self.title_edit, body_label, self.body_edit, base_label,
-                       self.base_box, people_label, self.people, self.draft_box):
+        for widget in (title_label, self.title_edit, body_label, self.body_edit):
+            layout.addWidget(widget)
+        self.suggest_button = None
+        if source is not None:
+            from cockpit.ui.ai_suggest import SuggestButton
+            self.suggest_button = SuggestButton(self, source, self.apply_suggestion,
+                                                self.title_edit)
+            layout.addLayout(button_row(self.suggest_button, None))
+        for widget in (base_label, self.base_box, people_label, self.people, self.draft_box):
             layout.addWidget(widget)
         layout.addLayout(button_row(None, ok, cancel))
-        self.resize(640, 560)
+        order = [self.title_edit, self.body_edit, self.suggest_button, self.base_box,
+                 self.people, self.draft_box, ok, cancel]
+        order = [w for w in order if w is not None]
+        for first, second in zip(order, order[1:]):
+            self.setTabOrder(first, second)
+        self.resize(640, 580)
         self.initial_focus_widget = self.title_edit
+
+    def apply_suggestion(self, suggestion) -> None:
+        self.title_edit.setText(suggestion.summary)
+        self.body_edit.setPlainText(suggestion.details)
+
+    def reject(self) -> None:
+        from cockpit.ui.ai_suggest import handle_escape
+        if not handle_escape(self.suggest_button):
+            super().reject()
+
+    def done(self, code: int) -> None:
+        if self.suggest_button is not None:
+            self.suggest_button.wait()
+        super().done(code)
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.people and _is_enter(event):

@@ -321,7 +321,8 @@ def test_create_uploads_first_then_creates(live, qtbot, account, tmp_path, proje
     seen = []
 
     class FakeCreate:
-        def __init__(self, head, bases, main, title, body, people, note, parent=None):
+        def __init__(self, head, bases, main, title, body, people, note, parent=None,
+                     source=None):
             seen.append((head, bases, main, title, body, people, note))
             self.head, self.base, self.title, self.body = head, "main", title, body
             self.draft, self.reviewers = True, ("ben",)

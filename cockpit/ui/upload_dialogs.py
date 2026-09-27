@@ -32,7 +32,8 @@ class UploadDialog(FocusDialog):
                  organizations: list[str], private: bool, license: str,
                  parent: QWidget | None = None,
                  features: list[tuple[str, str]] | None = None,
-                 chosen: set[str] | None = None) -> None:
+                 chosen: set[str] | None = None, source=None) -> None:
+        """source: Vorschlag der KI für die Kurzbeschreibung (Feature KI-Assistent)."""
         super().__init__(parent)
         self.setWindowTitle(title)
         self.spec: UploadSpec | None = None
@@ -66,10 +67,38 @@ class UploadDialog(FocusDialog):
         buttons.addWidget(cancel)
         layout = QVBoxLayout(self)
         layout.addWidget(self.form)
+        self.suggest_button = None
+        if source is not None:
+            from cockpit.ui.ai_suggest import SuggestButton
+            description = self.form.fields["description"].focus
+            self.suggest_button = SuggestButton(self, source, self.apply_suggestion, description)
+            row = QHBoxLayout()
+            row.addWidget(self.suggest_button)
+            row.addStretch(1)
+            layout.addLayout(row)
+            # Tab direkt nach der Kurzbeschreibung
+            order = self.form._order
+            index = order.index(description)
+            QWidget.setTabOrder(description, self.suggest_button)
+            if index + 1 < len(order):
+                QWidget.setTabOrder(self.suggest_button, order[index + 1])
         layout.addLayout(buttons)
-        self.resize(560, 300)
+        self.resize(560, 340)
         self.initial_focus_widget = self.form.first_focus()
         self.initial_focus_widget.setFocus()
+
+    def apply_suggestion(self, suggestion) -> None:
+        self.form.fields["description"].set(suggestion.summary)
+
+    def reject(self) -> None:
+        from cockpit.ui.ai_suggest import handle_escape
+        if not handle_escape(self.suggest_button):
+            super().reject()
+
+    def done(self, code: int) -> None:
+        if self.suggest_button is not None:
+            self.suggest_button.wait()
+        super().done(code)
 
     def check(self) -> None:
         try:

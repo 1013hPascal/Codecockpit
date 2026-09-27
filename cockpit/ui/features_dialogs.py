@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from cockpit.core.services import Services
 
 NO_INTRODUCTION = "Für dieses Feature gibt es keine Einführung."
+AI_GROUP = "KI"
 
 
 def show_introduction(services: "Services", manifest: FeatureManifest,
@@ -54,26 +55,45 @@ def show_new_introductions(services: "Services", feature_ids, parent=None) -> No
 
 
 class _FeatureListDialog(FocusDialog):
-    """Gemeinsamer Aufbau: Liste mit Kontrollkästchen, Beschreibung, Knöpfe."""
+    """Gemeinsamer Aufbau: Liste mit Kontrollkästchen, Beschreibung, Knöpfe.
+
+    Ab zwei KI-Features (8c) stehen sie in der Liste als ein Eintrag "KI". Ist er markiert, führt
+    Tab in die Liste "KI-Features" mit einem Kontrollkästchen pro KI-Feature (ENTSCHEIDUNGEN.md
+    zu Phase 8). Beschreibung und Knöpfe gelten dann für das dort markierte KI-Feature."""
 
     def __init__(self, services: "Services", manifests: list[FeatureManifest],
                  checked: set[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.services = services
         self.manifests = sorted(manifests, key=lambda m: m.name.lower())
+        self.state = {m.id: m.id in checked for m in self.manifests}
         self.original = {m.id for m in self.manifests if m.id in checked}
+        ai = [m for m in self.manifests if "ai" in m.requires_services]
+        self.ai_group = ai if len(ai) >= 2 else []
+        self.rows: list[FeatureManifest | None] = [m for m in self.manifests
+                                                   if m not in self.ai_group]
+        if self.ai_group:
+            position = next((i for i, m in enumerate(self.rows)
+                             if m.name.lower() > AI_GROUP.lower()), len(self.rows))
+            self.rows.insert(position, None)           # None: der Eintrag "KI"
         self.list = QListWidget()
         name_widget(self.list, "Features")
         self.list.installEventFilter(self)
-        for manifest in self.manifests:
+        for manifest in self.rows:
             item = QListWidgetItem()
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if manifest.id in checked
-                               else Qt.CheckState.Unchecked)
+            if manifest is not None:
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             self.list.addItem(item)
         if not self.manifests:
             self.list.addItem("Keine Features.")
-        self.list.setCurrentRow(0)
+        self.sub = QListWidget()
+        name_widget(self.sub, "KI-Features")
+        self.sub.installEventFilter(self)
+        for _manifest in self.ai_group:
+            item = QListWidgetItem()
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            self.sub.addItem(item)
+        self.sub.setMaximumHeight(110)
         self.info = QListWidget()
         name_widget(self.info, "Beschreibung")
         self.info.setWordWrap(True)
@@ -85,30 +105,88 @@ class _FeatureListDialog(FocusDialog):
         cancel = QPushButton("Abbrechen")
         cancel.clicked.connect(self.reject)
         self.cancel_button = cancel
-        self.list.itemChanged.connect(lambda _item: self.refresh_lines())
-        self.list.currentRowChanged.connect(lambda _row: self.refresh_info())
+        self.list.setCurrentRow(0)
+        self.sub.setCurrentRow(0)
+        self.sub.setVisible(self.group_selected())
+        # Erst nach dem Markieren verbinden: Die Unterklassen sind hier noch nicht fertig
+        self.list.itemChanged.connect(lambda item: self.item_changed(self.list, item))
+        self.sub.itemChanged.connect(lambda item: self.item_changed(self.sub, item))
+        self.list.currentRowChanged.connect(lambda _row: self.row_changed())
+        self.sub.currentRowChanged.connect(lambda _row: self.refresh_info())
         self.initial_focus_widget = self.list
 
     def eventFilter(self, watched, event) -> bool:
-        if watched in (self.list, self.info) and _is_enter(event):
+        if watched in (self.list, self.sub, self.info) and _is_enter(event):
             return True
         return super().eventFilter(watched, event)
 
     def checked(self) -> set[str]:
-        return {m.id for row, m in enumerate(self.manifests)
-                if self.list.item(row).checkState() == Qt.CheckState.Checked}
+        return {feature_id for feature_id, on in self.state.items() if on}
+
+    def group_selected(self) -> bool:
+        row = self.list.currentRow()
+        return 0 <= row < len(self.rows) and self.rows[row] is None
 
     def current(self) -> FeatureManifest | None:
         row = self.list.currentRow()
-        return self.manifests[row] if 0 <= row < len(self.manifests) else None
+        if not 0 <= row < len(self.rows):
+            return None
+        manifest = self.rows[row]
+        if manifest is None:
+            sub_row = self.sub.currentRow()
+            return self.ai_group[sub_row] if 0 <= sub_row < len(self.ai_group) else None
+        return manifest
+
+    def item_changed(self, listing: QListWidget, item: QListWidgetItem) -> None:
+        row = listing.row(item)
+        if listing is self.list:
+            manifest = self.rows[row] if 0 <= row < len(self.rows) else None
+        else:
+            manifest = self.ai_group[row] if 0 <= row < len(self.ai_group) else None
+        if manifest is None:
+            return
+        self.state[manifest.id] = item.checkState() == Qt.CheckState.Checked
+        self.refresh_lines()
+
+    def row_changed(self) -> None:
+        self.sub.setVisible(self.group_selected())
+        self.refresh_info()
 
     def refresh_lines(self) -> None:
-        self.list.blockSignals(True)
-        checked = self.checked()
-        for row, manifest in enumerate(self.manifests):
-            self.list.item(row).setText(self.line(manifest, manifest.id in checked))
-        self.list.blockSignals(False)
+        for listing in (self.list, self.sub):
+            listing.blockSignals(True)
+        for row, manifest in enumerate(self.rows):
+            item = self.list.item(row)
+            if manifest is None:
+                on = len([m for m in self.ai_group if self.state[m.id]])
+                item.setText(self.group_line(on, len(self.ai_group)))
+                continue
+            item.setText(self.line(manifest, self.state[manifest.id]))
+            item.setCheckState(Qt.CheckState.Checked if self.state[manifest.id]
+                               else Qt.CheckState.Unchecked)
+        for row, manifest in enumerate(self.ai_group):
+            item = self.sub.item(row)
+            item.setText(self.line(manifest, self.state[manifest.id]))
+            item.setCheckState(Qt.CheckState.Checked if self.state[manifest.id]
+                               else Qt.CheckState.Unchecked)
+        for listing in (self.list, self.sub):
+            listing.blockSignals(False)
         self.refresh_info()
+
+    def group_line(self, on: int, total: int) -> str:
+        return f"{AI_GROUP}, {on} von {total} KI-Features eingeschaltet"
+
+    def select(self, feature_id: str) -> None:
+        """Markierung auf ein Feature setzen, zum Beispiel für "KI-Features …"."""
+        for index, manifest in enumerate(self.ai_group):
+            if manifest.id == feature_id:
+                self.list.setCurrentRow(self.rows.index(None))
+                self.sub.setCurrentRow(index)
+                return
+        for row, manifest in enumerate(self.rows):
+            if manifest is not None and manifest.id == feature_id:
+                self.list.setCurrentRow(row)
+                return
 
     def refresh_info(self) -> None:
         manifest = self.current()
@@ -116,8 +194,11 @@ class _FeatureListDialog(FocusDialog):
         if manifest is None:
             return
         needs = self.services.features.needs(manifest.id)
-        lines = [manifest.description.strip(),
-                 f"Braucht: {join_words(needs)}." if needs else "Braucht nichts weiter."]
+        lines = []
+        if self.group_selected():
+            lines.append(f"KI-Feature {manifest.name}.")
+        lines += [manifest.description.strip(),
+                  f"Braucht: {join_words(needs)}." if needs else "Braucht nichts weiter."]
         lines += self.extra_info(manifest)
         self.info.addItems([line for line in lines if line])
         self.info.setCurrentRow(0)
@@ -157,6 +238,7 @@ class GlobalFeaturesDialog(_FeatureListDialog):
         self.settings_button.clicked.connect(self.edit_settings)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 2)
+        layout.addWidget(self.sub)
         layout.addWidget(label_for(self.info, "Beschreibung:"))
         layout.addWidget(self.info, 1)
         layout.addWidget(self.default_box)
@@ -164,7 +246,7 @@ class GlobalFeaturesDialog(_FeatureListDialog):
                                     self.save_button, self.cancel_button))
         self.resize(700, 480)
         # Tab in der Reihenfolge auf dem Bildschirm, nicht in der Reihenfolge der Erstellung
-        order = [self.list, self.info, self.default_box, self.intro_button,
+        order = [self.list, self.sub, self.info, self.default_box, self.intro_button,
                  self.settings_button, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
             self.setTabOrder(first, second)
@@ -196,12 +278,6 @@ class GlobalFeaturesDialog(_FeatureListDialog):
         self.default_box.setChecked(manifest is not None and manifest.id in self.defaults)
         self.default_box.blockSignals(False)
         self.settings_button.setVisible(manifest is not None and bool(manifest.settings))
-
-    def select(self, feature_id: str) -> None:
-        """Markierung auf ein Feature setzen, zum Beispiel für "KI-Features …"."""
-        row = next((i for i, m in enumerate(self.manifests) if m.id == feature_id), None)
-        if row is not None:
-            self.list.setCurrentRow(row)
 
     def toggle_default(self, on: bool) -> None:
         manifest = self.current()
@@ -244,10 +320,15 @@ class ProjectFeaturesDialog(_FeatureListDialog):
                             f"{'folgt der Vorauswahl' if follows else 'eigene Auswahl'}")
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 2)
+        layout.addWidget(self.sub)
         layout.addWidget(label_for(self.info, "Beschreibung:"))
         layout.addWidget(self.info, 1)
         layout.addLayout(button_row(self.intro_button, None, self.save_button,
                                     self.cancel_button))
+        order = [self.list, self.sub, self.info, self.intro_button, self.save_button,
+                 self.cancel_button]
+        for first, second in zip(order, order[1:]):
+            self.setTabOrder(first, second)
         self.resize(640, 420)
         self.refresh_lines()
 
