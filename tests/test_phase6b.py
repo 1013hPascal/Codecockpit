@@ -328,3 +328,34 @@ def test_comments_include_reviews(qtbot):
     idle(qtbot, dialog)
     assert [dialog.comments.item(i).text() for i in range(dialog.comments.count())] == [
         "anna, 24.09.2026: Sieht gut aus", "ben hat genehmigt, 24.09.2026: Passt"]
+
+
+def test_clean_up_later_from_the_list(qtbot, make_services, tmp_path, projects_root,
+                                      monkeypatch):
+    """Wunsch aus dem Test von 6b: Nach "Später" gibt es "Aufräumen …" in der Liste."""
+    _, code = merged_on_platform(tmp_path, projects_root)
+    services = make_services()
+    project = services.projects.add(code.parent)
+    fake = ReviewFake()
+    fake.pulls[0] = pull(12, state="merged")
+    answers = []
+
+    def ask_buttons(parent, title, text, buttons, default, escape):
+        answers.append(text)
+        return 0
+
+    monkeypatch.setattr(pull_request_dialogs, "ask_buttons", ask_buttons)
+    dialog = list_dialog(qtbot, make_services, fake, project=project)
+    dialog.show()
+    dialog.filter.setCurrentIndex(2)                               # alle
+    idle(qtbot, dialog)
+    dialog.list.setCurrentRow(0)
+    assert dialog.cleanup_button.isVisible()
+    assert not dialog.merge_button.isVisible()
+    dialog.clean_up_current()
+    assert answers[0].startswith("Zu main wechseln, die Änderungen holen und den Branch design")
+    qtbot.waitUntil(lambda: said("Sie sind auf main. Die Änderungen von main sind geholt. Der "
+                                 "Branch design ist gelöscht."), timeout=20000)
+    idle(qtbot, dialog)
+    dialog.list.setCurrentRow(0)
+    assert not dialog.cleanup_button.isVisible()                   # der Branch ist weg

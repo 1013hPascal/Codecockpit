@@ -81,6 +81,9 @@ class PullRequestsDialog(FocusDialog):
         self.review_button.clicked.connect(self.review_current)
         self.merge_button = QPushButton()
         self.merge_button.clicked.connect(self.merge_current)
+        # Wunsch aus dem Test von 6b: Aufräumen geht auch später noch
+        self.cleanup_button = QPushButton("Aufräu&men …")
+        self.cleanup_button.clicked.connect(self.clean_up_current)
         self.state_button = QPushButton()
         self.state_button.clicked.connect(self.toggle_state)
         new = QPushButton("&Neuer Pull Request …")
@@ -94,7 +97,8 @@ class PullRequestsDialog(FocusDialog):
         layout.addWidget(self.filter)
         layout.addWidget(self.list, 1)
         layout.addLayout(button_row(self.details_button, self.comments_button, self.ready_button,
-                                    self.review_button, self.merge_button, self.state_button, new,
+                                    self.review_button, self.merge_button, self.cleanup_button,
+                                    self.state_button, new,
                                     self.browser_button, None, close))
         self.setTabOrder(self.filter, self.list)
         self.resize(820, 440)
@@ -141,6 +145,9 @@ class PullRequestsDialog(FocusDialog):
         ready = pull is not None and pull.state == "open" and not pull.draft
         self.review_button.setVisible(ready)
         self.merge_button.setVisible(ready)
+        self.cleanup_button.setVisible(pull is not None and pull.state == "merged"
+                                       and self.project is not None
+                                       and pull.head in self.local_branches())
         if pull is not None:
             self.merge_button.setText(f"In {pull.base.replace('&', '&&')} &übernehmen …")
         self.state_button.setVisible(pull is not None and pull.state != "merged")
@@ -234,16 +241,36 @@ class PullRequestsDialog(FocusDialog):
         self.worker.run(lambda: (platform.pull_request(ref, pull.number),
                                  platform.merge_methods(ref)), ask)
 
+    def local_branches(self) -> set[str]:
+        """Branches, die es hier oder auf der Plattform noch gibt (ohne Netz, schnell)."""
+        if self.project is None:
+            return set()
+        from cockpit.core import git
+        result = git.run(["for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads",
+                          "refs/remotes/origin"], self.project.code_dir, check=False)
+        names = set()
+        for name in result.stdout.split():
+            names.add(name[len("origin/"):] if name.startswith("origin/") else name)
+        return names
+
     def merged(self, pull: PullRequest) -> None:
         self.changed = True
         announce(f"Nr. {pull.number} ist in {pull.base} übernommen.")
         if self.project is None:
             self.load(pull.number)
             return
+        self.offer_clean_up(pull, f"Nr. {pull.number} ist in {pull.base} übernommen. ")
+
+    def clean_up_current(self) -> None:
+        pull = self.current()
+        if pull is not None:
+            self.offer_clean_up(pull)
+
+    def offer_clean_up(self, pull: PullRequest, before: str = "") -> None:
         choice = ask_buttons(self, "Aufräumen",
-                             f"Nr. {pull.number} ist in {pull.base} übernommen. Zu {pull.base} "
-                             f"wechseln, die Änderungen holen und den Branch {pull.head} hier und "
-                             f"auf {self.platform_name} löschen? Er wird nicht mehr gebraucht.",
+                             f"{before}Zu {pull.base} wechseln, die Änderungen holen und den "
+                             f"Branch {pull.head} hier und auf {self.platform_name} löschen? Er "
+                             "wird nicht mehr gebraucht.",
                              ["Aufräumen", "Später"], default=1, escape=1)
         if choice != 0:
             self.load(pull.number)

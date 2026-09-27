@@ -568,3 +568,4 @@ Die Fragen und Antworten stehen in `fragen\phase-06.md`. Alle Vorschläge sind a
 - Die Kommentare zeigen auch Reviews, zum Beispiel „ben hat genehmigt, 24.09.2026: Passt“.
 - Übernehmen: Das Fenster nennt den Stand und bietet die Arten an, die das Repository erlaubt. Vorgabe beim Knopf ist „Abbrechen“, weil sich Übernehmen auf GitHub nicht einfach rückgängig machen lässt.
 - Danach fragt das Cockpit, ob es aufräumen soll: zu main wechseln, holen, den Branch hier und auf GitHub löschen. Vorgabe ist „Später“. Gibt es Änderungen ohne Commit, räumt es nicht auf und sagt warum.
+- Nach dem NVDA-Test von 6b: Wer nach dem Übernehmen „Später“ wählt, findet in der Liste der Pull Requests bei dem übernommenen Pull Request den Knopf „Aufräumen …“. Er erscheint, solange der Branch noch existiert.

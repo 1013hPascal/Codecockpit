@@ -31,7 +31,7 @@ Inhalt:
   - [x] 5f: Übersicht „Branches“ und Stash
 - [ ] Phase 6: Feature Branches und Pull Requests mit Reviews und Schutzregeln (vorgezogen)
   - [x] 6a: Pull Requests erstellen, ansehen, kommentieren, Entwürfe, schließen und wieder öffnen
-  - [ ] 6b: Reviews, Änderungen ansehen, in main übernehmen und aufräumen
+  - [x] 6b: Reviews, Änderungen ansehen, in main übernehmen und aufräumen
   - [ ] 6c: Schutzregeln, Hochladen in einen Branch bei geschütztem main, Feature für den Ablauf beim Hochladen
 - [ ] Phase 7: Feature-Verwaltung global und pro Projekt, mit Einführung beim ersten Einschalten
 - [ ] Phase 8: KI-Adapter Ollama und OpenAI-kompatibel, Feature KI-Assistent

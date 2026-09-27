@@ -32,17 +32,17 @@ Genehmigen und Änderungen anfordern prüfen nur die automatischen Tests. Bei Ih
 
 ## A. Liste und Details
 
-[ ] 1. Knöpfe in der Liste
+[x] 1. Knöpfe in der Liste
 Tasten: Bei Code von Wetter „Pull Requests …“. Auf Nr. 1 mit Tab durch die Knöpfe.
 Erwartet: Die Knöpfe sind „Details …“, „Kommentare …“, „Prüfen …“, „In main übernehmen …“, „Pull Request schließen …“, „Neuer Pull Request …“, „Im Browser öffnen“ und „Schließen“.
 Ergebnis:
 
-[ ] 2. Stand in den Details
+[x] 2. Stand in den Details
 Tasten: Auf Nr. 1 Enter. Die Angaben lesen.
 Erwartet: Nach „Offen“ steht „Kann übernommen werden“. Gibt GitHub den Stand noch nicht an, fehlt diese Zeile. Dann nach einigen Sekunden die Details neu öffnen.
 Ergebnis:
 
-[ ] 3. Änderungen einer Datei
+[x] 3. Änderungen einer Datei
 Tasten: Tab in die Liste Dateien, auf „wetter.py, geändert, 1 Zeile dazu“ Enter. Lesen, Escape.
 Erwartet: Das Fenster heißt „Änderungen in wetter.py: 1 Zeile“. Die Zeile heißt „Neu Zeile …: print('Größer')“ mit der Nummer der Zeile. Escape führt zurück zur Liste der Dateien.
 Ergebnis:
@@ -50,7 +50,7 @@ Ergebnis:
 
 ## B. Prüfen
 
-[ ] 4. Eigener Pull Request
+[x] 4. Eigener Pull Request
 Tasten: Zurück in der Liste auf Nr. 1 „Prüfen …“, Enter. Den Hinweis lesen, dann mit Tab zu „Ergebnis“ und mit den Pfeiltasten lesen.
 Erwartet: Das Fenster heißt „Prüfen: Nr. 1: Größere Schrift“. Der Hinweis sagt, dass GitHub bei Ihrem eigenen Pull Request nur einen Kommentar erlaubt. „Ergebnis“ bietet deshalb nur „Nur kommentieren“.
 Ergebnis:
@@ -60,7 +60,7 @@ Tasten: Ohne Kommentar „Review abgeben“. Nach der Meldung im Feld „Komment
 Erwartet: Ohne Kommentar sagt eine Meldung „Bitte schreiben Sie dazu einen Kommentar. Nur beim Genehmigen darf er fehlen.“ Danach sagt NVDA „Review abgegeben.“
 Ergebnis:
 
-[ ] 6. Review bei den Kommentaren
+[x] 6. Review bei den Kommentaren
 Tasten: „Kommentare …“, die Liste lesen, Escape.
 Erwartet: Unten steht „… Review, <heutiges Datum>: Sieht gut aus“ mit Ihrem Namen vorne.
 Ergebnis:
@@ -68,22 +68,24 @@ Ergebnis:
 
 ## C. Übernehmen
 
-[ ] 7. Übernehmen, erst abbrechen
+[x] 7. Übernehmen, erst abbrechen
 Tasten: „In main übernehmen …“, Enter. Die Liste „Stand“ lesen, Tab zu „Art des Übernehmens“ und mit den Pfeiltasten lesen. Dann Escape.
 Erwartet: Das Fenster heißt „In main übernehmen: Nr. 1: Größere Schrift“. Der Stand sagt, dass die Änderungen aus groessere-schrift nach main kommen und sich das nicht einfach rückgängig machen lässt. Die Arten sind „Merge-Commit: …“, „Squash: …“ und „Rebase: …“, jede mit einem kurzen Satz. Vorgabe beim Knopf ist „Abbrechen“. Nach Escape ist nichts passiert.
 Ergebnis:
 
-[ ] 8. Übernehmen
+[x] 8. Übernehmen
 Tasten: Noch einmal „In main übernehmen …“. „Merge-Commit“ lassen, Tab zu „Übernehmen“, Enter.
 Erwartet: NVDA sagt „Nr. 1 ist in main übernommen.“ Dann fragt das Cockpit, ob es zu main wechseln, die Änderungen holen und den Branch groessere-schrift hier und auf GitHub löschen soll. Die Knöpfe sind „Aufräumen“ und „Später“. Vorgabe ist „Später“.
 Ergebnis:
 
-[ ] 9. Aufräumen
+[?] 9. Aufräumen
 Tasten: „Aufräumen“.
 Erwartet: NVDA sagt „Wird aufgeräumt.“ und danach „Die Änderungen von main sind geholt. Der Branch groessere-schrift ist gelöscht.“ Sind Sie vorher nicht auf main gewesen, beginnt es mit „Sie sind auf main.“
-Ergebnis:
+Ergebnis: Ich bin mir nicht sich,,h aber auf später geklickt mit aufräumen, und jetzt find eich dne aufräumen schalter nicht. wenn der da ist, dann wird es bestimmt funktionieren. 
 
-[ ] 10. Nach dem Übernehmen
+Antwort von Claude: Das war eine Lücke. Nach „Später“ gab es das Aufräumen nicht mehr. Jetzt gibt es in der Liste der Pull Requests den Knopf „Aufräumen …“ (Alt+M). Er erscheint bei einem übernommenen Pull Request, solange sein Branch noch existiert. Sie finden ihn mit „Anzeigen: alle“. Automatisch getestet, ohne Nachtest.
+
+[x] 10. Nach dem Übernehmen
 Tasten: In der Liste „Anzeigen“ auf „alle“. Nr. 1 markieren, mit Tab durch die Knöpfe. Dann Fenster schließen, Code lesen, „Branches …“ lesen. Im Explorer wetter.py öffnen.
 Erwartet: Nr. 1 endet mit „übernommen“. Bei ihr gibt es weder „Prüfen …“ noch „In main übernehmen …“ noch „Pull Request schließen …“. Code nennt keinen offenen Pull Request mehr. In den Branches fehlt groessere-schrift. wetter.py enthält die Zeile `print('Größer')`.
 Ergebnis:
