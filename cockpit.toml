@@ -2,11 +2,11 @@ is_cockpit = true
 
 [exe]
 source = "cockpit"
-date = "2026-09-28T10:28:41"
-commit = "c569b30fc44ec8eaa8f139eb34aac15130b0bc40"
+date = "2026-09-28T11:34:38"
+commit = "91017d0d78088608416d79dc324c40cdc19024be"
 version = ""
 pending = false
-tested = true
+tested = false
 
 [exe.build]
 start_file = "main.py"
