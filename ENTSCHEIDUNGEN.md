@@ -707,3 +707,11 @@ Das Konzept 10.4 ist überarbeitet (Wunsch des Nutzers). Die Fragen und Antworte
 - Anleitungen „Python installieren“ und „Wie funktioniert die Exe?“ im Menü Hilfe.
 - Nach dem ersten echten Bau: Windows (Intelligente App-Steuerung) blockierte den Start der neuen Exe aus der Umgebung von Claude, beim Nutzer startet sie. Wunsch des Nutzers: Kann das Cockpit die Exe nicht selbst starten, fragt es, ob sie trotzdem übernommen werden soll (Vorgabe „Verwerfen“), und bittet den Nutzer, sie selbst zu prüfen. Die Zeile heißt dann „…, nicht geprüft“. Beim nächsten Bau versucht das Cockpit den Test wieder.
 - Die Exe enthält keine Daten. Sie nutzt denselben Datenordner wie start.bat. Ein neuer Nutzer ohne diesen Ordner bekommt den Einrichtungsassistenten und eine leere Liste.
+
+
+## 28.09.2026: Sicherheitsprüfung und erfundene Geheimnisse
+
+- Wunsch des Nutzers vor dem ersten Hochladen des Cockpits: Werte, die ausdrücklich als erfunden gekennzeichnet sind, gelten nicht als Geheimnis. Erkannt werden Wörter wie „Erfunden“, „NurFuerTests“, „Beispiel“ oder „Example“ im Wert. Nur Wörter ab 7 Buchstaben, damit ein echter Token aus Zufallszeichen nie zufällig eines enthält.
+- Eine Zeile mit dem Vermerk `pragma: allowlist secret` gilt nicht als Geheimnis (wie beim Prüfprogramm detect-secrets). Für Fehlalarme im Code.
+- Die Beispiele, die die Prüfung in den Tests finden muss, enthalten dieses Wort nicht mehr und werden erst beim Testlauf zusammengesetzt. So findet die Prüfung sie nicht in den Test-Dateien selbst.
+- Sieben alte Beispiel-Zeilen im Verlauf (Sommer2026!, Winter2026!, abc123def456, secret_history) stehen als „kein Geheimnis“ in cockpit.toml. Danach meldet die Prüfung beim Cockpit selbst nichts mehr, auch nicht im Verlauf.

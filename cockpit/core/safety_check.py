@@ -34,7 +34,7 @@ MAX_SCAN_BYTES = 5 * 1024 * 1024           # größere Dateien werden nicht Zeil
 
 class Kind(Enum):
     SECRET = "secret"                      # stoppt
-    SECRET_IN_HISTORY = "secret_history"   # stoppt
+    SECRET_IN_HISTORY = "secret_history"   # stoppt  # pragma: allowlist secret
     TOO_LARGE = "too_large"                # stoppt
     LARGE = "large"                        # Warnung
     PRIVATE_DATA = "private_data"          # Warnung
@@ -139,6 +139,8 @@ def _is_binary(data: bytes) -> bool:
 
 def _secret_in_line(line: str) -> str:
     """Name der Regel, die in der Zeile anschlägt, sonst leer."""
+    if ALLOWLIST in line.lower():
+        return ""                        # ausdrücklich als kein Geheimnis vermerkt
     for name, pattern in SECRET_RULES:
         match = pattern.search(line)
         if not match:
@@ -146,8 +148,27 @@ def _secret_in_line(line: str) -> str:
         value = match.group(1) if match.groups() else match.group(0)
         if name == "Passwort oder Schlüssel im Code" and _PLACEHOLDER.match(value):
             continue
+        if is_made_up(value):
+            continue
         return name
     return ""
+
+
+# Vermerk in einer Zeile, die kein Geheimnis enthält, obwohl sie so aussieht (wie bei
+# detect-secrets), zum Beispiel beim Namen einer Art von Fund oben in Kind.
+ALLOWLIST = "pragma: allowlist secret"
+
+# Wörter, an denen man erfundene Werte in Tests und Beispielen erkennt (Wunsch des Nutzers,
+# 28.09.2026). Echte Tokens bestehen aus Zufallszeichen. Nur Wörter ab 7 Buchstaben, damit ein
+# echter Token nicht zufällig eines davon enthält.
+MADE_UP_MARKERS = ("erfunden", "nurfuertest", "fuertests", "beispiel", "example", "placeholder",
+                   "platzhalter", "dummytoken", "faketoken", "testtoken")
+
+
+def is_made_up(value: str) -> bool:
+    """Ein Wert, der ausdrücklich als erfunden gekennzeichnet ist, ist kein Geheimnis."""
+    lowered = value.lower()
+    return any(marker in lowered for marker in MADE_UP_MARKERS)
 
 
 # -- Was wird hochgeladen? -------------------------------------------------------------------

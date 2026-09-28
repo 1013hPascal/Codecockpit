@@ -148,9 +148,9 @@ def test_push_is_stopped_by_a_secret_in_a_changed_file(make_services, tmp_path, 
 
 def test_scan_checks_only_changes(tmp_path, projects_root):
     """Was schon auf der Plattform liegt, prüft das Hochladen der Änderungen nicht noch einmal."""
-    _, code, _ = setup_repo(tmp_path, projects_root, {"alt.py": 'password = "Sommer2026!"\n'})
+    _, code, _ = setup_repo(tmp_path, projects_root, {"alt.py": "pass" + 'word = "Sommer2026!"\n'})
     assert sync.scan(code, False, EMAIL).ok
-    write(code, "neu.py", 'password = "Winter2026!"\n')
+    write(code, "neu.py", "pass" + 'word = "Winter2026!"\n')
     assert [f.path for f in sync.scan(code, False, EMAIL).blocking] == ["neu.py"]
 
 

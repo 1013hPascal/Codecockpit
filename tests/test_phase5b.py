@@ -22,10 +22,14 @@ from tests.test_phase5a import EMAIL, NAME, account, live, sh, wait_idle  # noqa
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
-GITHUB_TOKEN = "ghp" + "_" + "Erfunden0123456789abcdefghijklmnopqrstuv"
-OPENAI_KEY = "sk" + "-proj-" + "Erfunden0123456789abcdefghij"
-ANTHROPIC_KEY = "sk" + "-ant-" + "api03-Erfunden0123456789abcdef"
-AWS_KEY = "AKIA" + "ERFUNDEN12345678"
+# Beispiel-Geheimnisse, die die Prüfung finden muss. Sie sehen aus wie echte (ohne das Wort
+# "Erfunden", das die Prüfung seit dem 28.09.2026 als erfunden erkennt) und werden erst hier
+# zusammengesetzt, damit die Prüfung sie nicht in dieser Datei selbst findet.
+GITHUB_TOKEN = "ghp" + "_" + "Qx7mZkRw0123456789abcdefghijklmnopqrstuv"
+OPENAI_KEY = "sk" + "-proj-" + "Qx7mZkRw0123456789abcdefghij"
+ANTHROPIC_KEY = "sk" + "-ant-" + "api03-Qx7mZkRw0123456789abcdef"
+AWS_KEY = "AKIA" + "QX7MZKRW12345678"
+PASSWORD_LINE = "pass" + 'word = "Sommer2026!"'
 
 
 def write(folder: Path, name: str, text: str) -> Path:
@@ -46,8 +50,8 @@ def kinds(report) -> list[tuple[str, str, str, int]]:
     (f"ANTHROPIC={ANTHROPIC_KEY}", "Anthropic-Schlüssel"),
     (f"aws = {AWS_KEY}", "AWS-Zugangsschlüssel"),
     ("-----BEGIN RSA " + "PRIVATE KEY-----", "Privater Schlüssel"),
-    ('password = "Sommer2026!"', "Passwort oder Schlüssel im Code"),
-    ('API_KEY: "abc123def456"', "Passwort oder Schlüssel im Code"),
+    (PASSWORD_LINE, "Passwort oder Schlüssel im Code"),
+    ("API" + '_KEY: "abc123def456"', "Passwort oder Schlüssel im Code"),
 ])
 def test_secret_rules(tmp_path, line, rule):
     write(tmp_path, "config.py", f"x = 1\n{line}\n")
@@ -503,14 +507,14 @@ def test_recheck_says_fixed_and_moves_to_next(qtbot, tmp_path):
     """Rückmeldung aus dem Test von 5b: Erneut prüfen sagt "Behoben" oder "Besteht weiter",
     der Fokus geht in die Liste."""
     code = tmp_path / "Code"
-    write(code, "config.py", f'TOKEN = "{GITHUB_TOKEN}"\npassword = "Sommer2026!"\n')
+    write(code, "config.py", f'TOKEN = "{GITHUB_TOKEN}"\n{PASSWORD_LINE}\n')
     dialog = safety_dialog(qtbot, code)
     dialog.list.setCurrentRow(1)                               # Passwort
     dialog.recheck()
     assert said("Besteht weiter. Noch: 2 Funde stoppen das Hochladen")
     assert dialog.list.currentRow() == 1
     dialog.list.setCurrentRow(0)                               # Token entfernen
-    write(code, "config.py", 'password = "Sommer2026!"\n')
+    write(code, "config.py", PASSWORD_LINE + "\n")
     dialog.recheck()
     assert said("Behoben. Noch: 1 Fund stoppt das Hochladen")
     assert dialog.current().rule == "Passwort oder Schlüssel im Code"
@@ -534,3 +538,19 @@ def test_enter_activates_the_focused_button_not_in_the_list(qtbot, tmp_path):
     dialog.not_secret_button.setFocus()
     qtbot.keyClick(dialog.not_secret_button, Qt.Key.Key_Return)
     assert dialog.report.findings == []
+
+
+@pytest.mark.parametrize("value", ["ghp" + "_" + "Erfunden0123456789abcdefghijklmnopqrstuv",
+                                   "sk" + "-proj-" + "BeispielKey0123456789abcdef",
+                                   "pass" + 'word = "NurFuerTests2026!"'])
+def test_made_up_values_are_no_secrets(tmp_path, value):
+    """Wunsch des Nutzers (28.09.2026): Erfundene Werte in Tests gelten nicht als Geheimnis."""
+    write(tmp_path, "config.py", f'TOKEN = "{value}"\n')
+    assert safety_check.scan(tmp_path).findings == []
+    assert safety_check.is_made_up(value)
+    assert not safety_check.is_made_up(GITHUB_TOKEN)
+
+
+def test_allowlist_pragma(tmp_path):
+    write(tmp_path, "kinds.py", "SECRET_KIND = " + '"secret_history"  # pragma: allowlist secret\n')
+    assert safety_check.scan(tmp_path).findings == []

@@ -18,7 +18,8 @@ from tests.conftest import FakeAI, make_project, said
 from tests.test_phase5a import sh
 from tests.test_phase5b import write
 
-FAKE_TOKEN = "ghp_ErfundenFuerDenKiAssistenten0123456789"
+# Muss wie ein echter Token aussehen (ohne "Erfunden"), damit die Prüfung ihn findet
+FAKE_TOKEN = "ghp" + "_" + "Qx7mZkRwKiAssistent0123456789abcdefg"
 
 
 class Recorder(FakeAI):

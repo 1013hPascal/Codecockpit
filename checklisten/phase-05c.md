@@ -100,7 +100,7 @@ Ergebnis:
 ## C. Sicherheitsprüfung beim Hochladen (PDF-Chat)
 
 [x] 11. Passwort in einer neuen Datei
-Tasten: Im Code-Ordner von PDF-Chat eine neue Datei `zugang.py` anlegen mit der Zeile `password = "Sommer2026!"`. Speichern. Im Cockpit auf Code Enter, „Zugang ergänzt“ eintippen, Enter.
+Tasten: Im Code-Ordner von PDF-Chat eine neue Datei `zugang.py` anlegen mit der Zeile `password = "Beispiel2026!"`. Speichern. Im Cockpit auf Code Enter, „Zugang ergänzt“ eintippen, Enter.
 Erwartet: Das Fenster „Sicherheitsprüfung“ aus Phase 5b öffnet sich mit dem Fund „Geheimnis: zugang.py, Zeile 1, Passwort oder Schlüssel im Code. Stoppt das Hochladen“. Nur diese neue Datei wird geprüft, nicht der ganze Ordner.
 Ergebnis:
 

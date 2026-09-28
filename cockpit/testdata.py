@@ -124,12 +124,14 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
     # Für "Auf GitHub hochladen" (Phase 5b): mit erfundenem Token, Passwort-Zeile, .env und
     # Datenbank. Der Token wird erst hier zusammengesetzt und ist nicht echt.
     # "sicherheitstest" ist derselbe Inhalt für Nachtests, ohne je hochgeladen zu werden.
-    fake_token = "ghp" + "_" + "Erfunden" + "0123456789" * 3
+    # Ohne das Wort "Erfunden", damit die Prüfung ihn wie einen echten meldet (Test)
+    fake_token = "ghp" + "_" + "Qx7mZkRw" + "0123456789" * 3
+    password_line = "pass" + 'word = "Sommer2026!"'
     for name in ("codecockpit-test", "sicherheitstest"):
         test = others / name
         test.mkdir(parents=True)
         (test / "main.py").write_text("print('Test für CodeCockpit')\n", encoding="utf-8")
-        (test / "config.py").write_text(f'TOKEN = "{fake_token}"\npassword = "Sommer2026!"\n',
+        (test / "config.py").write_text(f'TOKEN = "{fake_token}"\n{password_line}\n',
                                         encoding="utf-8")
         (test / ".env").write_text("GEHEIM=erfunden\n", encoding="utf-8")
         (test / "daten.db").write_bytes(b"SQLite format 3\0erfunden")

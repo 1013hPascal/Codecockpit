@@ -174,7 +174,7 @@ def test_github_links_and_settings_page():
 def test_public_scan_sees_the_whole_history(tmp_path, projects_root):
     _, code, _ = setup_repo(tmp_path, projects_root)
     assert repo_admin.public_scan(code).blocking == []
-    fake = "ghp" + "_" + "Erfunden" + "0123456789" * 3
+    fake = "ghp" + "_" + "Qx7mZkRw" + "0123456789" * 3
     write(code, "config.py", f'TOKEN = "{fake}"\n')
     sh(code, "add", "-A")
     sh(code, "commit", "-q", "-m", "Mit Token")
@@ -452,7 +452,7 @@ def test_make_public_is_refused_with_a_secret(qtbot, make_services, tmp_path, pr
                                               answers):
     services = make_services()
     _, code, _ = setup_repo(tmp_path, projects_root)
-    fake_token = "ghp" + "_" + "Erfunden" + "0123456789" * 3
+    fake_token = "ghp" + "_" + "Qx7mZkRw" + "0123456789" * 3
     write(code, "config.py", f'TOKEN = "{fake_token}"\n')
     sh(code, "add", "-A")
     sh(code, "commit", "-q", "-m", "Token")
