@@ -672,6 +672,7 @@ Ergebnis als Liste, Ergebnis jeweils vorne („In Ordnung: …“, „Problem: �
 ### 10.5 Releases
 
 - Ergänzt am 27.09.2026: Schon in Phase 10 gibt es bei „Exe“ die Aktionen „Exe veröffentlichen …“ (Release mit Versionsnummer anlegen, Exe anhängen, direkt über die Schnittstelle von GitHub) und „Exe aus dem Release holen …“. Phase 14 ergänzt Versionshinweise, n8n und GitHub Actions.
+- Ergänzt am 28.09.2026, Updates der Exe des Cockpits: Die Exe sieht beim Start und danach täglich im neuesten Release von 1013hPascal/Codecockpit nach (ohne Anmeldung). Neu ist eine Datei, wenn ihre Prüfsumme (SHA-256, von GitHub angegeben) von der laufenden Exe abweicht und das Release jünger ist als die Exe. Rückfrage: Aktualisieren, Versionshinweise, Diese Version überspringen, Später (Vorgabe). Die neue Exe wird geprüft, wartet in Exe\_neu und wird beim Neustart oder Beenden getauscht. Die bisherige kommt in die Sicherheitskopien. Daten in %APPDATA% bleiben unberührt. Schalter in den Grundeinstellungen, dazu Hilfe, Nach Updates suchen.
 - Nach erfolgreichem Build und Test: Release auf der Plattform anlegen, Versionshinweise aus den Commit-Nachrichten formulieren (mit KI, falls verfügbar), Exe anhängen.
 - Stabiler Download-Link, der immer auf die neueste Version zeigt: `https://github.com/NUTZER/PROJEKT/releases/latest/download/PROJEKT.exe`
 - Funktioniert auch ohne Exe-Feature (dann Release nur mit Quellcode).

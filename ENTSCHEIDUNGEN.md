@@ -715,3 +715,15 @@ Das Konzept 10.4 ist überarbeitet (Wunsch des Nutzers). Die Fragen und Antworte
 - Eine Zeile mit dem Vermerk `pragma: allowlist secret` gilt nicht als Geheimnis (wie beim Prüfprogramm detect-secrets). Für Fehlalarme im Code.
 - Die Beispiele, die die Prüfung in den Tests finden muss, enthalten dieses Wort nicht mehr und werden erst beim Testlauf zusammengesetzt. So findet die Prüfung sie nicht in den Test-Dateien selbst.
 - Sieben alte Beispiel-Zeilen im Verlauf (Sommer2026!, Winter2026!, abc123def456, secret_history) stehen als „kein Geheimnis“ in cockpit.toml. Danach meldet die Prüfung beim Cockpit selbst nichts mehr, auch nicht im Verlauf.
+
+
+## 28.09.2026: Updates der Exe des Cockpits (10e)
+
+- Wunsch des Nutzers: Gibt es eine neue Exe, fragt das Programm, ob es aktualisieren soll. Konten und Daten dürfen nicht verloren gehen.
+- Quelle ist das neueste Release von 1013hPascal/Codecockpit. Die Abfrage braucht keine Anmeldung, weil das Repository öffentlich ist.
+- Wunsch des Nutzers: Die Information, ob eine neue Datei da ist, kommt aus dem Release. Deshalb vergleicht das Cockpit die Prüfsumme (SHA-256), die GitHub zu jeder Datei angibt, mit der laufenden Exe. Eine Versionsnummer in der Exe ist dafür nicht nötig. Ist die eigene Exe jünger als das Release (selbst gebaut), wird nichts angeboten.
+- Die heruntergeladene Datei wird gegen die Prüfsumme geprüft. Weicht sie ab, wird sie gelöscht.
+- Getauscht wird nur die laufende Exe-Datei, auch wenn sie in einem anderen Ordner liegt, etwa in Downloads. Die bisherige kommt in die Sicherheitskopien. Die Daten in %APPDATA% bleiben unberührt.
+- Rückfrage mit „Später“ als Vorgabe. „Diese Version überspringen“ gilt nur für die automatische Prüfung. Hilfe, Nach Updates suchen fragt immer.
+- Geprüft wird 10 Sekunden nach dem Start und danach höchstens einmal am Tag. Schalter in den Grundeinstellungen, Vorgabe an. Beim Start aus dem Code gibt es keine Prüfung.
+- Die Versionsnummer im Code steht jetzt auf 1.1.0, passend zu den Releases.

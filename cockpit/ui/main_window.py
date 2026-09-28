@@ -124,6 +124,8 @@ class MainWindow(QMainWindow):
         announcer.target = self
         announcer.listeners.append(self._show_status)
 
+        from cockpit.ui.update_ui import Updater
+        self.updater = Updater(self)
         self._build_menus()
         self._build_shortcuts()
         QWidget.setTabOrder(self.project_list, self.actions_list)
@@ -146,6 +148,7 @@ class MainWindow(QMainWindow):
         self.restart_lock_timer()
 
         self.reload_projects()
+        self.updater.start()
 
     # -- Aufbau ---------------------------------------------------------------------------
     def _action(self, menu: QMenu, text: str, slot, shortcut: str | None = None) -> QAction:
@@ -213,6 +216,7 @@ class MainWindow(QMainWindow):
                      lambda: self.show_guide("anleitungen/ollama-installieren.md",
                                              "Ollama installieren"))
         help_menu.addSeparator()
+        self._action(help_menu, "Nach &Updates suchen …", self.updater.check_now)
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
 
     def open_ai_manager(self) -> None:
@@ -615,6 +619,7 @@ class MainWindow(QMainWindow):
         QApplication.instance().removeEventFilter(self)
         self.lock_timer.stop()
         self.controller.wait()
+        self.updater.shutdown()
         for task in (self.status_task, self.remote_task):
             if task is not None:
                 task.cancel()

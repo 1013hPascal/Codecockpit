@@ -547,22 +547,35 @@ def restart_script(project: Project) -> Path:
     folder = backups.new_backup_dir(project.name, "Exe vor dem Neustart ersetzt", exe_dir)
     old_items = [p for p in exe_dir.iterdir() if p.name != PENDING]
     new_exe = exe_in(new_items[0])
-    target_exe = exe_dir / new_exe.relative_to(pending)
-    lines = ["@echo off", "chcp 65001 >nul",
-             f":warten", f'tasklist /FI "PID eq {os.getpid()}" | find "{os.getpid()}" >nul',
-             "if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto warten)"]
-    for item in old_items:
-        lines.append(f'move /Y "{item}" "{folder / item.name}" >nul')
-    for item in new_items:
-        lines.append(f'move /Y "{item}" "{exe_dir / item.name}" >nul')
-    lines += [f'rmdir /S /Q "{pending}"', f'start "" "{target_exe}"', '(goto) 2>nul & del "%~f0"']
-    script = paths.cache_dir() / "cockpit-neustart.bat"
-    script.parent.mkdir(parents=True, exist_ok=True)
-    script.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
+    script = swap_script(exe_dir, old_items, new_items, folder,
+                         exe_dir / new_exe.relative_to(pending))
     record = read_record(project.code_dir)
     if record is not None:
         record.pending = False
         write_record(project.code_dir, record)
+    return script
+
+
+def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], backup: Path,
+                start: Path | None) -> Path:
+    """Skript, das auf das Ende des Cockpits wartet, old_items in die Sicherheitskopie backup
+    verschiebt, new_items aus Exe\\_neu nach exe_dir holt und start startet (None: nicht starten).
+    Genutzt vom Neustart nach dem Bauen und von der Selbst-Aktualisierung (update.py)."""
+    pending = exe_dir / PENDING
+    lines = ["@echo off", "chcp 65001 >nul",
+             ":warten", f'tasklist /FI "PID eq {os.getpid()}" | find "{os.getpid()}" >nul',
+             "if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto warten)"]
+    for item in old_items:
+        lines.append(f'move /Y "{item}" "{backup / item.name}" >nul')
+    for item in new_items:
+        lines.append(f'move /Y "{item}" "{exe_dir / item.name}" >nul')
+    lines.append(f'rmdir /S /Q "{pending}"')
+    if start is not None:
+        lines.append(f'start "" "{start}"')
+    lines.append('(goto) 2>nul & del "%~f0"')
+    script = paths.cache_dir() / "cockpit-neustart.bat"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
     return script
 
 

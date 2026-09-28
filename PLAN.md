@@ -46,6 +46,7 @@ Inhalt:
   - [ ] 10b: Exe aus dem Code erstellen und aktualisieren mit PyInstaller, Start-Test, Ersetzen mit Sicherheitskopie
   - [ ] 10c: Exe veröffentlichen und aus dem Release holen
   - [ ] 10d: Die eigene Exe des Cockpits mit Aktualisierung beim Neustart, Exe-Einrichtung prüfen
+  - [ ] 10e: Updates der Exe des Cockpits aus dem neuesten Release (ergänzt am 28.09.2026)
   - [ ] Später: Externe Ressourcen, Lizenzprüfung, Signieren
 - [ ] Phase 11: n8n-Grundlagen, Einspielen von Workflows, Ansicht Automatisierungen, Feature Rückmeldungen
 - [ ] Phase 12: E-Mail-Konten, Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
