@@ -1,6 +1,7 @@
 """Die Exe eines Projekts (Konzept 10.4, Phase 10).
 
-Zustand in Code\\cockpit.toml, Abschnitt [exe]: woher die Exe kommt ("cockpit": vom Cockpit
+Zustand im Git-Ordner des Projekts, Datei codecockpit-exe.toml (seit 10g, vorher in
+Code\\cockpit.toml, Abschnitt [exe]; ohne Git weiter dort): woher die Exe kommt ("cockpit": vom Cockpit
 erstellt, "extern": extern erstellt und von Hand gewählt, "release": aus einem Release), wann, aus
 welchem Commit und mit welcher Version. Die Einstellungen zum Bauen stehen unter [exe.build].
 
@@ -90,8 +91,31 @@ class BuildSettings:
         return f"{self.name}.spec"
 
 
+RECORD_FILE = "codecockpit-exe.toml"
+RECORD_KEYS = ("source", "date", "commit", "version", "pending", "tested")
+
+
+def _local_record(code_dir: Path) -> Path | None:
+    """Wunsch aus dem Test von 10g: Der Zustand der Exe ist Sache dieses Rechners und liegt im
+    Git-Ordner, der nie hochgeladen wird. In cockpit.toml machte er aus jedem Bau eine neue
+    Änderung zum Hochladen. Ohne Git bleibt er in cockpit.toml."""
+    if not git.is_repo(code_dir):
+        return None
+    folder = git.git_dir(code_dir)
+    return folder / RECORD_FILE if folder.is_dir() else None
+
+
 def read_record(code_dir: Path) -> ExeRecord | None:
-    data = read_config(code_dir).get(SECTION, {})
+    import tomllib
+    local = _local_record(code_dir)
+    data: object = None
+    if local is not None and local.is_file():
+        try:
+            data = tomllib.loads(local.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            log.warning("Zustand der Exe nicht lesbar: %s (%s)", local, exc)
+    if data is None:
+        data = read_config(code_dir).get(SECTION, {})       # bis 10g: in cockpit.toml
     if not isinstance(data, dict) or data.get("source") not in SOURCES:
         return None
     return ExeRecord(data["source"], str(data.get("date", "")), str(data.get("commit", "")),
@@ -100,13 +124,24 @@ def read_record(code_dir: Path) -> ExeRecord | None:
 
 
 def write_record(code_dir: Path, record: ExeRecord) -> None:
+    values = {"source": record.source, "date": record.date, "commit": record.commit,
+              "version": record.version, "pending": record.pending, "tested": record.tested}
     data = read_config(code_dir)
     section = data.get(SECTION) if isinstance(data.get(SECTION), dict) else {}
-    section.update({"source": record.source, "date": record.date, "commit": record.commit,
-                    "version": record.version, "pending": record.pending,
-                    "tested": record.tested})
-    data[SECTION] = section
-    write_config(code_dir, data)
+    local = _local_record(code_dir)
+    if local is None:
+        section.update(values)
+        data[SECTION] = section
+        write_config(code_dir, data)
+        return
+    import tomli_w
+    local.write_text(tomli_w.dumps(values), encoding="utf-8")
+    if any(key in section for key in RECORD_KEYS):
+        # Einmal aufräumen: der alte Zustand aus cockpit.toml (bis 10g)
+        for key in RECORD_KEYS:
+            section.pop(key, None)
+        data[SECTION] = section
+        write_config(code_dir, data)
 
 
 def read_settings(code_dir: Path) -> BuildSettings | None:

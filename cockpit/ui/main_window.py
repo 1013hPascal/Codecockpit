@@ -372,6 +372,7 @@ class MainWindow(QMainWindow):
     def _status_finished(self) -> None:
         task, self.status_task = self.status_task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
         if self.status_queue is not None:
             queued = None if self.status_queue_all else list(self.status_queue)
@@ -431,6 +432,7 @@ class MainWindow(QMainWindow):
     def _remote_finished(self) -> None:
         task, self.remote_task = self.remote_task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     # -- Aktionen -------------------------------------------------------------------------

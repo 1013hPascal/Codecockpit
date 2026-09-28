@@ -200,6 +200,7 @@ class TerminalDialog(FocusDialog):
         task, self.task = self.task, None
         self.stop_button.setVisible(False)
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
         if not self.edit.hasFocus() and self.isVisible() and not self.output.hasFocus():
             self.edit.setFocus()
@@ -275,6 +276,7 @@ class TerminalDialog(FocusDialog):
     def _explain_done(self) -> None:
         task, self.explain_task = self.explain_task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     def stop_explanation(self, wait: bool = False) -> None:

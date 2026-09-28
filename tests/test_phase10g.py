@@ -269,3 +269,22 @@ def test_overview_names_folders_instead_of_current(qtbot, tmp_path, projects_roo
     assert single.windowTitle() == "suche verwalten"
     single.delete_current()
     assert single.delete_request == "suche"
+
+
+# -- Zustand der Exe nicht mehr in cockpit.toml (Wunsch aus dem Test von 10g) ----------------------
+def test_exe_record_stays_local_in_a_repository(tmp_path):
+    from cockpit.core.projects import read_config
+    from tests.test_phase5a import sh
+    code = tmp_path / "Code"
+    code.mkdir()
+    sh(code, "init", "-q")
+    (code / "cockpit.toml").write_text('[exe]\nsource = "cockpit"\ndate = "2026-09-28T10:00:00"\n'
+                                       '\n[exe.build]\nname = "App"\n', encoding="utf-8")
+    assert exe.read_record(code).source == "cockpit"            # alter Zustand wird gelesen
+    exe.write_record(code, exe.ExeRecord("release", "2026-09-28T12:00:00", "", "1.2.0"))
+    assert exe.read_record(code).version == "1.2.0"
+    assert (code / ".git" / exe.RECORD_FILE).is_file()
+    assert read_config(code)["exe"] == {"build": {"name": "App"}}   # einmal aufgeräumt
+    before = (code / "cockpit.toml").read_text(encoding="utf-8")
+    exe.write_record(code, exe.ExeRecord("cockpit", "2026-09-28T13:00:00", "abc"))
+    assert (code / "cockpit.toml").read_text(encoding="utf-8") == before

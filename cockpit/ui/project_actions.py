@@ -159,6 +159,7 @@ class ProjectController:
             self.busy.discard(key)
             if task in self.tasks:
                 self.tasks.remove(task)
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
         def failed(message: str, details: str) -> None:

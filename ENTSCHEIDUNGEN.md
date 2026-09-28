@@ -771,3 +771,10 @@ Anlass: Die VokabelApp des Nutzers. Ihre Exe startete nicht, und der Ordner Mein
 - Ohne KI oder ohne Einverständnis zum Senden bietet die Aktion nur den festen Teil an.
 - Die KI bekommt nie den ganzen Code: die Startdatei (bei mehr als 4000 Zeichen nur Anfang und Ende) und Auszüge um die Stellen, an denen Daten im Startordner gesucht werden, zusammen höchstens die Hälfte der Zeichengrenze aus den Grundeinstellungen.
 - Der Start-Test prüft nur, dass die Exe startet. Ob die Daten richtig erscheinen, prüft der Nutzer selbst.
+
+## 28.09.2026: Zustand der Exe lokal, Threads sauber beenden (nach dem Test von 10g)
+
+- Wunsch des Nutzers: In main stand nach jedem Bau und Veröffentlichen wieder eine Datei zum Hochladen. Grund: Der Zustand der Exe (Herkunft, Datum, Commit, Version, geprüft) stand in cockpit.toml, und die gehört zum Code. Er liegt jetzt im Git-Ordner des Projekts, Datei codecockpit-exe.toml. Der wird nie hochgeladen, und jeder Rechner hat seinen eigenen Zustand. Ohne Git bleibt er in cockpit.toml. Ein alter Zustand in cockpit.toml wird noch gelesen und beim nächsten Schreiben einmal entfernt. Die Einstellungen zum Bauen ([exe.build]) bleiben in cockpit.toml, weil sie zum Projekt gehören.
+- Nach dem Ende einer Hintergrundaufgabe wartet das Cockpit jetzt, bis ihr Thread ganz beendet ist, bevor es sie freigibt. Sonst konnte Qt das Programm abbrechen. So brachen auch Testläufe gelegentlich ab.
+- Die Versionsnummer im Code war beim Release 1.1.2 nicht angepasst worden, die Exe meldete deshalb 1.1.1. Sie steht jetzt auf 1.1.3.
+- Smart App Control blockiert neue, nicht signierte Exe-Dateien je nach ihrem Ruf, also nicht vorhersehbar. Dauerhaft hilft nur eine Signatur. Bis dahin startet start.bat das Cockpit über Python. Entscheidung zur Signatur weiter offen (TODO.md).

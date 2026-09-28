@@ -188,6 +188,7 @@ class AIManagerDialog(FocusDialog):
     def _info_done(self) -> None:
         task, self.task = self.task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     def show_install_guide(self) -> None:
@@ -447,6 +448,7 @@ class ModelDialog(FocusDialog):
     def _load_done(self) -> None:
         task, self.task = self.task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     def fill_suggestions(self) -> None:

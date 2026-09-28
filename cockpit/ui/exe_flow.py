@@ -229,6 +229,7 @@ class BuildDialog(FocusDialog):
         task, self.task = self.task, None
         self.stop_button.setVisible(False)
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     @property

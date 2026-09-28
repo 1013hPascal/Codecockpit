@@ -69,6 +69,7 @@ class GitIdentityDialog(FocusDialog):
         task, self.task = self.task, None
         self.noreply_button.setEnabled(True)
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     def noreply_received(self, result) -> None:

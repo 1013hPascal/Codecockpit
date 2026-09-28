@@ -414,6 +414,7 @@ class AIPage(Page):
     def _checked(self) -> None:
         task, self.task = self.task, None
         if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
 
     def setup_ai(self) -> None:
