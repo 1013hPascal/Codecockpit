@@ -90,6 +90,77 @@ def review(proposals: list[Proposal], parent: QWidget | None) -> list[Proposal] 
     return taken
 
 
+class EditDialog(FocusDialog):
+    """README als Text (Wunsch des Nutzers zu Phase 9). Speichern legt vorher eine
+    Sicherheitskopie an. "Vorschläge der KI …" schließt und startet das abschnittsweise
+    Ergänzen. Selbst geänderte Abschnitte gelten danach als eigener Text."""
+
+    def __init__(self, project: Project, name: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.project = project
+        self.path = project.code_dir / name
+        self.proposals_wanted = False
+        self.setWindowTitle(f"README bearbeiten: {project.name}, {name}")
+        self.original = self.path.read_text(encoding="utf-8")
+        self.edit = PlainEdit()
+        self.edit.setPlainText(self.original)
+        label = label_for(self.edit, f"&{name}:")
+        save = QPushButton("&Speichern")
+        save.clicked.connect(self.save)
+        proposals = QPushButton("Vorschläge der &KI …")
+        proposals.clicked.connect(self.ask_proposals)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        for button in (save, proposals, cancel):
+            button.setAutoDefault(False)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.edit, 1)
+        layout.addLayout(button_row(proposals, None, save, cancel))
+        self.resize(820, 560)
+        self.initial_focus_widget = self.edit
+
+    def changed(self) -> bool:
+        return self.edit.toPlainText().strip() != self.original.strip()
+
+    def save(self) -> None:
+        if not self.changed():
+            announce("Nichts geändert.")
+            self.accept()
+            return
+        import shutil
+        from cockpit.core import backups
+        try:
+            folder = backups.new_backup_dir(self.project.name, "README vor dem Bearbeiten",
+                                            self.project.code_dir)
+            shutil.copy2(self.path, folder / self.path.name)
+            self.path.write_text(self.edit.toPlainText().rstrip() + "\n", encoding="utf-8")
+        except OSError as exc:
+            show_error(self, self.windowTitle(), "Die README ließ sich nicht speichern.", str(exc))
+            return
+        announce(f"{self.path.name} gespeichert. Die alte steht in den Sicherheitskopien.")
+        self.accept()
+
+    def ask_proposals(self) -> None:
+        if self.changed() and not confirm(self, self.windowTitle(), "Ihre Änderungen sind noch "
+                                          "nicht gespeichert. Sie gehen verloren. Trotzdem "
+                                          "weiter?", yes="Verwerfen und weiter", no="Zurück"):
+            return
+        self.proposals_wanted = True
+        self.accept()
+
+    def reject(self) -> None:
+        if self.changed() and not confirm(self, self.windowTitle(), "Ihre Änderungen sind noch "
+                                          "nicht gespeichert. Verwerfen?", yes="Verwerfen",
+                                          no="Zurück"):
+            return
+        super().reject()
+
+    def keyPressEvent(self, event) -> None:
+        if not click_focused_button(self, event):
+            super().keyPressEvent(event)
+
+
 class LanguagesDialog(FocusDialog):
     """Sprachen eines Projekts: Hauptsprache und weitere als Kontrollkästchen (Frage 8)."""
 
@@ -157,16 +228,33 @@ class ReadmeActions:
         return (context.project.code_dir / "README.md").is_file()
 
     def actions(self) -> list[Action]:
+        # Auf der Projektzeile (Wunsch des Nutzers zu Phase 9): die README gehört zum Projekt
         return [
-            Action("readme_create", "README erstellen …", Target.CODE, self.start,
-                   visible=lambda c: self._active(c) and not self._has_readme(c), order=50),
-            Action("readme_update", "README aktualisieren …", Target.CODE, self.start,
-                   visible=lambda c: self._active(c) and self._has_readme(c), order=50),
-            Action("readme_show", "README ansehen", Target.CODE, self.show,
-                   visible=lambda c: self._active(c) and self._has_readme(c), order=51),
-            Action("readme_languages", "README-Sprachen …", Target.CODE, self.languages,
-                   visible=self._active, order=52),
+            Action("readme_create", "README erstellen …", Target.PROJECT, self.start,
+                   visible=lambda c: self._active(c) and not self._has_readme(c), order=30),
+            Action("readme_show", "README ansehen", Target.PROJECT, self.show,
+                   visible=lambda c: self._active(c) and self._has_readme(c), order=30),
+            Action("readme_edit", "README bearbeiten …", Target.PROJECT, self.edit,
+                   visible=lambda c: self._active(c) and self._has_readme(c), order=31),
+            Action("readme_languages", "README-Sprachen …", Target.PROJECT, self.languages,
+                   visible=self._active, order=32),
         ]
+
+    # -- Bearbeiten -------------------------------------------------------------------------
+    def edit(self, context: ActionContext) -> None:
+        """Die README als Text zum selbst Bearbeiten. Bei mehreren Sprachen erst die Datei."""
+        from cockpit.ui.common import choose_from_list
+        project = context.project
+        files = ["README.md"] + sorted(p.name for p in project.code_dir.glob("README.*.md"))
+        name = files[0]
+        if len(files) > 1:
+            index = choose_from_list(self.window, "README bearbeiten", "Dateien", files)
+            if index is None:
+                return
+            name = files[index]
+        dialog = EditDialog(project, name, self.window)
+        if dialog.exec() and dialog.proposals_wanted:
+            self.start(context)
 
     # -- Ansehen und Sprachen ---------------------------------------------------------------
     def show(self, context: ActionContext) -> None:

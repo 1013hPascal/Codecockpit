@@ -46,7 +46,7 @@ Ergebnis:
 ## README erstellen
 
 [ ] 7. Aktion
-Tasten: Auf Code eines Projekts ohne README, Tab.
+Tasten: Auf der Projektzeile eines Projekts ohne README, Tab.
 Ansage: „README erstellen …“ und „README-Sprachen …“.
 Ergebnis:
 
@@ -69,12 +69,12 @@ Am Ende: „README geschrieben: README.de.md, README.md.“
 Ergebnis:
 
 [ ] 11. Ergebnis
-Tasten: Auf Code „README ansehen“.
+Tasten: Auf der Projektzeile „README ansehen“.
 Ansage: Oben „# Name“, dann „English | [Deutsch](README.de.md)“, dann die übernommenen Abschnitte. Keine Markierungen und keine Kommentare im Text.
 Ergebnis:
 
 [ ] 12. Alle abbrechen
-Tasten: „README aktualisieren …“, im ersten Fenster Alt+A.
+Tasten: „README bearbeiten …“, dann Alt+K für „Vorschläge der KI …“, im ersten Fenster Alt+A.
 Ansage: „Abgebrochen.“ Die README ist unverändert.
 Ergebnis:
 
@@ -82,13 +82,13 @@ Ergebnis:
 ## README pflegen
 
 [ ] 13. Eigene Texte bleiben
-Tasten: Einen übernommenen Abschnitt in der README selbst ändern und speichern. Dann „README aktualisieren …“.
+Tasten: „README bearbeiten …“, einen übernommenen Abschnitt im Text ändern, Alt+S. Dann noch einmal „README bearbeiten …“ und „Vorschläge der KI …“.
 Ansage: Dieser Abschnitt wird nicht mehr vorgeschlagen. Unveränderte Abschnitte des Cockpits kommen nur, wenn sich etwas geändert hat, zum Beispiel nach einer neuen Version.
 Ergebnis:
 
 [ ] 14. Sprachen eines Projekts
-Tasten: Auf Code „README-Sprachen …“. Hauptsprache auf Deutsch, bei den weiteren Sprachen Englisch anhaken, Speichern.
-Ansage: „README-Sprachen gespeichert.“ Beim nächsten „README aktualisieren …“ ist README.md deutsch.
+Tasten: Auf der Projektzeile „README-Sprachen …“. Hauptsprache auf Deutsch, bei den weiteren Sprachen Englisch anhaken, Speichern.
+Ansage: „README-Sprachen gespeichert.“ Bei den nächsten Vorschlägen der KI ist README.md deutsch.
 Fokus: Zurück in der Aktionsliste.
 Ergebnis:
 
@@ -106,4 +106,16 @@ Ergebnis:
 [ ] 17. Prüfung ausschalten
 Tasten: Feature-Verwaltung, README-Pflege, Einstellungen, „Vor dem Hochladen prüfen …“ ausschalten.
 Ansage: Beim nächsten Hochladen keine Prüfung.
+Ergebnis:
+
+[ ] 18. README bearbeiten
+Tasten: Auf der Projektzeile „README bearbeiten …“. Gibt es mehrere Sprachen, erst die Datei wählen. Im Text etwas ändern, Alt+S.
+Ansage: „README.md gespeichert. Die alte steht in den Sicherheitskopien.“ Escape mit ungespeicherten Änderungen fragt „Verwerfen?“, Vorgabe „Zurück“.
+Fokus: Im Textfeld, nach dem Speichern zurück in der Aktionsliste.
+Ergebnis:
+
+[ ] 19. Neue Version ergänzt die README
+Tasten: Etwas im Code ändern, „Änderungen hochladen …“, bei der Version „Neue Funktion“ wählen. Das geht auch, wenn die Prüfung vor dem Hochladen ausgeschaltet ist.
+Ansage: Erst ein Fenster „README: Änderungen“ (oder „Changes“) mit der neuen Version und den Commits seit der letzten. Danach die Vorschläge der KI für andere Abschnitte, zum Beispiel „README: Funktionen“. OK übernimmt, Abbrechen überspringt.
+Am Ende: „Version … README angepasst.“ Alles ist im selben Commit.
 Ergebnis:

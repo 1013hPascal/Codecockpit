@@ -46,58 +46,123 @@ def _ai(context: FlowContext):
     return ai
 
 
+class _Editor:
+    """Übernimmt bestätigte Abschnitte in README.md. Vor der ersten Änderung eine Sicherheitskopie."""
+
+    def __init__(self, context: FlowContext) -> None:
+        self.context = context
+        self.code_dir = context.project.code_dir
+        self.path = self.code_dir / "README.md"
+        self.readme = doc.parse(self.path.read_text(encoding="utf-8"))
+        self.backup_done = False
+        self.taken = 0
+
+    def offer(self, key: str, title: str, reason: str, text: str) -> None:
+        """Vorschlag als Textfrage: OK übernimmt, auch angepasst. Abbrechen überspringt."""
+        part = next((p for p in self.readme.parts if p.title.lower() == title.lower()), None)
+        own = part is not None and doc.is_own(self.code_dir, "README.md", part)
+        label = (f"Vorschlag der KI für „{title}“: {reason}"
+                 + (" Diesen Abschnitt haben Sie selbst geschrieben." if own else "")
+                 + " OK übernimmt den Text, auch angepasst. Abbrechen überspringt.")
+        new = self.context.ask(TextQuestion(f"README: {title}", label, text, multiline=True))
+        if not new or not str(new).strip():
+            return
+        if not self.backup_done:
+            project = self.context.project
+            folder = backups.new_backup_dir(project.name, "README vor der Prüfung", self.code_dir)
+            shutil.copy2(self.path, folder / self.path.name)
+            self.backup_done = True
+        key = key or (part.key if part is not None else "")
+        if part is not None:
+            part.body = str(new).strip()
+        elif key:
+            self.readme.put(key, title, str(new))
+        else:
+            return
+        self.path.write_text(self.readme.text(), encoding="utf-8")
+        body = self.readme.find(key).body if key and self.readme.find(key) else ""
+        if key and not own and body:
+            doc.remember(self.code_dir, "README.md", key, body)
+        self.taken += 1
+
+
+def _changes_proposal(context: FlowContext, version: str) -> tuple[str, str] | None:
+    """Abschnitt Änderungen mit der neuen Version (Wunsch des Nutzers zu Phase 9): die Commits
+    seit der letzten Version und die Nachricht dieses Commits."""
+    from datetime import date
+
+    from cockpit.features.readme.plan import enabled_keys, languages
+    from cockpit.features.versions import versions
+    services = context.services
+    if "changes" not in enabled_keys(services):
+        return None
+    code_dir = context.project.code_dir
+    last = versions.current(code_dir)
+    since = f"v{last}..HEAD" if last else "HEAD"
+    subjects = [s for s in git.run(["log", "--format=%s", "--no-merges", since], code_dir,
+                                   check=False).stdout.splitlines() if s.strip()]
+    message = (context.data.get("message") or "").strip().splitlines()
+    if message and message[0] not in subjects:
+        subjects.insert(0, message[0])
+    released = versions.Released(version, f"{date.today():%d.%m.%Y}", subjects)
+    main_code, _codes = languages(services, code_dir)
+    facts = content.Facts(context.project.name,
+                          releases=[released] + versions.history(code_dir, limit=2))
+    text = content.fixed("changes", facts, main_code if main_code in ("en", "de") else "en")
+    return doc.heading("changes", main_code), text
+
+
 def check(context: FlowContext) -> StepResult:
+    """Läuft nach der Frage nach der Version. Bei einer neuen Version immer (Wunsch des Nutzers
+    zu Phase 9), sonst nur, wenn die Prüfung eingeschaltet ist und sich Code geändert hat."""
     services, project = context.services, context.project
-    if services is None or not _setting(services, "check_on_upload", True):
+    if services is None:
         return StepResult(True)
     code_dir = project.code_dir
     path = code_dir / "README.md"
     if not path.is_file():
         return StepResult(True)
+    version = context.data.get("version", "")
     changed = sync.changes(code_dir).files
     code_changes = [f for f in changed if not f.split("/")[-1].upper().startswith("README")
                     and f.split("/")[-1] != "cockpit.toml"]
-    if not code_changes:
+    if not version and (not _setting(services, "check_on_upload", True) or not code_changes):
         return StepResult(True)          # nichts, nur die README oder nur Einstellungen geändert
+    editor = _Editor(context)
+    if version:
+        proposal = _changes_proposal(context, version)
+        if proposal is not None:
+            title, text = proposal
+            existing = editor.readme.find("changes")
+            editor.offer("changes", existing.title if existing else title,
+                         f"Version {version} kommt dazu.", text)
     ai = _ai(context)
     if ai is None:
-        return StepResult(True)
+        return StepResult(True, "README angepasst." if editor.taken else "")
     context.status("Die KI prüft die README.")
     from cockpit.ai import prompt_files
     from cockpit.features.ai_assistant.context import filter_diff, redact
-    readme = doc.parse(path.read_text(encoding="utf-8"))
-    sections = "\n\n".join(f"## {p.title}\n{p.body}" for p in readme.parts)
+    sections = "\n\n".join(f"## {p.title}\n{p.body}" for p in editor.readme.parts
+                           if p.key != "changes")
     stat = git.run(["diff", "--stat", "HEAD"], code_dir, check=False).stdout
     diff = redact(filter_diff(git.run(["diff", "HEAD"], code_dir, check=False).stdout))
+    if version:
+        from cockpit.features.versions import versions
+        last = versions.current(code_dir)
+        log = git.run(["log", "--format=%s", "--no-merges", f"v{last}..HEAD" if last else "HEAD"],
+                      code_dir, check=False).stdout
+        stat = f"Commits seit der letzten Version:\n{log}\n{stat}"
     budget = max(1000, ai.max_chars - len(sections) - 1500)
     prompt = prompt_files.fill(prompt_files.load("readme_check"),
                                nachricht=context.data.get("message", "") or "keine",
-                               dateien="\n".join(changed[:80]),
+                               version=f"Neue Version {version}." if version else "Keine.",
+                               dateien="\n".join(changed[:80]) or "keine",
                                aenderungen=(stat + "\n" + diff)[:budget], readme=sections)
     try:
         answer = ai.ask(prompt, prompt_files.load("readme_check_system"), context.cancel_event)
     except CockpitError as exc:
         return StepResult(True, f"README nicht geprüft: {exc.message}")
-    taken = 0
-    backup_done = False
     for title, reason, text in content.parse_check(answer):
-        part = next((p for p in readme.parts if p.title.lower() == title.lower()), None)
-        if part is None:
-            continue
-        own = doc.is_own(code_dir, "README.md", part)
-        label = (f"Vorschlag der KI für „{part.title}“: {reason}"
-                 + (" Diesen Abschnitt haben Sie selbst geschrieben." if own else "")
-                 + " OK übernimmt den Text, auch angepasst. Abbrechen überspringt.")
-        new = context.ask(TextQuestion(f"README: {part.title}", label, text, multiline=True))
-        if not new or not str(new).strip():
-            continue
-        if not backup_done:
-            folder = backups.new_backup_dir(project.name, "README vor der Prüfung", code_dir)
-            shutil.copy2(path, folder / path.name)
-            backup_done = True
-        part.body = str(new).strip()
-        path.write_text(readme.text(), encoding="utf-8")
-        if part.key and not own:
-            doc.remember(code_dir, "README.md", part.key, part.body)
-        taken += 1
-    return StepResult(True, "README angepasst." if taken else "")
+        if next((p for p in editor.readme.parts if p.title.lower() == title.lower()), None):
+            editor.offer("", title, reason, text)
+    return StepResult(True, "README angepasst." if editor.taken else "")

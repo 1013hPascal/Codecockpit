@@ -29,7 +29,8 @@ MANIFEST = FeatureManifest(
         YesNo("check_on_upload", "Vor dem Hochladen prüfen, ob die README passt", True),
         AIToolChoice("tool", "KI für die README"),
     ),
-    steps=(Step("readme_check", "README wird geprüft", Hook.BEFORE_PUSH, steps.check, order=400,
+    # Nach der Frage nach der Version (Versionen: 500), vor dem Commit (900)
+    steps=(Step("readme_check", "README wird geprüft", Hook.BEFORE_PUSH, steps.check, order=600,
                 feature_id=FEATURE_ID, flows=("push_changes",)),),
     enabled_by_default=False,
 )

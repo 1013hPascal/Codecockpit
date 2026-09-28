@@ -1,6 +1,9 @@
 Commit-Nachricht:
 <<nachricht>>
 
+Version:
+<<version>>
+
 Geänderte Dateien:
 <<dateien>>
 

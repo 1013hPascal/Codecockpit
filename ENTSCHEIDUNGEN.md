@@ -816,3 +816,10 @@ Antworten in fragen\phase-09.md: alle Vorschläge angenommen, aber in einem Schr
 - Übersetzt werden die übernommenen Abschnitte und solche, die in einer Übersetzung ganz fehlen. In einer Übersetzung selbst geschriebene Abschnitte bleiben.
 - Prüfung vor dem Hochladen: nur wenn sich mehr als README oder cockpit.toml geändert hat. Die KI bekommt Commit-Nachricht, geänderte Dateien, den Überblick der Änderungen ohne vertrauliche Dateien und die README. Jeder Vorschlag kommt als Textfrage: OK übernimmt (auch angepasst), Abbrechen überspringt. Klappt die KI nicht, geht das Hochladen weiter.
 - Version 1.4.0.
+
+
+## 29.09.2026: README auf der Projektzeile, Vorschläge bei neuer Version
+
+- Wunsch des Nutzers: Die README-Aktionen stehen auf der Projektzeile, nicht mehr auf Code: „README erstellen …“, „README ansehen“, „README bearbeiten …“, „README-Sprachen …“.
+- „README bearbeiten …“ zeigt die README als Text zum selbst Bearbeiten. Speichern legt vorher eine Sicherheitskopie an. „Vorschläge der KI …“ startet das abschnittsweise Ergänzen, das vorher „README aktualisieren …“ hieß. Selbst geänderte Abschnitte gelten danach als eigener Text.
+- Wunsch des Nutzers: Wird beim Hochladen eine neue Version gesetzt, prüft das Cockpit die README immer, auch wenn die normale Prüfung ausgeschaltet ist. Zuerst schlägt es den Abschnitt Änderungen mit der neuen Version und den Commits seit der letzten vor, dann macht die KI Vorschläge für andere Abschnitte. Dafür läuft die Prüfung jetzt nach der Frage nach der Version.

@@ -249,15 +249,55 @@ def test_review_takes_edited_text_and_escape_skips(qtbot, monkeypatch):
     assert [(p.key, p.text) for p in taken] == [("features", "- angepasst")]
 
 
-def test_readme_actions_on_code(qtbot, tmp_path, projects_root, make_services):
+def test_readme_actions_on_the_project_row(qtbot, tmp_path, projects_root, make_services):
+    """Wunsch des Nutzers zu Phase 9: README bei den Aktionen des Projekts."""
     from cockpit.core.actions import Target
     from tests.test_phase10f import window
     services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
                                            {"main.py": "print(1)\n"})
     win = window(qtbot, services)
-    win.project_list.select(Target.CODE, project.id)
+    win.project_list.select(Target.PROJECT, project.id)
     labels = [e.label for e in win.current_entries()]
     assert "README erstellen …" in labels and "README-Sprachen …" in labels
     (project.code_dir / "README.md").write_text("# Rechner\n", encoding="utf-8")
     labels = [e.label for e in win.current_entries()]
-    assert "README aktualisieren …" in labels and "README ansehen" in labels
+    assert "README bearbeiten …" in labels and "README ansehen" in labels
+    win.project_list.select(Target.CODE, project.id)
+    assert not [l for l in (e.label for e in win.current_entries()) if "README" in l]
+
+
+def test_edit_dialog_saves_with_backup(qtbot, tmp_path, projects_root, make_services, home):
+    from cockpit.core import backups
+    from cockpit.ui import readme_flow
+    services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
+                                           {"README.md": "# Rechner\n"})
+    dialog = readme_flow.EditDialog(project, "README.md")
+    qtbot.addWidget(dialog)
+    dialog.edit.setPlainText("# Rechner\n\nRechnet schnell.")
+    dialog.save()
+    assert (project.code_dir / "README.md").read_text(encoding="utf-8") == \
+        "# Rechner\n\nRechnet schnell.\n"
+    saved = [p for p in backups.backups_dir().iterdir() if "README vor dem Bearbeiten" in p.name]
+    assert (saved[0] / "README.md").read_text(encoding="utf-8") == "# Rechner\n"
+
+
+def test_new_version_proposes_changes_and_asks_the_ai(tmp_path, projects_root, make_services,
+                                                      monkeypatch):
+    """Wunsch des Nutzers zu Phase 9: Bei einer neuen Version schlägt die KI Ergänzungen vor,
+    auch wenn die normale Prüfung ausgeschaltet ist."""
+    services, project, bare = project_with(
+        tmp_path, projects_root, make_services, ["readme", "versions"],
+        {"main.py": "print(1)\n", "README.md": "# Rechner\n\n## Features\n\n- plus\n"})
+    services.features.set_setting("readme", "check_on_upload", False)
+    ai = ScriptedAI("ABSCHNITT: Features\nGRUND: Suche ist neu.\nNEU:\n<<<\n- plus\n- Suche\n>>>")
+    monkeypatch.setattr(services, "ai_for", lambda task, project=None, tool_id=None: ai)
+    write(project.code_dir, "suche.py", "x\n")
+    changes_text = "### 1.0.0\n\n- Neue Suche"
+    asker = ScriptedAsker(2, changes_text, "- plus\n- Suche")
+    summary, _context = push(services, project, asker)
+    assert summary.completed and "Version 1.0.0." in summary.text()
+    assert [q.title for q in asker.questions[1:]] == ["README: Changes", "README: Features"]
+    assert "Neue Suche" in asker.questions[1].default
+    assert "Neue Version 1.0.0." in ai.prompts[0]
+    committed = sh(project.code_dir, "show", "HEAD:README.md")
+    assert "## Changes\n\n### 1.0.0" in committed and "- Suche" in committed
