@@ -1,5 +1,12 @@
-# Projekteinstellungen von CodeCockpit (ohne Geheimnisse, wird mitversioniert)
 is_cockpit = true
+
+[exe]
+source = "cockpit"
+date = "2026-09-28T09:42:08"
+commit = "75885edef133593ea4b78eacab8ddceaceb4ec9c"
+version = ""
+pending = false
+tested = false
 
 [exe.build]
 start_file = "main.py"

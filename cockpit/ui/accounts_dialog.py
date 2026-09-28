@@ -512,6 +512,11 @@ class AccountsDialog(FocusDialog):
         if dialog.exec():
             announce(f"Konto {dialog.saved.display_name} angelegt.")
             self.refresh(dialog.saved.id)
+            if dialog.saved.kind == "platform":
+                # Wunsch des Nutzers: wie im Einrichtungsassistenten gleich Name und anonyme
+                # E-Mail-Adresse für Commits festlegen
+                from cockpit.ui.identity_dialog import GitIdentityDialog
+                GitIdentityDialog(self.services, dialog.saved, self).exec()
         self.list.setFocus()
 
     def test_current(self) -> None:
