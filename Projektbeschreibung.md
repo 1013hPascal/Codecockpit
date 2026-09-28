@@ -2,7 +2,7 @@
 
 ## Kurzbeschreibung
 
-Cockpit für Windows, das Code-Projekte auf GitHub verwaltet, von KI unterstützt und mit automatisierten Abläufen: hochladen, Branches, Pull Requests, Exe bauen und veröffentlichen, Rückmeldungen im Blick behalten.
+Cockpit für Windows, das Code-Projekte auf GitHub verwaltet, von KI unterstützt und mit automatisierten Abläufen: hochladen, Branches, Pull Requests, Exe bauen und veröffentlichen, Rückmeldungen im Blick behalten. Es ist barrierefrei vollständig mit der Tastatur bedienbar.
 
 
 ## Worum es geht
