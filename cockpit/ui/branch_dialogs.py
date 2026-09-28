@@ -12,6 +12,7 @@ zurückzuholen. Was mit der Plattform spricht, läuft im Hintergrund. Nie ein fo
 """
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
@@ -36,8 +37,13 @@ class BranchesDialog(FocusDialog):
 
     def __init__(self, project: "Project", items: list[Branch], env: dict[str, str] | None = None,
                  platform_name: str = "GitHub", parent: QWidget | None = None,
-                 folders: dict[str, str] | None = None) -> None:
+                 folders: dict[str, str] | None = None, single: bool = False) -> None:
         super().__init__(parent)
+        # single (Wunsch aus dem Test von 10f): nur ein Branch-Ordner, "<Name> verwalten"
+        self.single = single
+        self.single_name = items[0].name if single and items else ""
+        self.remove_request = False
+        self.delete_request = ""
         self.project = project
         self.code_dir = project.code_dir
         self.items = items
@@ -68,12 +74,17 @@ class BranchesDialog(FocusDialog):
         delete = QPushButton("&Löschen …")
         delete.clicked.connect(self.delete_current)
         self.rename_button, self.delete_button = rename, delete
+        remove = QPushButton("Branch-&Ordner entfernen …")
+        remove.clicked.connect(self.remove_folder)
+        remove.setVisible(single)
+        new.setVisible(not single)
         self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 1)
-        layout.addLayout(button_row(switch, new, self.merge_button, rename, delete, None, close))
+        layout.addLayout(button_row(switch, new, self.merge_button, rename, remove, delete, None,
+                                    close))
         self.resize(760, 420)
         self.initial_focus_widget = self.list
         self.fill()
@@ -91,16 +102,37 @@ class BranchesDialog(FocusDialog):
 
     def fill(self, select: str = "") -> None:
         row = max(0, self.list.currentRow())
-        self.setWindowTitle(f"Branches von {self.project.name}: "
-                            f"{count(len(self.items), 'Branch', 'Branches')}")
+        if self.single:
+            self.setWindowTitle(f"{self.single_name} verwalten")
+        else:
+            self.setWindowTitle(f"Branches von {self.project.name}: "
+                                f"{count(len(self.items), 'Branch', 'Branches')}")
         self.list.clear()
-        self.list.addItems([b.line(self.main, self.platform_name) for b in self.items]
-                           or ["Noch keine Branches."])
+        self.list.addItems([self.line(b) for b in self.items] or ["Noch keine Branches."])
         names = [b.name for b in self.items]
         if select in names:
             row = names.index(select)
         self.list.setCurrentRow(min(row, self.list.count() - 1))
         self.update_buttons()
+
+    def line(self, branch: Branch) -> str:
+        """Mit Branch-Ordnern gibt es keinen "aktuellen Branch". Die Zeile nennt stattdessen den
+        Ordner (Wunsch aus dem Test von 10f)."""
+        if not self.structured:
+            return branch.line(self.main, self.platform_name)
+        text = dataclasses.replace(branch, current=False).line(self.main, self.platform_name)
+        if branch.default:
+            where = f"Ordner Code\\{self.code_dir.name}"
+        elif branch.name in self.folders:
+            where = f"Ordner Code\\{self.folders[branch.name]}"
+        else:
+            where = "ohne Ordner"
+        name, _, rest = text.partition(", ")
+        return f"{name}, {where}, {rest}" if rest else f"{name}, {where}"
+
+    def remove_folder(self) -> None:
+        self.remove_request = True
+        self.accept()
 
     def update_buttons(self) -> None:
         """Wunsch aus dem Test von 5f: Beim Haupt-Branch gibt es kein "In main übernehmen …" und
@@ -112,7 +144,8 @@ class BranchesDialog(FocusDialog):
         # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
         if self.structured:
             self.switch_button.setVisible(branch is not None and not branch.default
-                                          and branch.name not in self.folders)
+                                          and branch.name not in self.folders
+                                          and not self.single)
             if branch is not None:
                 self.switch_button.setText(f"&Ordner für {branch.name.replace('&', '&&')} "
                                            "anlegen")
@@ -123,13 +156,16 @@ class BranchesDialog(FocusDialog):
         self.merge_button.setVisible(branch is not None and not branch.default)
         self.rename_button.setVisible(branch is not None and not branch.default)
         self.delete_button.setVisible(branch is not None and not branch.default
-                                      and not branch.current)
+                                      and (not branch.current or self.structured))
 
     def reload(self, select: str = "") -> None:
         try:
             self.items = branches.list_branches(self.code_dir)
         except CockpitError as exc:
             show_error(self, "Branches", exc.message, exc.details)
+        if self.single:
+            self.single_name = select or self.single_name
+            self.items = [b for b in self.items if b.name == self.single_name]
         self.fill(select)
         self.list.setFocus()
 
@@ -340,6 +376,10 @@ class BranchesDialog(FocusDialog):
         if branch is None:
             return
         title = "Branch löschen"
+        if self.structured and branch.name in self.folders and not branch.default:
+            self.delete_request = branch.name       # mit Ordner, erledigt WorktreeActions
+            self.accept()
+            return
         if branch.current or branch.default:
             what = "der aktuelle Branch. Wechseln Sie zuerst zu einem anderen" if branch.current \
                 else "der Haupt-Branch. Er lässt sich hier nicht löschen"

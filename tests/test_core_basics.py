@@ -66,8 +66,10 @@ def test_data_dir_follows_environment(home):
 
 def test_default_projects_root_is_parent_of_project_folder():
     here = paths.program_dir()
-    assert here.name == "Code"
-    assert paths.default_projects_root() == here.parent.parent
+    # Seit 10f liegt der Code auch in Code\main oder in einem Branch-Ordner daneben
+    project_dir = here.parent.parent if here.parent.name == "Code" else here.parent
+    assert "Code" in (here.name, here.parent.name)
+    assert paths.default_projects_root() == project_dir.parent
 
 
 # -- Datenbank ----------------------------------------------------------------------------

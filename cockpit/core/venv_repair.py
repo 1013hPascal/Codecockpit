@@ -129,10 +129,20 @@ def create_like(source_dir: Path, target_dir: Path,
     if not state.exists or (target_dir / VENV).exists():
         return False
     python = find_python(state)
-    _run([*python, "-m", "venv", VENV], target_dir, cancel)
+    try:
+        _run([*python, "-m", "venv", VENV], target_dir, cancel)
+    except CockpitError as exc:
+        raise CockpitError("Die virtuelle Umgebung für den Branch-Ordner ließ sich nicht "
+                           "anlegen.", exc.details) from None
     if (target_dir / "requirements.txt").is_file():
-        _run([str(target_dir / VENV / "Scripts" / "python.exe"), "-m", "pip", "install", "-r",
-              "requirements.txt"], target_dir, cancel)
+        try:
+            _run([str(target_dir / VENV / "Scripts" / "python.exe"), "-m", "pip", "install",
+                  "-r", "requirements.txt"], target_dir, cancel)
+        except CockpitError as exc:
+            raise CockpitError("Die virtuelle Umgebung für den Branch-Ordner ist angelegt, aber "
+                               "die Bibliotheken aus requirements.txt ließen sich nicht "
+                               "installieren. Die Details nennen den Grund.",
+                               exc.details) from None
     return True
 
 

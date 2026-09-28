@@ -75,11 +75,82 @@ def third_party_imports(code_dir: Path) -> set[str]:
     return {m for m in found if m not in stdlib and m not in local}
 
 
+_ENTRY = re.compile(r"^[A-Za-z_][\w.]*\(", re.MULTILINE)       # Aufruf ohne Einrückung
+_BAT_PY = re.compile(r"([\w\-. ]+\.py)\b", re.IGNORECASE)
+_STRING = re.compile(r"""["']([^"'\\/\n]{2,80})["']""")
+_EXE_AWARE = ("sys.executable", "_MEIPASS", "__file__")
+GUI_MODULES = ("PySide6", "PySide2", "PyQt5", "PyQt6", "tkinter", "wx", "kivy")
+
+
+def _read(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def starts_something(path: Path) -> bool:
+    """Startet die Datei etwas, wenn man sie ausführt? Sie hat "__main__" oder einen Aufruf ohne
+    Einrückung. Eine Datei nur mit Funktionen und Klassen startet nichts."""
+    text = _read(path)
+    return "__main__" in text or bool(_ENTRY.search(text))
+
+
+def guess_start_file(code_dir: Path) -> str:
+    """Vorschlag für die Startdatei (Phase 10g): die Datei, die eine .bat-Datei startet, dann eine
+    mit "__main__" und Fenster, dann main.py, dann eine mit "__main__"."""
+    for bat in sorted(code_dir.glob("*.bat")):
+        for name in _BAT_PY.findall(_read(bat)):
+            if (code_dir / name.strip()).is_file():
+                return name.strip()
+    candidates = sorted(p for p in code_dir.glob("*.py") if "__main__" in _read(p))
+    for path in candidates:
+        if any(module in _read(path) for module in GUI_MODULES):
+            return path.name
+    if (code_dir / "main.py").is_file():
+        return "main.py"
+    if candidates:
+        return candidates[0].name
+    return next((p.name for p in sorted(code_dir.glob("*.py"))), "main.py")
+
+
+def data_folders(code_dir: Path) -> list[str]:
+    """Ordner im Ordner Code, die der Code mit Namen nennt, zum Beispiel "Meine-Vokabeln". Sie
+    gehören meistens neben die Exe."""
+    folders = {p.name for p in code_dir.iterdir()
+               if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith(".")
+               and not (p / "__init__.py").is_file()}
+    found: set[str] = set()
+    for path in python_files(code_dir):
+        found |= {s for s in _STRING.findall(_read(path)) if s in folders}
+    return sorted(found)
+
+
+def relative_data_paths(code_dir: Path) -> list[tuple[str, str]]:
+    """(Datei, Name): Der Code nennt einen Ordner oder eine Datei aus dem Ordner Code nur mit
+    Namen und bestimmt den Ort nicht über die Exe. In der Exe sucht er dann im Startordner."""
+    names = {p.name for p in code_dir.iterdir()
+             if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"}
+    found: list[tuple[str, str]] = []
+    for path in python_files(code_dir):
+        text = _read(path)
+        if any(marker in text for marker in _EXE_AWARE):
+            continue
+        for name in sorted({s for s in _STRING.findall(text) if s in names}):
+            found.append((path.relative_to(code_dir).as_posix(), name))
+    return found
+
+
 def check(project: Project) -> list[str]:
     """Alle Prüfpunkte. Erste Zeile: Gesamtbewertung."""
-    code_dir = project.code_dir
+    return check_for(project.code_dir, exe.read_settings(project.code_dir),
+                     exe.current_exe(project))
+
+
+def check_for(code_dir: Path, settings: exe.BuildSettings | None,
+              current: Path | None = None) -> list[str]:
+    """Wie check, mit vorgegebenen Einstellungen (Phase 10g, für die KI). current: die Exe."""
     lines: list[str] = []
-    settings = exe.read_settings(code_dir)
     spec = code_dir / settings.spec_name if settings else None
     if settings is None or not spec.is_file():
         specs = sorted(code_dir.glob("*.spec"))
@@ -95,8 +166,27 @@ def check(project: Project) -> list[str]:
         lines.append(f"{OK}: {spec.name} ist da.")
     if settings is not None:
         start = code_dir / settings.start_file
-        lines.append(f"{OK}: Startdatei {settings.start_file} ist da." if start.is_file()
-                     else f"{PROBLEM}: Die Startdatei {settings.start_file} fehlt.")
+        if not start.is_file():
+            lines.append(f"{PROBLEM}: Die Startdatei {settings.start_file} fehlt.")
+        elif not starts_something(start):
+            guess = guess_start_file(code_dir)
+            hint = f" Wahrscheinlich ist {guess} richtig." if guess != settings.start_file else ""
+            lines.append(f"{PROBLEM}: Die Startdatei {settings.start_file} startet nichts. Sie "
+                         f"enthält nur Funktionen und Klassen.{hint}")
+        else:
+            lines.append(f"{OK}: Startdatei {settings.start_file} ist da.")
+        for name in settings.beside:
+            if not (code_dir / name).exists():
+                lines.append(f"{PROBLEM}: Der Ordner {name}, der neben die Exe soll, fehlt im "
+                             "Ordner Code.")
+        for name in data_folders(code_dir):
+            if name not in settings.beside:
+                lines.append(f"{WARNING}: Der Code nutzt den Ordner {name}. In der Exe fehlt er. "
+                             "Tragen Sie ihn unter „Ordner neben der Exe“ ein.")
+        for filename, name in relative_data_paths(code_dir):
+            lines.append(f"{WARNING}: {filename} sucht {name} im Startordner. Gestartet aus "
+                         "einem anderen Ordner, findet die Exe es nicht. Besser den Ort über "
+                         "die Exe bestimmen (sys.executable).")
         if settings.icon:
             lines.append(f"{OK}: Symbol {settings.icon} ist da." if (code_dir / settings.icon)
                          .is_file() else f"{PROBLEM}: Das Symbol {settings.icon} fehlt.")
@@ -117,14 +207,15 @@ def check(project: Project) -> list[str]:
         lines.append(f"{WARNING}: Es gibt keine requirements.txt.")
     missing = sorted(m for m in third_party_imports(code_dir)
                      if _normalize(PACKAGE_NAMES.get(m.lower(), m)) not in required)
-    lines.append(f"{WARNING}: Diese Bibliotheken stehen nicht in requirements.txt: "
-                 f"{', '.join(missing)}." if missing
+    # Problem, nicht nur Warnung (10g): Das Cockpit installiert in die virtuelle Umgebung nur,
+    # was in requirements.txt steht. Was fehlt, fehlt auch in der Exe.
+    lines.append(f"{PROBLEM}: Diese Bibliotheken stehen nicht in requirements.txt und fehlen "
+                 f"deshalb in der Exe: {', '.join(missing)}." if missing
                  else f"{OK}: Alle importierten Bibliotheken stehen in requirements.txt.")
     loose = sorted(name for name, version in required.items() if not version.startswith("=="))
     lines.append(f"{WARNING}: Ohne feste Version: {', '.join(loose)}. Besser zum Beispiel "
                  "paket==1.2.3." if loose else f"{OK}: Alle Versionen sind fest.")
 
-    current = exe.current_exe(project)
     if current is not None:
         size = current.stat().st_size
         megabytes = round(size / (1024 * 1024))

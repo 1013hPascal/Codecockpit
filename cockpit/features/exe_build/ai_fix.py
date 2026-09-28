@@ -1,0 +1,220 @@
+"""Exe mit KI einrichten (Phase 10g).
+
+Zwei Teile:
+- Ohne KI, fest: richtige Startdatei, Ordner neben der Exe, fehlende Bibliotheken in
+  requirements.txt. Das ergibt sich aus der Prüfung (setup_check).
+- Mit KI: Änderungen am Code, zum Beispiel Daten neben der Exe statt im Startordner. Die KI
+  bekommt die Prüfung, den Wunsch des Nutzers und Auszüge aus dem Code und antwortet in einem
+  festen Format (Prompt exe_fix). Eine Änderung gilt nur, wenn ihr alter Text genau einmal in
+  der Datei steht.
+
+Nichts wird ohne Bestätigung geändert. apply() legt vorher eine Sicherheitskopie an.
+"""
+from __future__ import annotations
+
+import re
+import shutil
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from cockpit.core import backups, exe
+from cockpit.core.errors import CockpitError
+from cockpit.features.exe_build import setup_check
+
+CONTEXT_LINES = 12                    # Zeilen vor und nach einer Fundstelle im Auszug
+SMALL_FILE = 4000                     # kleinere Startdateien gehen ganz an die KI
+
+
+@dataclass
+class Change:
+    file: str                         # relativ zum Ordner Code
+    reason: str
+    old: str                          # leer: neue Datei
+    new: str
+    problem: str = ""                 # warum die Änderung nicht passt, leer wenn sie passt
+
+    def line(self) -> str:
+        head = f"{self.file}: {self.reason}"
+        return f"{head} Nicht übernehmbar: {self.problem}" if self.problem else head
+
+
+@dataclass
+class Proposal:
+    summary: str = ""
+    changes: list[Change] = field(default_factory=list)
+    settings: exe.BuildSettings | None = None     # geänderte Exe-Einstellungen, sonst None
+    settings_lines: list[str] = field(default_factory=list)
+
+    @property
+    def usable(self) -> list[Change]:
+        return [c for c in self.changes if not c.problem]
+
+    @property
+    def empty(self) -> bool:
+        return not self.usable and self.settings is None
+
+
+# -- Fester Teil --------------------------------------------------------------------------------
+def fixed_part(code_dir: Path, settings: exe.BuildSettings) -> Proposal:
+    """Was sich ohne KI sicher sagen lässt."""
+    proposal = Proposal()
+    start = settings.start_file
+    if not (code_dir / start).is_file() or not setup_check.starts_something(code_dir / start):
+        guess = setup_check.guess_start_file(code_dir)
+        if guess != start and setup_check.starts_something(code_dir / guess):
+            start = guess
+            proposal.settings_lines.append(f"Startdatei: {guess} statt {settings.start_file}.")
+    beside = list(settings.beside)
+    for name in setup_check.data_folders(code_dir):
+        if name not in beside:
+            beside.append(name)
+            proposal.settings_lines.append(f"Ordner neben der Exe: {name}.")
+    if start != settings.start_file or beside != settings.beside:
+        proposal.settings = exe.BuildSettings(start, settings.name, settings.one_file,
+                                              settings.windowed, settings.icon, settings.datas,
+                                              settings.hidden_imports, settings.self_test,
+                                              settings.test_seconds, beside)
+    missing = missing_packages(code_dir)
+    if missing:
+        path = code_dir / "requirements.txt"
+        old = path.read_text(encoding="utf-8") if path.is_file() else ""
+        tail = "" if not old or old.endswith("\n") else "\n"
+        proposal.changes.append(Change(
+            "requirements.txt", f"Bibliotheken ergänzen, damit sie in die Exe kommen: "
+            f"{', '.join(missing)}.", "", old + tail + "".join(f"{m}\n" for m in missing)))
+    return proposal
+
+
+def missing_packages(code_dir: Path) -> list[str]:
+    """Paketnamen für requirements.txt, die importiert werden, aber dort fehlen."""
+    required = setup_check.requirements(code_dir)
+    names = []
+    for module in sorted(setup_check.third_party_imports(code_dir)):
+        package = setup_check.PACKAGE_NAMES.get(module.lower(), module)
+        if setup_check._normalize(package) not in required and package not in names:
+            names.append(package)
+    return names
+
+
+# -- Frage an die KI ----------------------------------------------------------------------------
+def excerpts(code_dir: Path, start_file: str, max_chars: int) -> str:
+    """Auszüge für die KI: die Startdatei (klein: ganz, sonst Anfang und Ende) und die Stellen,
+    an denen der Code Daten im Startordner sucht."""
+    parts: list[str] = []
+    start = code_dir / start_file
+    if start.is_file():
+        text = start.read_text(encoding="utf-8", errors="replace")
+        if len(text) > SMALL_FILE:
+            lines = text.splitlines()
+            text = "\n".join(lines[:40] + ["..."] + lines[-25:])
+        parts.append(f"--- {start_file} ---\n{text}")
+    for filename, name in setup_check.relative_data_paths(code_dir):
+        lines = (code_dir / filename).read_text(encoding="utf-8", errors="replace").splitlines()
+        for number, line in enumerate(lines):
+            if f'"{name}"' in line or f"'{name}'" in line:
+                first, last = max(0, number - CONTEXT_LINES), number + CONTEXT_LINES + 1
+                parts.append(f"--- {filename}, Auszug ---\n" + "\n".join(lines[first:last]))
+    return "\n\n".join(parts)[:max_chars]
+
+
+def build_prompt(project_name: str, settings: exe.BuildSettings, check_lines: list[str],
+                 wish: str, code: str) -> tuple[str, str]:
+    from cockpit.ai import prompt_files
+    prompt = prompt_files.fill(prompt_files.load("exe_fix"), projekt=project_name,
+                               startdatei=settings.start_file,
+                               neben=", ".join(settings.beside) or "keine",
+                               pruefung="\n".join(check_lines), wunsch=wish.strip() or "keiner",
+                               code=code)
+    return prompt, prompt_files.load("exe_fix_system")
+
+
+_BLOCK = re.compile(r"(?:ALT|NEU):\s*\n<<<\n(.*?)\n?>>>", re.DOTALL)
+
+
+def parse(answer: str) -> Proposal:
+    """Antwort der KI im Format aus dem Prompt exe_fix_system lesen. Unvollständige Blöcke
+    fallen weg."""
+    proposal = Proposal()
+    text = answer.replace("\r\n", "\n")
+    match = re.search(r"ZUSAMMENFASSUNG:\s*(.+)", text)
+    if match:
+        proposal.summary = match.group(1).strip()
+    for block in re.split(r"\n(?=AENDERUNG:)", text):
+        if not block.lstrip().startswith("AENDERUNG:"):
+            continue
+        file = re.search(r"AENDERUNG:\s*(.+)", block).group(1).strip().strip("`\"'")
+        reason = re.search(r"GRUND:\s*(.+)", block)
+        bodies = _BLOCK.findall(block)
+        if len(bodies) != 2 or not file:
+            continue
+        proposal.changes.append(Change(file.replace("\\", "/"), reason.group(1).strip()
+                                       if reason else "", bodies[0], bodies[1]))
+    return proposal
+
+
+def check_changes(code_dir: Path, proposal: Proposal) -> None:
+    """Jede Änderung prüfen: Datei im Ordner Code, alter Text genau einmal vorhanden."""
+    root = code_dir.resolve()
+    for change in proposal.changes:
+        path = (code_dir / change.file).resolve()
+        if not path.is_relative_to(root) or ".git" in path.relative_to(root).parts:
+            change.problem = "Die Datei liegt nicht im Ordner Code."
+        elif not change.old:
+            if path.exists() and change.file != "requirements.txt":
+                change.problem = "Die Datei gibt es schon."
+        elif not path.is_file():
+            change.problem = "Die Datei gibt es nicht."
+        else:
+            found = path.read_text(encoding="utf-8", errors="replace").count(change.old)
+            if found != 1:
+                change.problem = ("Der alte Text steht nicht in der Datei." if not found else
+                                  "Der alte Text steht mehrmals in der Datei.")
+
+
+def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish: str,
+        cancel: threading.Event | None = None) -> Proposal:
+    """Fester Teil plus Vorschlag der KI. Blockiert, also im Hintergrund aufrufen. ai: TextAI
+    oder None (dann nur der feste Teil)."""
+    proposal = fixed_part(code_dir, settings)
+    if ai is None:
+        check_changes(code_dir, proposal)
+        return proposal
+    effective = proposal.settings or settings
+    lines = setup_check.check_for(code_dir, effective)
+    prompt, system = build_prompt(project_name, effective, lines, wish,
+                                  excerpts(code_dir, effective.start_file, ai.max_chars // 2))
+    answered = parse(ai.ask(prompt, system, cancel))
+    proposal.summary = answered.summary
+    proposal.changes += [c for c in answered.changes if c.file != "requirements.txt"]
+    check_changes(code_dir, proposal)
+    return proposal
+
+
+# -- Übernehmen ---------------------------------------------------------------------------------
+def apply(project_name: str, code_dir: Path, proposal: Proposal) -> Path:
+    """Die passenden Änderungen übernehmen. Die betroffenen Dateien und cockpit.toml kommen
+    vorher in eine Sicherheitskopie. Gibt deren Ordner zurück."""
+    changes = proposal.usable
+    folder = backups.new_backup_dir(project_name, "vor den Änderungen für die Exe", code_dir)
+    for name in {c.file for c in changes} | {"cockpit.toml"}:
+        source = code_dir / name
+        if source.is_file():
+            target = folder / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+    for change in changes:
+        path = code_dir / change.file
+        if change.old:
+            text = path.read_text(encoding="utf-8")
+            if text.count(change.old) != 1:
+                raise CockpitError(f"{change.file} hat sich inzwischen geändert. Es wurde nicht "
+                                   "alles übernommen. Die Sicherheitskopie steht im Ordner "
+                                   "backups.")
+            path.write_text(text.replace(change.old, change.new), encoding="utf-8")
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(change.new, encoding="utf-8")
+    if proposal.settings is not None:
+        exe.change_settings(code_dir, project_name, proposal.settings)
+    return folder

@@ -65,6 +65,10 @@ class WorktreeActions:
                    and _repo_with_commits(c), order=24),
             Action("remove_branch_folder", "Branch-Ordner entfernen …", Target.CODE,
                    self.remove, visible=lambda c: c.worktree is not None, order=88),
+            # Wunsch aus dem Test von 10f: ganz oben der Name des Branches mit "verwalten"
+            Action("manage_branch", self._manage_text(), Target.CODE, self.manage,
+                   visible=lambda c: c.worktree is not None and bool(c.worktree.branch),
+                   order=0),
             Action("show_remote_branches", f"Branches auf {name} anzeigen …",
                    Target.REMOTE_BRANCHES, self.pick_remote, is_default=True, order=10),
             Action("pin_branch", "In Liste anpinnen", Target.REMOTE_BRANCH, self.pin,
@@ -75,6 +79,77 @@ class WorktreeActions:
             Action("unshow_branch", "Aus der Liste entfernen", Target.REMOTE_BRANCH,
                    self.unshow, order=90),
         ]
+
+    def _manage_text(self) -> str:
+        """Der Name steht in der Aktion, zum Beispiel "neue-funktion verwalten …"."""
+        project_list = self.window.project_list
+        if project_list.current_target()[0] is Target.BRANCH and project_list.current_key():
+            return f"{project_list.current_key()} verwalten …"
+        return "Branch verwalten …"
+
+    # -- Verwalten ----------------------------------------------------------------------------
+    def manage(self, context: ActionContext) -> None:
+        """Übersicht nur für diesen einen Branch: hochladen steht in der Aktionsliste, hier
+        übernehmen, umbenennen, Ordner entfernen und löschen."""
+        project, tree = context.main_project, context.worktree
+        env = self._environment(project)
+        if env is None:
+            return
+        services = self.services
+
+        def work(task: Task):
+            try:
+                branches.refresh(project.code_dir, env, task.cancel_event)
+            except CockpitError as exc:
+                log.warning("Stand für %s: %s", tree.branch, exc.message)
+            return [b for b in branches.list_branches(project.code_dir) if b.name == tree.branch]
+
+        def done(items) -> None:
+            from cockpit.ui.branch_dialogs import BranchesDialog
+            dialog = BranchesDialog(project, items, env, self.platform_name, self.window,
+                                    {tree.branch: tree.folder}, single=True)
+            dialog.exec()
+            if dialog.remove_request:
+                self.remove(context)
+            elif dialog.delete_request:
+                self.delete(project, tree, env)
+            else:
+                self.window.refresh_status([project.id])
+
+        self.controller.run_task(f"project:{project.id}", work, done,
+                                 f"{tree.branch} verwalten")
+
+    def delete(self, project: Project, tree: Worktree, env: dict[str, str]) -> None:
+        """Branch mit Ordner löschen. Der Ordner kommt in die Sicherheitskopien, wenn darin etwas
+        liegt, das es sonst nirgends gibt. Die Commits bleiben unter einem Sicherungsverweis."""
+        from cockpit.ui.common import ask_buttons
+        name = tree.branch
+        remote = git.run(["rev-parse", "-q", "--verify", f"refs/remotes/origin/{name}"],
+                         project.code_dir, check=False).returncode == 0
+        buttons = ["Nur auf diesem Rechner"] + ([f"Hier und auf {self.platform_name}"]
+                                                if remote else []) + ["Abbrechen"]
+        text = (f"{name} wird gelöscht, mit dem Ordner Code\\{tree.folder}. Liegt darin etwas, "
+                "das noch nicht hochgeladen ist, kommt der Ordner vorher in die "
+                "Sicherheitskopien.")
+        choice = ask_buttons(self.window, "Branch löschen", text, buttons,
+                             default=len(buttons) - 1, escape=len(buttons) - 1)
+        if choice == len(buttons) - 1:
+            return
+        with_remote = remote and choice == 1
+
+        def work(task: Task):
+            worktrees.remove(project, tree)
+            branches.delete_local(project.code_dir, name)
+            if with_remote:
+                branches.delete_remote(project.code_dir, name, env)
+
+        def done(_value) -> None:
+            self.window.refresh_status([project.id], on_done=lambda: self.window.project_list
+                                       .select(Target.CODE, project.id))
+            announce(f"{name} gelöscht" + (f", auch auf {self.platform_name}."
+                                           if with_remote else "."))
+
+        self.controller.run_task(f"project:{project.id}", work, done, "Branch löschen")
 
     # -- Hilfen -------------------------------------------------------------------------------
     def _environment(self, project: Project) -> dict[str, str] | None:

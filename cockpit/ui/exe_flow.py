@@ -53,19 +53,30 @@ def _size(path: Path) -> str:
 class BuildSettingsDialog(FocusDialog):
     """Erster Bau: Startdatei, Name, Bauart, Konsolenfenster, Symbol."""
 
-    def __init__(self, project: Project, parent: QWidget | None = None) -> None:
+    def __init__(self, project: Project, parent: QWidget | None = None,
+                 current: exe.BuildSettings | None = None) -> None:
+        from cockpit.features.exe_build.setup_check import data_folders, guess_start_file
         super().__init__(parent)
-        self.setWindowTitle(f"Exe einrichten: {project.name}")
+        self.setWindowTitle(f"Exe-Einstellungen: {project.name}" if current
+                            else f"Exe einrichten: {project.name}")
+        self.current = current
         self.settings: exe.BuildSettings | None = None
-        start = "main.py" if (project.code_dir / "main.py").is_file() else next(
-            (p.name for p in sorted(project.code_dir.glob("*.py"))), "main.py")
-        fields = [sf.Text("start_file", "Startdatei", start, required=True),
-                  sf.Text("name", "Name der Exe", project.name.replace(" ", "-"), required=True,
+        if current is None:
+            current = exe.BuildSettings(guess_start_file(project.code_dir),
+                                        project.name.replace(" ", "-"),
+                                        beside=data_folders(project.code_dir))
+        fields = [sf.Text("start_file", "Startdatei", current.start_file, required=True),
+                  sf.Text("name", "Name der Exe", current.name, required=True,
                           pattern=r"[\w\-. ]+", pattern_hint="Bitte nur Buchstaben, Ziffern, "
                           "Leerzeichen, Punkt und Bindestrich."),
-                  sf.Choice("mode", "Bauart", ONE_FILE, options=(ONE_FILE, FOLDER)),
-                  sf.YesNo("windowed", "Ohne Konsolenfenster (für Programme mit Fenster)", True),
-                  sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Code", "")]
+                  sf.Choice("mode", "Bauart", ONE_FILE if current.one_file else FOLDER,
+                            options=(ONE_FILE, FOLDER)),
+                  sf.YesNo("windowed", "Ohne Konsolenfenster (für Programme mit Fenster)",
+                           current.windowed),
+                  sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Code",
+                          current.icon),
+                  sf.Text("beside", "Ordner neben der Exe, mit Komma getrennt, zum Beispiel "
+                          "Meine-Vokabeln", ", ".join(current.beside))]
         self.form = SettingsForm(fields)
         ok = QPushButton("&Weiter")
         ok.setDefault(True)
@@ -95,9 +106,17 @@ class BuildSettingsDialog(FocusDialog):
             show_error(self, self.windowTitle(), f"Das Symbol {values['icon']} gibt es nicht.")
             self.form.focus_field("icon")
             return
+        beside = [n.strip() for n in values["beside"].split(",") if n.strip()]
+        missing = [n for n in beside if not (self.code_dir / n).exists()]
+        if missing:
+            show_error(self, self.windowTitle(), f"Im Ordner Code gibt es {missing[0]} nicht.")
+            self.form.focus_field("beside")
+            return
+        keep = self.current or exe.BuildSettings()
         self.settings = exe.BuildSettings(values["start_file"], values["name"],
                                           values["mode"] == ONE_FILE, values["windowed"],
-                                          values["icon"])
+                                          values["icon"], keep.datas, keep.hidden_imports,
+                                          keep.self_test, keep.test_seconds, beside)
         self.accept()
 
 
@@ -173,6 +192,8 @@ class BuildDialog(FocusDialog):
                                        f"{result.exe.name}.")
         if result.backup is not None:
             text += " Die bisherige Exe steht in den Sicherheitskopien."
+        if result.placed:
+            text += f" Neu neben der Exe: {', '.join(result.placed)}."
         self.ended(text)
 
     def ask_untested(self, result: exe.BuildResult) -> exe.BuildResult | None:
@@ -328,6 +349,11 @@ class ExeActions:
                    and c.project.remote is not None, order=45),
             Action("check_exe", "Exe-Einrichtung prüfen", Target.EXE, self.check_setup,
                    visible=self._building, order=60),
+            Action("exe_settings", "Exe-Einstellungen …", Target.EXE, self.edit_settings,
+                   visible=lambda c: self._building(c)
+                   and exe.read_settings(c.project.code_dir) is not None, order=62),
+            Action("exe_ai_fix", "Exe mit KI einrichten …", Target.EXE, self.ai_fix,
+                   visible=self._building, order=64),
             Action("exe_guide", "Wie funktioniert die Exe? …", Target.EXE,
                    lambda c: self.window.show_guide(exe.EXE_GUIDE, "Wie funktioniert die Exe?"),
                    visible=lambda c: c.project is not None, order=95),
@@ -461,6 +487,34 @@ class ExeActions:
             return
         exe.launch_restart(script)
         self.window.close()
+
+    # -- Einstellungen ändern (Phase 10g) ---------------------------------------------------
+    def edit_settings(self, context: ActionContext) -> None:
+        project = context.project
+        dialog = BuildSettingsDialog(project, self.window, exe.read_settings(project.code_dir))
+        if not dialog.exec() or dialog.settings is None:
+            return
+        settings = dialog.settings
+        if not confirm(self.window, "Exe-Einstellungen",
+                       f"Die Einstellungen kommen in cockpit.toml. Die Datei {settings.spec_name} "
+                       "wird neu geschrieben, die bisherige kommt in die Sicherheitskopien. Die "
+                       "Exe ändert sich erst beim nächsten Bau. Speichern?", yes="Speichern",
+                       no="Abbrechen"):
+            return
+        try:
+            exe.change_settings(project.code_dir, project.name, settings)
+        except (CockpitError, OSError) as exc:
+            show_error(self.window, "Exe-Einstellungen", getattr(exc, "message", str(exc)))
+            return
+        announce("Exe-Einstellungen gespeichert.")
+        if confirm(self.window, "Exe-Einstellungen", "Soll die Exe jetzt mit den neuen "
+                   "Einstellungen gebaut werden?", yes="Jetzt bauen", no="Später"):
+            self.build(context)
+
+    # -- Mit KI einrichten (Phase 10g) --------------------------------------------------------
+    def ai_fix(self, context: ActionContext) -> None:
+        from cockpit.ui.exe_ai import ExeAIFlow
+        ExeAIFlow(self, context.project).start()
 
     # -- Einrichtung prüfen -----------------------------------------------------------------
     def check_setup(self, context: ActionContext) -> None:

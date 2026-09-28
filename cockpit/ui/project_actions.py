@@ -80,13 +80,22 @@ class ProjectController:
             Action("resolve_conflicts", "Konflikte lösen …", Target.CODE, self.resolve_action,
                    visible=_unfinished_merge, is_default=True, order=5),
             Action("push_changes", "Änderungen hochladen …", Target.CODE, self.push_action,
-                   availability=_git_availability, visible=_on_platform, is_default=True,
-                   order=10),
+                   availability=_git_availability,
+                   visible=lambda c: _on_platform(c) and not _branch_unpublished(c),
+                   is_default=True, order=10),
+            # Wunsch aus dem Test von 10f: Ein Branch, den es auf der Plattform noch nicht gibt,
+            # sagt das in der Aktion. Sie lädt ihn hoch, mit den Änderungen, falls es welche gibt.
+            Action("publish_branch", f"Branch auf {platform_name} hochladen …", Target.CODE,
+                   self.push_action, availability=_git_availability,
+                   visible=_branch_unpublished, is_default=True, order=10),
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
-                   self.pull_action, availability=_git_availability, visible=_on_platform,
-                   order=20),
+                   self.pull_action, availability=_git_availability,
+                   visible=lambda c: _on_platform(c) and not _branch_unpublished(c), order=20),
+            # Mit Branch-Ordnern nur auf dem Haupt-Branch, als Übersicht. Ein Branch-Ordner hat
+            # stattdessen "<Branch> verwalten …" (Wunsch aus dem Test von 10f).
             Action("branches", "Branches …", Target.CODE, self.branches_action,
-                   availability=_git_availability, visible=_has_commits, order=25),
+                   availability=_git_availability,
+                   visible=lambda c: _has_commits(c) and c.worktree is None, order=25),
             Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
                    availability=self._account_availability, visible=_has_remote, order=26),
             Action("create_pull", "Pull Request erstellen …", Target.CODE,
@@ -154,6 +163,8 @@ class ProjectController:
 
         def failed(message: str, details: str) -> None:
             self.busy.discard(key)
+            # Mit Details ins Protokoll (Wunsch aus dem Test von 10f: der Grund stand nirgends)
+            log.warning("%s: %s %s", failed_title, message, details)
             announce(message, urgent=True)
             show_error(self.window, failed_title, message, details)
 
@@ -511,6 +522,11 @@ class ProjectController:
                 self.worktrees.create(project, dialog.new_request)
             elif dialog.open_request:
                 self.worktrees.open_folder_for(project, dialog.open_request)
+            elif getattr(dialog, "delete_request", ""):
+                tree = next((t for t in worktrees.list_worktrees(project)
+                             if t.branch == dialog.delete_request), None)
+                if tree is not None:
+                    self.worktrees.delete(project, tree, env)
 
         self.run_task(f"project:{project.id}", work, done, "Branches")
 
@@ -832,6 +848,12 @@ def _not_on_platform(context: ActionContext) -> bool:
 def _on_platform(context: ActionContext) -> bool:
     return (context.project is not None and context.project.folder_found
             and context.status is not None and context.status.on_platform)
+
+
+def _branch_unpublished(context: ActionContext) -> bool:
+    """Der Branch hat Commits, liegt aber noch nicht auf der Plattform (Phase 10f)."""
+    return (_on_platform(context) and context.status.repo.has_commits
+            and bool(context.status.repo.branch) and not context.status.repo.upstream)
 
 
 def _unfinished_merge(context: ActionContext) -> bool:

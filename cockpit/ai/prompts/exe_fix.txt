@@ -1,0 +1,12 @@
+Projekt: <<projekt>>
+Startdatei der Exe: <<startdatei>>
+Ordner neben der Exe: <<neben>>
+
+Ergebnis der Prüfung:
+<<pruefung>>
+
+Wunsch des Nutzers:
+<<wunsch>>
+
+Auszüge aus dem Code:
+<<code>>

@@ -746,3 +746,28 @@ Das Konzept 10.4 ist überarbeitet (Wunsch des Nutzers). Die Fragen und Antworte
 - Git legt in einem Branch-Ordner statt des Ordners .git eine Datei an. Das Erkennen eines offenen Zusammenführens liest deshalb den echten Git-Ordner (git.git_dir).
 - Das Cockpit selbst stellt der Nutzer über die Exe um (Antwort 11). Danach kopiere ich die Einstellungen und Erinnerungen von Claude in den neuen Ordner.
 - Version 1.1.1, damit der Nutzer damit das Update aus 10e testen kann (Antwort 12).
+
+
+## 28.09.2026: Wünsche aus dem Test von 10f
+
+- Eine Branch-Zeile hat ganz oben „<Branch> verwalten …“. Das Fenster zeigt nur diesen Branch: in main übernehmen, umbenennen, Branch-Ordner entfernen, löschen. „Branches …“ gibt es mit Branch-Ordnern nur noch auf „Code, main“, als Übersicht.
+- In der Übersicht gibt es mit Branch-Ordnern keinen „aktuellen Branch“ mehr. Jede Zeile nennt stattdessen ihren Ordner oder „ohne Ordner“.
+- Ein Branch, den es auf der Plattform noch nicht gibt, hat statt „Änderungen hochladen …“ die Aktion „Branch auf GitHub hochladen …“. Sie lädt ihn hoch, mit den Änderungen, falls es welche gibt. „Änderungen von GitHub holen …“ fehlt dann, weil es noch nichts zu holen gibt.
+- Löschen eines Branches mit Ordner entfernt erst den Ordner (mit Sicherheitskopie, falls nötig), dann den Branch. Die Commits bleiben unter einem Sicherungsverweis.
+- Fehler aus Hintergrundaufgaben stehen jetzt mit Details im Protokoll. Beim Test von 10f war der Grund für „Die virtuelle Umgebung ließ sich nicht anlegen“ nirgends zu finden.
+
+
+## 28.09.2026: Exe mit Daten, Prüfung und KI-Hilfe (10g)
+
+Anlass: Die VokabelApp des Nutzers. Ihre Exe startete nicht, und der Ordner Meine-Vokabeln sollte neben der Exe liegen, damit Nutzer dort Vokabeln hinzufügen. Drei Ursachen: Startdatei engine.py statt gui.py (der erste .py-Name im Alphabet), PySide6 fehlte in requirements.txt, und die Daten wurden im Startordner gesucht.
+
+- Ordner neben der Exe: neue Einstellung „Ordner neben der Exe“ (cockpit.toml, [exe.build] beside). Beim ersten Bau kommen sie aus dem Ordner Code neben die Exe. Danach bleiben sie, wie die Nutzer sie haben, auch wenn eine neue Exe den Programmordner ersetzt: Dann kommen sie aus der Sicherheitskopie der alten Exe zurück. Das gilt auch für „Exe aus dem Release holen“ und „Exe-Datei wählen“.
+- Beim Veröffentlichen kommen diese Ordner in die ZIP-Datei, so wie sie im Ordner Code stehen, nicht die eigenen Daten aus dem Ordner Exe. Eine einzelne Exe-Datei wird dann ebenfalls als ZIP-Datei hochgeladen.
+- Start-Test: Ein Programm mit Fenster, das sich vor Ablauf der Testzeit beendet, gilt als nicht bestanden, auch ohne Fehler. So hätte die VokabelApp den Test nicht bestanden.
+- Vorschlag für die Startdatei: erst die Datei, die eine .bat-Datei startet, dann eine mit __main__ und Fenster, dann main.py.
+- Exe-Einrichtung prüfen meldet zusätzlich: Startdatei startet nichts (mit Vorschlag), Ordner, die der Code nutzt, aber nicht neben der Exe stehen, und Daten, die im Startordner gesucht werden. Fehlende Bibliotheken in requirements.txt sind jetzt ein Problem statt einer Warnung, weil sie dann in der Exe fehlen.
+- Neue Aktion „Exe-Einstellungen …“. Ändert sich die .spec-Datei, kommt die alte vorher in die Sicherheitskopien.
+- Neue Aktion „Exe mit KI einrichten …“: Der Nutzer beschreibt freiwillig, was die Exe können soll. Der feste Teil (Startdatei, Ordner neben der Exe, requirements.txt) kommt ohne KI. Die KI schlägt Änderungen am Code vor, im festen Format aus dem Prompt exe_fix. Eine Änderung gilt nur, wenn ihr alter Text genau einmal in der Datei steht und die Datei im Ordner Code liegt. Nichts ändert sich ohne Bestätigung. Vorher kommt eine Sicherheitskopie der betroffenen Dateien und von cockpit.toml. Danach bietet das Cockpit an, die Exe zu bauen und zu testen.
+- Ohne KI oder ohne Einverständnis zum Senden bietet die Aktion nur den festen Teil an.
+- Die KI bekommt nie den ganzen Code: die Startdatei (bei mehr als 4000 Zeichen nur Anfang und Ende) und Auszüge um die Stellen, an denen Daten im Startordner gesucht werden, zusammen höchstens die Hälfte der Zeichengrenze aus den Grundeinstellungen.
+- Der Start-Test prüft nur, dass die Exe startet. Ob die Daten richtig erscheinen, prüft der Nutzer selbst.

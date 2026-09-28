@@ -81,6 +81,9 @@ class BuildSettings:
     hidden_imports: list[str] = field(default_factory=list)
     self_test: bool = False             # Programm kennt --selbsttest
     test_seconds: int = 10
+    # Ordner, die neben die Exe gehören, zum Beispiel "Meine-Vokabeln" (Phase 10g). Beim ersten
+    # Bau kommen sie aus dem Ordner Code dorthin, danach bleiben sie, wie die Nutzer sie haben.
+    beside: list[str] = field(default_factory=list)
 
     @property
     def spec_name(self) -> str:
@@ -118,7 +121,7 @@ def read_settings(code_dir: Path) -> BuildSettings | None:
         bool(build.get("one_file", True)), bool(build.get("windowed", True)),
         str(build.get("icon", "")), [list(map(str, d)) for d in build.get("datas", [])],
         [str(h) for h in build.get("hidden_imports", [])], bool(build.get("self_test", False)),
-        int(build.get("test_seconds", 10)))
+        int(build.get("test_seconds", 10)), [str(b) for b in build.get("beside", [])])
 
 
 def write_settings(code_dir: Path, settings: BuildSettings) -> None:
@@ -128,7 +131,8 @@ def write_settings(code_dir: Path, settings: BuildSettings) -> None:
                         "one_file": settings.one_file, "windowed": settings.windowed,
                         "icon": settings.icon, "datas": settings.datas,
                         "hidden_imports": settings.hidden_imports,
-                        "self_test": settings.self_test, "test_seconds": settings.test_seconds}
+                        "self_test": settings.self_test, "test_seconds": settings.test_seconds,
+                        "beside": settings.beside}
     data[SECTION] = section
     write_config(code_dir, data)
 
@@ -200,11 +204,13 @@ def add_exe_dir(project: Project) -> Path:
     return project.exe_dir
 
 
-def backup_current(project: Project, reason: str) -> Path | None:
+def backup_current(project: Project, reason: str, keep: tuple[str, ...] = ()) -> Path | None:
     """Inhalt des Ordners Exe (ohne _neu) in eine Sicherheitskopie verschieben. Klappt ein Teil
-    nicht, kommt alles zurück, und es gibt einen Fehler (zum Beispiel weil die Exe läuft)."""
+    nicht, kommt alles zurück, und es gibt einen Fehler (zum Beispiel weil die Exe läuft).
+    keep: Ordner neben der Exe, die bleiben, wo sie sind (Phase 10g)."""
     items = [p for p in project.exe_dir.iterdir()
-             if p.name != PENDING and not is_branch_exe(p)]      # Branch-Exen bleiben (10f)
+             if p.name != PENDING and not is_branch_exe(p)       # Branch-Exen bleiben (10f)
+             and p.name not in keep]
     if not items:
         return None
     folder = backups.new_backup_dir(project.name, reason, project.exe_dir)
@@ -248,13 +254,58 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
     exe_dir = add_exe_dir(project)
     if source.resolve().is_relative_to(exe_dir.resolve()):
         raise CockpitError("Diese Exe liegt schon im Ordner Exe.")
-    backup_current(project, "Exe ersetzt")
+    names = beside_names(project)
+    old_home = _home_of(project)
+    backup = backup_current(project, "Exe ersetzt", tuple(names))
     try:
         target = _put(source, exe_dir, move)
     except OSError as exc:
         raise CockpitError("Die Exe ließ sich nicht übernehmen.", str(exc)) from None
+    place_beside(project, names, exe_in(target).parent, backup, old_home)
     write_record(project.code_dir, ExeRecord(kind, now(), "", version))
     return target
+
+
+# -- Ordner neben der Exe (Phase 10g) ------------------------------------------------------------
+def beside_names(project: Project) -> list[str]:
+    settings = read_settings(project.code_dir) if project.folder_found else None
+    return list(settings.beside) if settings is not None else []
+
+
+def _home_of(project: Project) -> Path | None:
+    """Ordner der bisherigen Exe, relativ zum Ordner Exe ("." bei einer einzelnen Exe-Datei)."""
+    current = current_exe(project)
+    if current is None:
+        return None
+    return current.parent.relative_to(project.exe_dir)
+
+
+def place_beside(project: Project, names: list[str], home: Path, backup: Path | None,
+                 old_home: Path | None) -> list[str]:
+    """Ordner neben die Exe legen. Ein vorhandener bleibt unverändert. Lag er bei der bisherigen
+    Exe (jetzt in der Sicherheitskopie), kommt er von dort zurück, mit allem, was die Nutzer
+    hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Code. Gibt die neu
+    angelegten Namen zurück."""
+    placed: list[str] = []
+    for name in names:
+        target = home / name
+        if target.exists():
+            continue
+        previous = backup / old_home / name if backup is not None and old_home is not None \
+            else None
+        source = previous if previous is not None and previous.exists() else project.code_dir / name
+        try:
+            if source.is_dir():
+                shutil.copytree(source, target)
+            elif source.is_file():
+                shutil.copy2(source, target)
+            else:
+                continue
+        except OSError as exc:
+            raise CockpitError(f"Der Ordner {name} ließ sich nicht neben die Exe legen.",
+                               str(exc)) from None
+        placed.append(name)
+    return placed
 
 
 # -- Python und virtuelle Umgebung ---------------------------------------------------------------
@@ -378,6 +429,24 @@ def ensure_spec(code_dir: Path, settings: BuildSettings) -> Path:
     return path
 
 
+def change_settings(code_dir: Path, project_name: str, settings: BuildSettings) -> Path | None:
+    """Exe-Einstellungen ändern (Phase 10g). Die .spec-Datei wird neu geschrieben, wenn sich
+    etwas darin ändert. Die alte kommt vorher in die Sicherheitskopien. Gibt diese zurück."""
+    old = read_settings(code_dir)
+    write_settings(code_dir, settings)
+    backup = None
+    if old is not None and (code_dir / old.spec_name).is_file():
+        spec = code_dir / old.spec_name
+        if spec.read_text(encoding="utf-8", errors="replace") != spec_text(settings) \
+                or old.spec_name != settings.spec_name:
+            backup = backups.new_backup_dir(project_name, "Exe-Einstellungen geändert", code_dir)
+            shutil.copy2(spec, backup / spec.name)
+            if old.spec_name != settings.spec_name:
+                spec.unlink()
+    (code_dir / settings.spec_name).write_text(spec_text(settings), encoding="utf-8")
+    return backup
+
+
 def spec_is_one_file(spec: Path) -> bool:
     return "COLLECT(" not in spec.read_text(encoding="utf-8", errors="replace")
 
@@ -397,6 +466,7 @@ class BuildResult:
     work: Path | None = None            # bei untested: temporärer Ordner, danach löschen
     commit: str = ""
     branch: str = ""                    # Exe aus einem Branch-Ordner (Phase 10f): sein Name
+    placed: list[str] = field(default_factory=list)   # neu neben die Exe gelegte Ordner (10g)
 
 
 def pyinstaller_build(code_dir: Path, python: Path, spec: Path, work: Path, on_line=None,
@@ -424,12 +494,20 @@ def exe_in(built: Path) -> Path:
     return found[0]
 
 
+QUICK_EXIT = ("Die neue Exe hat sich gleich nach dem Start ohne Fenster beendet. Bei einem "
+              "Programm mit Fenster ist das ein Fehler, meistens eine falsche Startdatei oder "
+              "eine fehlende Bibliothek. „Exe-Einrichtung prüfen“ nennt mögliche Gründe. Die "
+              "bisherige Exe bleibt.")
+
+
 def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
-               cancel: threading.Event | None = None) -> str:
+               cancel: threading.Event | None = None, windowed: bool = False) -> str:
     """Start-Test: läuft die Exe nach seconds noch, ist alles gut, dann wird sie beendet. Beendet
     sie sich vorher mit Fehler, ist der Test nicht bestanden. Mit self_test: --selbsttest und
     Rückgabewert 0 innerhalb einer Minute. Gibt einen Satz zum Ergebnis zurück, wirft
-    CockpitError, wenn der Test nicht bestanden ist."""
+    CockpitError, wenn der Test nicht bestanden ist.
+    windowed: Programm mit Fenster. Beendet es sich vorher, auch ohne Fehler, ist der Test nicht
+    bestanden (Phase 10g: Die VokabelApp startete die Logik statt des Fensters)."""
     from cockpit.core.terminal import _kill_tree
     args = [str(exe), "--selbsttest"] if self_test else [str(exe)]
     try:
@@ -447,6 +525,8 @@ def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
                 raise Cancelled()
             code = process.poll()
             if code is not None:
+                if code == 0 and windowed and not self_test:
+                    raise CockpitError(QUICK_EXIT)
                 if code == 0:
                     return "Selbsttest bestanden." if self_test else \
                         "Start-Test bestanden, das Programm hat sich ohne Fehler beendet."
@@ -483,14 +563,17 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
         write_record(project.code_dir, ExeRecord("cockpit", now(), commit, pending=True,
                                                  tested=tested))
         return BuildResult(exe_in(target), pending=True)
-    backup = backup_current(project, "Exe ersetzt")
+    names = beside_names(project)
+    old_home = _home_of(project)
+    backup = backup_current(project, "Exe ersetzt", tuple(names))
     try:
         target = _put(built, exe_dir, move=True)
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben. Die "
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
+    placed = place_beside(project, names, exe_in(target).parent, backup, old_home)
     write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
-    return BuildResult(exe_in(target), backup=backup)
+    return BuildResult(exe_in(target), backup=backup, placed=placed)
 
 
 def install_untested(project: Project, result: BuildResult) -> BuildResult:
@@ -564,7 +647,7 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
         step(3)
         try:
             on_line(start_test(exe_in(built), settings.test_seconds, settings.self_test,
-                               cancel))
+                               cancel, settings.windowed))
         except BlockedByWindows:
             # Der Nutzer entscheidet in der Oberfläche, ob er selbst prüft (install_untested)
             keep = True
@@ -652,11 +735,28 @@ def check_version(text: str, tags: list[str]) -> str:
 
 
 def asset_for_upload(project: Project, exe: Path, work: Path) -> Path:
-    """Einzelne Exe direkt, Programmordner als ZIP-Datei."""
+    """Einzelne Exe direkt, Programmordner als ZIP-Datei. Gibt es Ordner neben der Exe (10g),
+    kommen sie in die ZIP-Datei, und zwar so, wie sie im Ordner Code stehen, nicht mit den
+    eigenen Daten aus dem Ordner Exe."""
     folder = exe.parent
-    if folder.resolve() == project.exe_dir.resolve():
+    names = [n for n in beside_names(project) if (project.code_dir / n).exists()]
+    one_file = folder.resolve() == project.exe_dir.resolve()
+    if one_file and not names:
         return exe
-    archive = shutil.make_archive(str(work / folder.name), "zip", folder.parent, folder.name)
+    staging = work / (exe.stem if one_file else folder.name)
+    if one_file:
+        staging.mkdir(parents=True)
+        shutil.copy2(exe, staging / exe.name)
+    else:
+        shutil.copytree(folder, staging, ignore=lambda _d, items: [
+            i for i in items if _d == str(folder) and i in names])
+    for name in names:
+        source = project.code_dir / name
+        if source.is_dir():
+            shutil.copytree(source, staging / name)
+        else:
+            shutil.copy2(source, staging / name)
+    archive = shutil.make_archive(str(staging), "zip", staging.parent, staging.name)
     return Path(archive)
 
 

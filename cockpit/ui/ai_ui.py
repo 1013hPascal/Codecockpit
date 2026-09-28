@@ -15,7 +15,8 @@ from cockpit.ui import vault_ui
 from cockpit.ui.common import confirm
 
 TASK_NAMES = {"terminal_explain": "Erklärungen im Terminal",
-              "ai_assistant": "Vorschläge des KI-Assistenten"}
+              "ai_assistant": "Vorschläge des KI-Assistenten",
+              "exe_fix": "die Einrichtung der Exe"}
 DECLINED = "Nicht gesendet. Sie haben der KI außerhalb Ihres Rechners nicht zugestimmt."
 
 

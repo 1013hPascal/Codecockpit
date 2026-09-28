@@ -177,13 +177,13 @@ def test_build_replaces_only_after_the_test(make_services, projects_root, tmp_pa
     steps = []
     settings = exe.BuildSettings(name="Rechner")
 
-    def failing_test(path, seconds, self_test, cancel):
+    def failing_test(path, seconds, self_test, cancel, windowed=False):
         raise CockpitError("Test nicht bestanden.")
     monkeypatch.setattr(exe, "start_test", failing_test)
     with pytest.raises(CockpitError):
         exe.build(project, settings, steps.append, steps.append)
     assert (project.exe_dir / "Rechner.exe").read_text() == "alt"      # alte Exe bleibt
-    monkeypatch.setattr(exe, "start_test", lambda path, seconds, self_test, cancel:
+    monkeypatch.setattr(exe, "start_test", lambda path, seconds, self_test, cancel, windowed=False:
                         "Start-Test bestanden.")
     result = exe.build(project, settings, steps.append, steps.append)
     assert (project.exe_dir / "Rechner.exe").read_text() == "neu"
@@ -306,7 +306,7 @@ def test_setup_check(make_services, projects_root):
     code = project.code_dir
     assert check(project)[0].startswith("Nicht bereit")
     (code / "main.py").write_text("import os\nimport requests\nfrom PySide6 import QtCore\n"
-                                  "import helfer\n", encoding="utf-8")
+                                  "import helfer\n\nhelfer.start()\n", encoding="utf-8")
     (code / "helfer.py").write_text("import yaml\n", encoding="utf-8")
     (code / "tests").mkdir()
     (code / "tests" / "test_x.py").write_text("import pytest\n", encoding="utf-8")
@@ -316,9 +316,11 @@ def test_setup_check(make_services, projects_root):
     exe.write_settings(code, settings)
     exe.ensure_spec(code, settings)
     lines = check(project)
-    assert lines[0] == "Bereit, mit 2 Warnungen."
+    # Seit 10g ist eine fehlende Bibliothek ein Problem, weil sie dann in der Exe fehlt
+    assert lines[0] == "Nicht bereit: 1 Problem, 1 Warnung."
     assert "In Ordnung: Rechner.spec ist da." in lines
-    assert "Warnung: Diese Bibliotheken stehen nicht in requirements.txt: yaml." in lines
+    assert ("Problem: Diese Bibliotheken stehen nicht in requirements.txt und fehlen deshalb in "
+            "der Exe: yaml.") in lines
     assert any(line.startswith("Warnung: Ohne feste Version: requests.") for line in lines)
     spec = code / "Rechner.spec"
     spec.write_text(spec.read_text(encoding="utf-8") + "# 'C:\\\\Users\\\\x'\n", encoding="utf-8")
@@ -480,7 +482,7 @@ def blocked_build(make_services, projects_root, tmp_path, monkeypatch):
     monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,
                         cancel: fake_exe(work / "dist", "Rechner.exe", "neu"))
 
-    def blocked(path, seconds, self_test, cancel):
+    def blocked(path, seconds, self_test, cancel, windowed=False):
         raise exe.BlockedByWindows(exe.BLOCKED)
     monkeypatch.setattr(exe, "start_test", blocked)
     return services, project
