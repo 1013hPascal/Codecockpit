@@ -51,10 +51,39 @@ def test_start_file_guess_and_check(tmp_path):
 def test_data_folders_and_relative_paths(tmp_path):
     code = vocab_app(tmp_path)
     assert setup_check.data_folders(code) == ["Meine-Vokabeln"]
+    # base_dir='Meine-Vokabeln' in engine.py ist ein Pfad, VocabEngine("…") ohne Namen nicht
+    assert setup_check.relative_data_paths(code) == [("engine.py", "Meine-Vokabeln")]
+    (code / "gui.py").write_text(GUI.replace('VocabEngine("Meine-Vokabeln")',
+                                             'VocabEngine(base_dir="Meine-Vokabeln")'),
+                                 encoding="utf-8")
     assert ("gui.py", "Meine-Vokabeln") in setup_check.relative_data_paths(code)
     (code / "gui.py").write_text(GUI.replace("import sys\n", "import sys\nBASE = sys.executable\n"),
                                  encoding="utf-8")
     assert ("gui.py", "Meine-Vokabeln") not in setup_check.relative_data_paths(code)
+
+
+def test_no_false_alarms_for_joined_paths_and_packages(tmp_path):
+    """Rückmeldung zu 10g: Beim Cockpit meldete die Prüfung Namen hinter einem anderen Ort,
+    das eigene Paket und "\\\\" in der .spec als festen Pfad."""
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "anleitungen").mkdir()
+    (tmp_path / "cockpit.toml").write_text("", encoding="utf-8")
+    (tmp_path / "main.py").write_text(
+        'import logging\nlog = logging.getLogger("app")\n'
+        'config = code_dir / "cockpit.toml"\nguides = os.path.join(base, "anleitungen")\n'
+        'if __name__ == "__main__":\n    pass\n', encoding="utf-8")
+    assert setup_check.relative_data_paths(tmp_path) == []
+    assert setup_check.data_folders(tmp_path) == []
+    assert not setup_check._ABSOLUTE.search('x.replace("\\\\", "/")')
+    assert setup_check._ABSOLUTE.search('icon = "C:\\\\Bilder\\\\app.ico"')
+
+
+def test_the_cockpit_itself_has_no_false_alarms():
+    root = Path(__file__).resolve().parents[1]
+    lines = setup_check.check_for(root, exe.read_settings(root))
+    assert not [l for l in lines if "Startordner" in l or "Der Code nutzt den Ordner" in l
+                or "feste Pfade" in l], lines
 
 
 def test_check_names_the_real_problems(tmp_path):

@@ -25,7 +25,9 @@ PACKAGE_NAMES = {"pil": "pillow", "cv2": "opencv-python", "sklearn": "scikit-lea
                  "bs4": "beautifulsoup4", "tomli_w": "tomli-w", "pytestqt": "pytest-qt",
                  "faster_whisper": "faster-whisper"}
 SKIP_DIRS = {".venv", "venv", "env", "build", "dist", "__pycache__", ".git", "tests", "test"}
-_ABSOLUTE = re.compile(r"[\"'](?:[A-Za-z]:[\\/]|\\\\)")
+# Feste Pfade: Laufwerk wie "C:\..." oder Netzwerkpfad "\\\\server" bzw. r"\\server". Ein Text wie
+# "\\" (ein Backslash) ist kein Pfad (Fehlalarm beim Cockpit selbst, Rückmeldung zu 10g).
+_ABSOLUTE = re.compile(r'''["'](?:[A-Za-z]:[\\/]|\\\\\\\\\w)|r["']\\\\\w''')
 _IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", re.MULTILINE)
 _REQUIREMENT = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*(\[[^\]]*\])?\s*([=<>!~]=?.*)?$")
 
@@ -114,29 +116,57 @@ def guess_start_file(code_dir: Path) -> str:
     return next((p.name for p in sorted(code_dir.glob("*.py"))), "main.py")
 
 
-def data_folders(code_dir: Path) -> list[str]:
-    """Ordner im Ordner Code, die der Code mit Namen nennt, zum Beispiel "Meine-Vokabeln". Sie
-    gehören meistens neben die Exe."""
+# Zusammenhang, in dem ein Name ein Pfad ist: open("x"), Path("x"), base_dir="x",
+# config_path: str = "x". Nicht aber ordner / "x" oder os.path.join(ordner, "x"): Dann steht der
+# Name hinter einem anderen Ort, zum Beispiel dem Projekt, das das Programm bearbeitet
+# (Fehlalarme beim Cockpit selbst, Rückmeldung zu 10g).
+_PATH_CONTEXT = re.compile(
+    r"(?:\b(?:open|Path|exists|isdir|isfile|listdir|glob|scandir|join)\(\s*"
+    r"|\b\w*(?:dir|path|file|folder|ordner|datei)\w*\s*(?::\s*[\w\[\]| ]+)?=\s*)$",
+    re.IGNORECASE)
+
+
+def _names_in_path_context(text: str, names: set[str]) -> set[str]:
+    found: set[str] = set()
+    for line in text.splitlines():
+        for match in _STRING.finditer(line):
+            if match.group(1) not in names:
+                continue
+            before = line[:match.start()]
+            if re.search(r"/\s*$", before) or not _PATH_CONTEXT.search(before):
+                continue
+            found.add(match.group(1))
+    return found
+
+
+def _packages(code_dir: Path) -> set[str]:
+    return {p.name for p in code_dir.iterdir() if p.is_dir() and (p / "__init__.py").is_file()}
+
+
+def data_folders(code_dir: Path, known: set[str] | None = None) -> list[str]:
+    """Ordner im Ordner Code, die der Code als Pfad nutzt, zum Beispiel "Meine-Vokabeln". Sie
+    gehören meistens neben die Exe. known: Ordner, die die .spec-Datei schon einbindet."""
     folders = {p.name for p in code_dir.iterdir()
-               if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith(".")
-               and not (p / "__init__.py").is_file()}
+               if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith(".")} \
+        - _packages(code_dir) - (known or set())
     found: set[str] = set()
     for path in python_files(code_dir):
-        found |= {s for s in _STRING.findall(_read(path)) if s in folders}
+        found |= _names_in_path_context(_read(path), folders)
     return sorted(found)
 
 
-def relative_data_paths(code_dir: Path) -> list[tuple[str, str]]:
-    """(Datei, Name): Der Code nennt einen Ordner oder eine Datei aus dem Ordner Code nur mit
+def relative_data_paths(code_dir: Path, known: set[str] | None = None) -> list[tuple[str, str]]:
+    """(Datei, Name): Der Code öffnet einen Ordner oder eine Datei aus dem Ordner Code nur mit
     Namen und bestimmt den Ort nicht über die Exe. In der Exe sucht er dann im Startordner."""
     names = {p.name for p in code_dir.iterdir()
-             if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"}
+             if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"} \
+        - _packages(code_dir) - (known or set())
     found: list[tuple[str, str]] = []
     for path in python_files(code_dir):
         text = _read(path)
         if any(marker in text for marker in _EXE_AWARE):
             continue
-        for name in sorted({s for s in _STRING.findall(text) if s in names}):
+        for name in sorted(_names_in_path_context(text, names)):
             found.append((path.relative_to(code_dir).as_posix(), name))
     return found
 
@@ -179,11 +209,15 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
             if not (code_dir / name).exists():
                 lines.append(f"{PROBLEM}: Der Ordner {name}, der neben die Exe soll, fehlt im "
                              "Ordner Code.")
-        for name in data_folders(code_dir):
+        # Was die .spec-Datei schon einbindet, fehlt in der Exe nicht (beim Cockpit: anleitungen)
+        spec_text_known = _read(spec) if spec is not None and spec.is_file() else ""
+        known = {p.name for p in code_dir.iterdir() if p.name in spec_text_known} \
+            if spec_text_known else set()
+        for name in data_folders(code_dir, known):
             if name not in settings.beside:
                 lines.append(f"{WARNING}: Der Code nutzt den Ordner {name}. In der Exe fehlt er. "
                              "Tragen Sie ihn unter „Ordner neben der Exe“ ein.")
-        for filename, name in relative_data_paths(code_dir):
+        for filename, name in relative_data_paths(code_dir, known):
             lines.append(f"{WARNING}: {filename} sucht {name} im Startordner. Gestartet aus "
                          "einem anderen Ordner, findet die Exe es nicht. Besser den Ort über "
                          "die Exe bestimmen (sys.executable).")
