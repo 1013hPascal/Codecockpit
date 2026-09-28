@@ -8,6 +8,7 @@ Es erscheinen nur Menüpunkte, die schon funktionieren (ENTSCHEIDUNGEN.md).
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
 from pathlib import Path
@@ -435,14 +436,27 @@ class MainWindow(QMainWindow):
     # -- Aktionen -------------------------------------------------------------------------
     def action_context(self) -> ActionContext:
         target, item_id = self.project_list.current_target()
+        key = self.project_list.current_key()
         project = remote = None
         if target is Target.REMOTE_REPO:
             remote = self.services.remote_repos.get(item_id) if item_id is not None else None
         elif item_id is not None:
             project = self.services.projects.get(item_id)
         status = self.project_list.status_of(project.id) if project is not None else None
-        return ActionContext(self.services, project, target, announce=announce,
-                             asker=self.asker, status=status, remote_repo=remote)
+        context = ActionContext(self.services, project, target, announce=announce,
+                                asker=self.asker, status=status, remote_repo=remote)
+        if target is Target.BRANCH and project is not None:
+            # Die Aktionen von Code, aber im Branch-Ordner (Phase 10f)
+            tree = next((t for t, _s in (status.worktrees if status else []) if t.folder == key),
+                        None)
+            if tree is not None:
+                context.target, context.worktree, context.main_project = \
+                    Target.CODE, tree, project
+                context.project = dataclasses.replace(project, code_dir=tree.path)
+                context.status = project_status.for_folder(status, key)
+        elif target is Target.REMOTE_BRANCH and project is not None:
+            context.remote_branch = self.project_list.shown_branch(project.id, key)
+        return context
 
     def current_entries(self) -> list[ActionEntry]:
         context = self.action_context()

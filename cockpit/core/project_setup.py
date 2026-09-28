@@ -8,7 +8,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from cockpit.core import git
+from cockpit.core import git, worktrees
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import CODE_DIR, Project
 from cockpit.core.remote_repos import StoredRepo
@@ -19,6 +19,9 @@ def _environment(services, account_id: int | None) -> dict[str, str]:
         return {}
     platform = services.platform(account_id)
     return dict(platform.git_credentials().environment) if platform is not None else {}
+
+
+DOWNLOADING = "wird-heruntergeladen"
 
 
 def download_target(root: Path, name: str) -> Path:
@@ -34,7 +37,13 @@ def download(services, repo: StoredRepo, root: Path,
     if code_dir.exists() and any(code_dir.iterdir()):
         raise CockpitError(f"Den Ordner {code_dir} gibt es schon, und er ist nicht leer. "
                            "Nichts wurde verändert.")
-    git.clone(repo.clone_url, code_dir, _environment(services, repo.account_id), cancel)
+    folders = services.settings.load().branch_folders
+    # Phase 10f: mit einem Ordner pro Branch nach Code\<Haupt-Branch>, zum Beispiel Code\main
+    target = code_dir / DOWNLOADING if folders else code_dir
+    git.clone(repo.clone_url, target, _environment(services, repo.account_id), cancel)
+    if folders:
+        state = git.status(target)
+        target.rename(code_dir / worktrees.folder_name(state.branch or state.default_branch))
     project = services.projects.add(project_dir)
     services.projects.set_account(project, repo.account_id)
     services.projects.set_remote(project, repo.address, repo.pushed_at[:19] or None)

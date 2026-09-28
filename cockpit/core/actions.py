@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING, Callable, Iterable
 from cockpit.core.availability import Availability
 
 if TYPE_CHECKING:
+    from cockpit.core.branches import Branch
     from cockpit.core.flows.questions import Asker
+    from cockpit.core.worktrees import Worktree
     from cockpit.core.project_status import ProjectStatus
     from cockpit.core.projects import Project
     from cockpit.core.remote_repos import StoredRepo
@@ -26,6 +28,11 @@ class Target(Enum):
     CODE = "code"
     EXE = "exe"
     REMOTE_REPO = "remote_repo"      # Repository, das nur auf der Plattform liegt
+    # Phase 10f: Ein Branch-Ordner steht in der Liste als BRANCH. Seine Aktionen sind die von
+    # CODE, mit dem Branch-Ordner als code_dir (ActionContext.worktree ist dann gesetzt).
+    BRANCH = "branch"
+    REMOTE_BRANCHES = "remote_branches"  # "Branches auf GitHub"
+    REMOTE_BRANCH = "remote_branch"      # ausgewählter Branch anderer, noch ohne Ordner
 
 
 @dataclass
@@ -37,6 +44,9 @@ class ActionContext:
     asker: "Asker | None" = None
     status: "ProjectStatus | None" = None            # Stand des Projekts, falls schon bekannt
     remote_repo: "StoredRepo | None" = None          # bei Target.REMOTE_REPO
+    worktree: "Worktree | None" = None               # Branch-Ordner (Phase 10f)
+    main_project: "Project | None" = None            # bei worktree: das Projekt mit Code\main
+    remote_branch: "Branch | None" = None            # bei Target.REMOTE_BRANCH
 
 
 @dataclass(frozen=True)

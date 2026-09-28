@@ -52,6 +52,17 @@ class Project:
         return self.code_dir.is_dir()
 
     @property
+    def code_root(self) -> Path:
+        """Der Ordner Code. Bei einem Ordner pro Branch (Phase 10f) liegt code_dir darin."""
+        return self.code_dir.parent if self.has_branch_folders else self.code_dir
+
+    @property
+    def has_branch_folders(self) -> bool:
+        """Code enthält nur Ordner: den Haupt-Branch, zum Beispiel Code\\main, und die Branches."""
+        return (not self.linked and self.code_dir.parent.name.lower() == CODE_DIR.lower()
+                and self.code_dir.parent.parent == self.project_dir)
+
+    @property
     def has_exe_dir(self) -> bool:
         return self.exe_dir is not None and self.exe_dir.is_dir()
 
@@ -139,9 +150,9 @@ class ProjectStore:
         existing = self.find_by_dir(project_dir)
         if existing is not None:
             return existing
-        code_dir = project_dir / CODE_DIR
-        if not code_dir.is_dir():
+        if not (project_dir / CODE_DIR).is_dir():
             raise CockpitError(f"Im Ordner {project_dir} gibt es keinen Unterordner Code.")
+        code_dir = main_code_dir(project_dir / CODE_DIR)
         self.database.execute(
             "INSERT INTO projects (name, project_dir, code_dir, exe_dir, added_at) "
             "VALUES (?, ?, ?, ?, ?)",
@@ -166,10 +177,11 @@ class ProjectStore:
              datetime.now().isoformat(timespec="seconds")))
         return self.find_by_dir(code_dir)
 
-    def convert(self, folder: Path, root: Path) -> tuple[Project, bool]:
+    def convert(self, folder: Path, root: Path, inner: str = "") -> tuple[Project, bool]:
         """Umstellen (Konzept 7.4): Projektordner root/<Name> anlegen und folder als Code
         hineinverschieben. Auf einem anderen Laufwerk wird kopiert, der alte Ordner bleibt dann
-        unverändert. Gibt das Projekt zurück und ob verschoben (True) oder kopiert wurde."""
+        unverändert. Gibt das Projekt zurück und ob verschoben (True) oder kopiert wurde.
+        inner: Ordner des Haupt-Branches in Code, zum Beispiel "main" (Phase 10f)."""
         folder = folder.resolve()
         target = root / folder.name
         if target.exists():
@@ -177,6 +189,9 @@ class ProjectStore:
                                "einen der Ordner um.")
         target.mkdir(parents=True)
         code_dir = target / CODE_DIR
+        if inner:
+            code_dir.mkdir()
+            code_dir = code_dir / inner
         moved = same_drive(folder, target)
         try:
             if moved:
@@ -187,10 +202,11 @@ class ProjectStore:
             if not moved:
                 from cockpit.core.backups import remove_tree
                 remove_tree(code_dir)
-            try:
-                target.rmdir()
-            except OSError:
-                pass
+            for empty in ((target / CODE_DIR, target) if inner else (target,)):
+                try:
+                    empty.rmdir()
+                except OSError:
+                    pass
             raise CockpitError("Der Ordner ließ sich nicht umstellen. Ist er noch in einem "
                                "anderen Programm geöffnet?", str(exc)) from None
         return self.add(target), moved
@@ -204,7 +220,7 @@ class ProjectStore:
             exe_dir = str(project.exe_dir) if project.exe_dir else None
         else:
             kind, project_dir = classify_folder(new_dir)
-            code_dir = project_dir / CODE_DIR
+            code_dir = main_code_dir(project_dir / CODE_DIR)
             exe_dir = str(project_dir / EXE_DIR)
             if kind != "project":
                 raise CockpitError(f"Im Ordner {new_dir} gibt es keinen Unterordner Code.")
@@ -231,6 +247,12 @@ class ProjectStore:
         """Exe-Ordner eines verknüpften Projekts festlegen (Phase 10, "Exe hinzufügen")."""
         self.database.execute("UPDATE projects SET exe_dir = ? WHERE id = ?",
                               (str(exe_dir.resolve()), project.id))
+        return self.get(project.id)
+
+    def set_code_dir(self, project: Project, code_dir: Path) -> Project:
+        """Nach dem Einrichten der Branch-Ordner liegt der Code in Code\\main (Phase 10f)."""
+        self.database.execute("UPDATE projects SET code_dir = ? WHERE id = ?",
+                              (str(code_dir.resolve()), project.id))
         return self.get(project.id)
 
     def set_account(self, project: Project, account_id: int | None) -> None:
@@ -298,6 +320,21 @@ def _key(folder: Path) -> str:
     return str(Path(folder).resolve()).lower()
 
 
+def main_code_dir(code_root: Path) -> Path:
+    """Der Arbeitsordner des Haupt-Branches (Phase 10f). Hat Code selbst kein Git, aber ein
+    Unterordner einen Ordner .git (nicht nur eine Datei wie die Branch-Ordner), ist er es.
+    Sonst ist es Code selbst, wie bisher."""
+    if (code_root / ".git").exists():
+        return code_root
+    try:
+        for child in sorted(code_root.iterdir()):
+            if child.is_dir() and (child / ".git").is_dir():
+                return child
+    except OSError:
+        pass
+    return code_root
+
+
 def classify_folder(folder: Path) -> tuple[str, Path]:
     """Was für ein Ordner wurde gewählt?
 
@@ -309,6 +346,9 @@ def classify_folder(folder: Path) -> tuple[str, Path]:
         return "project", folder
     if folder.name.lower() == CODE_DIR.lower() and folder.parent != folder:
         return "project", folder.parent
+    if folder.parent.name.lower() == CODE_DIR.lower() and (folder / ".git").exists() \
+            and folder.parent.parent != folder.parent:
+        return "project", folder.parent.parent        # Code\main oder ein Branch-Ordner
     return "other", folder
 
 

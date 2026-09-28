@@ -203,6 +203,21 @@ def is_repo(code_dir: Path) -> bool:
     return (code_dir / ".git").exists()
 
 
+def git_dir(code_dir: Path) -> Path:
+    """Der Ordner mit den Git-Daten dieses Arbeitsordners. In einem Branch-Ordner (Worktree,
+    Phase 10f) ist .git eine Datei, die auf den eigentlichen Ordner zeigt."""
+    dot_git = code_dir / ".git"
+    if dot_git.is_file():
+        try:
+            text = dot_git.read_text(encoding="utf-8").strip()
+        except OSError:
+            return dot_git
+        if text.startswith("gitdir:"):
+            target = Path(text[len("gitdir:"):].strip())
+            return target if target.is_absolute() else (code_dir / target).resolve()
+    return dot_git
+
+
 def status(code_dir: Path) -> RepoStatus:
     """Stand des Repositories. Kein Git-Ordner: RepoStatus(is_repo=False)."""
     if not is_repo(code_dir):
@@ -233,7 +248,7 @@ def status(code_dir: Path) -> RepoStatus:
         elif entry.startswith("? "):
             state.changed.append(entry[2:])
     state.remote_url = config_get(code_dir, "remote.origin.url")
-    state.merging = (code_dir / ".git" / "MERGE_HEAD").exists()
+    state.merging = (git_dir(code_dir) / "MERGE_HEAD").exists()
     stash_list = run(["stash", "list"], code_dir, check=False).stdout
     state.stashes = len([line for line in stash_list.splitlines() if line.strip()])
     head = run(["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"], code_dir,

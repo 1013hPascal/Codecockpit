@@ -32,16 +32,19 @@ from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
 from cockpit.core.actions import Target
+from cockpit.core.branches import Branch
 from cockpit.core.project_status import (ProjectStatus, code_line, project_line,
                                          remote_line)
 from cockpit.core.projects import Project
 from cockpit.core.remote_repos import StoredRepo
 from cockpit.core.text import count
+from cockpit.core.worktrees import Worktree
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import name_widget
 
 ROLE_TARGET = Qt.ItemDataRole.UserRole + 1
 ROLE_PROJECT = Qt.ItemDataRole.UserRole + 2
+ROLE_KEY = Qt.ItemDataRole.UserRole + 3       # Ordner oder Name eines Branches (Phase 10f)
 
 ADD_LOCAL_TEXT = "Projekt vom Rechner hinzufügen"
 
@@ -63,14 +66,42 @@ def exe_label(project: Project) -> str:
 
 
 def children_of(project: Project, status: ProjectStatus | None = None,
-                platform_name: str = "GitHub") -> list[tuple[str, Target]]:
-    """Die Unterordner, die es gibt (Konzept 8.2: nur vorhandene Ordner)."""
+                platform_name: str = "GitHub", shown: list[Branch] | None = None
+                ) -> list[tuple[str, Target, str | None]]:
+    """Die Unterordner, die es gibt (Konzept 8.2: nur vorhandene Ordner). Mit Branch-Ordnern
+    (Phase 10f): Code des Haupt-Branches, die Branch-Ordner, "Branches auf GitHub" und die dort
+    ausgewählten Branches anderer. Der dritte Wert unterscheidet Zeilen mit gleichem Ziel."""
     if not project.folder_found:
         return []
-    rows = [(code_line(status, platform_name), Target.CODE)]
+    if not project.has_branch_folders:
+        rows = [(code_line(status, platform_name), Target.CODE, None)]
+    else:
+        rows = [(code_line(status, platform_name, f"Code, {project.code_dir.name}"),
+                 Target.CODE, None)]
+        for tree, inner in (status.worktrees if status is not None else []):
+            rows.append((branch_label(tree, inner, platform_name), Target.BRANCH, tree.folder))
+        if status is not None and status.on_platform:
+            rows.append((f"Branches auf {platform_name}", Target.REMOTE_BRANCHES, None))
+            main = status.repo.default_branch
+            for branch in shown or []:
+                rows.append((f"Branch {branch.line(main, platform_name)}", Target.REMOTE_BRANCH,
+                             branch.name))
     if project.has_exe_dir:
-        rows.append((exe_label(project), Target.EXE))
+        rows.append((exe_label(project), Target.EXE, None))
     return rows
+
+
+def branch_label(tree: Worktree, status: ProjectStatus | None,
+                 platform_name: str = "GitHub") -> str:
+    """Zum Beispiel "Branch neue-funktion, 2 Dateien noch nicht hochgeladen"."""
+    head = f"Branch {tree.branch or tree.folder}"
+    if tree.gone:
+        head += f", auf {platform_name} gelöscht"
+    return code_line(status, platform_name, head)
+
+
+CHILD_TARGETS = (Target.CODE, Target.EXE, Target.BRANCH, Target.REMOTE_BRANCHES,
+                 Target.REMOTE_BRANCH)
 
 
 def _sort_key(entry: Project | StoredRepo) -> str:
@@ -94,6 +125,7 @@ class ProjectList(QListWidget):
         self._projects: dict[int, Project] = {}
         self._remote: dict[int, StoredRepo] = {}
         self._status: dict[int, ProjectStatus] = {}
+        self._shown: dict[int, list[Branch]] = {}     # ausgewählte Branches anderer (10f)
         self._expanded: int | None = None
         self.platform_name = "GitHub"
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -104,7 +136,7 @@ class ProjectList(QListWidget):
     def set_projects(self, projects: list[Project],
                      remote_repos: list[StoredRepo] | None = None) -> None:
         """Liste neu füllen. Auswahl und ausgeklapptes Projekt bleiben erhalten, wenn möglich."""
-        keep = self.current_target()
+        keep = (*self.current_target(), self.current_key())
         expanded = self._expanded
         self._projects = {p.id: p for p in projects}
         self._remote = {r.id: r for r in remote_repos or []}
@@ -152,9 +184,60 @@ class ProjectList(QListWidget):
         row = self.row_of(Target.PROJECT, project.id)
         if row >= 0:
             self._set_text(row, self._project_text(project))
-        code_row = self.row_of(Target.CODE, project.id)
-        if code_row >= 0:
-            self._set_text(code_row, code_line(status, self.platform_name))
+        if project.id == self._expanded:
+            self._update_children(project)
+
+    def _children(self, project: Project) -> list[tuple[str, Target, str | None]]:
+        return children_of(project, self._status.get(project.id), self.platform_name,
+                           self._shown.get(project.id))
+
+    def _update_children(self, project: Project) -> None:
+        """Zeilen unter dem ausgeklappten Projekt auffrischen. Sind Zeilen dazugekommen oder
+        weggefallen (neuer Branch-Ordner), werden sie neu eingefügt. Die Markierung bleibt auf
+        demselben Eintrag, sonst auf dem Projekt."""
+        children = self._children(project)
+        row = self.row_of(Target.PROJECT, project.id)
+        current = [(self.item(r).data(ROLE_TARGET), self.item(r).data(ROLE_KEY))
+                   for r in range(row + 1, self.count())
+                   if self.item(r).data(ROLE_TARGET) in CHILD_TARGETS]
+        if current == [(target, key) for _text, target, key in children]:
+            for offset, (text, _target, _key) in enumerate(children, start=1):
+                self._set_text(row + offset, text)
+            return
+        target, project_id = self.current_target()
+        key = self.current_key()
+        self.blockSignals(True)
+        try:
+            for _ in current:
+                self.takeItem(row + 1)
+            for offset, (text, child_target, child_key) in enumerate(children, start=1):
+                self.insertItem(row + offset, self._item(text, child_target, project.id,
+                                                         child_key))
+            new_row = self.row_of(target, project_id, key)
+            if new_row < 0:
+                new_row = self.row_of(Target.PROJECT, project.id)
+            self.setCurrentRow(new_row)
+        finally:
+            self.blockSignals(False)
+        self.currentRowChanged.emit(self.currentRow())
+
+    def show_remote_branch(self, project_id: int, branch: Branch) -> None:
+        """Einen Branch anderer vorübergehend zeigen (bis zum Beenden oder Anpinnen)."""
+        shown = self._shown.setdefault(project_id, [])
+        if all(b.name != branch.name for b in shown):
+            shown.append(branch)
+        project = self._projects.get(project_id)
+        if project is not None and project_id == self._expanded:
+            self._update_children(project)
+
+    def hide_remote_branch(self, project_id: int, name: str) -> None:
+        self._shown[project_id] = [b for b in self._shown.get(project_id, []) if b.name != name]
+        project = self._projects.get(project_id)
+        if project is not None and project_id == self._expanded:
+            self._update_children(project)
+
+    def shown_branch(self, project_id: int | None, name: str | None) -> Branch | None:
+        return next((b for b in self._shown.get(project_id, []) if b.name == name), None)
 
     def _set_text(self, row: int, text: str) -> None:
         item = self.item(row)
@@ -162,10 +245,12 @@ class ProjectList(QListWidget):
             item.setText(text)
 
     @staticmethod
-    def _item(text: str, target: Target, project_id: int | None) -> QListWidgetItem:
+    def _item(text: str, target: Target, project_id: int | None,
+              key: str | None = None) -> QListWidgetItem:
         item = QListWidgetItem(text)
         item.setData(ROLE_TARGET, target)
         item.setData(ROLE_PROJECT, project_id)
+        item.setData(ROLE_KEY, key)
         return item
 
     def texts(self) -> list[str]:
@@ -178,18 +263,28 @@ class ProjectList(QListWidget):
             return Target.ADD_LOCAL, None
         return item.data(ROLE_TARGET), item.data(ROLE_PROJECT)
 
-    def row_of(self, target: Target, project_id: int | None) -> int:
+    def current_key(self) -> str | None:
+        """Ordner eines Branch-Ordners oder Name eines Branches anderer (Phase 10f)."""
+        item = self.currentItem()
+        return item.data(ROLE_KEY) if item is not None else None
+
+    def row_of(self, target: Target, project_id: int | None, key: str | None = None) -> int:
         for row in range(self.count()):
             item = self.item(row)
-            if item.data(ROLE_TARGET) == target and item.data(ROLE_PROJECT) == project_id:
+            if item.data(ROLE_TARGET) == target and item.data(ROLE_PROJECT) == project_id \
+                    and (key is None or item.data(ROLE_KEY) == key):
                 return row
         return -1
 
-    def select(self, target: Target, project_id: int | None) -> bool:
-        """Eintrag markieren. Für Code und Exe wird das Projekt dafür ausgeklappt."""
-        if target in (Target.CODE, Target.EXE) and project_id != self._expanded:
+    def select(self, target: Target, project_id: int | None, key: str | None = None) -> bool:
+        """Eintrag markieren. Für Unterordner wird das Projekt dafür ausgeklappt. Steht die
+        Markierung auf einem Branch-Ordner, bleibt sie dort, wenn Code gewünscht ist: Die
+        Aktionen von Code laufen dort im Branch-Ordner (Phase 10f)."""
+        if target is Target.CODE and self.current_target() == (Target.BRANCH, project_id):
+            return True
+        if target in CHILD_TARGETS and project_id != self._expanded:
             self.expand(project_id, speak=False)
-        row = self.row_of(target, project_id)
+        row = self.row_of(target, project_id, key)
         if row < 0:
             return False
         self.setCurrentRow(row)
@@ -204,7 +299,7 @@ class ProjectList(QListWidget):
         project = self._projects.get(project_id)
         if project is None or project_id == self._expanded:
             return project_id == self._expanded
-        children = children_of(project, self._status.get(project_id), self.platform_name)
+        children = self._children(project)
         if not children:
             if speak:
                 announce("Der Ordner wurde nicht gefunden." if not project.folder_found
@@ -213,8 +308,8 @@ class ProjectList(QListWidget):
         if self._expanded is not None:
             self._remove_children()
         row = self.row_of(Target.PROJECT, project_id)
-        for offset, (text, target) in enumerate(children, start=1):
-            self.insertItem(row + offset, self._item(text, target, project_id))
+        for offset, (text, target, key) in enumerate(children, start=1):
+            self.insertItem(row + offset, self._item(text, target, project_id, key))
         self._expanded = project_id
         self.item(row).setText(self._project_text(project))
         self.setCurrentRow(row)
@@ -238,8 +333,7 @@ class ProjectList(QListWidget):
         project_id = self._expanded
         self._expanded = None
         row = self.row_of(Target.PROJECT, project_id)
-        while row + 1 < self.count() and self.item(row + 1).data(ROLE_TARGET) in (Target.CODE,
-                                                                                  Target.EXE):
+        while row + 1 < self.count() and self.item(row + 1).data(ROLE_TARGET) in CHILD_TARGETS:
             self.takeItem(row + 1)
         project = self._projects.get(project_id)
         if project is not None and row >= 0:
@@ -260,7 +354,7 @@ class ProjectList(QListWidget):
                 self.expand(project_id)
             event.accept()
             return
-        if key == Qt.Key.Key_Left and (target in (Target.CODE, Target.EXE)
+        if key == Qt.Key.Key_Left and (target in CHILD_TARGETS
                                        or (target == Target.PROJECT
                                            and project_id == self._expanded)):
             self.collapse()

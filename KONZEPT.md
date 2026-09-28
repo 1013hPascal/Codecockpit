@@ -251,6 +251,7 @@ PDF-Chat\
 - Die Projekteinstellungen stehen in `Code\cockpit.toml` (ohne Geheimnisse) und werden mitversioniert. So gehen sie nicht verloren und sind auf einem anderen Rechner sofort da.
 - Der Ordner `Exe` wird erst angelegt, wenn zum ersten Mal eine Exe erstellt wird.
 - Große externe Ressourcen (z. B. heruntergeladene Modelle, Abschnitt 10.12) liegen nicht im Ordner `Exe`, sondern im Benutzerdatenordner. Sie gehen beim Ersetzen der Exe also nicht verloren.
+- Ergänzt am 28.09.2026 (Phase 10f), ein Ordner pro Branch: `Code` enthält dann nur Ordner, `Code\main` für den Haupt-Branch und daneben einen Ordner pro Branch, zum Beispiel `Code\neue-funktion`. Technisch sind es Worktrees von Git, alle teilen sich ein Repository. `cockpit.toml` liegt in jedem Ordner, maßgeblich ist die in `Code\main`. Neue Projekte bekommen diese Struktur (abschaltbar in den Grundeinstellungen), bestehende über die Aktion „Ordner für Branches einrichten …“. Einzelheiten in ENTSCHEIDUNGEN.md.
 
 ### 7.2 Speicherorte
 

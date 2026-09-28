@@ -120,6 +120,22 @@ def steps(code_dir: Path) -> list[str]:
     return result
 
 
+def create_like(source_dir: Path, target_dir: Path,
+                cancel: threading.Event | None = None) -> bool:
+    """Neuer Branch-Ordner (Phase 10f): Hat source_dir eine funktionierende Umgebung, bekommt
+    target_dir eine eigene mit derselben Python-Version und den Paketen aus requirements.txt.
+    Gibt False zurück, wenn source_dir keine hat."""
+    state = check(source_dir)
+    if not state.exists or (target_dir / VENV).exists():
+        return False
+    python = find_python(state)
+    _run([*python, "-m", "venv", VENV], target_dir, cancel)
+    if (target_dir / "requirements.txt").is_file():
+        _run([str(target_dir / VENV / "Scripts" / "python.exe"), "-m", "pip", "install", "-r",
+              "requirements.txt"], target_dir, cancel)
+    return True
+
+
 def repair(code_dir: Path, project_name: str, progress: Callable[[int, int, str], None],
            cancel: threading.Event | None = None) -> Path:
     """Umgebung neu anlegen. Blockiert, also nur im Hintergrund. Gibt den Ort der

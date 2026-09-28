@@ -727,3 +727,22 @@ Das Konzept 10.4 ist überarbeitet (Wunsch des Nutzers). Die Fragen und Antworte
 - Rückfrage mit „Später“ als Vorgabe. „Diese Version überspringen“ gilt nur für die automatische Prüfung. Hilfe, Nach Updates suchen fragt immer.
 - Geprüft wird 10 Sekunden nach dem Start und danach höchstens einmal am Tag. Schalter in den Grundeinstellungen, Vorgabe an. Beim Start aus dem Code gibt es keine Prüfung.
 - Die Versionsnummer im Code steht jetzt auf 1.1.0, passend zu den Releases.
+
+## 28.09.2026: Ein Ordner pro Branch (10f)
+
+- Wunsch des Nutzers: Jeder Branch soll auch im Explorer als Ordner zu sehen sein, damit man zum Beispiel mit Claude nur in einem Branch arbeitet. Umgesetzt mit Worktrees von Git: Code enthält Code\main und daneben einen Ordner pro Branch. Antworten stehen in fragen\phase-10f.md.
+- Fester Teil des Kerns, kein Feature (Antwort 9). code_dir des Projekts ist der Ordner des Haupt-Branches. So arbeiten Exe-Bau, cockpit.toml und alles andere unverändert. Der Kern erkennt Code\main daran, dass Code selbst kein Git hat, aber ein Unterordner einen Ordner .git.
+- In der Projektliste steht jeder Branch-Ordner als eigene Zeile unter „Code, main“ (Antwort 1). Seine Aktionen sind die von Code, nur im Branch-Ordner. Dazu „Branch-Ordner entfernen …“.
+- Branches anderer (Kommentar des Nutzers): Zeile „Branches auf GitHub“, Enter zeigt sie zur Auswahl. Der gewählte steht vorübergehend in der Liste, ohne Ordner. „In Liste anpinnen“ legt seinen Ordner an. Die Auswahl wird nicht gespeichert.
+- Neuer Branch: bekommt immer einen Ordner und beginnt beim neuesten Stand des Haupt-Branches auf der Plattform. Ohne Verbindung zur Plattform beim lokalen Haupt-Branch. Er folgt nicht origin/main, damit das Hochladen unter eigenem Namen geht.
+- In der Übersicht Branches wird mit Branch-Ordnern nicht gewechselt. Der Knopf heißt dann „Ordner für … anlegen“.
+- Ordnernamen: Schrägstriche und andere Zeichen, die Windows nicht erlaubt, werden zu Bindestrichen, zum Beispiel feature/login zu feature-login.
+- Branch-Ordner entfernen: Der Branch bleibt. Liegt im Ordner etwas, das es sonst nirgends gibt, kommt er vorher in die Sicherheitskopien. Ein Branch, der auf der Plattform gelöscht wurde (meist nach dem Übernehmen), heißt in der Liste „auf GitHub gelöscht“.
+- Virtuelle Umgebung: Ein neuer Branch-Ordner bekommt im Hintergrund eine eigene, wenn main eine hat (Antwort 5).
+- Exe aus einem Branch (Antwort 6): kommt als <Name>_branch_<Ordner>.exe in den Ordner Exe, neben die normale. Sie zählt nicht als „die Exe“ des Projekts, wird beim Ersetzen der normalen nicht mitgesichert und bekommt keinen Vermerk in cockpit.toml.
+- Neue Projekte (Antwort 7): Schalter „Neue Projekte mit einem Ordner pro Branch“ in den Grundeinstellungen, Vorgabe an. Gilt beim Herunterladen von GitHub und beim Hinzufügen eines Ordners mit Git vom Rechner. Ein Ordner ohne Git bekommt die Struktur erst über die Aktion, wenn er Commits hat, weil Branch-Ordner Git brauchen.
+- Bestehende Projekte (Antwort 8): Aktion „Ordner für Branches einrichten …“ mit Rückfrage und Sicherheitskopie ohne .venv. Ist eine Datei in Benutzung, wird alles zurückverschoben. Die virtuelle Umgebung wird danach neu angelegt.
+- Nur verknüpfte Projekte bleiben wie bisher (Antwort 10).
+- Git legt in einem Branch-Ordner statt des Ordners .git eine Datei an. Das Erkennen eines offenen Zusammenführens liest deshalb den echten Git-Ordner (git.git_dir).
+- Das Cockpit selbst stellt der Nutzer über die Exe um (Antwort 11). Danach kopiere ich die Einstellungen und Erinnerungen von Claude in den neuen Ordner.
+- Version 1.1.1, damit der Nutzer damit das Update aus 10e testen kann (Antwort 12).

@@ -35,7 +35,8 @@ class BranchesDialog(FocusDialog):
     """Nach dem Schließen ist changed True, wenn sich Branch oder Dateien geändert haben."""
 
     def __init__(self, project: "Project", items: list[Branch], env: dict[str, str] | None = None,
-                 platform_name: str = "GitHub", parent: QWidget | None = None) -> None:
+                 platform_name: str = "GitHub", parent: QWidget | None = None,
+                 folders: dict[str, str] | None = None) -> None:
         super().__init__(parent)
         self.project = project
         self.code_dir = project.code_dir
@@ -44,6 +45,13 @@ class BranchesDialog(FocusDialog):
         self.platform_name = platform_name
         self.main = branches.default_branch(self.code_dir)
         self.changed = False
+        # Phase 10f: Mit einem Ordner pro Branch wird nicht gewechselt. "Wechseln" legt dann den
+        # Ordner an, "Neuer Branch" einen Branch mit Ordner. Beides erledigt nach dem Schließen
+        # der Aufrufer (WorktreeActions), weil es im Hintergrund holt.
+        self.structured = project.has_branch_folders
+        self.folders = folders or {}                  # Branch: Ordnername
+        self.new_request = ""
+        self.open_request = ""
         self.worker = DialogWorker(self, "Branches")
         self.list = QListWidget()
         name_widget(self.list, "Branches")
@@ -102,9 +110,16 @@ class BranchesDialog(FocusDialog):
         row = self.list.currentRow()
         branch = self.items[row] if 0 <= row < len(self.items) else None
         # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
-        self.switch_button.setVisible(branch is not None and not branch.current)
-        if branch is not None:
-            self.switch_button.setText(f"Zu {branch.name.replace('&', '&&')} &wechseln")
+        if self.structured:
+            self.switch_button.setVisible(branch is not None and not branch.default
+                                          and branch.name not in self.folders)
+            if branch is not None:
+                self.switch_button.setText(f"&Ordner für {branch.name.replace('&', '&&')} "
+                                           "anlegen")
+        else:
+            self.switch_button.setVisible(branch is not None and not branch.current)
+            if branch is not None:
+                self.switch_button.setText(f"Zu {branch.name.replace('&', '&&')} &wechseln")
         self.merge_button.setVisible(branch is not None and not branch.default)
         self.rename_button.setVisible(branch is not None and not branch.default)
         self.delete_button.setVisible(branch is not None and not branch.default
@@ -132,6 +147,16 @@ class BranchesDialog(FocusDialog):
     def switch_current(self) -> None:
         branch = self.current()
         if branch is None:
+            return
+        if self.structured:
+            if branch.default:
+                announce(f"{branch.name} liegt im Ordner Code\\{self.code_dir.name}.")
+            elif branch.name in self.folders:
+                announce(f"{branch.name} hat schon einen Ordner: "
+                         f"Code\\{self.folders[branch.name]}.")
+            else:
+                self.open_request = branch.name
+                self.accept()
             return
         if branch.current:
             announce(f"Sie sind schon auf {branch.name}.")
@@ -189,6 +214,14 @@ class BranchesDialog(FocusDialog):
 
     # -- Neuer Branch ------------------------------------------------------------------------
     def new_branch(self) -> None:
+        if self.structured:
+            dialog = BranchNameDialog("Neuer Branch", f"Er bekommt einen eigenen Ordner im Ordner "
+                                      f"Code und beginnt beim neuesten Stand von {self.main} auf "
+                                      f"{self.platform_name}.", self.code_dir, parent=self)
+            if dialog.exec():
+                self.new_request = dialog.name
+                self.accept()
+            return
         here = self._current_name() or "dem aktuellen Stand"
         dialog = BranchNameDialog("Neuer Branch", f"Er beginnt bei {here}. Ihre Änderungen ohne "
                                   "Commit kommen mit.", self.code_dir, parent=self)

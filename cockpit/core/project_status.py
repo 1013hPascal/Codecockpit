@@ -12,8 +12,9 @@ Beispiele für die Zeilen, das Wichtigste vorne:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from cockpit.core import git, venv_repair
 from cockpit.core.errors import CockpitError
@@ -21,6 +22,9 @@ from cockpit.core.git import RepoStatus
 from cockpit.core.projects import Project, ProjectStore
 from cockpit.core.text import count
 from cockpit.core.venv_repair import VenvState
+
+if TYPE_CHECKING:
+    from cockpit.core.worktrees import Worktree
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +37,8 @@ class ProjectStatus:
     venv: VenvState = field(default_factory=lambda: VenvState(False))
     open_pulls: int = 0                      # offene Pull Requests aus dem aktuellen Branch
     error: str = ""
+    # Branch-Ordner (Phase 10f), jeder mit eigenem Stand, sortiert nach Ordnername
+    worktrees: list[tuple["Worktree", "ProjectStatus"]] = field(default_factory=list)
 
     @property
     def on_platform(self) -> bool:
@@ -56,8 +62,9 @@ class ProjectStatus:
         return "" if self.repo.branch == self.repo.default_branch else self.repo.branch
 
 
-def compute(project: Project) -> ProjectStatus:
-    """Stand eines Projekts. Blockiert kurz (Git), also im Hintergrund aufrufen."""
+def compute(project: Project, with_worktrees: bool = True) -> ProjectStatus:
+    """Stand eines Projekts. Blockiert kurz (Git), also im Hintergrund aufrufen.
+    with_worktrees: auch den Stand der Branch-Ordner (Phase 10f)."""
     status = ProjectStatus(project.id)
     if not project.folder_found:
         return status
@@ -70,7 +77,19 @@ def compute(project: Project) -> ProjectStatus:
         log.warning("Stand von %s nicht lesbar: %s %s", project.name, exc.message, exc.details)
         status.error = exc.message
         status.repo = None
+    if with_worktrees and project.has_branch_folders and status.repo is not None:
+        from cockpit.core import worktrees
+        for worktree in worktrees.list_worktrees(project):
+            inner = compute(replace(project, code_dir=worktree.path), with_worktrees=False)
+            status.worktrees.append((worktree, inner))
     return status
+
+
+def for_folder(status: ProjectStatus | None, folder: str) -> ProjectStatus | None:
+    """Stand eines Branch-Ordners, nach seinem Ordnernamen."""
+    if status is None:
+        return None
+    return next((inner for tree, inner in status.worktrees if tree.folder == folder), None)
 
 
 def remember(store: ProjectStore, project: Project, status: ProjectStatus) -> None:
@@ -115,11 +134,13 @@ def project_line(project: Project, status: ProjectStatus | None,
     return ", ".join(parts)
 
 
-def code_line(status: ProjectStatus | None, platform_name: str = "GitHub") -> str:
-    parts = ["Code"]
+def code_line(status: ProjectStatus | None, platform_name: str = "GitHub",
+              head: str = "Code") -> str:
+    """Zeile für Code. head: bei Branch-Ordnern "Code, main" oder "Branch neue-funktion"."""
+    parts = [head]
     if status is None or status.repo is None:
         return parts[0]
-    if status.other_branch:
+    if status.other_branch and head == "Code":
         parts.append(f"Branch {status.other_branch}")
     if status.unfinished_merge:
         parts.append(status.unfinished_merge)

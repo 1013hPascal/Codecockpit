@@ -488,7 +488,7 @@ def test_download_from_list_with_organizations(live, qtbot, account, projects_ro
     assert shown[0] == ["Adresse eingeben …",
                         "Vereinsseite, verein, öffentlich, aktualisiert am 20.09.2026",
                         "Eigenes, tester, privat, aktualisiert am 01.09.2026"]
-    assert (projects_root / "Vereinsseite" / "Code" / "main.py").exists()
+    assert (projects_root / "Vereinsseite" / "Code" / "main" / "main.py").exists()
 
 
 def test_upload_existing_project_is_offered_only_when_not_on_platform(live, qtbot, account,

@@ -340,7 +340,9 @@ def test_download_clones_into_projects_root(account, projects_root, tmp_path):
     bare = make_remote(tmp_path, "Rechner")
     repo = stored_repo(services, acc.id, bare, "Rechner", "2026-09-20T10:00:00Z")
     project = project_setup.download(services, repo, projects_root)
-    assert (projects_root / "Rechner" / "Code" / "main.py").exists()
+    # Phase 10f: Vorgabe ist ein Ordner pro Branch, der Haupt-Branch liegt in Code\main
+    assert (projects_root / "Rechner" / "Code" / "main" / "main.py").exists()
+    assert project.code_dir == projects_root / "Rechner" / "Code" / "main"
     assert project.account_id == acc.id
     assert project.remote.name == "Rechner"
     assert project.last_updated.startswith("2026-09-20")
@@ -596,7 +598,7 @@ def test_refresh_remote_downloads_new_repos_when_switched_on(live, qtbot, accoun
     win.refresh_remote()
     wait_idle(qtbot, win)
     qtbot.waitUntil(lambda: said("Neu heruntergeladen."), timeout=10000)
-    assert (projects_root / "Neu" / "Code" / "main.py").exists()
+    assert (projects_root / "Neu" / "Code" / "main" / "main.py").exists()
 
 
 def test_refresh_remote_without_auto_download(live, qtbot, account, projects_root, tmp_path):

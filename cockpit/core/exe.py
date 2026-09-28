@@ -35,6 +35,7 @@ log = logging.getLogger(__name__)
 
 SECTION = "exe"
 PENDING = "_neu"                        # wartende Aktualisierung der eigenen Exe
+BRANCH_MARK = "_branch_"                # Exe aus einem Branch-Ordner (Phase 10f)
 SOURCES = {"cockpit": "vom Cockpit erstellt", "extern": "extern erstellt",
            "release": "aus dem Release"}
 PYTHON_GUIDE = "anleitungen/python-installieren.md"
@@ -148,7 +149,8 @@ def current_exe(project: Project) -> Path | None:
     if not project.has_exe_dir:
         return None
     found = [p for p in project.exe_dir.rglob("*.exe")
-             if p.is_file() and PENDING not in p.relative_to(project.exe_dir).parts]
+             if p.is_file() and PENDING not in p.relative_to(project.exe_dir).parts
+             and not any(BRANCH_MARK in part for part in p.relative_to(project.exe_dir).parts)]
     return max(found, key=lambda p: p.stat().st_mtime) if found else None
 
 
@@ -201,7 +203,8 @@ def add_exe_dir(project: Project) -> Path:
 def backup_current(project: Project, reason: str) -> Path | None:
     """Inhalt des Ordners Exe (ohne _neu) in eine Sicherheitskopie verschieben. Klappt ein Teil
     nicht, kommt alles zurück, und es gibt einen Fehler (zum Beispiel weil die Exe läuft)."""
-    items = [p for p in project.exe_dir.iterdir() if p.name != PENDING]
+    items = [p for p in project.exe_dir.iterdir()
+             if p.name != PENDING and not is_branch_exe(p)]      # Branch-Exen bleiben (10f)
     if not items:
         return None
     folder = backups.new_backup_dir(project.name, reason, project.exe_dir)
@@ -393,6 +396,7 @@ class BuildResult:
     built: Path | None = None           # bei untested: die gebaute Exe im temporären Ordner
     work: Path | None = None            # bei untested: temporärer Ordner, danach löschen
     commit: str = ""
+    branch: str = ""                    # Exe aus einem Branch-Ordner (Phase 10f): sein Name
 
 
 def pyinstaller_build(code_dir: Path, python: Path, spec: Path, work: Path, on_line=None,
@@ -492,9 +496,43 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
 def install_untested(project: Project, result: BuildResult) -> BuildResult:
     """Nach dem Ja des Nutzers: die nicht geprüfte Exe übernehmen (Wunsch aus Phase 10)."""
     try:
+        if result.branch:
+            return install_branch(project, result.built, result.branch)
         return install(project, result.built, result.commit, tested=False)
     finally:
         discard(result)
+
+
+def branch_exe_name(settings: BuildSettings, folder: str, built: Path) -> str:
+    """Zum Beispiel "CodeCockpit_branch_neue-funktion.exe" (Wunsch aus den Fragen zu 10f)."""
+    return f"{settings.name}{BRANCH_MARK}{folder}" + (".exe" if built.is_file() else "")
+
+
+def is_branch_exe(path: Path) -> bool:
+    return BRANCH_MARK in path.name
+
+
+def install_branch(project: Project, built: Path, folder: str,
+                   settings: BuildSettings | None = None) -> BuildResult:
+    """Exe aus einem Branch-Ordner neben die normale Exe legen. Die normale bleibt unberührt,
+    eine ältere Exe desselben Branches kommt in die Sicherheitskopien. Kein Vermerk in
+    cockpit.toml, der gilt nur für die Exe aus dem Haupt-Branch."""
+    settings = settings or read_settings(project.code_dir) or BuildSettings("main.py",
+                                                                           project.name)
+    exe_dir = add_exe_dir(project)
+    target = exe_dir / branch_exe_name(settings, folder, built)
+    backup = None
+    if target.exists():
+        try:
+            backup = backups.move_into_backup(target, project.name, f"Branch-Exe {folder} ersetzt")
+        except OSError as exc:
+            raise CockpitError(LOCKED, str(exc)) from None
+    try:
+        shutil.move(str(built), str(target))
+    except OSError as exc:
+        raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben.",
+                           str(exc)) from None
+    return BuildResult(exe_in(target), backup=backup, branch=folder)
 
 
 def discard(result: BuildResult) -> None:
@@ -503,9 +541,13 @@ def discard(result: BuildResult) -> None:
 
 
 def build(project: Project, settings: BuildSettings, on_status: Callable[[str], None],
-          on_line: Callable[[str], None], cancel: threading.Event | None = None) -> BuildResult:
-    """Der ganze Ablauf, blockiert. on_status bekommt "Schritt 1 von 4: …"."""
-    code_dir = project.code_dir
+          on_line: Callable[[str], None], cancel: threading.Event | None = None,
+          branch_dir: Path | None = None) -> BuildResult:
+    """Der ganze Ablauf, blockiert. on_status bekommt "Schritt 1 von 4: …".
+    branch_dir: aus diesem Branch-Ordner bauen (Phase 10f). Die Exe heißt dann
+    <Name>_branch_<Ordner>.exe und kommt neben die normale."""
+    code_dir = branch_dir or project.code_dir
+    folder = branch_dir.name if branch_dir is not None else ""
 
     def step(number: int) -> None:
         on_status(f"Schritt {number} von {len(STEPS)}: {STEPS[number - 1]}")
@@ -527,8 +569,10 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
             # Der Nutzer entscheidet in der Oberfläche, ob er selbst prüft (install_untested)
             keep = True
             return BuildResult(exe_in(built), untested=True, built=built, work=work,
-                               commit=commit)
+                               commit=commit, branch=folder)
         step(4)
+        if folder:
+            return install_branch(project, built, folder, settings)
         return install(project, built, commit)
     finally:
         if not keep:

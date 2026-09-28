@@ -326,7 +326,7 @@ def merge_source_label(code_dir: Path, platform_name: str = "GitHub") -> str:
     """Wessen Fassung beim Zusammenführen die zweite ist: die Plattform oder ein Branch. Git
     schreibt den Branch in .git/MERGE_MSG, zum Beispiel "Merge branch 'suche-pdfs'"."""
     try:
-        first = (code_dir / ".git" / "MERGE_MSG").read_text(encoding="utf-8").splitlines()[0]
+        first = (git.git_dir(code_dir) / "MERGE_MSG").read_text(encoding="utf-8").splitlines()[0]
     except (OSError, IndexError):
         return platform_name
     prefix = "Merge branch '"
@@ -336,7 +336,7 @@ def merge_source_label(code_dir: Path, platform_name: str = "GitHub") -> str:
 
 
 def merging(code_dir: Path) -> bool:
-    return (code_dir / ".git" / "MERGE_HEAD").exists()
+    return (git.git_dir(code_dir) / "MERGE_HEAD").exists()
 
 
 def conflict_kind(code_dir: Path) -> ConflictKind:

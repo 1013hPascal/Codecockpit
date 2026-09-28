@@ -376,7 +376,9 @@ def test_branches_from_the_window(live, qtbot, make_services, projects_root, tmp
     shown = []
 
     class FakeBranches:
-        def __init__(self, project, items, env, platform_name, parent=None):
+        new_request = open_request = ""
+
+        def __init__(self, project, items, env, platform_name, parent=None, folders=None):
             shown.append([b.name for b in items])
 
         def exec(self):

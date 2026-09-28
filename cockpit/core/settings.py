@@ -32,6 +32,7 @@ def setting_fields() -> list[SettingField]:
         Number("ai_max_chars", "Höchstens so viele Zeichen an die KI senden", 8000,
                minimum=1000, maximum=200000),
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
+        YesNo("branch_folders", "Neue Projekte mit einem Ordner pro Branch", True),
         YesNo("update_check", "Täglich nach Updates für CodeCockpit suchen", True),
     ]
 
@@ -49,7 +50,8 @@ class Settings:
     # Feature-Verwaltung (default_features). Der alte Wert gilt nur, solange dort nichts steht.
     branches_by_default: bool = False
     auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
-    update_check: bool = True                     # Exe: beim Start und täglich nach Updates suchen
+    branch_folders: bool = True                   # neue Projekte: Code\main und Branch-Ordner
+    update_check: bool = True                    # Exe: beim Start und täglich nach Updates suchen
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
     setup_done: bool = False                      # Einrichtungsassistent abgeschlossen

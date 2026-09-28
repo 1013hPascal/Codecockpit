@@ -396,7 +396,7 @@ def test_build_dialog_shows_steps_and_result(qtbot, make_services, projects_root
     from cockpit.ui import exe_flow
     services, project = project_with(make_services, projects_root)
 
-    def fake_build(project, settings, on_status, on_line, cancel):
+    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None):
         on_status("Schritt 1 von 4: Virtuelle Umgebung und Bibliotheken werden vorbereitet")
         on_line("Successfully installed pyinstaller")
         return exe.BuildResult(fake_exe(project.exe_dir))
@@ -415,7 +415,7 @@ def test_build_dialog_error_keeps_old_exe(qtbot, make_services, projects_root, m
     from cockpit.ui import exe_flow
     services, project = project_with(make_services, projects_root)
 
-    def fake_build(project, settings, on_status, on_line, cancel):
+    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None):
         raise CockpitError("PyInstaller hat die Exe nicht gebaut.", "Rückgabewert 1")
     monkeypatch.setattr(exe, "build", fake_build)
     dialog = exe_flow.BuildDialog(services, project, exe.BuildSettings(name="Rechner"))

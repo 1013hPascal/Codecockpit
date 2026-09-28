@@ -59,6 +59,8 @@ class ProjectController:
         self.pull_runner = None                   # laufender Ablauf für Pull Requests
         from cockpit.ui.exe_flow import ExeActions
         self.exe = ExeActions(self)                # Phase 10
+        from cockpit.ui.worktree_flow import WorktreeActions
+        self.worktrees = WorktreeActions(self)     # Phase 10f
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
@@ -131,7 +133,7 @@ class ProjectController:
                    availability=self._download_availability, is_default=True, order=10),
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
-        ] + self.exe.actions()
+        ] + self.exe.actions() + self.worktrees.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],
@@ -214,19 +216,28 @@ class ProjectController:
             self._link(folder)
 
     def _convert(self, folder: Path, root: Path) -> None:
+        from cockpit.core import worktrees
         target = root / folder.name
+        # Phase 10f: Ein Git-Ordner kommt gleich nach Code\<Branch>, wenn so eingestellt
+        inner = ""
+        if self.services.settings.load().branch_folders and (folder / ".git").is_dir():
+            state = git.status(folder)
+            inner = worktrees.folder_name(state.branch or state.default_branch)
+        destination = target / CODE_DIR / inner if inner else target / CODE_DIR
         if same_drive(folder, root):
-            how = (f"Der Ordner {folder} wird nach {target / CODE_DIR} verschoben. Sein Inhalt "
+            how = (f"Der Ordner {folder} wird nach {destination} verschoben. Sein Inhalt "
                    "bleibt unverändert, nur der Ort ändert sich.")
         else:
             how = (f"Der Ordner liegt auf einem anderen Laufwerk. Deshalb wird er nach "
-                   f"{target / CODE_DIR} kopiert. Der alte Ordner {folder} bleibt unverändert, "
+                   f"{destination} kopiert. Der alte Ordner {folder} bleibt unverändert, "
                    "Sie können ihn später selbst löschen.")
+        if inner:
+            how += " Jeder weitere Branch bekommt einen eigenen Ordner daneben."
         if not confirm(self.window, "Verschieben", f"{how} Verschieben?", yes="Verschieben",
                        no="Abbrechen"):
             return
         try:
-            project, moved = self.services.projects.convert(folder, root)
+            project, moved = self.services.projects.convert(folder, root, inner)
         except CockpitError as exc:
             show_error(self.window, "Verschieben", exc.message, exc.details)
             return
@@ -459,8 +470,9 @@ class ProjectController:
 
     # -- Branches und beiseitegelegte Änderungen (Konzept 10.14) ----------------------------
     def branches_action(self, context: ActionContext) -> None:
-        from cockpit.core import branches, sync
-        project = context.project
+        from cockpit.core import branches, sync, worktrees
+        # Mit Branch-Ordnern arbeitet die Übersicht immer im Ordner des Haupt-Branches (10f)
+        project = context.main_project or context.project
         on_platform = bool(git.config_get(project.code_dir, "remote.origin.url"))
         needs_account = project.account_id is not None or (
             project.remote is not None
@@ -484,16 +496,21 @@ class ProjectController:
             for item in items:
                 item.open_pulls = services.pull_request_cache.count_for_branch(project.remote,
                                                                                item.name)
-            return env, items, note
+            folders = {t.branch: t.folder for t in worktrees.list_worktrees(project)}
+            return env, items, note, folders
 
         def done(outcome) -> None:
             from cockpit.ui.branch_dialogs import BranchesDialog
-            env, items, note = outcome
+            env, items, note, folders = outcome
             if note:
                 announce(note)
-            dialog = BranchesDialog(project, items, env, platform_name, window)
+            dialog = BranchesDialog(project, items, env, platform_name, window, folders)
             dialog.exec()
             window.refresh_status([project.id])
+            if dialog.new_request:
+                self.worktrees.create(project, dialog.new_request)
+            elif dialog.open_request:
+                self.worktrees.open_folder_for(project, dialog.open_request)
 
         self.run_task(f"project:{project.id}", work, done, "Branches")
 

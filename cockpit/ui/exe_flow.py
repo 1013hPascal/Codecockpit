@@ -105,12 +105,14 @@ class BuildDialog(FocusDialog):
     """Bau im Hintergrund mit Ausgabe. result nach dem Ende: BuildResult oder None."""
 
     def __init__(self, services, project: Project, settings: exe.BuildSettings,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, branch_dir: Path | None = None) -> None:
         super().__init__(parent)
         self.services = services
         self.project = project
+        self.branch_dir = branch_dir                 # Exe aus einem Branch-Ordner (10f)
         self.result: exe.BuildResult | None = None
-        self.setWindowTitle(f"Exe erstellen: {project.name}")
+        self.setWindowTitle(f"Exe erstellen: {project.name}" + (f", Branch {branch_dir.name}"
+                                                                 if branch_dir else ""))
         self.output = QListWidget()
         self.output.setWordWrap(True)
         make_copyable(self.output)
@@ -129,7 +131,7 @@ class BuildDialog(FocusDialog):
 
         def work(task: Task):
             return exe.build(project, settings, task.status.emit, task.status.emit,
-                             task.cancel_event)
+                             task.cancel_event, branch_dir)
 
         self.task: Task | None = Task(work, self)
         self.task.status.connect(self.add_line)
@@ -158,6 +160,12 @@ class BuildDialog(FocusDialog):
             if result is None:
                 return
         self.result = result
+        if result.branch:
+            text = f"Exe aus dem Branch erstellt und abgelegt: {result.exe.name}."
+            if result.backup is not None:
+                text += " Die vorherige Exe dieses Branches steht in den Sicherheitskopien."
+            self.ended(text)
+            return
         tested = "getestet" if exe.read_record(self.project.code_dir) is None or \
             exe.read_record(self.project.code_dir).tested else "nicht geprüft"
         text = (f"Exe erstellt, {tested}. Sie wird beim nächsten Start übernommen."
@@ -323,7 +331,31 @@ class ExeActions:
             Action("exe_guide", "Wie funktioniert die Exe? …", Target.EXE,
                    lambda c: self.window.show_guide(exe.EXE_GUIDE, "Wie funktioniert die Exe?"),
                    visible=lambda c: c.project is not None, order=95),
+            Action("build_branch_exe", "Exe aus diesem Branch erstellen …", Target.CODE,
+                   self.build_branch, visible=self._branch_building, order=70),
         ]
+
+    def _branch_building(self, context: ActionContext) -> bool:
+        """Nur in einem Branch-Ordner, wenn der Haupt-Branch eine Exe baut (Phase 10f)."""
+        if context.worktree is None or context.main_project is None:
+            return False
+        main = ActionContext(context.services, context.main_project, Target.EXE)
+        return self._building(main) and exe.read_settings(context.main_project.code_dir) \
+            is not None
+
+    def build_branch(self, context: ActionContext) -> None:
+        project, tree = context.main_project, context.worktree
+        settings = exe.read_settings(project.code_dir)
+        name = exe.branch_exe_name(settings, tree.folder, Path("x.exe") if settings.one_file
+                                   else Path("."))
+        text = (f"Das Cockpit baut die Exe aus dem Ordner Code\\{tree.folder} und testet sie. "
+                f"Sie kommt als {name} in den Ordner Exe. Die normale Exe aus "
+                f"{project.code_dir.name} bleibt unverändert. Starten?")
+        if not confirm(self.window, "Exe aus dem Branch erstellen", text, yes="Starten",
+                       no="Abbrechen"):
+            return
+        BuildDialog(self.services, project, settings, self.window, branch_dir=tree.path).exec()
+        self.window.refresh_status([project.id])
 
     def _after(self, project: Project, text: str) -> None:
         self.window.reload_projects(refresh=False)
