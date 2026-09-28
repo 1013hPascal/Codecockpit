@@ -114,8 +114,12 @@ def read_record(code_dir: Path) -> ExeRecord | None:
             data = tomllib.loads(local.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             log.warning("Zustand der Exe nicht lesbar: %s (%s)", local, exc)
-    if data is None:
-        data = read_config(code_dir).get(SECTION, {})       # bis 10g: in cockpit.toml
+    old = read_config(code_dir).get(SECTION, {})            # bis 10g: in cockpit.toml
+    # Eine ältere Exe des Cockpits schreibt noch in cockpit.toml. Dann gilt der neuere Eintrag
+    # (Rückmeldung zum Test von 8e: sonst stand der alte Stand in der Zeile Exe).
+    if isinstance(old, dict) and old.get("source") in SOURCES and (
+            not isinstance(data, dict) or str(old.get("date", "")) > str(data.get("date", ""))):
+        data = old
     if not isinstance(data, dict) or data.get("source") not in SOURCES:
         return None
     return ExeRecord(data["source"], str(data.get("date", "")), str(data.get("commit", "")),

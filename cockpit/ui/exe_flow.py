@@ -565,8 +565,8 @@ class ExeActions:
         work_dir = Path(tempfile.mkdtemp(prefix="codecockpit-release-", dir=paths.cache_dir()))
         asset = exe.asset_for_upload(project, current, work_dir)
         source = ai_suggest.for_release_notes(self.services, project, tags)
-        dialog = PublishDialog(project, exe.next_version(tags), tags, asset.name, self.window,
-                               source=source)
+        dialog = PublishDialog(project, self._suggested_version(project, tags), tags, asset.name,
+                               self.window, source=source)
         if not dialog.exec():
             shutil.rmtree(work_dir, ignore_errors=True)
             return
@@ -605,6 +605,22 @@ class ExeActions:
 
         announce("Release wird angelegt und die Exe hochgeladen.")
         self.controller.run_task(f"exe:{project.id}", work, done, "Exe veröffentlichen")
+
+    def _suggested_version(self, project: Project, tags: list[str]) -> str:
+        """Mit dem Feature Versionen die zuletzt gesetzte, wenn es dazu noch kein Release gibt
+        (Frage 4 zu Phase 9). Sonst die nächste nach dem letzten Release."""
+        from cockpit.features.versions import versions
+        from cockpit.features.versions.manifest import FEATURE_ID
+        try:
+            active = (FEATURE_ID in self.services.registry
+                      and self.services.features.active(FEATURE_ID, project))
+        except CockpitError:
+            active = False
+        if active:
+            latest = versions.current(project.code_dir)
+            if latest and f"v{latest}" not in tags and latest not in tags:
+                return latest
+        return exe.next_version(tags)
 
     def _release_target(self, project: Project, record) -> str:
         """Commit der Exe, wenn er schon auf der Plattform ist, sonst der Haupt-Branch."""

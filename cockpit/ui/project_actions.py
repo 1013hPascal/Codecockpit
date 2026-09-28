@@ -61,6 +61,8 @@ class ProjectController:
         self.exe = ExeActions(self)                # Phase 10
         from cockpit.ui.worktree_flow import WorktreeActions
         self.worktrees = WorktreeActions(self)     # Phase 10f
+        from cockpit.ui.readme_flow import ReadmeActions
+        self.readme = ReadmeActions(self)          # Phase 9
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
@@ -142,7 +144,7 @@ class ProjectController:
                    availability=self._download_availability, is_default=True, order=10),
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
-        ] + self.exe.actions() + self.worktrees.actions()
+        ] + self.exe.actions() + self.worktrees.actions() + self.readme.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],
