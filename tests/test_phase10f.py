@@ -241,3 +241,26 @@ def test_add_local_repo_into_main_folder(tmp_path, projects_root, make_services)
     project, moved = services.projects.convert(folder, projects_root, "main")
     assert moved and project.code_dir == projects_root / "Notizen" / "Code" / "main"
     assert project.has_branch_folders and (project.code_dir / "notizen.py").is_file()
+
+def test_new_folder_in_main_does_not_block_merging(qtbot, tmp_path, projects_root, make_services,
+                                                   monkeypatch):
+    """Rückmeldung zum Test von 8e: Ein neuer Ordner in main verhinderte das Übernehmen."""
+    from cockpit.core import branches
+    from cockpit.ui import branch_dialogs
+    services, project, other = structured(tmp_path, projects_root, make_services)
+    (project.code_dir / "erklärvideos").mkdir()
+    (project.code_dir / "erklärvideos" / "notiz.txt").write_text("x\n", encoding="utf-8")
+    assert sync.blocking_merge(project.code_dir, "suche") == []
+    (project.code_dir / "main.py").write_text("geändert\n", encoding="utf-8")
+    assert sync.blocking_merge(project.code_dir, "suche") == ["main.py"]
+    sh(project.code_dir, "checkout", "--", "main.py")
+    questions, errors = [], []
+    monkeypatch.setattr(branch_dialogs, "confirm", lambda parent, title, text, **kw:
+                        questions.append(text) or False)
+    monkeypatch.setattr(branch_dialogs, "show_error", lambda parent, title, text, *a:
+                        errors.append(text))
+    items = [b for b in branches.list_branches(project.code_dir) if b.name == "suche"]
+    dialog = branch_dialogs.BranchesDialog(project, items, single=True)
+    qtbot.addWidget(dialog)
+    dialog.merge_current()
+    assert errors == [] and questions[0].startswith("Die 2 Commits aus suche kommen in main")

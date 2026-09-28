@@ -107,6 +107,28 @@ class Changes:
         return result
 
 
+def blocking_merge(code_dir: Path, source: str) -> list[str]:
+    """Änderungen ohne Commit, die beim Übernehmen von source stören: geänderte Dateien, die Git
+    schon kennt, und neue Dateien, die source ebenfalls mitbringt. Andere neue Dateien und
+    Ordner fasst Git nicht an (Rückmeldung zum Test von 8e: ein neuer Ordner erklärvideos in
+    main verhinderte das Übernehmen eines Branches)."""
+    result = git.run(["status", "--porcelain=v1", "-z", "--untracked-files=no"], code_dir,
+                     action="Stand lesen")
+    entries = iter(result.stdout.split("\0"))
+    found: list[str] = []
+    for entry in entries:
+        if len(entry) > 3:
+            found.append(entry[3:])
+            if entry[0] in "RC":
+                next(entries, None)              # alter Name bei Umbenennungen
+    untracked = git.run(["ls-files", "--others", "--exclude-standard", "-z"], code_dir,
+                        check=False).stdout.split("\0")
+    incoming = set(git.run(["diff", "--name-only", "-z", f"HEAD...{source}"], code_dir,
+                           check=False).stdout.split("\0"))
+    found += [name for name in untracked if name and name in incoming]
+    return found
+
+
 def changes(code_dir: Path) -> Changes:
     """Änderungen, die noch nicht in einem Commit sind, wie git status."""
     result = git.run(["status", "--porcelain=v1", "-z", "--untracked-files=all"], code_dir,

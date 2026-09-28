@@ -286,12 +286,19 @@ class BranchesDialog(FocusDialog):
         if not branch.ahead_main:
             announce(f"{branch.name} hat keine Commits, die in {main} fehlen.")
             return
-        if sync.changes(self.code_dir):
-            show_error(self, title, "Es gibt Änderungen ohne Commit. Laden Sie sie zuerst hoch "
-                       "oder legen Sie sie beiseite.")
-            return
         source = branch.name if branch.local else f"origin/{branch.name}"
-        switch = "" if self._current_name() == main else f"Das Cockpit wechselt zu {main}. "
+        # Nur Änderungen, die beim Übernehmen stören. Die Meldung nennt Ordner und Dateien
+        # (Rückmeldung zum Test von 8e: gemeint war main, nicht der Branch).
+        blocking = sync.blocking_merge(self.code_dir, source)
+        if blocking:
+            names = ", ".join(blocking[:3]) + (" und weitere" if len(blocking) > 3 else "")
+            show_error(self, title, f"In {main} (Ordner {self.code_dir.name}) gibt es "
+                       f"Änderungen ohne Commit, die beim Übernehmen stören: {names}. Laden Sie "
+                       f"sie in {main} zuerst hoch oder legen Sie sie beiseite.")
+            return
+        # Mit Branch-Ordnern ist main immer der eigene Ordner, gewechselt wird nie (10f)
+        switch = "" if self.structured or self._current_name() == main \
+            else f"Das Cockpit wechselt zu {main}. "
         text = (f"{switch}Die {count(branch.ahead_main, 'Commit', 'Commits')} aus {branch.name} "
                 f"kommen in {main}, wie git merge. Vorher kommen die betroffenen Dateien als "
                 f"Sicherheitskopie in den Ordner backups. Danach ist {main} noch nicht "
