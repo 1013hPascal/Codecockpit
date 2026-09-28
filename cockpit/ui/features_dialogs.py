@@ -121,6 +121,13 @@ class _FeatureListDialog(FocusDialog):
             return True
         return super().eventFilter(watched, event)
 
+    def showEvent(self, event) -> None:
+        # Wunsch aus dem Test von 8d: Von "KI" führt ein Tab direkt in die KI-Features, dort
+        # geht es mit den Pfeiltasten weiter. Erst hier, wenn alle Teile im Fenster sind.
+        QWidget.setTabOrder(self.list, self.sub)
+        QWidget.setTabOrder(self.sub, self.info)
+        super().showEvent(event)
+
     def checked(self) -> set[str]:
         return {feature_id for feature_id, on in self.state.items() if on}
 

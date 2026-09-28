@@ -39,7 +39,7 @@ Inhalt:
   - [x] 8b: Menü KI, KI-Verwaltung, lokale KI passend zum Rechner, Feature Terminal-Erklärung
   - [x] 8c: Feature KI-Assistent
   - [ ] 8d: Feature Spracheingabe mit Whisper (verschoben, erst nach Phase 10, gebaut am 29.09.2026)
-  - [ ] 8e: Feature KI-Hilfe (verschoben, erst nach Phase 10)
+  - [ ] 8e: Feature KI-Hilfe (verschoben, erst nach Phase 10, gebaut am 29.09.2026)
 - [ ] Phase 9: Features README-Pflege mit Sprachen und Versionen mit Tags (verschoben, erst nach Phase 10)
 - [ ] Phase 10: Exe (überarbeitet am 27.09.2026, vorgezogen vor 8d, 8e und 9)
   - [ ] 10a: Eintrag Exe, Exe hinzufügen, Exe-Datei wählen, Zustand in cockpit.toml, Anleitung

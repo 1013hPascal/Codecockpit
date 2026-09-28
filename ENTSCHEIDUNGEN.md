@@ -791,3 +791,12 @@ Antworten in fragen\phase-08d.md, alle Vorschläge angenommen.
 - Die Bibliotheken kommen in die Exe (Antwort 6). Die Exe wird dadurch deutlich größer. Für Releases ist das kein Problem, GitHub erlaubt dort bis 2 GB pro Datei.
 - Wechselt man während der Umwandlung das Feld, kommt der Text in das Feld, in dem die Aufnahme begann. Gibt es das nicht mehr, kommt er in die Zwischenablage.
 - Version 1.2.0 (Antwort 10).
+
+## 29.09.2026: Rückmeldungen zu 8d und KI-Hilfe (8e)
+
+- Feature-Verwaltung: Von „KI“ führt ein Tab direkt in die Liste „KI-Features“ (Wunsch aus dem Test von 8d).
+- Whisper-Modelle im Zwischenspeicher von Hugging Face, zum Beispiel vom Tagebuch, erkennt das Cockpit und nutzt sie ohne neuen Download. Löschen kann es nur seine eigene Kopie im Datenordner, weil andere Programme den Zwischenspeicher mitnutzen.
+- Sprach-KI: Liste mit Kontrollkästchen statt Enter zum Wählen. Genau ein Modell ist angehakt. Enter drückt auch dort den Knopf mit dem Fokus.
+- KI-Hilfe (8e) nach dem Vorschlag aus Frage 22 zu Phase 8, die offen geblieben war: Wissen aus Anleitungen, Einführungen und einer Beschreibung der Bedienung, die das Cockpit beim Fragen selbst erzeugt (Aufbau, Tastenkürzel, Menüs, Aktionen nach Art der Zeile). Menüs und Tastenkürzel gehen immer mit, von den übrigen Abschnitten die mit den meisten Wörtern aus der Frage, bis zur Zeichengrenze aus den Grundeinstellungen. Weiß die KI etwas nicht, sagt sie das.
+- KI-Hilfe über Hilfe, KI-Hilfe oder Umschalt+F1. Die KI bekommt nur die Frage und Auszüge aus der Hilfe, nie Code oder Zugangsdaten. Der Fokus bleibt beim Warten im Feld Frage, NVDA sagt „Antwort da.“.
+- Version 1.3.0, weil 1.2.0 mit 8d schon aus main veröffentlicht wird.

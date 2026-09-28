@@ -18,6 +18,14 @@ from cockpit.ui import dictation as dictation_ui
 from tests.conftest import said
 
 
+@pytest.fixture(autouse=True)
+def hf_cache(tmp_path, monkeypatch):
+    """Nie den echten Zwischenspeicher von Hugging Face ansehen."""
+    path = tmp_path / "hf"
+    monkeypatch.setenv("HF_HUB_CACHE", str(path))
+    return path
+
+
 class FakeRecording:
     def __init__(self, max_seconds: int) -> None:
         self.max_seconds = max_seconds
@@ -223,22 +231,44 @@ def test_first_dictation_offers_the_download(qtbot, setup, monkeypatch):
     assert controller.recording is None                     # Aufnahme erst mit Strg+D
 
 
+def test_models_of_the_diary_are_found(hf_cache):
+    """Wunsch aus dem Test von 8d: Das Tagebuch hat Modelle im Zwischenspeicher von Hugging Face."""
+    snapshot = hf_cache / "models--Systran--faster-whisper-medium" / "snapshots" / "abc"
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.bin").write_bytes(b"x")
+    assert whisper.is_downloaded("medium") and not whisper.own_copy("medium")
+    assert whisper.model_path("medium") == snapshot
+    whisper.delete("medium")                               # löscht nie den Zwischenspeicher
+    assert (snapshot / "model.bin").is_file()
+
+
 # -- Sprach-KI in der KI-Verwaltung ---------------------------------------------------------------
-def test_speech_dialog(qtbot, make_services, monkeypatch):
+def test_speech_dialog(qtbot, make_services, monkeypatch, hf_cache):
     from cockpit.ui import ai_dialogs
     services = make_services([MANIFEST])
     monkeypatch.setattr(ai_dialogs, "current_ram", lambda s: 32)
     fake_model("small")
+    snapshot = hf_cache / "models--Systran--faster-whisper-medium" / "snapshots" / "abc"
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.bin").write_bytes(b"x")
     dialog = ai_dialogs.SpeechDialog(services)
     qtbot.addWidget(dialog)
-    lines = [dialog.list.item(r).text() for r in range(dialog.list.count())]
+    items = [dialog.list.item(r) for r in range(dialog.list.count())]
+    lines = [item.text() for item in items]
     assert lines[0].startswith("small, ab 16 GB") and lines[0].endswith("heruntergeladen")
-    assert lines[1].startswith("medium, gewählt, ab 32 GB")
-    assert "empfohlen für Ihren Rechner" in lines[1] and "nicht heruntergeladen" in lines[1]
+    assert lines[1].startswith("medium, ab 32 GB") and "empfohlen für Ihren Rechner" in lines[1]
+    assert lines[1].endswith("heruntergeladen, aus dem Zwischenspeicher von Hugging Face")
+    assert "nicht heruntergeladen" in lines[2]
+    checked = [item.checkState() == Qt.CheckState.Checked for item in items]
+    assert checked == [False, True, False]                 # Empfehlung ohne eigene Wahl
     dialog.list.setCurrentRow(0)
     assert dialog.delete_button.isVisibleTo(dialog)
     assert not dialog.download_button.isVisibleTo(dialog)
-    dialog.choose_current()
+    items[0].setCheckState(Qt.CheckState.Checked)          # anhaken wählt
     assert services.database.get_value(whisper.MODEL_KEY) == "small"
+    assert dialog.list.item(0).checkState() == Qt.CheckState.Checked
+    assert dialog.list.item(1).checkState() == Qt.CheckState.Unchecked
     dialog.list.setCurrentRow(1)
+    assert not dialog.delete_button.isVisibleTo(dialog)    # nur die eigene Kopie
+    dialog.list.setCurrentRow(2)
     assert dialog.download_button.isVisibleTo(dialog)

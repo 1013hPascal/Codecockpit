@@ -16,7 +16,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QLineEdit, QListWidget, QListWidgetItem, QPushButton,
+                               QVBoxLayout, QWidget)
 
 from cockpit.ai import models as model_tiers
 from cockpit.core import hardware
@@ -571,8 +572,10 @@ def show_guide(parent: QWidget, relative_path: str, title: str) -> None:
 
 
 class SpeechDialog(FocusDialog):
-    """Sprach-KI (Teilschritt 8d): Whisper-Modelle auf diesem Rechner. Enter wählt das markierte
-    Modell. Knöpfe, die zur Zeile nicht passen, sind ausgeblendet."""
+    """Sprach-KI (Teilschritt 8d): Whisper-Modelle auf diesem Rechner, mit Kontrollkästchen.
+    Das angehakte Modell ist das gewählte (Wunsch aus dem Test von 8d). Leertaste oder Enter
+    haken an. Knöpfe, die zur Zeile nicht passen, sind ausgeblendet, und Enter drückt den Knopf
+    mit dem Fokus."""
 
     def __init__(self, services, parent: QWidget | None = None) -> None:
         from cockpit.ai import whisper
@@ -584,8 +587,10 @@ class SpeechDialog(FocusDialog):
         label = label_for(self.list, "&Whisper-Modelle auf diesem Rechner:")
         self.list.installEventFilter(self)
         self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
-        self.choose_button = QPushButton("&Wählen")
+        self.list.itemChanged.connect(self.item_changed)
+        self.choose_button = QPushButton("&Wählen")          # nur noch für die Tests sichtbar
         self.choose_button.clicked.connect(self.choose_current)
+        self.choose_button.setVisible(False)
         self.download_button = QPushButton("&Herunterladen")
         self.download_button.clicked.connect(self.download_current)
         self.delete_button = QPushButton("&Löschen …")
@@ -597,8 +602,7 @@ class SpeechDialog(FocusDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(label)
         layout.addWidget(self.list, 1)
-        layout.addLayout(button_row(self.choose_button, self.download_button,
-                                    self.delete_button, None, close))
+        layout.addLayout(button_row(self.download_button, self.delete_button, None, close))
         self.problem = whisper.problem()
         self.resize(700, 320)
         self.initial_focus_widget = self.list
@@ -613,18 +617,32 @@ class SpeechDialog(FocusDialog):
         ram = current_ram(self.services)
         chosen = whisper.chosen_model(self.services.database, ram)
         installed = whisper.downloaded()
+        self.list.blockSignals(True)
         self.list.clear()
         for tier in self.tiers():
             line = model_tiers.suggestion_line(tier, ram, installed).replace(
                 "nicht installiert", "nicht heruntergeladen").replace(
                 "installiert", "heruntergeladen")
-            if tier.model == chosen:
-                line = line.replace(tier.model, f"{tier.model}, gewählt", 1)
-            self.list.addItem(line)
+            if tier.model in installed and not whisper.own_copy(tier.model):
+                line += ", aus dem Zwischenspeicher von Hugging Face"
+            item = QListWidgetItem(line)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if tier.model == chosen
+                               else Qt.CheckState.Unchecked)
+            self.list.addItem(item)
         if self.problem:
             self.list.addItem(self.problem)
         self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
+        self.list.blockSignals(False)
         self.update_buttons()
+
+    def item_changed(self, item) -> None:
+        """Angehakt: dieses Modell wählen. Das gewählte lässt sich nicht einfach abhaken."""
+        row = self.list.row(item)
+        if not 0 <= row < len(self.tiers()):
+            return
+        self.list.setCurrentRow(row)
+        self.choose_current()
 
     def current(self):
         row = self.list.currentRow()
@@ -636,10 +654,10 @@ class SpeechDialog(FocusDialog):
         tier = self.current()
         downloaded = tier is not None and whisper.is_downloaded(tier.model)
         busy = self.task is not None
-        self.choose_button.setVisible(tier is not None)
         self.download_button.setVisible(tier is not None and not downloaded and not busy
                                         and not self.problem)
-        self.delete_button.setVisible(downloaded and not busy)
+        self.delete_button.setVisible(tier is not None and whisper.own_copy(tier.model)
+                                      and not busy)
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.list and _is_enter(event):
@@ -647,13 +665,18 @@ class SpeechDialog(FocusDialog):
             return True
         return super().eventFilter(watched, event)
 
+    def keyPressEvent(self, event) -> None:
+        # Wunsch aus dem Test von 8d: Enter drückt den Knopf mit dem Fokus, nicht nur Leertaste
+        if not click_focused_button(self, event):
+            super().keyPressEvent(event)
+
     def choose_current(self) -> None:
         from cockpit.ai import whisper
         tier = self.current()
         if tier is None:
             return
         self.services.database.set_value(whisper.MODEL_KEY, tier.model)
-        self.fill()
+        self.fill(self.list.currentRow())
         announce(f"{tier.model} gewählt.")
 
     def download_current(self) -> None:

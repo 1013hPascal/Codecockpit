@@ -16,7 +16,8 @@ from cockpit.ui.common import confirm
 
 TASK_NAMES = {"terminal_explain": "Erklärungen im Terminal",
               "ai_assistant": "Vorschläge des KI-Assistenten",
-              "exe_fix": "die Einrichtung der Exe"}
+              "exe_fix": "die Einrichtung der Exe",
+              "ai_help": "die KI-Hilfe"}
 DECLINED = "Nicht gesendet. Sie haben der KI außerhalb Ihres Rechners nicht zugestimmt."
 
 

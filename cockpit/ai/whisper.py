@@ -49,8 +49,48 @@ def model_dir(name: str) -> Path:
     return models_dir() / name
 
 
-def is_downloaded(name: str) -> bool:
+def hf_cache() -> Path:
+    """Zwischenspeicher von Hugging Face. Dort liegen zum Beispiel die Modelle des Tagebuchs."""
+    import os
+    if os.environ.get("HF_HUB_CACHE"):
+        return Path(os.environ["HF_HUB_CACHE"])
+    if os.environ.get("HF_HOME"):
+        return Path(os.environ["HF_HOME"]) / "hub"
+    return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _repository(name: str) -> str:
+    try:
+        from faster_whisper.utils import _MODELS
+        return _MODELS.get(name, f"Systran/faster-whisper-{name}")
+    except ImportError:
+        return f"Systran/faster-whisper-{name}"
+
+
+def cached_dir(name: str) -> Path | None:
+    """Ordner des Modells im Zwischenspeicher von Hugging Face, sonst None (Wunsch aus dem Test
+    von 8d: Modelle des Tagebuchs nicht noch einmal herunterladen)."""
+    snapshots = hf_cache() / ("models--" + _repository(name).replace("/", "--")) / "snapshots"
+    try:
+        found = [p for p in snapshots.iterdir() if (p / "model.bin").is_file()]
+    except OSError:
+        return None
+    return max(found, key=lambda p: p.stat().st_mtime) if found else None
+
+
+def own_copy(name: str) -> bool:
+    """Liegt das Modell im Datenordner des Cockpits? Nur das lässt sich hier löschen."""
     return (model_dir(name) / "model.bin").is_file()
+
+
+def model_path(name: str) -> Path | None:
+    if own_copy(name):
+        return model_dir(name)
+    return cached_dir(name)
+
+
+def is_downloaded(name: str) -> bool:
+    return model_path(name) is not None
 
 
 def downloaded() -> list[str]:
@@ -99,7 +139,8 @@ def download(name: str) -> Path:
 
 def delete(name: str) -> None:
     """Heruntergeladenes Modell löschen. Es lässt sich jederzeit neu herunterladen, deshalb
-    ohne Sicherheitskopie (ENTSCHEIDUNGEN.md, 8d)."""
+    ohne Sicherheitskopie (ENTSCHEIDUNGEN.md, 8d). Nur die Kopie im Datenordner des Cockpits,
+    nie den Zwischenspeicher von Hugging Face, den auch andere Programme nutzen."""
     global _model, _model_name
     with _lock:
         if _model_name == name:
@@ -113,7 +154,7 @@ def _load(name: str):
         if _model is None or _model_name != name:
             from faster_whisper import WhisperModel
             log.info("Lade Whisper-Modell %s", name)
-            _model = WhisperModel(str(model_dir(name)), device="cpu", compute_type="int8")
+            _model = WhisperModel(str(model_path(name)), device="cpu", compute_type="int8")
             _model_name = name
         return _model
 

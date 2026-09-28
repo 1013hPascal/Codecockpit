@@ -82,6 +82,7 @@ SHORTCUTS = [
     "Diktieren starten und beenden, in einem Textfeld, Strg+D",
     "Diktieren abbrechen, Strg+Umschalt+D",
     "Diese Liste, F1",
+    "KI-Hilfe, Fragen zur Bedienung, Umschalt+F1",
     "In Listen wie dieser: Zeile kopieren, Strg+C",
 ]
 
@@ -206,6 +207,7 @@ class MainWindow(QMainWindow):
         help_menu = AccessibleMenu("&Hilfe", self)
         bar.addMenu(help_menu)
         self._action(help_menu, "&Tastenkürzel", self.show_shortcuts, "F1")
+        self._action(help_menu, "KI-&Hilfe …", self.open_ai_help, "Shift+F1")
         self._action(help_menu, "&Letzte Meldung wiederholen", announcer.repeat_last,
                      "Ctrl+Shift+M")
         self._action(help_menu, "&Meldungen …", self.show_messages, "Ctrl+Shift+L")
@@ -224,6 +226,11 @@ class MainWindow(QMainWindow):
         help_menu.addSeparator()
         self._action(help_menu, "Nach &Updates suchen …", self.updater.check_now)
         self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
+
+    def open_ai_help(self) -> None:
+        """Fragen zur Bedienung (Konzept 10.17, Teilschritt 8e)."""
+        from cockpit.ui.ai_help_dialog import open_help
+        open_help(self)
 
     def open_ai_manager(self) -> None:
         """KI-Werkzeuge für Text, lokal oder extern (Konzept 11.1)."""
