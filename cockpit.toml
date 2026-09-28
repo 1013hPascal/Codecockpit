@@ -1,13 +1,5 @@
 is_cockpit = true
 
-[exe]
-source = "cockpit"
-date = "2026-09-28T16:40:38"
-commit = "0ad459604dfaa05d2fdbdcd263ce03b4709b21dd"
-version = "1.1.2"
-pending = false
-tested = true
-
 [exe.build]
 start_file = "main.py"
 name = "CodeCockpit"
