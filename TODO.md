@@ -35,6 +35,8 @@ Ideen für später:
 ## Exe (aus Phase 10)
 
 - Intelligente App-Steuerung (Smart App Control) von Windows 11 blockiert selbst gebaute Exe-Dateien ohne Signatur, auch bei anderen Nutzern. Auf dem Rechner des Nutzers ist sie an. Lösungen: sie ausschalten (lässt sich danach nicht wieder einschalten, ohne Windows neu aufzusetzen) oder die Exe signieren (Zertifikat nötig). Entscheidung des Nutzers offen.
+- Updater (10e, Rückmeldung des Nutzers vom 29.09.2026): Der Neustart nach dem Update klappt noch nicht. 10e nicht abhaken, bis das geht.
+- Zweite Runde für die Oberfläche (Wunsch des Nutzers vom 29.09.2026): Nach den weiteren Features alle Knöpfe und Aktionen durchgehen. Viele sind unintuitiv benannt oder stehen in einer seltsamen Reihenfolge.
 - Test-Absturz (28.09.2026): tests/test_phase10.py::test_build_dialog_asks_when_blocked[True] bricht manchmal mit „Fatal Python error: Aborted“ in Qt ab, etwa bei jedem zweiten Lauf. Die übrigen Tests laufen durch. Das Warten auf den Thread vor deleteLater hat es nicht behoben. Ursache noch suchen.
 - Externe Ressourcen, Lizenzprüfung und Signieren.
 - Nach dem Austausch der eigenen Exe: alte Version selbst wiederherstellen, wenn die neue nicht startet.
