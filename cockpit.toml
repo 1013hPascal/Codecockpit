@@ -2,8 +2,8 @@ is_cockpit = true
 
 [exe]
 source = "cockpit"
-date = "2026-09-28T11:34:38"
-commit = "91017d0d78088608416d79dc324c40cdc19024be"
+date = "2026-09-28T14:01:39"
+commit = "5fcf630188b6666344cd7e5248ad93fd481489fc"
 version = ""
 pending = false
 tested = false
