@@ -288,3 +288,18 @@ def test_exe_record_stays_local_in_a_repository(tmp_path):
     before = (code / "cockpit.toml").read_text(encoding="utf-8")
     exe.write_record(code, exe.ExeRecord("cockpit", "2026-09-28T13:00:00", "abc"))
     assert (code / "cockpit.toml").read_text(encoding="utf-8") == before
+
+def test_newer_entry_in_cockpit_toml_wins(tmp_path):
+    """Eine ältere Exe des Cockpits schreibt noch in cockpit.toml (Rückmeldung zum Test von 8e)."""
+    from tests.test_phase5a import sh
+    code = tmp_path / "Code"
+    code.mkdir()
+    sh(code, "init", "-q")
+    exe.write_record(code, exe.ExeRecord("release", "2026-09-28T23:43:21", "", "1.1.3"))
+    (code / "cockpit.toml").write_text('[exe]\nsource = "cockpit"\n'
+                                       'date = "2026-09-29T00:11:22"\ncommit = "abc"\n',
+                                       encoding="utf-8")
+    assert exe.read_record(code).commit == "abc"
+    exe.write_record(code, exe.read_record(code))                # räumt cockpit.toml auf
+    assert exe.read_record(code).commit == "abc"
+    assert "source" not in (code / "cockpit.toml").read_text(encoding="utf-8")
