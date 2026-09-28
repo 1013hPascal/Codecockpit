@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -196,3 +197,31 @@ def test_later_swaps_on_close(qtbot, make_services, own, monkeypatch):
     win.updater.shutdown()
     assert len(launched) == 1
     assert 'start ""' not in launched[0].read_text(encoding="utf-8")
+
+
+# -- Austausch-Skript wirklich ausführen (Rückmeldung zum Updater, 29.09.2026) ------------------
+@pytest.mark.skipif(sys.platform != "win32", reason="nur Windows")
+def test_swap_script_really_swaps_after_the_process_ended(tmp_path, monkeypatch):
+    import subprocess
+    import time
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    folder = tmp_path / "Exe mit Leerzeichen"
+    (folder / exe.PENDING).mkdir(parents=True)
+    old = folder / "CodeCockpit.exe"
+    old.write_text("alt", encoding="utf-8")
+    new = folder / exe.PENDING / "CodeCockpit.exe"
+    new.write_text("neu", encoding="utf-8")
+    backup = tmp_path / "Sicherung"
+    backup.mkdir()
+    waiting = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(3)"])
+    script = exe.swap_script(folder, [old], [new], backup, None, pid=waiting.pid)
+    text = script.read_bytes()
+    assert b"\r\r\n" not in text and b"\\System32\\find.exe" in text
+    started = time.monotonic()
+    subprocess.run(["cmd.exe", "/c", str(script)], timeout=60,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    assert time.monotonic() - started >= 2                # hat auf das Ende gewartet
+    waiting.wait()
+    assert old.read_text(encoding="utf-8") == "neu"
+    assert (backup / "CodeCockpit.exe").read_text(encoding="utf-8") == "alt"
+    assert not (folder / exe.PENDING).exists()
