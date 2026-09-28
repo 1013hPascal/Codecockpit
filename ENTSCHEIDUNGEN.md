@@ -800,3 +800,19 @@ Antworten in fragen\phase-08d.md, alle Vorschläge angenommen.
 - KI-Hilfe (8e) nach dem Vorschlag aus Frage 22 zu Phase 8, die offen geblieben war: Wissen aus Anleitungen, Einführungen und einer Beschreibung der Bedienung, die das Cockpit beim Fragen selbst erzeugt (Aufbau, Tastenkürzel, Menüs, Aktionen nach Art der Zeile). Menüs und Tastenkürzel gehen immer mit, von den übrigen Abschnitten die mit den meisten Wörtern aus der Frage, bis zur Zeichengrenze aus den Grundeinstellungen. Weiß die KI etwas nicht, sagt sie das.
 - KI-Hilfe über Hilfe, KI-Hilfe oder Umschalt+F1. Die KI bekommt nur die Frage und Auszüge aus der Hilfe, nie Code oder Zugangsdaten. Der Fokus bleibt beim Warten im Feld Frage, NVDA sagt „Antwort da.“.
 - Version 1.3.0, weil 1.2.0 mit 8d schon aus main veröffentlicht wird.
+
+## 29.09.2026: Phase 9, Versionen und README-Pflege
+
+Antworten in fragen\phase-09.md: alle Vorschläge angenommen, aber in einem Schritt statt drei, und ohne Markierungen in der README.
+
+- Versionen: Schritt im Ablauf „Änderungen hochladen“ vor dem Commit. Auswahl „Keine neue Version“ (Vorgabe), „Kleine Korrektur“, „Neue Funktion“, „Große Änderung“, jeweils mit der neuen Nummer. Die erste Version ist 1.0.0. Tag v1.2.3 nach dem Commit, hochgeladen nach dem Branch.
+- Steht __version__ = "x.y.z" im Code, ändert das Cockpit die Nummer mit, im selben Commit. Die Datei findet es selbst oder sie steht in den Einstellungen des Features.
+- „Exe veröffentlichen“ schlägt mit dem Feature die zuletzt gesetzte Version vor, wenn es dazu noch kein Release gibt.
+- README ohne Markierungen (Wunsch des Nutzers): Welche Abschnitte vom Cockpit stammen, steht in cockpit.toml als Fingerabdruck des Textes ([readme.managed]). Steht der Text noch so da, darf das Cockpit ihn erneuern. Ist er geändert oder war er nie vom Cockpit, gilt er als Text des Nutzers und wird nie angefasst.
+- Jeder vorgeschlagene Abschnitt kommt einzeln (Wunsch des Nutzers): Übernehmen, auch angepasst, Überspringen (auch mit Escape) oder Alle abbrechen.
+- Abschnitte ordnet das Cockpit über ihre Überschrift zu, in Englisch, Deutsch, Französisch und Spanisch. Unbekannte Überschriften sind immer Text des Nutzers.
+- Selbst geschrieben vom Cockpit: Download, Installation, Änderungen (aus den Versionen), Windows-Warnungen mit Prüfsumme, Lizenz, Liste der Bibliotheken. Von der KI: Funktionen, Bedienung, Systemanforderungen (einmal bestätigt, dann aus cockpit.toml) und die Erklärung der Bibliotheken. Ohne KI nur der feste Teil.
+- Sprachen pro Projekt in cockpit.toml über „README-Sprachen …“, sonst aus den Einstellungen des Features. Hauptsprache in README.md, weitere in README.xx.md, oben eine Zeile mit Links zu allen.
+- Übersetzt werden die übernommenen Abschnitte und solche, die in einer Übersetzung ganz fehlen. In einer Übersetzung selbst geschriebene Abschnitte bleiben.
+- Prüfung vor dem Hochladen: nur wenn sich mehr als README oder cockpit.toml geändert hat. Die KI bekommt Commit-Nachricht, geänderte Dateien, den Überblick der Änderungen ohne vertrauliche Dateien und die README. Jeder Vorschlag kommt als Textfrage: OK übernimmt (auch angepasst), Abbrechen überspringt. Klappt die KI nicht, geht das Hochladen weiter.
+- Version 1.4.0.
