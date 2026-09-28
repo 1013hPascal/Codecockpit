@@ -68,7 +68,8 @@ class _FeatureListDialog(FocusDialog):
         self.manifests = sorted(manifests, key=lambda m: m.name.lower())
         self.state = {m.id: m.id in checked for m in self.manifests}
         self.original = {m.id for m in self.manifests if m.id in checked}
-        ai = [m for m in self.manifests if "ai" in m.requires_services]
+        from cockpit.core.features.manifest import AI_SERVICES
+        ai = [m for m in self.manifests if set(AI_SERVICES) & set(m.requires_services)]
         self.ai_group = ai if len(ai) >= 2 else []
         self.rows: list[FeatureManifest | None] = [m for m in self.manifests
                                                    if m not in self.ai_group]

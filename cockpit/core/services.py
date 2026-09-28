@@ -105,6 +105,10 @@ class Services:
         if name == "ai":
             problem = self.ai_problem()
             return Availability.no(problem) if problem else Availability.yes()
+        if name == "speech":
+            from cockpit.ai import whisper       # nur ein Blick auf die Bibliotheken
+            problem = whisper.problem()
+            return Availability.no(problem) if problem else Availability.yes()
         if name == "automation":
             configured = self.automation is not None and self.automation.configured
             return Availability.yes() if configured else Availability.no(NO_AUTOMATION)

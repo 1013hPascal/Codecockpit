@@ -778,3 +778,16 @@ Anlass: Die VokabelApp des Nutzers. Ihre Exe startete nicht, und der Ordner Mein
 - Nach dem Ende einer Hintergrundaufgabe wartet das Cockpit jetzt, bis ihr Thread ganz beendet ist, bevor es sie freigibt. Sonst konnte Qt das Programm abbrechen. So brachen auch Testläufe gelegentlich ab.
 - Die Versionsnummer im Code war beim Release 1.1.2 nicht angepasst worden, die Exe meldete deshalb 1.1.1. Sie steht jetzt auf 1.1.3.
 - Smart App Control blockiert neue, nicht signierte Exe-Dateien je nach ihrem Ruf, also nicht vorhersehbar. Dauerhaft hilft nur eine Signatur. Bis dahin startet start.bat das Cockpit über Python. Entscheidung zur Signatur weiter offen (TODO.md).
+
+## 29.09.2026: Spracheingabe (8d)
+
+Antworten in fragen\phase-08d.md, alle Vorschläge angenommen.
+
+- Kein Knopf, nur Tasten, wie im Tagebuch des Nutzers: Strg+D startet und beendet, Strg+Umschalt+D bricht ab. Die Tasten gelten im ganzen Programm, auch in Dialogen. Außerhalb eines Textfelds sagt das Cockpit, dass Diktieren nur dort geht.
+- Neuer Dienst „Sprach-KI“ (speech) neben „KI“. Er ist da, wenn faster-whisper, sounddevice und numpy geladen werden können. Features mit KI oder Sprach-KI stehen in der Feature-Verwaltung in der Gruppe „KI“.
+- Das Feature Spracheingabe gilt für das ganze Cockpit, nicht pro Projekt. Einstellungen: Sprache (Deutsch, Englisch, automatisch) und längste Aufnahme (Vorgabe 10 Minuten).
+- Whisper läuft lokal auf dem Prozessor mit int8, wie im Tagebuch. Die Aufnahme bleibt im Arbeitsspeicher und wird nie gespeichert. Eine externe Sprach-KI kommt später.
+- Die Modelle liegen im Datenordner unter models\whisper, nicht in der Exe. Das Cockpit lädt eines erst nach Rückfrage, beim ersten Diktieren oder in der KI-Verwaltung unter „Sprach-KI …“. Dort wählt und löscht man Modelle. Ohne Wahl gilt die Empfehlung nach Arbeitsspeicher. Gelöschte Modelle kommen nicht in die Sicherheitskopien, weil man sie jederzeit neu herunterladen kann.
+- Die Bibliotheken kommen in die Exe (Antwort 6). Die Exe wird dadurch deutlich größer. Für Releases ist das kein Problem, GitHub erlaubt dort bis 2 GB pro Datei.
+- Wechselt man während der Umwandlung das Feld, kommt der Text in das Feld, in dem die Aufnahme begann. Gibt es das nicht mehr, kommt er in die Zwischenablage.
+- Version 1.2.0 (Antwort 10).

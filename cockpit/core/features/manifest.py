@@ -16,7 +16,8 @@ from cockpit.core.flows.step import Step
 from cockpit.platforms.base import Capability
 
 # Dienste, die ein Feature brauchen kann, mit deutschem Namen
-SERVICES = {"ai": "KI", "automation": "Automation", "email": "E-Mail"}
+SERVICES = {"ai": "KI", "speech": "Sprach-KI", "automation": "Automation", "email": "E-Mail"}
+AI_SERVICES = ("ai", "speech")          # Features damit stehen in der Gruppe "KI" (Phase 8b)
 
 ID_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 

@@ -29,7 +29,7 @@ Ideen für später:
 ## KI (aus Phase 8b)
 
 - Zusätzliche Header für Firmen-Gateways beim OpenAI-kompatiblen Konto (Konzept 11). Kommen, sobald jemand sie braucht, spätestens in Phase 15.
-- Sprach-KI in der KI-Verwaltung kommt mit der Spracheingabe in 8d.
+- Sprach-KI in der KI-Verwaltung: mit 8d gebaut (Whisper lokal). Externe Sprach-KI fehlt noch.
 
 
 ## Exe (aus Phase 10)
@@ -37,6 +37,7 @@ Ideen für später:
 - Intelligente App-Steuerung (Smart App Control) von Windows 11 blockiert selbst gebaute Exe-Dateien ohne Signatur, auch bei anderen Nutzern. Auf dem Rechner des Nutzers ist sie an. Lösungen: sie ausschalten (lässt sich danach nicht wieder einschalten, ohne Windows neu aufzusetzen) oder die Exe signieren (Zertifikat nötig). Entscheidung des Nutzers offen.
 - Updater (10e, Rückmeldung des Nutzers vom 29.09.2026): Der Neustart nach dem Update klappt noch nicht. 10e nicht abhaken, bis das geht.
 - Zweite Runde für die Oberfläche (Wunsch des Nutzers vom 29.09.2026): Nach den weiteren Features alle Knöpfe und Aktionen durchgehen. Viele sind unintuitiv benannt oder stehen in einer seltsamen Reihenfolge.
+- Lange Pfade (29.09.2026): In Branch-Ordnern mit langem Namen ließ sich PySide6 nicht in die virtuelle Umgebung installieren, weil Windows Pfade über 260 Zeichen ablehnt. Abhilfe: in Windows lange Pfade erlauben (Registrierung LongPathsEnabled, braucht Administratorrechte) oder kürzere Ordnernamen. Das Cockpit könnte das erkennen und erklären.
 - Test-Absturz (28.09.2026): tests/test_phase10.py::test_build_dialog_asks_when_blocked[True] bricht manchmal mit „Fatal Python error: Aborted“ in Qt ab, etwa bei jedem zweiten Lauf. Die übrigen Tests laufen durch. Das Warten auf den Thread vor deleteLater hat es nicht behoben. Ursache noch suchen.
 - Externe Ressourcen, Lizenzprüfung und Signieren.
 - Nach dem Austausch der eigenen Exe: alte Version selbst wiederherstellen, wenn die neue nicht startet.

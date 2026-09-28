@@ -34,6 +34,7 @@ NEW_TOOL = "Neue Text-KI einrichten …"
 LOCAL_CHOICE = "Lokal: Ollama auf diesem Rechner"
 NEW_ACCOUNT_CHOICE = "Extern: neues KI-Konto einrichten …"
 LOADING = "Wird geladen …"
+_BACKGROUND: list = []            # Downloads der Sprach-KI, die nach dem Schließen weiterlaufen
 
 
 def manual_ram(services) -> float | None:
@@ -91,10 +92,12 @@ class AIManagerDialog(FocusDialog):
         self.install_button.setVisible(False)
         self.ram_button = QPushButton("&Arbeitsspeicher eingeben …")
         self.ram_button.clicked.connect(self.enter_ram)
+        speech = QPushButton("Sprach-&KI …")          # Whisper für die Spracheingabe (8d)
+        speech.clicked.connect(lambda: SpeechDialog(self.services, self).exec())
         close = QPushButton("&Schließen")
         close.clicked.connect(self.accept)
         buttons = [self.model_button, self.default_button, self.test_button, self.remove_button,
-                   self.install_button, self.ram_button, close]
+                   self.install_button, self.ram_button, speech, close]
         for button in buttons:
             button.setAutoDefault(False)
         layout = QVBoxLayout(self)
@@ -103,7 +106,7 @@ class AIManagerDialog(FocusDialog):
         layout.addWidget(info_label)
         layout.addWidget(self.info, 2)
         layout.addLayout(button_row(*buttons[:4], None))
-        layout.addLayout(button_row(*buttons[4:6], None, close))
+        layout.addLayout(button_row(*buttons[4:7], None, close))
         order = [self.list, self.info] + buttons
         for first, second in zip(order, order[1:]):
             self.setTabOrder(first, second)
@@ -565,3 +568,150 @@ def show_guide(parent: QWidget, relative_path: str, title: str) -> None:
         show_error(parent, title, "Die Anleitung wurde nicht gefunden.", str(exc))
         return
     TextDialog(title, text, f"Anleitung {title}", parent).exec()
+
+
+class SpeechDialog(FocusDialog):
+    """Sprach-KI (Teilschritt 8d): Whisper-Modelle auf diesem Rechner. Enter wählt das markierte
+    Modell. Knöpfe, die zur Zeile nicht passen, sind ausgeblendet."""
+
+    def __init__(self, services, parent: QWidget | None = None) -> None:
+        from cockpit.ai import whisper
+        super().__init__(parent)
+        self.services = services
+        self.task: Task | None = None
+        self.setWindowTitle("Sprach-KI")
+        self.list = QListWidget()
+        label = label_for(self.list, "&Whisper-Modelle auf diesem Rechner:")
+        self.list.installEventFilter(self)
+        self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
+        self.choose_button = QPushButton("&Wählen")
+        self.choose_button.clicked.connect(self.choose_current)
+        self.download_button = QPushButton("&Herunterladen")
+        self.download_button.clicked.connect(self.download_current)
+        self.delete_button = QPushButton("&Löschen …")
+        self.delete_button.clicked.connect(self.delete_current)
+        close = QPushButton("&Schließen")
+        close.clicked.connect(self.accept)
+        for button in (self.choose_button, self.download_button, self.delete_button, close):
+            button.setAutoDefault(False)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(button_row(self.choose_button, self.download_button,
+                                    self.delete_button, None, close))
+        self.problem = whisper.problem()
+        self.resize(700, 320)
+        self.initial_focus_widget = self.list
+        self.fill()
+
+    def tiers(self):
+        return list(model_tiers.SPEECH_TIERS)
+
+    def fill(self, row: int | None = None) -> None:
+        from cockpit.ai import whisper
+        row = self.list.currentRow() if row is None else row
+        ram = current_ram(self.services)
+        chosen = whisper.chosen_model(self.services.database, ram)
+        installed = whisper.downloaded()
+        self.list.clear()
+        for tier in self.tiers():
+            line = model_tiers.suggestion_line(tier, ram, installed).replace(
+                "nicht installiert", "nicht heruntergeladen").replace(
+                "installiert", "heruntergeladen")
+            if tier.model == chosen:
+                line = line.replace(tier.model, f"{tier.model}, gewählt", 1)
+            self.list.addItem(line)
+        if self.problem:
+            self.list.addItem(self.problem)
+        self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
+        self.update_buttons()
+
+    def current(self):
+        row = self.list.currentRow()
+        tiers = self.tiers()
+        return tiers[row] if 0 <= row < len(tiers) else None
+
+    def update_buttons(self) -> None:
+        from cockpit.ai import whisper
+        tier = self.current()
+        downloaded = tier is not None and whisper.is_downloaded(tier.model)
+        busy = self.task is not None
+        self.choose_button.setVisible(tier is not None)
+        self.download_button.setVisible(tier is not None and not downloaded and not busy
+                                        and not self.problem)
+        self.delete_button.setVisible(downloaded and not busy)
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self.list and _is_enter(event):
+            self.choose_current()
+            return True
+        return super().eventFilter(watched, event)
+
+    def choose_current(self) -> None:
+        from cockpit.ai import whisper
+        tier = self.current()
+        if tier is None:
+            return
+        self.services.database.set_value(whisper.MODEL_KEY, tier.model)
+        self.fill()
+        announce(f"{tier.model} gewählt.")
+
+    def download_current(self) -> None:
+        from cockpit.ai import whisper
+        tier = self.current()
+        if tier is None or self.task is not None:
+            return
+        if not confirm(self, "Sprach-KI", f"Das Whisper-Modell {tier.model}, {tier.size}, kommt "
+                       "aus dem Internet von Hugging Face in den Datenordner des Cockpits. "
+                       "Herunterladen?", yes="Herunterladen", no="Abbrechen"):
+            return
+        task = Task(lambda t: whisper.download(tier.model), self)
+        self.task = task
+
+        def done(_value) -> None:
+            announce(f"Whisper-Modell {tier.model} heruntergeladen.")
+
+        def failed(message: str, details: str) -> None:
+            try:
+                show_error(self, "Sprach-KI", message, details)
+            except RuntimeError:                        # Fenster schon geschlossen
+                announce(message, urgent=True)
+
+        def finished() -> None:
+            task.wait()
+            if task in _BACKGROUND:
+                _BACKGROUND.remove(task)
+            task.deleteLater()
+            try:
+                self.task = None
+                self.fill()
+            except RuntimeError:                        # Fenster schon geschlossen
+                pass
+
+        task.result.connect(done)
+        task.error.connect(failed)
+        task.finished.connect(finished)
+        announce(f"Whisper-Modell {tier.model} wird heruntergeladen.")
+        task.start()
+        self.update_buttons()
+
+    def delete_current(self) -> None:
+        from cockpit.ai import whisper
+        tier = self.current()
+        if tier is None or not whisper.is_downloaded(tier.model):
+            return
+        if not confirm(self, "Sprach-KI", f"Das Whisper-Modell {tier.model} wird von diesem "
+                       "Rechner gelöscht. Sie können es jederzeit wieder herunterladen. Löschen?",
+                       yes="Löschen", no="Abbrechen"):
+            return
+        whisper.delete(tier.model)
+        self.fill()
+        announce(f"{tier.model} gelöscht.")
+
+    def done(self, code: int) -> None:
+        if self.task is not None:
+            announce("Das Herunterladen läuft im Hintergrund weiter.", speak=False)
+            self.task.setParent(None)                   # läuft weiter, auch ohne Fenster
+            _BACKGROUND.append(self.task)               # hält den Thread am Leben
+            self.task = None
+        super().done(code)

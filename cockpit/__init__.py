@@ -1,4 +1,4 @@
 """CodeCockpit: barrierefreie Verwaltung von Code-Projekten."""
 
 APP_NAME = "CodeCockpit"
-__version__ = "1.1.3"
+__version__ = "1.2.0"

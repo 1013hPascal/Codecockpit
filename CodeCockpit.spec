@@ -4,7 +4,8 @@
 # von cockpit ausdrücklich in hiddenimports. Tests und Checklisten kommen nicht in die Exe.
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import (collect_data_files, collect_dynamic_libs, collect_submodules,
+                                     copy_metadata)
 
 root = Path(SPECPATH)
 datas = [(str(root / "anleitungen"), "anleitungen"),
@@ -12,9 +13,14 @@ datas = [(str(root / "anleitungen"), "anleitungen"),
 for intro in root.glob("cockpit/*/*/EINFUEHRUNG.md"):
     datas.append((str(intro), str(intro.parent.relative_to(root)).replace("\\", "/")))
 datas += copy_metadata("keyring")
+# Spracheingabe (8d): Whisper braucht seine Dateien (Sprachpausen-Erkennung) und die DLLs von
+# CTranslate2 und PortAudio. Die Modelle selbst kommen nicht in die Exe.
+datas += collect_data_files("faster_whisper") + collect_data_files("_sounddevice_data")
+binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("_sounddevice_data")
 
-a = Analysis(["main.py"], pathex=[str(root)], binaries=[], datas=datas,
-             hiddenimports=collect_submodules("cockpit") + ["keyring.backends.Windows"],
+a = Analysis(["main.py"], pathex=[str(root)], binaries=binaries, datas=datas,
+             hiddenimports=collect_submodules("cockpit") + ["keyring.backends.Windows",
+                                                            "sounddevice", "faster_whisper"],
              excludes=["pytest", "pytestqt", "tests"])
 pyz = PYZ(a.pure)
 

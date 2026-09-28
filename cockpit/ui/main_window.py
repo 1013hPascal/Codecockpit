@@ -78,6 +78,9 @@ SHORTCUTS = [
     "Hilfe, Alt+H",
     "Projekte neu einlesen und Stand abfragen, Strg+R",
     "Beenden, Strg+Q",
+    "Spracheingabe",
+    "Diktieren starten und beenden, in einem Textfeld, Strg+D",
+    "Diktieren abbrechen, Strg+Umschalt+D",
     "Diese Liste, F1",
     "In Listen wie dieser: Zeile kopieren, Strg+C",
 ]
@@ -127,6 +130,8 @@ class MainWindow(QMainWindow):
 
         from cockpit.ui.update_ui import Updater
         self.updater = Updater(self)
+        from cockpit.ui.dictation import Dictation
+        self.dictation = Dictation(self)            # Strg+D in jedem Textfeld (8d)
         self._build_menus()
         self._build_shortcuts()
         QWidget.setTabOrder(self.project_list, self.actions_list)
@@ -229,7 +234,9 @@ class MainWindow(QMainWindow):
 
     def open_ai_features(self) -> None:
         """Feature-Verwaltung, markiert beim ersten KI-Feature (Konzept 11.1)."""
-        ai_features = [m.id for m in self.services.registry.all() if "ai" in m.requires_services]
+        from cockpit.core.features.manifest import AI_SERVICES
+        ai_features = [m.id for m in self.services.registry.all()
+                       if set(AI_SERVICES) & set(m.requires_services)]
         self.open_features(select=ai_features[0] if ai_features else None)
 
     def open_features(self, select: str | None = None) -> None:
@@ -636,6 +643,7 @@ class MainWindow(QMainWindow):
         self.lock_timer.stop()
         self.controller.wait()
         self.updater.shutdown()
+        self.dictation.shutdown()
         for task in (self.status_task, self.remote_task):
             if task is not None:
                 task.cancel()
