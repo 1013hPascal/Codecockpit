@@ -232,6 +232,9 @@ class PushRunner(_Runner):
                 then, self.then = self.then, None
                 then()
                 return
+            if data.get("version") and self.controller.releases.offer_after_version(
+                    self.project, data["version"]):
+                return                          # Release statt Pull Request (Phase 14)
             self.offer_pull_request(data.get("branch", ""))
             return
         if data.get("protected"):

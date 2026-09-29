@@ -40,6 +40,7 @@ Ideen für später:
 - Lange Pfade (29.09.2026): In Branch-Ordnern mit langem Namen ließ sich PySide6 nicht in die virtuelle Umgebung installieren, weil Windows Pfade über 260 Zeichen ablehnt. Abhilfe: in Windows lange Pfade erlauben (Registrierung LongPathsEnabled, braucht Administratorrechte) oder kürzere Ordnernamen. Das Cockpit könnte das erkennen und erklären.
 - Test-Absturz (28.09.2026): tests/test_phase10.py::test_build_dialog_asks_when_blocked[True] bricht manchmal mit „Fatal Python error: Aborted“ in Qt ab, etwa bei jedem zweiten Lauf. Die übrigen Tests laufen durch. Das Warten auf den Thread vor deleteLater hat es nicht behoben. Ursache noch suchen.
 - Externe Ressourcen, Lizenzprüfung und Signieren.
+- GitHub Actions (Phase 14, 29.09.2026): Für die Prüfpunkte 9 bis 13 in checklisten\phase-14.md braucht ein Projekt einen Workflow. Später einen kleinen Test-Workflow für das Cockpit schreiben, der bei jedem Hochladen die Tests laufen lässt. Bis dahin sind diese Punkte nicht geprüft. Zusammen mit dem Signieren kann dort später auch die Exe in der Cloud gebaut werden.
 - Nach dem Austausch der eigenen Exe: alte Version selbst wiederherstellen, wenn die neue nicht startet.
 
 

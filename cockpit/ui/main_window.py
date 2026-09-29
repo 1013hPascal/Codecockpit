@@ -366,6 +366,11 @@ class MainWindow(QMainWindow):
                     # Aus dem Zwischenspeicher, ohne GitHub zu fragen (Phase 6)
                     status.open_pulls = pulls.count_for_branch(project.remote,
                                                                status.repo.branch)
+                if project.remote is not None:
+                    # Gemerkt beim Abfragen der Repositories (Phase 14)
+                    from cockpit.features.releases.runs import last_failed
+                    status.actions_failed = last_failed(self.services.database,
+                                                        project.remote.key)
                 result.append(status)
             return result
 
@@ -420,6 +425,12 @@ class MainWindow(QMainWindow):
                     repos = platform.repositories()
                     new.extend(services.remote_repos.replace(account.id, repos))
                     refresh_pull_requests(services, platform, account, task.cancel_event)
+                    from cockpit.core import repo_admin
+                    from cockpit.features.releases.runs import refresh_state
+                    mine = [p for p in services.projects.all()
+                            if (owner := repo_admin.account_for(services, p)) is not None
+                            and owner.id == account.id]
+                    refresh_state(services, platform, mine, task.cancel_event)
                 except CockpitError as exc:
                     log.warning("Repositories von %s: %s %s", account.display_name,
                                 exc.message, exc.details)
@@ -437,6 +448,7 @@ class MainWindow(QMainWindow):
         for problem in problems:
             announce(f"Repositories nicht abgefragt. {problem}", speak=False)
         self._reload_if_remote_changed()
+        self.refresh_status()                      # Hinweis auf fehlgeschlagene Läufe (14)
         if new and self.services.settings.load().auto_clone_new:
             remote_ids = set(self.project_list.remote_ids())
             for repo in new:
