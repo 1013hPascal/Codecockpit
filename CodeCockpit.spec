@@ -9,6 +9,7 @@ from PyInstaller.utils.hooks import (collect_data_files, collect_dynamic_libs, c
 
 root = Path(SPECPATH)
 datas = [(str(root / "anleitungen"), "anleitungen"),
+         (str(root / "erklärvideos"), "erklärvideos"),       # Videos im Einrichtungsassistenten
          (str(root / "cockpit" / "ai" / "prompts"), "cockpit/ai/prompts")]
 for intro in root.glob("cockpit/*/*/EINFUEHRUNG.md"):
     datas.append((str(intro), str(intro.parent.relative_to(root)).replace("\\", "/")))

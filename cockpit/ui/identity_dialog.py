@@ -1,6 +1,6 @@
 """Fenster "Git-Identität" nach dem Anlegen eines Plattform-Kontos (Wunsch des Nutzers, 28.09.2026).
 
-Wie die Seite Git-Identität im Einrichtungsassistenten (Konzept 9.8): Name und E-Mail-Adresse für
+Wie früher die Seite Git-Identität im Einrichtungsassistenten (Konzept 9.8): Name und E-Mail-Adresse für
 Commits, dazu "Anonyme GitHub-Adresse übernehmen". Die Werte kommen in die Grundeinstellungen.
 "Überspringen" und Escape lassen alles, wie es ist.
 """

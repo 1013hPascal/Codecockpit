@@ -118,7 +118,7 @@ def test_browser_login_leads_to_done_page_and_saves(qtbot, make_services, monkey
     assert dialog.done_info.item(0).text() == "Angemeldet als 1013hPascal."
     assert dialog.done_form.fields["display_name"].get() == "GitHub 1013hPascal"
     assert dialog.initial_focus_widget is dialog.done_info
-    dialog.save_browser_account()
+    dialog.save_result()
     values = services.accounts.values(dialog.saved)
     assert values["token"].reveal() == TOKEN
     assert values["username"] == "1013hPascal"
@@ -190,39 +190,21 @@ def go_to(dialog, title: str) -> None:
         dialog.skip() if dialog.page.can_skip else dialog.next()
 
 
-def test_wizard_github_page_needs_account_or_skip(wizard):
+def test_wizard_github_page_counts_missing_accounts(wizard):
     dialog, services = wizard
-    go_to(dialog, "GitHub-Konto")
-    assert dialog.heading.text() == "Schritt 4 von 8: GitHub-Konto"
-    assert dialog.focusWidget() is dialog.page.text
-    assert dialog.page.setup_button.text() == "GitHub-Konto &einrichten …"
-    dialog.next()
-    assert dialog.page.title == "GitHub-Konto"                # ohne Konto geht es nicht weiter
+    go_to(dialog, "Code-Plattformen wählen")
+    dialog.next()                                             # GitHub ist angehakt
+    assert dialog.heading.text() == "Schritt 5 von 8: Code-Plattformen einrichten"
+    assert dialog.focusWidget() is dialog.page.list
+    assert dialog.next_button.text() == "&Weiter (1 nicht eingerichtet)"
     services.accounts.create(find_type("platform", "github"), "GitHub privat",
                              {"username": "1013hPascal", "token": Secret(TOKEN)})
     dialog.page.on_show()
+    dialog.update_next_text()
+    assert dialog.next_button.text() == "&Weiter"
     dialog.next()
     assert dialog.page.title == "Projekte-Hauptordner"
-    assert dialog.pages[3].done_text == "GitHub-Konto: GitHub privat, 1013hPascal."
-
-
-def test_wizard_takes_the_noreply_address(wizard, server, qtbot):
-    dialog, services = wizard
-    services.accounts.create(find_type("platform", "github"), "GitHub privat",
-                             {"username": "1013hPascal", "token": Secret(TOKEN)})
-    go_to(dialog, "Git-Identität")
-    page = dialog.page
-    assert page.noreply_button.isVisible()
-    page.take_noreply()
-    qtbot.waitUntil(lambda: page.form.fields["git_email"].get() != "", timeout=5000)
-    assert page.form.fields["git_email"].get() == "94653295+1013hPascal@users.noreply.github.com"
-    assert page.form.fields["git_name"].get() == "1013hPascal"
-
-
-def test_noreply_button_hidden_without_github_account(wizard):
-    dialog, _ = wizard
-    go_to(dialog, "Git-Identität")
-    assert not dialog.page.noreply_button.isVisible()
+    assert dialog.pages[4].done_text == "GitHub-Konto: GitHub privat, 1013hPascal."
 
 
 def test_wizard_mnemonics_still_unique(wizard):

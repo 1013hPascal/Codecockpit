@@ -117,8 +117,12 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
         if browser_login:
             lines += [
                 "Es gibt zwei Wege. Mit Tab kommen Sie zu den beiden Knöpfen.",
-                "Im Browser anmelden, empfohlen: GitHub öffnet sich, Sie geben einen Code ein und "
-                "bestätigen. Das Cockpit trägt alles selbst ein.",
+                "Im Browser anmelden, empfohlen. So geht es:",
+                "1. Im Browser mit GitHub anmelden.",
+                "2. Bei der Code-Verifizierung den Code mit Strg+V einfügen. Er liegt schon in "
+                "der Zwischenablage.",
+                "3. Ganz unten auf Autorisieren klicken, auf Englisch Authorize.",
+                "Danach trägt das Cockpit alles selbst ein.",
                 "Mit Token anmelden: Sie erstellen auf GitHub selbst einen Token und fügen ihn "
                 "ein. Nötig zum Beispiel für einen GitHub-Server Ihrer Firma. Eine Anleitung "
                 "erklärt jeden Schritt.",

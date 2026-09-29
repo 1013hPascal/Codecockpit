@@ -26,9 +26,9 @@ class Machine:
     def lines(self) -> list[str]:
         """Für die KI-Verwaltung, das Wichtigste vorne."""
         if self.ram_gb is None:
-            ram = f"Arbeitsspeicher: nicht erkannt. {WHERE_TO_LOOK}"
+            ram = f"Arbeitsspeicher Ihres Computers: nicht erkannt. {WHERE_TO_LOOK}"
         else:
-            ram = f"Arbeitsspeicher: {format_gb(self.ram_gb)}"
+            ram = f"Arbeitsspeicher Ihres Computers: {format_gb(self.ram_gb)}"
             if self.manual:
                 ram += ", von Ihnen eingegeben"
         lines = [ram, f"Prozessor: {self.cpu or 'nicht erkannt'}"]

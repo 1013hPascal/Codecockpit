@@ -1,8 +1,10 @@
 """KI-Verwaltung (Menü KI, Konzept 11.1, Teilschritt 8b).
 
-AIManagerDialog: Liste "Text-KI", oben "Neue Text-KI einrichten …", dann die Werkzeuge, zum Beispiel
-"Ollama auf diesem Rechner, gemma4:12b, Standard". Enter wählt das Modell bzw. richtet eine neue KI
-ein, Entf entfernt. Mit Tab: "Rechner und Empfehlung" (Arbeitsspeicher, Prozessor, Grafikkarte,
+AIManagerDialog: Liste "Text-KI und Sprach-KI", oben "Neue Text-KI einrichten …", darunter
+"Neue Sprach-KI einrichten …" (Wunsch des Nutzers, 29.09.2026), dann die Werkzeuge, zum Beispiel
+"Ollama auf diesem Rechner, gemma4:12b, Standard". Im Einrichtungsassistenten heißt der letzte
+Knopf "KI-Einstellungen speichern" statt "Schließen". Enter wählt das Modell bzw. richtet eine neue
+KI ein, Entf entfernt. Mit Tab: "Rechner und Empfehlung" (Arbeitsspeicher, Prozessor, Grafikkarte,
 Empfehlung, Zustand von Ollama), dann die Knöpfe. Knöpfe, die für die markierte Zeile nicht passen,
 sind ausgeblendet (Wunsch des Nutzers).
 
@@ -32,6 +34,8 @@ from cockpit.ui.repo_dialogs import _is_enter, button_row
 from cockpit.ui.tasks import Task
 
 NEW_TOOL = "Neue Text-KI einrichten …"
+NEW_SPEECH = "Neue Sprach-KI einrichten …"
+FIRST_TOOL_ROW = 2                 # davor stehen die beiden Einträge zum Einrichten
 LOCAL_CHOICE = "Lokal: Ollama auf diesem Rechner"
 NEW_ACCOUNT_CHOICE = "Extern: neues KI-Konto einrichten …"
 LOADING = "Wird geladen …"
@@ -59,8 +63,21 @@ def recommendation_line(ram_gb: float | None) -> str:
             "eine KI im Firmennetz.")
 
 
+def speech_recommendation_line(ram_gb: float | None) -> str:
+    """Empfehlung für die Sprach-KI (Whisper), wie für die Text-KI (Wunsch des Nutzers)."""
+    tier = model_tiers.recommended(model_tiers.SPEECH_TIERS, ram_gb)
+    if tier is not None:
+        return (f"Empfehlung für Sprach-KI mit Whisper: {tier.model}, ab {tier.min_ram_gb} GB "
+                f"Arbeitsspeicher, {tier.size}.")
+    if ram_gb is None:
+        return "Empfehlung für Sprach-KI: nicht möglich, weil der Arbeitsspeicher unbekannt ist."
+    smallest = model_tiers.SPEECH_TIERS[0]
+    return (f"Für die Sprach-KI ist der Arbeitsspeicher knapp. Am ehesten geht {smallest.model}, "
+            f"{smallest.size}.")
+
+
 class AIManagerDialog(FocusDialog):
-    def __init__(self, services, parent: QWidget | None = None) -> None:
+    def __init__(self, services, parent: QWidget | None = None, for_setup: bool = False) -> None:
         super().__init__(parent)
         self.services = services
         self.tools: list[AITool] = []
@@ -68,7 +85,7 @@ class AIManagerDialog(FocusDialog):
         self.ollama_installed = True
         self.setWindowTitle("KI-Verwaltung")
         self.list = QListWidget()
-        list_label = label_for(self.list, "&Text-KI:")
+        list_label = label_for(self.list, "&Text-KI und Sprach-KI:")
         self.list.installEventFilter(self)
         self.list.itemActivated.connect(lambda _item: self.open_current())
         self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
@@ -93,12 +110,12 @@ class AIManagerDialog(FocusDialog):
         self.install_button.setVisible(False)
         self.ram_button = QPushButton("&Arbeitsspeicher eingeben …")
         self.ram_button.clicked.connect(self.enter_ram)
-        speech = QPushButton("Sprach-&KI …")          # Whisper für die Spracheingabe (8d)
-        speech.clicked.connect(lambda: SpeechDialog(self.services, self).exec())
-        close = QPushButton("&Schließen")
+        # Die Sprach-KI steht jetzt als Eintrag in der Liste (Wunsch des Nutzers, 29.09.2026)
+        close = QPushButton("&KI-Einstellungen speichern" if for_setup else "&Schließen")
         close.clicked.connect(self.accept)
+        self.close_button = close
         buttons = [self.model_button, self.default_button, self.test_button, self.remove_button,
-                   self.install_button, self.ram_button, speech, close]
+                   self.install_button, self.ram_button, close]
         for button in buttons:
             button.setAutoDefault(False)
         layout = QVBoxLayout(self)
@@ -107,7 +124,7 @@ class AIManagerDialog(FocusDialog):
         layout.addWidget(info_label)
         layout.addWidget(self.info, 2)
         layout.addLayout(button_row(*buttons[:4], None))
-        layout.addLayout(button_row(*buttons[4:7], None, close))
+        layout.addLayout(button_row(*buttons[4:6], None, close))
         order = [self.list, self.info] + buttons
         for first, second in zip(order, order[1:]):
             self.setTabOrder(first, second)
@@ -133,15 +150,17 @@ class AIManagerDialog(FocusDialog):
         self.tools = tools.all(TEXT)
         self.list.clear()
         self.list.addItem(NEW_TOOL)
+        self.list.addItem(NEW_SPEECH)
         self.list.addItems([tools.label(t) for t in self.tools])
         if select_id is not None:
-            row = next((i + 1 for i, t in enumerate(self.tools) if t.id == select_id), 0)
+            row = next((i + FIRST_TOOL_ROW for i, t in enumerate(self.tools)
+                        if t.id == select_id), 0)
         self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
         self.update_buttons()
 
     def current(self) -> AITool | None:
-        row = self.list.currentRow()
-        return self.tools[row - 1] if 1 <= row <= len(self.tools) else None
+        index = self.list.currentRow() - FIRST_TOOL_ROW
+        return self.tools[index] if 0 <= index < len(self.tools) else None
 
     def update_buttons(self) -> None:
         tool = self.current()
@@ -152,10 +171,17 @@ class AIManagerDialog(FocusDialog):
                                        and default.id != tool.id)
 
     def open_current(self) -> None:
-        if self.current() is None:
+        if self.list.currentRow() == 1:
+            self.new_speech()
+        elif self.current() is None:
             self.new_tool()
         else:
             self.choose_model()
+
+    def new_speech(self) -> None:
+        """Sprach-KI: Whisper-Modelle wählen und herunterladen (8d)."""
+        SpeechDialog(self.services, self).exec()
+        self.list.setFocus()
 
     # -- Rechner und Empfehlung -------------------------------------------------------------
     def load_info(self) -> None:
@@ -179,7 +205,8 @@ class AIManagerDialog(FocusDialog):
     def info_loaded(self, outcome) -> None:
         machine, ollama_state, installed = outcome
         self.ollama_installed = installed
-        lines = machine.lines() + [recommendation_line(machine.ram_gb), ollama_state]
+        lines = machine.lines() + [recommendation_line(machine.ram_gb),
+                                   speech_recommendation_line(machine.ram_gb), ollama_state]
         self.show_info_lines(lines)
         self.install_button.setVisible(not installed)
 

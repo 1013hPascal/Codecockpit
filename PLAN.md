@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] Einrichtungsassistent überarbeitet: Knöpfe, Zugangsdaten, Code-Plattformen, Videos und Tipps (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\einrichtung.md)
 - [ ] Phase 17: Sicherung und Wiederherstellung, Export und Import von Einstellungen, Signieren der Exe, Prüfung aller Feature-Einführungen, Feinschliff
 
 Jede Phase endet mit automatischen Tests und einer Testanleitung für NVDA und Braillezeile. Eine Phase gilt erst als fertig, wenn Sie die Testanleitung durchgegangen sind.

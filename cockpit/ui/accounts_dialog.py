@@ -23,6 +23,7 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.features import settings_fields as sf
 from cockpit.core.secret import Secret
 from cockpit.core.services import Services
+from cockpit.core.settings import setting_fields
 from cockpit.ui import browser_login_dialog, vault_ui
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, confirm, name_widget, show_info
@@ -125,6 +126,9 @@ class AccountEditDialog(FocusDialog):
     Neues Konto bei einer Plattform mit Anmeldung im Browser:
     - Seite "Auswahl": Erklärung, dann "Im Browser anmelden …" und "Mit Token anmelden …".
     - Nach der Anmeldung im Browser Seite "Angemeldet": Ergebnis, Anzeigename, Speichern.
+      Mit with_identity (Einrichtungsassistent) stehen dort auch Git-Name und Git-E-Mail für
+      Commits und "Anonyme GitHub-Adresse übernehmen". Auch der Weg mit Token endet dann auf
+      dieser Seite (Wunsch des Nutzers, 29.09.2026).
     - "Mit Token anmelden" führt zur Seite "Token": Anzeigename, Serveradresse, Anleitung, Token.
     Ohne Anmeldung im Browser oder beim Bearbeiten gibt es nur die Seite "Token".
 
@@ -133,12 +137,16 @@ class AccountEditDialog(FocusDialog):
     """
 
     def __init__(self, services: Services, account_type: AccountType,
-                 account: Account | None = None, parent: QWidget | None = None) -> None:
+                 account: Account | None = None, parent: QWidget | None = None,
+                 with_identity: bool = False) -> None:
         super().__init__(parent)
         self.services = services
         self.account_type = account_type
         self.account = account
+        self.with_identity = with_identity and account is None
         self.saved: Account | None = None
+        self.pending: dict[str, Any] | None = None       # geprüfte Werte vor dem Speichern
+        self.noreply_task: Task | None = None
         self.device_token: Secret | None = None           # aus der Anmeldung im Browser
         self.task: Task | None = None
         self.adapter_cls = adapter_registry.adapter_class(account_type.kind, account_type.adapter)
@@ -203,11 +211,11 @@ class AccountEditDialog(FocusDialog):
             self.token_explanation = self.explanation
         token.addWidget(self.form)
         row = QHBoxLayout()
-        if browser:
-            row.addWidget(self.back_button)
-        row.addStretch(1)
         row.addWidget(self.test_button)
         row.addWidget(self.save_button)
+        if browser:
+            row.addWidget(self.back_button)       # erst nach vorn, dann zurück
+        row.addStretch(1)
         token.addLayout(row)
 
         # -- Seite Angemeldet (nach der Anmeldung im Browser) ------------------------------
@@ -217,12 +225,27 @@ class AccountEditDialog(FocusDialog):
         self.done_form = SettingsForm([sf.Text("display_name", "Anzeigename", required=True)],
                                       {"display_name": account_type.display_name})
         self.done_save_button = QPushButton("&Speichern")
-        self.done_save_button.clicked.connect(self.save_browser_account)
+        self.done_save_button.clicked.connect(self.save_result)
         done.addWidget(self.done_info, 1)
         done.addWidget(self.done_form)
+        self.identity_form = None
+        self.noreply_button = None
+        if self.with_identity:
+            fields = [f for f in setting_fields() if f.key in ("git_name", "git_email")]
+            settings = services.settings.load()
+            self.identity_form = SettingsForm(fields, {"git_name": settings.git_name,
+                                                       "git_email": settings.git_email})
+            self.noreply_button = QPushButton(
+                f"A&nonyme {account_type.display_name}-Adresse übernehmen")
+            self.noreply_button.clicked.connect(self.take_noreply)
+            done.addWidget(self.identity_form)
+            row = QHBoxLayout()
+            row.addWidget(self.noreply_button)
+            row.addStretch(1)
+            done.addLayout(row)
         row = QHBoxLayout()
-        row.addStretch(1)
         row.addWidget(self.done_save_button)
+        row.addStretch(1)
         done.addLayout(row)
 
         self.stack = QStackedWidget()
@@ -343,31 +366,111 @@ class AccountEditDialog(FocusDialog):
         self.device_token = dialog.token
         if "username" in self.auto_values:
             self.auto_values["username"] = dialog.username
-        self.done_form.fields["display_name"].set(
-            f"{self.account_type.display_name} {dialog.username}".strip())
-        self.done_info.clear()
-        self.done_info.addItems([
-            f"Angemeldet als {dialog.username}.",
-            "Mit Speichern ist das Konto fertig. Der Zugang kommt verschlüsselt in den Tresor.",
-            "Den Anzeigenamen können Sie vorher ändern, zum Beispiel in GitHub privat.",
-        ])
-        self.done_info.setCurrentRow(0)
-        self.show_page(self.done_page)
-
-    def save_browser_account(self) -> None:
-        try:
-            name = self.done_form.values()["display_name"]
-        except FormError as exc:
-            show_error(self, self.windowTitle(), exc.message)
-            self.done_form.focus_field(exc.key)
-            return
         values: dict[str, Any] = {f.key: f.default for f in self.account_type.fields
                                   if not f.secret}
         values.update(self.auto_values)
         for f in self.account_type.fields:
             if f.secret:
                 values[f.key] = self.device_token
-        self._store(name, values)
+        self.show_result(f"{self.account_type.display_name} {dialog.username}".strip(), values,
+                         f"Angemeldet als {dialog.username}.")
+
+    def show_result(self, name: str, values: dict[str, Any], first_line: str) -> None:
+        """Seite "Angemeldet": Ergebnis, Anzeigename und mit with_identity die Git-Identität."""
+        self.pending = values
+        self.done_form.fields["display_name"].set(name)
+        lines = [first_line,
+                 "Mit Speichern ist das Konto fertig. Der Zugang wird geschützt gespeichert.",
+                 "Den Anzeigenamen können Sie vorher ändern, zum Beispiel in GitHub privat."]
+        if self.identity_form is not None:
+            username = str(values.get("username") or "")
+            if username and not self.identity_form.fields["git_name"].get():
+                self.identity_form.fields["git_name"].set(username)
+            lines += [
+                "Darunter stehen Git-Name und Git-E-Mail-Adresse für Commits. Sie stehen in "
+                "jedem Commit. Bei öffentlichen Repositories kann sie jeder sehen.",
+                f"Die anonyme {self.account_type.display_name}-Adresse schützt Ihre private "
+                "Adresse. Der Knopf danach trägt sie ein.",
+                "Bleiben beide Felder leer, ändert sich die Git-Identität nicht.",
+            ]
+        self.done_info.clear()
+        self.done_info.addItems(lines)
+        self.done_info.setCurrentRow(0)
+        self.show_page(self.done_page)
+
+    def _identity(self) -> dict[str, str] | None:
+        """Werte der Git-Identität, {} wenn beide leer sind, None bei einem Fehler."""
+        if self.identity_form is None:
+            return {}
+        try:
+            values = self.identity_form.values()
+        except FormError as exc:
+            show_error(self, self.windowTitle(), exc.message)
+            self.identity_form.focus_field(exc.key)
+            return None
+        if not values["git_name"] and not values["git_email"]:
+            return {}
+        if not values["git_name"] or not values["git_email"]:
+            show_error(self, self.windowTitle(), "Bitte Git-Name und Git-E-Mail-Adresse "
+                       "eingeben oder beide leer lassen.")
+            self.identity_form.focus_field("git_name" if not values["git_name"] else "git_email")
+            return None
+        return values
+
+    def save_result(self) -> None:
+        try:
+            name = self.done_form.values()["display_name"]
+        except FormError as exc:
+            show_error(self, self.windowTitle(), exc.message)
+            self.done_form.focus_field(exc.key)
+            return
+        identity = self._identity()
+        if identity is None or self.pending is None:
+            return
+        if not self._save_account(name, self.pending):
+            return
+        if identity:
+            self.services.settings.update(**identity)
+        self.accept()
+
+    def take_noreply(self) -> None:
+        """Anonyme Adresse mit dem gerade geprüften Zugang holen, im Hintergrund."""
+        if self.noreply_task is not None or self.pending is None:
+            return
+        cls, values = self.adapter_cls, dict(self.pending)
+
+        def work(task: Task):
+            adapter = cls.from_account(values)
+            return adapter.noreply_email(), getattr(adapter, "username", "")
+
+        self.noreply_button.setEnabled(False)
+        self.noreply_task = Task(work, self)
+        self.noreply_task.result.connect(self.noreply_received)
+        self.noreply_task.error.connect(self.noreply_failed)
+        self.noreply_task.finished.connect(self._noreply_done)
+        self.noreply_task.start()
+
+    def _noreply_done(self) -> None:
+        task, self.noreply_task = self.noreply_task, None
+        self.noreply_button.setEnabled(True)
+        if task is not None:
+            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
+            task.deleteLater()
+
+    def noreply_received(self, result) -> None:
+        email, login = result
+        if not email:
+            show_error(self, self.windowTitle(), "Diese Plattform nennt keine anonyme Adresse.")
+            return
+        if not self.identity_form.fields["git_name"].get():
+            self.identity_form.fields["git_name"].set(login)
+        self.identity_form.fields["git_email"].set(email)
+        announce(f"Adresse übernommen: {email}")
+        self.identity_form.focus_field("git_email")
+
+    def noreply_failed(self, message: str, details: str) -> None:
+        show_error(self, self.windowTitle(), message, details)
+        self.noreply_button.setFocus()
 
     # -- Verbindung testen und speichern --------------------------------------------------
     def test_connection(self, then_save: bool = False) -> None:
@@ -391,7 +494,7 @@ class AccountEditDialog(FocusDialog):
                 self.auto_values["username"] = username      # Benutzername selbst eintragen
             if then_save and result.ok:
                 values.update(self.auto_values)
-                self._store(name, values)
+                self._finish(name, values)
                 return
             show_test_result(self, result)
 
@@ -409,11 +512,20 @@ class AccountEditDialog(FocusDialog):
             return
         checked = self._values()
         if checked is not None:
-            self._store(*checked)
+            self._finish(*checked)
 
-    def _store(self, name: str, values: dict[str, Any]) -> None:
-        if not vault_ui.ensure_unlocked(self.services, self):
+    def _finish(self, name: str, values: dict[str, Any]) -> None:
+        """Mit with_identity erst die Seite "Angemeldet", sonst gleich speichern."""
+        if self.with_identity:
+            user = values.get("username") or self.auto_values.get("username") or ""
+            self.show_result(name, values, f"Verbindung geklappt, angemeldet als {user}."
+                             if user else "Verbindung geklappt.")
             return
+        self._store(name, values)
+
+    def _save_account(self, name: str, values: dict[str, Any]) -> bool:
+        if not vault_ui.ensure_unlocked(self.services, self):
+            return False
         try:
             if self.account is None:
                 self.saved = self.services.accounts.create(self.account_type, name, values)
@@ -421,11 +533,16 @@ class AccountEditDialog(FocusDialog):
                 self.saved = self.services.accounts.update(self.account, name, values)
         except CockpitError as exc:
             show_error(self, self.windowTitle(), exc.message, exc.details)
-            return
-        self.accept()
+            return False
+        return True
+
+    def _store(self, name: str, values: dict[str, Any]) -> None:
+        if self._save_account(name, values):
+            self.accept()
 
     def done(self, code: int) -> None:
         wait_for(self.task)
+        wait_for(self.noreply_task)
         super().done(code)
 
 
