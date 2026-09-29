@@ -19,6 +19,7 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.features.manager import FeatureManager
 from cockpit.core.features.registry import FeatureRegistry
 from cockpit.core.flows.engine import FlowEngine
+from cockpit.core.project_collections import CollectionStore
 from cockpit.core.projects import Project, ProjectStore
 from cockpit.core.remote_repos import RemoteRepoStore
 from cockpit.core.settings import SettingsStore
@@ -54,6 +55,7 @@ class Services:
     accounts: AccountStore = field(init=False)
     ai_tools: AIToolStore = field(init=False)
     remote_repos: RemoteRepoStore = field(init=False)
+    collections: CollectionStore = field(init=False)
     pull_request_cache: "PullRequestCache" = field(init=False)
     features: FeatureManager = field(init=False)
     flows: FlowEngine = field(init=False)
@@ -65,6 +67,7 @@ class Services:
         self.accounts = AccountStore(self.database, self.vault)
         self.ai_tools = AIToolStore(self.database, self.accounts)
         self.remote_repos = RemoteRepoStore(self.database)
+        self.collections = CollectionStore(self.database)
         from cockpit.core.pull_requests import PullRequestCache
         self.pull_request_cache = PullRequestCache(self.database)
         if self.automation is None:

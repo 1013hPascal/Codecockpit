@@ -112,6 +112,14 @@ def _date(iso: str | None) -> str:
         return ""
 
 
+def has_open_changes(status: ProjectStatus) -> bool:
+    """Liegt im Projekt etwas, das noch nicht hochgeladen ist, auch in einem Branch-Ordner?
+    Für "Änderungen offen" in der Zeile einer Sammlung."""
+    if status.pending or status.unfinished_merge:
+        return True
+    return any(has_open_changes(inner) for _tree, inner in status.worktrees)
+
+
 def project_line(project: Project, status: ProjectStatus | None,
                  platform_name: str = "GitHub") -> str:
     parts = [project.name]

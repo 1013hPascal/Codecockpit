@@ -839,3 +839,19 @@ Wunsch des Nutzers: Phase 14 vor den Phasen 11 bis 13, weil danach alle Grundfun
 - Exe in der Cloud bauen kommt später, zusammen mit dem Signieren (Antwort 7).
 - Der Zugang bittet schon seit Phase 4 um das Recht workflow. Fehlt es, meldet GitHub das beim ersten Versuch.
 - Version 1.5.0.
+
+
+## 29.09.2026: Projektsammlungen
+
+Wunsch des Nutzers: Die Projekte sollen sich nach Themen ordnen lassen, zum Beispiel Webseiten, KI-Programme und private Programme. Gebaut im Branch sammlungen.
+
+- Ganz oben in der Projektliste steht „Neue Projektsammlung“. Enter öffnet ein Fenster mit dem Feld „Name“ und OK. Die Sammlung heißt dann „Sammlung Name“.
+- Die Sammlungen stehen unter „Projekt von GitHub herunterladen“, nach Namen sortiert, mit der Zahl der Projekte. Danach kommen die Projekte ohne Sammlung und die Repositories, die nur auf GitHub liegen.
+- Enter, Leertaste oder Pfeil rechts öffnet eine Sammlung. Dann stehen oben die Sammlung mit „geöffnet“ und darunter nur ihre Projekte. Sie werden bedient wie sonst. So bleibt die Liste flach wie bisher (Entscheidung zu Phase 2), statt drei Ebenen einzurücken.
+- Schließen: Enter oder Pfeil links auf der Sammlung, Rücktaste überall darin. Pfeil links auf einem zugeklappten Projekt springt zur Sammlung, wie in einem Baum.
+- Aktionen einer Sammlung: „Projekte für die Sammlung …“, „Projektsammlung umbenennen …“, „Projektsammlung auflösen …“.
+- „Projekte für die Sammlung …“ zeigt eine Liste mit Kontrollkästchen. Der erste Eintrag ist der Hinweis, wie gewünscht. Projekte anderer Sammlungen heißen „…, in Sammlung …“. Wer sie markiert, nimmt sie dort heraus. Enter in der Liste speichert.
+- Ein Projekt ist in höchstens einer Sammlung. Das sichert die Datenbank selbst (Tabelle collection_members mit dem Projekt als Schlüssel).
+- Die Sammlungen stehen nur in der Datenbank des Rechners, nicht in cockpit.toml. Sie gehören zur eigenen Ordnung, nicht zum Projekt. Auflösen ändert keine Dateien, deshalb gibt es dafür keine Sicherheitskopie, nur die Rückfrage mit „Abbrechen“ als Vorgabe.
+- Nachtrag nach dem Test (Wunsch des Nutzers): Auch Repositories, die nur auf GitHub liegen, kommen in Sammlungen. Die Liste „Projekte für die Sammlung …“ sagt bei jedem Eintrag, wo er liegt: „nur auf dem Rechner“, „auf dem Rechner und auf GitHub“ oder „nur auf GitHub“. Für ein Repository nur auf GitHub merkt sich das Cockpit die Adresse. Nach dem Herunterladen steht das Projekt von selbst in derselben Sammlung.
+- Nachtrag nach dem Test (Wunsch des Nutzers): Die Zeile einer Sammlung sagt den Stand, zum Beispiel „Sammlung Web, 3 Projekte, Änderungen offen“ oder „…, nichts offen“. Offen heißt: Dateien noch nicht hochgeladen oder ein Zusammenführen nicht abgeschlossen, auch in Branch-Ordnern. „nichts offen“ steht erst da, wenn der Stand aller Projekte abgefragt ist. Repositories nur auf GitHub haben nichts offen.

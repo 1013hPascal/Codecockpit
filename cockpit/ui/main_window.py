@@ -59,6 +59,9 @@ SHORTCUTS = [
     "Wichtigste Aktion auf Code oder Exe, Enter",
     "Aktionen als Kontextmenü, Menütaste oder Umschalt+F10",
     "Repository herunterladen, das nur auf GitHub liegt, Enter",
+    "Projektsammlung öffnen, Pfeil rechts, Leertaste oder Enter",
+    "Projektsammlung schließen, Pfeil links oder Enter auf der Sammlung, Rücktaste überall darin",
+    "In einer Sammlung vom Projekt zur Sammlung, Pfeil links",
     "Aktionen",
     "Markierte Aktion ausführen, Enter oder Leertaste",
     "Bei nicht verfügbaren Aktionen wird der Grund angesagt",
@@ -314,7 +317,12 @@ class MainWindow(QMainWindow):
         root = Path(self.services.settings.load().projects_root)
         found = self.services.projects.scan(root) if root.is_dir() else []
         self.project_list.platform_name = self.platform_name()
-        self.project_list.set_projects(self.services.projects.all(), self._remote_only())
+        collections = self.services.collections
+        projects = self.services.projects.all()
+        collections.adopt(projects)                 # heruntergeladen: Sammlung übernehmen
+        self.project_list.set_projects(projects, self._remote_only(), collections.all(),
+                                       collections.membership(),
+                                       collections.remote_membership())
         self.refresh_actions()
         if refresh:
             self.refresh_status()
@@ -466,13 +474,17 @@ class MainWindow(QMainWindow):
         target, item_id = self.project_list.current_target()
         key = self.project_list.current_key()
         project = remote = None
+        collection = None
         if target is Target.REMOTE_REPO:
             remote = self.services.remote_repos.get(item_id) if item_id is not None else None
+        elif target is Target.COLLECTION:
+            collection = self.services.collections.get(item_id) if item_id is not None else None
         elif item_id is not None:
             project = self.services.projects.get(item_id)
         status = self.project_list.status_of(project.id) if project is not None else None
         context = ActionContext(self.services, project, target, announce=announce,
-                                asker=self.asker, status=status, remote_repo=remote)
+                                asker=self.asker, status=status, remote_repo=remote,
+                                collection=collection)
         if target is Target.BRANCH and project is not None:
             # Die Aktionen von Code, aber im Branch-Ordner (Phase 10f)
             tree = next((t for t, _s in (status.worktrees if status else []) if t.folder == key),

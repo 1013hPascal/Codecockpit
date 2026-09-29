@@ -95,6 +95,25 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (repo, number)
     );
     """,
+    # Projektsammlungen: Ein Projekt steht in höchstens einer Sammlung (Primärschlüssel)
+    """
+    CREATE TABLE collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    );
+    CREATE TABLE collection_members (
+        project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+        collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE
+    );
+    """,
+    # Repositories, die nur auf der Plattform liegen, in Sammlungen. Schlüssel ist die Adresse,
+    # weil die Zeilen in remote_repos beim Abfragen neu angelegt werden.
+    """
+    CREATE TABLE collection_remote_members (
+        repo_key TEXT PRIMARY KEY,
+        collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE
+    );
+    """,
 ]
 
 

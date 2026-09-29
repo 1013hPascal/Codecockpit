@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 TITLE = "KI-Hilfe"
 TARGET_NAMES = {
+    Target.NEW_COLLECTION: "auf dem obersten Eintrag „Neue Projektsammlung“",
+    Target.COLLECTION: "auf einer Projektsammlung",
     Target.ADD_LOCAL: "auf dem obersten Eintrag „Projekt vom Rechner hinzufügen“",
     Target.ADD_REMOTE: "auf dem zweiten Eintrag „Projekt von GitHub herunterladen“",
     Target.PROJECT: "auf einer Projektzeile",
@@ -39,7 +41,10 @@ TARGET_NAMES = {
     Target.REMOTE_BRANCH: "auf einem ausgewählten Branch anderer",
 }
 LAYOUT = ("Das Hauptfenster hat links die Projektliste und rechts die Aktionen. Tab wechselt "
-          "zwischen beiden. In der Projektliste klappt Pfeil rechts, Leertaste oder Enter ein "
+          "zwischen beiden. Projekte lassen sich in Projektsammlungen ordnen, zum Beispiel "
+          "„Sammlung Webseiten“. Enter oder Pfeil rechts öffnet eine Sammlung, dann stehen nur "
+          "ihre Projekte in der Liste. Rücktaste oder Pfeil links auf der Sammlung schließt sie. "
+          "Ein Projekt ist in höchstens einer Sammlung. In der Projektliste klappt Pfeil rechts, Leertaste oder Enter ein "
           "Projekt aus. Darunter stehen Code, bei Branch-Ordnern „Code, main“, die Zeilen der "
           "Branches und Exe. Enter führt die wichtigste Aktion der Zeile aus. Tab führt zu allen "
           "Aktionen der Zeile, die Menütaste öffnet sie als Kontextmenü.")

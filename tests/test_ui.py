@@ -168,9 +168,10 @@ def test_area_shortcuts(window, qtbot):
 def test_list_starts_with_new_project_and_lists_projects(window):
     win = window()
     texts = win.project_list.texts()
-    assert texts[:2] == [ADD_LOCAL_TEXT, "Projekt von GitHub herunterladen"]
-    assert sorted(texts[2:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
-    assert current_text(win) == ADD_LOCAL_TEXT
+    assert texts[:3] == ["Neue Projektsammlung", ADD_LOCAL_TEXT,
+                         "Projekt von GitHub herunterladen"]
+    assert sorted(texts[3:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
+    assert current_text(win) == "Neue Projektsammlung"
     assert win.project_list.accessibleName() == "Projekte"
 
 
@@ -285,8 +286,10 @@ def test_exe_label_names_file_and_date(window, projects_root):
 # -- Aktionen -------------------------------------------------------------------------------
 def test_actions_follow_the_tree_selection(window):
     win = window()
+    assert win.actions_list.texts() == ["Neue Projektsammlung …"]
+    win.project_list.select(Target.ADD_LOCAL, None)
     assert win.actions_list.texts() == ["Projekt vom Rechner hinzufügen …"]
-    win.project_list.setCurrentRow(1)
+    win.project_list.select(Target.ADD_REMOTE, None)
     assert win.actions_list.texts() == [
         "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
@@ -305,7 +308,7 @@ def test_actions_follow_the_tree_selection(window):
 
 def test_unavailable_action_announces_reason(window, qtbot):
     win = window()
-    win.project_list.setCurrentRow(1)
+    win.project_list.select(Target.ADD_REMOTE, None)
     win.focus_actions()
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     assert announcer.last_text == ("Projekt von GitHub herunterladen … ist nicht verfügbar. "

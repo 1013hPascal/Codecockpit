@@ -13,6 +13,7 @@ from cockpit.core.availability import Availability
 
 if TYPE_CHECKING:
     from cockpit.core.branches import Branch
+    from cockpit.core.project_collections import Collection
     from cockpit.core.flows.questions import Asker
     from cockpit.core.worktrees import Worktree
     from cockpit.core.project_status import ProjectStatus
@@ -33,6 +34,8 @@ class Target(Enum):
     BRANCH = "branch"
     REMOTE_BRANCHES = "remote_branches"  # "Branches auf GitHub"
     REMOTE_BRANCH = "remote_branch"      # ausgewählter Branch anderer, noch ohne Ordner
+    NEW_COLLECTION = "new_collection"    # oberster Eintrag "Neue Projektsammlung"
+    COLLECTION = "collection"            # "Sammlung Webseiten, 3 Projekte"
 
 
 @dataclass
@@ -47,6 +50,7 @@ class ActionContext:
     worktree: "Worktree | None" = None               # Branch-Ordner (Phase 10f)
     main_project: "Project | None" = None            # bei worktree: das Projekt mit Code\main
     remote_branch: "Branch | None" = None            # bei Target.REMOTE_BRANCH
+    collection: "Collection | None" = None           # bei Target.COLLECTION
 
 
 @dataclass(frozen=True)
