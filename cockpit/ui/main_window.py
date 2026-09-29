@@ -318,8 +318,11 @@ class MainWindow(QMainWindow):
         found = self.services.projects.scan(root) if root.is_dir() else []
         self.project_list.platform_name = self.platform_name()
         collections = self.services.collections
-        self.project_list.set_projects(self.services.projects.all(), self._remote_only(),
-                                       collections.all(), collections.membership())
+        projects = self.services.projects.all()
+        collections.adopt(projects)                 # heruntergeladen: Sammlung übernehmen
+        self.project_list.set_projects(projects, self._remote_only(), collections.all(),
+                                       collections.membership(),
+                                       collections.remote_membership())
         self.refresh_actions()
         if refresh:
             self.refresh_status()

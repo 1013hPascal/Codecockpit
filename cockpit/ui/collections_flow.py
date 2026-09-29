@@ -4,6 +4,7 @@
 - Auf einer Sammlung: "Projekte für die Sammlung …" (Liste mit Kontrollkästchen),
   "Projektsammlung umbenennen …" und "Projektsammlung auflösen …".
 
+In eine Sammlung kommen Projekte auf dem Rechner und Repositories, die nur auf GitHub liegen.
 Ein Projekt steht in höchstens einer Sammlung. Die Zuordnung steht nur in der Datenbank, Ordner
 und Dateien bleiben unverändert. Deshalb braucht das Auflösen keine Sicherheitskopie.
 """
@@ -19,6 +20,7 @@ from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.project_collections import Collection
 from cockpit.core.projects import Project
+from cockpit.core.remote_repos import StoredRepo
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, confirm, label_for, name_widget, show_info
@@ -27,7 +29,8 @@ from cockpit.ui.repo_dialogs import _is_enter
 if TYPE_CHECKING:
     from cockpit.ui.project_actions import ProjectController
 
-ROLE_ID = Qt.ItemDataRole.UserRole + 1
+ROLE_ID = Qt.ItemDataRole.UserRole + 1          # Projekt-ID oder Adresse eines Repositorys
+ROLE_REMOTE = Qt.ItemDataRole.UserRole + 2      # True: Repository nur auf der Plattform
 
 
 class NameDialog(FocusDialog):
@@ -63,9 +66,15 @@ def member_hint(collection: Collection) -> str:
             "Sammlung und Sie markieren es, wird es dort entfernt und hier hinzugefügt.")
 
 
-def member_line(project: Project, other: Collection | None) -> str:
-    """Zum Beispiel "PDF-Chat, in Sammlung KI"."""
-    return f"{project.name}, in {other.title}" if other is not None else project.name
+def member_line(name: str, where: str, other: Collection | None) -> str:
+    """Zum Beispiel "PDF-Chat, auf dem Rechner und auf GitHub, in Sammlung KI"."""
+    text = f"{name}, {where}"
+    return f"{text}, in {other.title}" if other is not None else text
+
+
+def where_text(project: Project, platform_name: str = "GitHub") -> str:
+    return (f"auf dem Rechner und auf {platform_name}" if project.remote is not None
+            else "nur auf dem Rechner")
 
 
 def _plain_item(text: str) -> QListWidgetItem:
@@ -82,23 +91,33 @@ class MembersDialog(FocusDialog):
 
     def __init__(self, collection: Collection, projects: list[Project],
                  membership: dict[int, int], collections: dict[int, Collection],
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, remote: list[StoredRepo] | None = None,
+                 remote_membership: dict[str, int] | None = None,
+                 platform_name: str = "GitHub") -> None:
         super().__init__(parent)
         self.setWindowTitle(f"Projekte für die {collection.title}")
         self.list = QListWidget()
         self.list.setWordWrap(True)
         label = label_for(self.list, "&Projekte:")
         self.list.addItem(_plain_item(member_hint(collection)))
-        for project in sorted(projects, key=lambda p: p.name.lower()):
-            owner = membership.get(project.id)
+        rows: list[tuple[str, str, object, bool, int | None]] = []
+        for project in projects:
+            rows.append((project.name, where_text(project, platform_name), project.id, False,
+                         membership.get(project.id)))
+        for repo in remote or []:
+            key = repo.address.key
+            rows.append((repo.name, f"nur auf {platform_name}", key, True,
+                         (remote_membership or {}).get(key)))
+        for name, where, ident, is_remote, owner in sorted(rows, key=lambda r: r[0].lower()):
             other = collections.get(owner) if owner not in (None, collection.id) else None
-            item = QListWidgetItem(member_line(project, other))
-            item.setData(ROLE_ID, project.id)
+            item = QListWidgetItem(member_line(name, where, other))
+            item.setData(ROLE_ID, ident)
+            item.setData(ROLE_REMOTE, is_remote)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if owner == collection.id
                                else Qt.CheckState.Unchecked)
             self.list.addItem(item)
-        if not projects:
+        if not rows:
             self.list.addItem(_plain_item("Es gibt noch keine Projekte."))
         self.list.setCurrentRow(0)
         self.list.installEventFilter(self)
@@ -128,9 +147,18 @@ class MembersDialog(FocusDialog):
         return [self.list.item(r) for r in range(self.list.count())
                 if self.list.item(r).data(ROLE_ID) is not None]
 
-    def chosen(self) -> set[int]:
+    def _checked(self, remote: bool) -> set:
         return {item.data(ROLE_ID) for item in self.items()
-                if item.checkState() == Qt.CheckState.Checked}
+                if item.checkState() == Qt.CheckState.Checked
+                and bool(item.data(ROLE_REMOTE)) == remote}
+
+    def chosen(self) -> set[int]:
+        """Markierte Projekte auf dem Rechner."""
+        return self._checked(False)
+
+    def chosen_repos(self) -> set[str]:
+        """Adressen der markierten Repositories, die nur auf der Plattform liegen."""
+        return self._checked(True)
 
 
 class CollectionActions:
@@ -183,11 +211,14 @@ class CollectionActions:
             return
         store = self.services.collections
         dialog = MembersDialog(collection, self.services.projects.all(), store.membership(),
-                               {c.id: c for c in store.all()}, self.window)
+                               {c.id: c for c in store.all()}, self.window,
+                               remote=self.window._remote_only(),
+                               remote_membership=store.remote_membership(),
+                               platform_name=self.window.project_list.platform_name)
         if not dialog.exec():
             return
-        chosen = dialog.chosen()
-        store.set_members(collection.id, chosen)
+        chosen = dialog.chosen() | dialog.chosen_repos()
+        store.set_members(collection.id, dialog.chosen(), dialog.chosen_repos())
         self._reload()
         self.window.project_list.select(Target.COLLECTION, collection.id)
         announce(f"Gespeichert. {collection.title}: "
@@ -212,12 +243,14 @@ class CollectionActions:
             return
         store = self.services.collections
         members = store.members(collection.id)
+        remote_keys = store.remote_members(collection.id)
+        size = len(members) + len(remote_keys)
         text = f"Die {collection.title} wird aufgelöst."
-        if len(members) == 1:
+        if size == 1:
             text += (" Das Projekt darin steht danach wieder einzeln in der Projektliste, "
                      "ohne Sammlung.")
-        elif members:
-            text += (f" Die {len(members)} Projekte darin stehen danach wieder einzeln in der "
+        elif size:
+            text += (f" Die {size} Projekte darin stehen danach wieder einzeln in der "
                      "Projektliste, ohne Sammlung.")
         text += " Ordner und Dateien bleiben unverändert."
         if not confirm(self.window, "Projektsammlung auflösen", text, yes="Auflösen",
@@ -228,6 +261,9 @@ class CollectionActions:
         listing.close_collection(speak=False)
         self._reload()
         first = next((p.id for p in self.services.projects.all() if p.id in members), None)
-        if first is None or not listing.select(Target.PROJECT, first):
+        repo = next((r.id for r in self.window._remote_only()
+                     if r.address.key in remote_keys), None)
+        if not ((first is not None and listing.select(Target.PROJECT, first))
+                or (repo is not None and listing.select(Target.REMOTE_REPO, repo))):
             listing.select(Target.NEW_COLLECTION, None)
         announce(f"{collection.title} aufgelöst.")

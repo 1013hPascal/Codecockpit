@@ -1,6 +1,8 @@
 """Projektsammlungen: Projekte nach Themen ordnen (Wunsch des Nutzers vom 29.09.2026).
 
-Eine Sammlung hat nur einen Namen. Ein Projekt steht in höchstens einer Sammlung. Wer es einer
+Eine Sammlung hat nur einen Namen. Ein Projekt steht in höchstens einer Sammlung. Auch
+Repositories, die nur auf GitHub liegen, können in eine Sammlung. Für sie merkt sich das Cockpit
+die Adresse. Nach dem Herunterladen übernimmt das Projekt die Sammlung (adopt). Wer es einer
 anderen Sammlung zuordnet, nimmt es aus der alten heraus. Wird eine Sammlung aufgelöst, stehen
 ihre Projekte wieder einzeln in der Projektliste. Ordner und Dateien bleiben dabei unverändert,
 die Zuordnung steht nur in der Datenbank.
@@ -74,6 +76,8 @@ class CollectionStore:
         with self.database.transaction() as conn:
             conn.execute("DELETE FROM collection_members WHERE collection_id = ?",
                          (collection_id,))
+            conn.execute("DELETE FROM collection_remote_members WHERE collection_id = ?",
+                         (collection_id,))
             conn.execute("DELETE FROM collections WHERE id = ?", (collection_id,))
 
     def membership(self) -> dict[int, int]:
@@ -81,16 +85,48 @@ class CollectionStore:
         rows = self.database.query("SELECT project_id, collection_id FROM collection_members")
         return {r["project_id"]: r["collection_id"] for r in rows}
 
+    def remote_membership(self) -> dict[str, int]:
+        """Adresse eines Repositorys nur auf der Plattform -> Sammlung."""
+        rows = self.database.query("SELECT repo_key, collection_id FROM collection_remote_members")
+        return {r["repo_key"]: r["collection_id"] for r in rows}
+
     def members(self, collection_id: int) -> set[int]:
         return {p for p, c in self.membership().items() if c == collection_id}
 
-    def set_members(self, collection_id: int, project_ids: set[int]) -> None:
-        """Genau diese Projekte in die Sammlung. Sie verlassen dabei ihre alte Sammlung.
-        Projekte, die nicht mehr markiert sind, stehen danach ohne Sammlung da."""
+    def remote_members(self, collection_id: int) -> set[str]:
+        return {k for k, c in self.remote_membership().items() if c == collection_id}
+
+    def set_members(self, collection_id: int, project_ids: set[int],
+                    repo_keys: set[str] | None = None) -> None:
+        """Genau diese Projekte und Repositories in die Sammlung. Sie verlassen dabei ihre alte
+        Sammlung. Was nicht mehr markiert ist, steht danach ohne Sammlung da."""
         with self.database.transaction() as conn:
             conn.execute("DELETE FROM collection_members WHERE collection_id = ?",
+                         (collection_id,))
+            conn.execute("DELETE FROM collection_remote_members WHERE collection_id = ?",
                          (collection_id,))
             for project_id in sorted(project_ids):
                 conn.execute("INSERT OR REPLACE INTO collection_members "
                              "(project_id, collection_id) VALUES (?, ?)",
                              (project_id, collection_id))
+            for key in sorted(repo_keys or set()):
+                conn.execute("INSERT OR REPLACE INTO collection_remote_members "
+                             "(repo_key, collection_id) VALUES (?, ?)",
+                             (key.lower(), collection_id))
+
+    def adopt(self, projects: list) -> None:
+        """Heruntergeladene Repositories: Das Projekt übernimmt die Sammlung der Adresse."""
+        remote = self.remote_membership()
+        if not remote:
+            return
+        taken = self.membership()
+        with self.database.transaction() as conn:
+            for project in projects:
+                key = project.remote.key if project.remote is not None else None
+                if key not in remote:
+                    continue
+                if project.id not in taken:
+                    conn.execute("INSERT INTO collection_members (project_id, collection_id) "
+                                 "VALUES (?, ?)", (project.id, remote[key]))
+                    taken[project.id] = remote[key]
+                conn.execute("DELETE FROM collection_remote_members WHERE repo_key = ?", (key,))

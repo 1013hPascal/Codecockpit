@@ -1,6 +1,8 @@
 """Projektsammlungen: Speicher, Projektliste, Tastatur und Aktionen."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from PySide6.QtCore import Qt
 
@@ -213,8 +215,9 @@ def test_members_dialog_lists_all_projects_with_hint(window, qtbot):
     assert first.text().startswith("Markieren Sie alle Projekte, die der Sammlung Web "
                                    "zugeordnet werden sollen.")
     assert not first.flags() & Qt.ItemFlag.ItemIsUserCheckable
-    assert [i.text() for i in dialog.items()] == ["PDF-Chat", "Tagebuch, in Sammlung KI",
-                                                  "Webseite"]
+    assert [i.text() for i in dialog.items()] == [
+        "PDF-Chat, nur auf dem Rechner", "Tagebuch, nur auf dem Rechner, in Sammlung KI",
+        "Webseite, nur auf dem Rechner"]
     assert dialog.chosen() == {project_id(win, "Webseite")}
     assert dialog.list.accessibleName() == "Projekte"
     assert dialog.save_button.isDefault()
@@ -279,3 +282,119 @@ def test_dissolve_can_be_cancelled(window, monkeypatch):
     win.project_list.select(Target.COLLECTION, web.id)
     win.run_entry(win.current_entries()[2])
     assert [c.id for c in win.services.collections.all()] == [web.id]
+
+
+# -- Nachtrag: Repositories nur auf GitHub ----------------------------------------------------
+def add_remote_repos(services, *names):
+    """Erfundenes Konto mit Repositories, die nur auf GitHub liegen."""
+    from cockpit.platforms.base import RemoteRepo, RepoRef
+    cursor = services.database.execute(
+        "INSERT INTO accounts (kind, adapter, display_name) VALUES ('platform', 'github', 'T')")
+    services.remote_repos.replace(cursor.lastrowid, [
+        RemoteRepo(RepoRef("tester", name), True, f"https://github.com/tester/{name}.git",
+                   f"https://github.com/tester/{name}", "2026-09-01T00:00:00Z")
+        for name in names])
+    return {r.name: r for r in services.remote_repos.all()}
+
+
+def test_store_keeps_remote_members_by_address(stores):
+    store, projects, (a, _b, _c) = stores
+    web = store.create("Web")
+    ki = store.create("KI")
+    store.set_members(web.id, {a}, {"github.com/tester/Vokabeln"})
+    assert store.remote_membership() == {"github.com/tester/vokabeln": web.id}
+    store.set_members(ki.id, set(), {"github.com/tester/vokabeln"})   # wechselt zu KI
+    assert store.remote_members(web.id) == set()
+    store.dissolve(ki.id)
+    assert store.remote_membership() == {}
+
+
+def test_downloaded_repo_keeps_its_collection(stores):
+    from cockpit.core.git import RemoteAddress
+    store, projects, (a, _b, _c) = stores
+    web = store.create("Web")
+    store.set_members(web.id, set(), {"github.com/tester/vokabeln"})
+    projects.set_remote(projects.get(a), RemoteAddress("github.com", "tester", "Vokabeln"), None)
+    store.adopt(projects.all())
+    assert store.membership() == {a: web.id} and store.remote_membership() == {}
+
+
+def test_remote_repo_in_collection(window, qtbot):
+    win, web = web_window(window)
+    repos = add_remote_repos(win.services, "Vokabeln", "Blog")
+    store = win.services.collections
+    store.set_members(web.id, {project_id(win, "Webseite")}, {repos["Vokabeln"].address.key})
+    win.reload_projects(refresh=False)
+    texts = win.project_list.texts()
+    assert "Sammlung Web, 2 Projekte" in texts
+    assert not any(t.startswith("Vokabeln") for t in texts)
+    assert any(t.startswith("Blog, nur auf GitHub") for t in texts)
+    assert win.project_list.select(Target.REMOTE_REPO, repos["Vokabeln"].id)   # öffnet
+    assert win.project_list.opened_collection_id == web.id
+    assert current_text(win).startswith("Vokabeln, nur auf GitHub")
+
+
+def test_members_dialog_offers_remote_repos(window, qtbot):
+    win, web = web_window(window)
+    add_remote_repos(win.services, "Vokabeln")
+    win.reload_projects(refresh=False)
+    win.project_list.select(Target.COLLECTION, web.id)
+
+    def check_vokabeln(dialog):
+        texts = [i.text() for i in dialog.items()]
+        assert "Vokabeln, nur auf GitHub" in texts
+        item = dialog.items()[texts.index("Vokabeln, nur auf GitHub")]
+        item.setCheckState(Qt.CheckState.Checked)
+        dialog.accept()
+    close_dialogs_later(qtbot, check_vokabeln)
+    win.run_entry(win.current_entries()[0])
+    assert win.services.collections.remote_members(web.id) == {"github.com/tester/vokabeln"}
+    assert current_text(win) == "Sammlung Web, 2 Projekte"
+
+
+def test_where_text():
+    from cockpit.core.git import RemoteAddress
+    from cockpit.core.projects import Project
+    from cockpit.ui.collections_flow import where_text
+    local = Project(1, "A", Path("x"), Path("x/Code"), None)
+    assert where_text(local) == "nur auf dem Rechner"
+    online = Project(1, "A", Path("x"), Path("x/Code"), None,
+                     remote=RemoteAddress("github.com", "t", "A"))
+    assert where_text(online) == "auf dem Rechner und auf GitHub"
+
+
+# -- Nachtrag: Stand der Sammlung -------------------------------------------------------------
+def status_for(pid, pending=0):
+    from cockpit.core.git import RepoStatus
+    from cockpit.core.project_status import ProjectStatus
+    return ProjectStatus(pid, RepoStatus(is_repo=True, remote_url="https://github.com/t/x.git"),
+                         pending=pending)
+
+
+def test_collection_line_says_if_something_is_open(window):
+    win = window(names=("A", "B", "C"))
+    store = win.services.collections
+    web = store.create("Web")
+    store.set_members(web.id, {project_id(win, "A"), project_id(win, "B")})
+    win.reload_projects(refresh=False)
+    listing = win.project_list
+    row = listing.row_of(Target.COLLECTION, web.id)
+    assert listing.item(row).text() == "Sammlung Web, 2 Projekte"      # Stand noch unbekannt
+    listing.update_status(status_for(project_id(win, "A")))
+    assert listing.item(row).text() == "Sammlung Web, 2 Projekte"      # B fehlt noch
+    listing.update_status(status_for(project_id(win, "B")))
+    assert listing.item(row).text() == "Sammlung Web, 2 Projekte, nichts offen"
+    listing.update_status(status_for(project_id(win, "B"), pending=2))
+    assert listing.item(row).text() == "Sammlung Web, 2 Projekte, Änderungen offen"
+    listing.open_collection(web.id, speak=False)
+    assert listing.item(0).text() == "Sammlung Web, 2 Projekte, Änderungen offen, geöffnet"
+
+
+def test_open_changes_in_branch_folder_count(tmp_path):
+    from cockpit.core.project_status import has_open_changes
+    from cockpit.core.worktrees import Worktree
+    outer = status_for(1)
+    assert not has_open_changes(outer)
+    tree = Worktree.__new__(Worktree)
+    outer.worktrees = [(tree, status_for(1, pending=1))]
+    assert has_open_changes(outer)

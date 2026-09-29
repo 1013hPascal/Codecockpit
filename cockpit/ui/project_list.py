@@ -40,8 +40,8 @@ from PySide6.QtWidgets import QListWidget, QListWidgetItem
 from cockpit.core.actions import Target
 from cockpit.core.branches import Branch
 from cockpit.core.project_collections import Collection
-from cockpit.core.project_status import (ProjectStatus, code_line, project_line,
-                                         remote_line)
+from cockpit.core.project_status import (ProjectStatus, code_line, has_open_changes,
+                                         project_line, remote_line)
 from cockpit.core.projects import Project
 from cockpit.core.remote_repos import StoredRepo
 from cockpit.core.text import count
@@ -109,9 +109,18 @@ def branch_label(tree: Worktree, status: ProjectStatus | None,
     return code_line(status, platform_name, head)
 
 
-def collection_label(collection: Collection, size: int, opened: bool = False) -> str:
-    """Zum Beispiel "Sammlung Webseiten, 3 Projekte"."""
-    text = f"{collection.title}, {count(size, 'Projekt', 'Projekte') if size else 'leer'}"
+OPEN_CHANGES = "Änderungen offen"
+NOTHING_OPEN = "nichts offen"
+
+
+def collection_label(collection: Collection, size: int, opened: bool = False,
+                     state: str = "") -> str:
+    """Zum Beispiel "Sammlung Webseiten, 3 Projekte, Änderungen offen". state ist leer, solange
+    der Stand der Projekte noch abgefragt wird."""
+    parts = [collection.title, count(size, "Projekt", "Projekte") if size else "leer"]
+    if size and state:
+        parts.append(state)
+    text = ", ".join(parts)
     return text + OPENED_SUFFIX if opened else text
 
 
@@ -144,6 +153,7 @@ class ProjectList(QListWidget):
         self._expanded: int | None = None
         self._collections: dict[int, Collection] = {}
         self._member_of: dict[int, int] = {}          # Projekt -> Sammlung
+        self._remote_of: dict[int, int] = {}          # Repository nur auf GitHub -> Sammlung
         self._opened: int | None = None               # geöffnete Sammlung
         self.platform_name = "GitHub"
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -154,7 +164,8 @@ class ProjectList(QListWidget):
     def set_projects(self, projects: list[Project],
                      remote_repos: list[StoredRepo] | None = None,
                      collections: list[Collection] | None = None,
-                     membership: dict[int, int] | None = None) -> None:
+                     membership: dict[int, int] | None = None,
+                     remote_membership: dict[str, int] | None = None) -> None:
         """Liste neu füllen. Auswahl, geöffnete Sammlung und ausgeklapptes Projekt bleiben
         erhalten, wenn möglich."""
         keep = ((*self.current_target(), self.current_key()) if self.currentItem() is not None
@@ -165,6 +176,9 @@ class ProjectList(QListWidget):
         self._collections = {c.id: c for c in collections or []}
         self._member_of = {p: c for p, c in (membership or {}).items()
                            if p in self._projects and c in self._collections}
+        by_key = remote_membership or {}
+        self._remote_of = {r.id: by_key[r.address.key] for r in self._remote.values()
+                           if by_key.get(r.address.key) in self._collections}
         self._status = {k: v for k, v in self._status.items() if k in self._projects}
         if self._opened not in self._collections:
             self._opened = None
@@ -184,6 +198,8 @@ class ProjectList(QListWidget):
                                     collection.id))
             entries: list[Project | StoredRepo] = [
                 p for p in self._projects.values() if self._member_of.get(p.id) == self._opened]
+            entries += [r for r in self._remote.values()
+                        if self._remote_of.get(r.id) == self._opened]
         else:
             self.addItem(self._item(NEW_COLLECTION_TEXT, Target.NEW_COLLECTION, None))
             self.addItem(self._item(ADD_LOCAL_TEXT, Target.ADD_LOCAL, None))
@@ -193,7 +209,7 @@ class ProjectList(QListWidget):
                 self.addItem(self._item(self._collection_text(collection), Target.COLLECTION,
                                         collection.id))
             entries = [p for p in self._projects.values() if p.id not in self._member_of]
-            entries += list(self._remote.values())
+            entries += [r for r in self._remote.values() if r.id not in self._remote_of]
         entries.sort(key=_sort_key, reverse=True)
         for entry in entries:
             if isinstance(entry, StoredRepo):
@@ -204,8 +220,27 @@ class ProjectList(QListWidget):
                 self.addItem(self._item(self._project_text(entry), Target.PROJECT, entry.id))
 
     def _collection_text(self, collection: Collection) -> str:
-        size = sum(1 for c in self._member_of.values() if c == collection.id)
-        return collection_label(collection, size, collection.id == self._opened)
+        members = [p for p, c in self._member_of.items() if c == collection.id]
+        size = len(members) + sum(1 for c in self._remote_of.values() if c == collection.id)
+        return collection_label(collection, size, collection.id == self._opened,
+                                self._collection_state(members))
+
+    def _collection_state(self, members: list[int]) -> str:
+        """"Änderungen offen", sobald ein Projekt etwas offen hat. "nichts offen" erst, wenn
+        der Stand aller Projekte da ist. Repositories nur auf GitHub haben nichts offen."""
+        local = [p for p in members if self._projects[p].folder_found]
+        known = [self._status[p] for p in local if p in self._status]
+        if any(has_open_changes(s) for s in known):
+            return OPEN_CHANGES
+        return NOTHING_OPEN if len(known) == len(local) else ""
+
+    def _update_collection_row(self, project_id: int) -> None:
+        collection = self._collections.get(self._member_of.get(project_id))
+        if collection is None:
+            return
+        row = self.row_of(Target.COLLECTION, collection.id)
+        if row >= 0:
+            self._set_text(row, self._collection_text(collection))
 
     def _visible(self, project_id: int) -> bool:
         """Steht das Projekt auf der gerade gezeigten Ebene?"""
@@ -269,6 +304,7 @@ class ProjectList(QListWidget):
         if project is None:
             return
         self._status[status.project_id] = status
+        self._update_collection_row(project.id)
         row = self.row_of(Target.PROJECT, project.id)
         if row >= 0:
             self._set_text(row, self._project_text(project))
@@ -384,6 +420,8 @@ class ProjectList(QListWidget):
         oberste Ebene."""
         if target in (Target.PROJECT, *CHILD_TARGETS):
             wanted = self._member_of.get(item_id)
+        elif target is Target.REMOTE_REPO:
+            wanted = self._remote_of.get(item_id)
         elif target is Target.COLLECTION and item_id == self._opened:
             return
         else:
