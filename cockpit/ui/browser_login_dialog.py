@@ -42,7 +42,7 @@ class BrowserLoginDialog(FocusDialog):
         self.scopes = scopes
         self.confirm_line = confirm_line or (
             "Auf der nächsten Seite fragt GitHub, ob CodeCockpit auf Ihr Konto zugreifen darf. "
-            "Bestätigen Sie mit Authorize.")
+            "Wählen Sie ganz unten auf der Seite Authorize, auf Deutsch Autorisieren.")
         self.token: Secret | None = None
         self.username = ""
         self.login = None
@@ -88,7 +88,7 @@ class BrowserLoginDialog(FocusDialog):
         self.steps.clear()
         self.steps.addItems([
             f"Ihr Code: {login.user_code}",
-            "Der Code ist in der Zwischenablage.",
+            "Der Code ist schon in die Zwischenablage kopiert.",
             f"Der Browser öffnet die Seite {login.verification_uri}.",
             "Melden Sie sich dort an, fügen Sie den Code mit Strg+V ein und wählen Sie Continue.",
             self.confirm_line,

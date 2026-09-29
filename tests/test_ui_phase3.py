@@ -119,17 +119,15 @@ def wizard(qtbot, make_services):
 
 def test_wizard_pages_and_announcements(wizard, monkeypatch):
     dialog, services = wizard()
-    assert [p.title for p in dialog.pages] == ["Willkommen", "Git", "Tresor", "GitHub-Konto",
-                                               "Projekte-Hauptordner", "Git-Identität", "KI",
-                                               "Zusammenfassung"]
+    assert [p.title for p in dialog.pages] == [
+        "Willkommen", "Zugangsdaten schützen", "Git", "Code-Plattformen wählen",
+        "Code-Plattformen einrichten", "Projekte-Hauptordner", "KI", "Zusammenfassung"]
     assert dialog.heading.text() == "Schritt 1 von 8: Willkommen"
     assert not dialog.skip_button.isVisible()
-    assert not dialog.back_button.isEnabled()
+    assert not dialog.back_button.isVisible()
     dialog.next()
-    assert said("Schritt 2 von 8: Git.")
-    assert dialog.skip_button.isVisible()
-    dialog.next()
-    assert dialog.page.title == "Tresor"
+    assert said("Schritt 2 von 8: Zugangsdaten schützen.")
+    assert dialog.page.title == "Zugangsdaten schützen"
     assert not dialog.skip_button.isVisible()                  # Tresor ist Pflicht
     assert dialog.page.chosen_kind() == "windows"
     assert dialog.focusWidget() is dialog.page.text            # zuerst die Erklärung
@@ -138,26 +136,22 @@ def test_wizard_pages_and_announcements(wizard, monkeypatch):
         "Windows-Anmeldeinformationsverwaltung (empfohlen)",
         "Verschlüsselte Tresordatei mit Master-Passwort"]
     lines = [dialog.page.text.item(r).text() for r in range(dialog.page.text.count())]
-    assert any(line.startswith("Gesperrt heißt:") for line in lines)
+    assert any(line.startswith("Gesperrt heißt bei der Tresordatei:") for line in lines)
 
 
 def test_wizard_full_run_with_windows_vault(wizard, projects_root):
     dialog, services = wizard()
     dialog.next()                                            # Willkommen
-    dialog.next()                                            # Git
-    dialog.next()                                            # Tresor: Windows
+    dialog.next()                                            # Zugangsdaten: Windows
     assert services.settings.load().vault_kind == "windows"
-    dialog.skip()                                            # GitHub-Konto
-    dialog.next()                                            # Hauptordner
-    identity = dialog.page
-    identity.form.fields["git_name"].set("1013hPascal")
-    identity.form.fields["git_email"].set("94653295+1013hPascal@users.noreply.github.com")
+    dialog.next()                                            # Git
+    dialog.skip()                                            # Code-Plattformen wählen
+    assert dialog.page.title == "Projekte-Hauptordner"       # Einrichten entfällt
     dialog.next()
     assert dialog.page.title == "KI"
     dialog.skip()
     summary = [dialog.page.list.item(r).text() for r in range(dialog.page.list.count())]
-    assert "Eingerichtet: Tresor: Windows-Anmeldeinformationsverwaltung." in summary
-    assert any(s.startswith("Eingerichtet: Git-Identität: 1013hPascal") for s in summary)
+    assert "Eingerichtet: Zugangsdaten: Windows-Anmeldeinformationsverwaltung." in summary
     assert dialog.next_button.text() == "&Fertig"
     dialog.next()
     assert dialog.result() == QDialog.DialogCode.Accepted
@@ -168,19 +162,19 @@ def test_wizard_skip_is_listed_in_summary(wizard):
     dialog, services = wizard()
     for _ in range(3):
         dialog.next()
-    dialog.skip()                                            # GitHub-Konto
+    dialog.skip()                                            # Code-Plattformen wählen
     dialog.skip()                                            # Hauptordner
-    dialog.skip()                                            # Git-Identität
     dialog.skip()                                            # KI
     summary = [dialog.page.list.item(r).text() for r in range(dialog.page.list.count())]
-    assert "Übersprungen: Git-Identität. Nachholen: Menü Einstellungen, Grundeinstellungen." \
-        in summary
+    assert "Übersprungen: Code-Plattformen einrichten. Nachholen: Menü Konten, " \
+        "Kontenverwaltung." in summary
+    assert "Übersprungen: Projekte-Hauptordner. Nachholen: Menü Einstellungen, " \
+        "Grundeinstellungen." in summary
 
 
 def test_wizard_with_vault_file(wizard, monkeypatch, home):
     monkeypatch.setattr(vault_ui, "NewPasswordDialog", FakeNewPassword)
     dialog, services = wizard()
-    dialog.next()
     dialog.next()
     dialog.page.choice.setCurrentRow(1)
     dialog.next()
@@ -196,24 +190,10 @@ def test_wizard_cancelled_vault_password_stays_on_page(wizard, monkeypatch):
     monkeypatch.setattr(vault_ui, "NewPasswordDialog", Cancelled)
     dialog, services = wizard()
     dialog.next()
-    dialog.next()
     dialog.page.choice.setCurrentRow(1)
     dialog.next()
-    assert dialog.page.title == "Tresor"
+    assert dialog.page.title == "Zugangsdaten schützen"
     assert services.settings.load().vault_kind == ""
-
-
-def test_wizard_identity_needs_both_or_skip(wizard, monkeypatch):
-    shown = errors_to(monkeypatch, sw)
-    dialog, _ = wizard()
-    for _ in range(3):
-        dialog.next()
-    dialog.skip()                                            # GitHub-Konto
-    dialog.next()                                            # Hauptordner
-    dialog.page.form.fields["git_name"].set("Nur Name")
-    dialog.next()
-    assert dialog.page.title == "Git-Identität"
-    assert "Bitte Name und E-Mail-Adresse" in shown[0]
 
 
 def test_wizard_cancel_asks_first(wizard, monkeypatch):
@@ -230,6 +210,8 @@ def test_wizard_missing_git_offers_guide(wizard, monkeypatch):
     monkeypatch.setattr(sw.git, "find_git", lambda: None)
     dialog, _ = wizard()
     dialog.next()
+    dialog.next()
+    assert dialog.page.title == "Git"
     lines = [dialog.page.state.item(r).text() for r in range(dialog.page.state.count())]
     assert lines[0] == "Git wurde nicht gefunden."
     assert dialog.page.guide_button.isVisible() and dialog.page.check_button.isVisible()

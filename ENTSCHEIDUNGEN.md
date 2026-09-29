@@ -839,3 +839,19 @@ Wunsch des Nutzers: Phase 14 vor den Phasen 11 bis 13, weil danach alle Grundfun
 - Exe in der Cloud bauen kommt später, zusammen mit dem Signieren (Antwort 7).
 - Der Zugang bittet schon seit Phase 4 um das Recht workflow. Fehlt es, meldet GitHub das beim ersten Versuch.
 - Version 1.5.0.
+
+
+## 29.09.2026: Einrichtungsassistent überarbeitet
+
+Wunsch des Nutzers, gebaut im Branch einrichtungsphase. Checkliste in checklisten\einrichtung.md.
+
+- Knöpfe überall erst nach vorn, dann zurück: „Weiter“, „Überspringen“, „Zurück“, dann „Abbrechen“. Auf der Zusammenfassung „Fertig“, „Zurück“. „Zurück“ ist auf der ersten Seite ausgeblendet statt gesperrt.
+- Neue Reihenfolge der Seiten: Willkommen, Zugangsdaten schützen, Git, Code-Plattformen wählen, Code-Plattformen einrichten, Projekte-Hauptordner, KI, Zusammenfassung.
+- Willkommen: oben der Knopf „Kurze Einführung anschauen“, darunter in Stichpunkten, was das Programm bietet.
+- Zwei Erklärvideos liegen im Ordner erklärvideos und kommen mit in die Exe (CodeCockpit.spec). Der Nutzer hat sie mit Google NotebookLM erstellt. Das Cockpit öffnet sie mit dem Videoprogramm von Windows. Die Videos machen das Repository und die Exe etwa 25 MB größer.
+- Die Seite „Tresor“ heißt jetzt „Zugangsdaten schützen“. Sie erklärt zuerst, wofür Zugangsdaten gebraucht werden und warum sie geschützt werden. Die Windows-Anmeldeinformationsverwaltung ist die empfohlene Möglichkeit, die Tresordatei die zweite. Der alte Satz „Zugangsdaten liegen immer verschlüsselt im Tresor“ klang, als sei die Tresordatei Pflicht.
+- Code-Plattformen: Auf einer Seite wählt man die Git-Systeme mit Kontrollkästchen, auf der nächsten richtet man sie ein. Die Liste kommt aus den Plattform-Adaptern. GitLab und andere erscheinen dort von selbst, sobald es ihre Adapter gibt (Phase 16). Ist keine Plattform gewählt, entfällt die Seite zum Einrichten, und die Schritte werden neu gezählt. Der Knopf heißt „Weiter (1 nicht eingerichtet)“, solange eine gewählte Plattform kein Konto hat. Weiter geht es trotzdem.
+- Die Seite „Git-Identität“ entfällt. Im Konto-Fenster aus dem Assistenten stehen nach der Anmeldung Ergebnis, Anzeigename, Git-Name, Git-E-Mail-Adresse, „Anonyme GitHub-Adresse übernehmen“ und Speichern. Auch der Weg mit Token endet auf dieser Seite. Gespeichert wird erst mit Speichern. Bleiben beide Felder leer, ändert sich die Git-Identität nicht. In der Kontenverwaltung bleibt es beim eigenen Fenster „Git-Identität für Commits“ nach dem Anlegen.
+- Anmeldung im Browser: Die Texte sagen, dass der Code schon in die Zwischenablage kopiert ist und dass man nach dem Bestätigen ganz unten „Autorisieren“ (Authorize) wählt.
+- KI: neuer Text der Seite nach dem Wortlaut des Nutzers. In der KI-Verwaltung steht „Neue Sprach-KI einrichten …“ direkt unter „Neue Text-KI einrichten …“. Der Knopf „Sprach-KI …“ entfällt dafür. Aus dem Assistenten geöffnet heißt der letzte Knopf „KI-Einstellungen speichern“. Die Einstellungen sind wie bisher schon beim Ändern gespeichert.
+- Zusammenfassung: am Ende „Mit Tab gelangen Sie zu den Tipps, zum Video und zu Fertig.“ Danach die Liste „Tipps für den Start“ mit dem Hilfe-Assistenten (KI-Hilfe, Umschalt+F1) und der Knopf „Video Git für Anfänger anschauen“.
