@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from cockpit.core import git, safety_check, upload
+from cockpit.core.actions import Target
 from cockpit.core.flows.engine import FlowContext
 from cockpit.core.flows.questions import ScriptedAsker
 from cockpit.core.projects import read_config
@@ -372,11 +373,11 @@ def test_upload_dialog_checks_name_and_builds_spec(qtbot, monkeypatch):
 def test_download_needs_an_account(live, qtbot, make_services):
     services = make_services()
     win = live(services)
-    win.project_list.setCurrentRow(1)
+    win.project_list.select(Target.ADD_REMOTE, None)
     entries = win.current_entries()
     assert entries[0].label == ("Projekt von GitHub herunterladen …, nicht verfügbar: Es ist "
                                 "noch kein Konto bei einer Plattform eingerichtet.")
-    win.project_list.setCurrentRow(0)
+    win.project_list.select(Target.ADD_LOCAL, None)
     assert [e.label for e in win.current_entries()] == ["Projekt vom Rechner hinzufügen …"]
 
 
@@ -425,6 +426,7 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
     monkeypatch.setattr(upload_flow, "confirm", lambda p, t, text, **k: questions.append(text)
                         or True)
     monkeypatch.setattr(upload_flow, "show_info", lambda p, t, text: infos.append(text))
+    win.project_list.select(Target.ADD_LOCAL, None)
     win.run_entry(win.current_entries()[0])                    # Projekt vom Rechner hinzufügen
     qtbot.waitUntil(lambda: bool(infos) or bool(errors), timeout=20000)
     assert errors == []
@@ -482,7 +484,7 @@ def test_download_from_list_with_organizations(live, qtbot, account, projects_ro
     shown = []
     monkeypatch.setattr(project_actions, "choose_from_list",
                         lambda parent, title, name, items, current=0: shown.append(items) or 1)
-    win.project_list.setCurrentRow(1)
+    win.project_list.select(Target.ADD_REMOTE, None)
     win.run_entry(win.current_entries()[0])
     qtbot.waitUntil(lambda: said("Vereinsseite heruntergeladen."), timeout=15000)
     assert shown[0] == ["Adresse eingeben …",

@@ -54,6 +54,7 @@ Inhalt:
 - [ ] Phase 12: E-Mail-Konten, Test-E-Mail, Features E-Mail-Benachrichtigungen und Wochenbericht
 - [ ] Phase 13: Features Antwortentwürfe, Abhängigkeiten-Wächter, Erinnerung
 - [ ] Phase 14: Feature Releases mit GitHub Actions (vorgezogen vor 11 bis 13, gebaut am 29.09.2026)
+- [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
 - [ ] Phase 17: Sicherung und Wiederherstellung, Export und Import von Einstellungen, Signieren der Exe, Prüfung aller Feature-Einführungen, Feinschliff

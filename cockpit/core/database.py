@@ -95,6 +95,17 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (repo, number)
     );
     """,
+    # Projektsammlungen: Ein Projekt steht in höchstens einer Sammlung (Primärschlüssel)
+    """
+    CREATE TABLE collections (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    );
+    CREATE TABLE collection_members (
+        project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+        collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE
+    );
+    """,
 ]
 
 
