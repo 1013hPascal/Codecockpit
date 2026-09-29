@@ -36,6 +36,7 @@ class ProjectStatus:
     pending: int = 0                         # Dateien noch nicht hochgeladen
     venv: VenvState = field(default_factory=lambda: VenvState(False))
     open_pulls: int = 0                      # offene Pull Requests aus dem aktuellen Branch
+    actions_failed: bool = False             # letzter Lauf der GitHub Actions fehlgeschlagen (14)
     error: str = ""
     # Branch-Ordner (Phase 10f), jeder mit eigenem Stand, sortiert nach Ordnername
     worktrees: list[tuple["Worktree", "ProjectStatus"]] = field(default_factory=list)
@@ -131,6 +132,8 @@ def project_line(project: Project, status: ProjectStatus | None,
                          f"{platform_name} noch nicht geholt")
     if status is not None and status.venv.broken:
         parts.append("virtuelle Umgebung muss neu angelegt werden")
+    if status is not None and status.actions_failed:
+        parts.append("GitHub Actions fehlgeschlagen")
     return ", ".join(parts)
 
 

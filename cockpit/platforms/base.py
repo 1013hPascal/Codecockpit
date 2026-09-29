@@ -348,6 +348,7 @@ class ReleaseAsset:
     id: int
     name: str
     size: int                                # Bytes
+    downloads: int = 0                       # so oft heruntergeladen (Phase 14)
 
 
 @dataclass(frozen=True)
@@ -359,6 +360,11 @@ class Release:
     published: str                           # ISO-Datum
     assets: tuple[ReleaseAsset, ...] = ()
     upload_url: str = ""                     # nur für upload_asset
+    body: str = ""                           # Versionshinweise (Phase 14)
+
+    @property
+    def downloads(self) -> int:
+        return sum(a.downloads for a in self.assets)
 
 
 class SupportsReleases:
@@ -376,6 +382,65 @@ class SupportsReleases:
 
     def download_asset(self, repo: RepoRef, asset: ReleaseAsset, target: Path,
                        cancel=None) -> None:
+        raise NotImplementedError
+
+    def update_release_notes(self, repo: RepoRef, release: Release, body: str) -> Release:
+        """Versionshinweise ändern (Phase 14)."""
+        raise NotImplementedError
+
+    def delete_release(self, repo: RepoRef, release: Release) -> None:
+        """Release löschen. Das Tag im Repository bleibt (Frage 3 zu Phase 14)."""
+        raise NotImplementedError
+
+
+# -- GitHub Actions (Phase 14, Konzept 15, Punkt 14) ------------------------------------------------
+@dataclass(frozen=True)
+class WorkflowRun:
+    id: int
+    workflow: str                            # Name des Workflows, zum Beispiel "Tests"
+    status: str                              # "queued", "in_progress", "completed"
+    conclusion: str                          # "success", "failure", "cancelled", ... oder ""
+    branch: str
+    created: str                             # ISO
+    title: str                               # meist die Commit-Nachricht
+    url: str
+
+    @property
+    def failed(self) -> bool:
+        return self.conclusion in ("failure", "timed_out", "startup_failure")
+
+    def state_text(self) -> str:
+        if self.status != "completed":
+            return "Wartet" if self.status in ("queued", "waiting", "pending") else "Läuft"
+        return {"success": "Erfolgreich", "failure": "Fehlgeschlagen",
+                "cancelled": "Abgebrochen", "skipped": "Übersprungen",
+                "timed_out": "Zeit überschritten"}.get(self.conclusion, self.conclusion or "Fertig")
+
+
+@dataclass(frozen=True)
+class WorkflowJob:
+    id: int
+    name: str
+    conclusion: str
+    failed_steps: tuple[str, ...] = ()
+
+
+class SupportsActions:
+    def has_workflows(self, repo: RepoRef) -> bool:
+        raise NotImplementedError
+
+    def workflow_runs(self, repo: RepoRef, limit: int = 20) -> list[WorkflowRun]:
+        """Die letzten Läufe, der neueste zuerst."""
+        raise NotImplementedError
+
+    def run_jobs(self, repo: RepoRef, run_id: int) -> list[WorkflowJob]:
+        raise NotImplementedError
+
+    def job_log(self, repo: RepoRef, job_id: int) -> str:
+        raise NotImplementedError
+
+    def rerun(self, repo: RepoRef, run: WorkflowRun) -> None:
+        """Neu starten, bei einem Fehlschlag nur die fehlgeschlagenen Teile."""
         raise NotImplementedError
 
 

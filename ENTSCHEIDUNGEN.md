@@ -823,3 +823,19 @@ Antworten in fragen\phase-09.md: alle Vorschläge angenommen, aber in einem Schr
 - Wunsch des Nutzers: Die README-Aktionen stehen auf der Projektzeile, nicht mehr auf Code: „README erstellen …“, „README ansehen“, „README bearbeiten …“, „README-Sprachen …“.
 - „README bearbeiten …“ zeigt die README als Text zum selbst Bearbeiten. Speichern legt vorher eine Sicherheitskopie an. „Vorschläge der KI …“ startet das abschnittsweise Ergänzen, das vorher „README aktualisieren …“ hieß. Selbst geänderte Abschnitte gelten danach als eigener Text.
 - Wunsch des Nutzers: Wird beim Hochladen eine neue Version gesetzt, prüft das Cockpit die README immer, auch wenn die normale Prüfung ausgeschaltet ist. Zuerst schlägt es den Abschnitt Änderungen mit der neuen Version und den Commits seit der letzten vor, dann macht die KI Vorschläge für andere Abschnitte. Dafür läuft die Prüfung jetzt nach der Frage nach der Version.
+
+
+## 29.09.2026: Phase 14, Releases und GitHub Actions
+
+Wunsch des Nutzers: Phase 14 vor den Phasen 11 bis 13, weil danach alle Grundfunktionen da sind. Antworten in fragen\phase-14.md, alle Vorschläge angenommen.
+
+- Neues Feature „Releases“, für neue Projekte an. Es braucht eine Plattform mit Releases.
+- Nach dem Hochladen einer neuen Version fragt das Cockpit „Für Version … ein Release auf GitHub anlegen?“, Vorgabe „Später“. Mit aktiver Exe-Erstellung und vorhandener Exe geht es weiter wie „Exe veröffentlichen“, sonst ein Release nur mit dem Quellcode, das an das Tag der Version kommt. Sagt der Nutzer „Später“, kommt wie bisher das Angebot eines Pull Requests.
+- Die Versionshinweise schlägt die KI vor wie bei „Exe veröffentlichen“. Das Fenster ist dasselbe.
+- „Releases …“ auf der Projektzeile: Liste mit Version, Datum, Downloads und ob eine Exe dabei ist. Versionshinweise ansehen und bearbeiten, Link kopieren, im Browser öffnen, löschen. Beim Löschen bleibt das Tag.
+- „GitHub Actions …“ auf der Projektzeile, nur wenn im Ordner .github\workflows ein Workflow liegt. Das prüft das Cockpit lokal, ohne GitHub zu fragen. Liste der letzten 20 Läufe, Fehler lesen, neu starten (bei einem Fehlschlag nur die fehlgeschlagenen Teile), im Browser öffnen, aktualisieren.
+- Fehler lesen: die Ausgabe des ersten fehlgeschlagenen Teils, ohne Zeitstempel und Farbcodes, das Ende und davor alle Zeilen mit Fehlern. Die Erklärung der KI kommt wie im Terminal, die KI bekommt nur die Ausgabe.
+- Hinweis „GitHub Actions fehlgeschlagen“ in der Projektzeile. Der letzte Lauf wird mit den Repositories und Pull Requests abgefragt und in der Datenbank gemerkt.
+- Exe in der Cloud bauen kommt später, zusammen mit dem Signieren (Antwort 7).
+- Der Zugang bittet schon seit Phase 4 um das Recht workflow. Fehlt es, meldet GitHub das beim ersten Versuch.
+- Version 1.5.0.
