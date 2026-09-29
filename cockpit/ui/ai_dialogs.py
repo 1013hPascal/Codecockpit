@@ -63,6 +63,19 @@ def recommendation_line(ram_gb: float | None) -> str:
             "eine KI im Firmennetz.")
 
 
+def speech_recommendation_line(ram_gb: float | None) -> str:
+    """Empfehlung für die Sprach-KI (Whisper), wie für die Text-KI (Wunsch des Nutzers)."""
+    tier = model_tiers.recommended(model_tiers.SPEECH_TIERS, ram_gb)
+    if tier is not None:
+        return (f"Empfehlung für Sprach-KI mit Whisper: {tier.model}, ab {tier.min_ram_gb} GB "
+                f"Arbeitsspeicher, {tier.size}.")
+    if ram_gb is None:
+        return "Empfehlung für Sprach-KI: nicht möglich, weil der Arbeitsspeicher unbekannt ist."
+    smallest = model_tiers.SPEECH_TIERS[0]
+    return (f"Für die Sprach-KI ist der Arbeitsspeicher knapp. Am ehesten geht {smallest.model}, "
+            f"{smallest.size}.")
+
+
 class AIManagerDialog(FocusDialog):
     def __init__(self, services, parent: QWidget | None = None, for_setup: bool = False) -> None:
         super().__init__(parent)
@@ -192,7 +205,8 @@ class AIManagerDialog(FocusDialog):
     def info_loaded(self, outcome) -> None:
         machine, ollama_state, installed = outcome
         self.ollama_installed = installed
-        lines = machine.lines() + [recommendation_line(machine.ram_gb), ollama_state]
+        lines = machine.lines() + [recommendation_line(machine.ram_gb),
+                                   speech_recommendation_line(machine.ram_gb), ollama_state]
         self.show_info_lines(lines)
         self.install_button.setVisible(not installed)
 

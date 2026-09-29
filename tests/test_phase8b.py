@@ -262,11 +262,12 @@ def test_memory_is_read_from_windows():
 
 def test_machine_lines():
     assert hardware.Machine(31.7, "Ryzen", ["Radeon"]).lines() == [
-        "Arbeitsspeicher: 31,7 GB", "Prozessor: Ryzen", "Grafikkarte: Radeon"]
+        "Arbeitsspeicher Ihres Computers: 31,7 GB", "Prozessor: Ryzen", "Grafikkarte: Radeon"]
     lines = hardware.Machine(None).lines()
-    assert lines[0].startswith("Arbeitsspeicher: nicht erkannt. Den Arbeitsspeicher finden Sie")
+    assert lines[0].startswith("Arbeitsspeicher Ihres Computers: nicht erkannt. Den "
+                               "Arbeitsspeicher finden Sie")
     assert hardware.Machine(32.0, manual=True).lines()[0] == \
-        "Arbeitsspeicher: 32 GB, von Ihnen eingegeben"
+        "Arbeitsspeicher Ihres Computers: 32 GB, von Ihnen eingegeben"
 
 
 def test_manual_memory_wins(monkeypatch):
@@ -435,8 +436,9 @@ def test_manager_shows_machine_and_recommendation(qtbot, make_services, quiet_ma
     assert dialog.list.accessibleName() == "Text-KI und Sprach-KI"
     assert rows(dialog.list) == [ai_dialogs.NEW_TOOL, ai_dialogs.NEW_SPEECH]
     assert rows(dialog.info) == [
-        "Arbeitsspeicher: 32 GB", "Prozessor: Test-CPU", "Grafikkarte: Test-GPU",
+        "Arbeitsspeicher Ihres Computers: 32 GB", "Prozessor: Test-CPU", "Grafikkarte: Test-GPU",
         "Empfehlung für Text-KI mit Ollama: gemma4:12b, ab 32 GB Arbeitsspeicher, etwa 8 GB.",
+        "Empfehlung für Sprach-KI mit Whisper: medium, ab 32 GB Arbeitsspeicher, etwa 1,5 GB.",
         "Ollama läuft."]
     for button in (dialog.model_button, dialog.default_button, dialog.test_button,
                    dialog.remove_button):
@@ -496,7 +498,7 @@ def test_manual_memory(qtbot, make_services, quiet_machine, monkeypatch):
     monkeypatch.setattr(ai_dialogs, "RamDialog", FakeRam)
     dialog.enter_ram()
     qtbot.waitUntil(lambda: dialog.task is None, timeout=10000)
-    assert rows(dialog.info)[0] == "Arbeitsspeicher: 16 GB, von Ihnen eingegeben"
+    assert rows(dialog.info)[0] == "Arbeitsspeicher Ihres Computers: 16 GB, von Ihnen eingegeben"
     assert "gemma4:e4b" in rows(dialog.info)[3]
     assert ai_dialogs.current_ram(services) == 16
 
@@ -591,8 +593,9 @@ def test_wizard_page_ai(qtbot, make_services, quiet_machine):
     lines = rows(page.text)
     assert lines[0].startswith("Um Ihren Alltag zu vereinfachen, gibt es mehrere KI-Features.")
     assert lines[1] == "Es ist noch keine KI eingerichtet."
-    assert lines[2] == "Arbeitsspeicher: 32 GB"
+    assert lines[2] == "Arbeitsspeicher Ihres Computers: 32 GB"
     assert lines[3].startswith("Empfehlung für Text-KI mit Ollama: gemma4:12b")
+    assert lines[4].startswith("Empfehlung für Sprach-KI mit Whisper: medium")
     assert page.done_text == ""
     services.ai_tools.add(TEXT, OLLAMA, "gemma4:12b")
     page.on_show()

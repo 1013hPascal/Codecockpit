@@ -20,19 +20,19 @@ Ergebnis:
 
 ## Willkommen
 
-[ ] 3. Knopf für das Video
-Tasten: Den Assistenten öffnen.
-Ansage: „Kurze Einführung anschauen, Schalter“.
-Fokus: Auf dem Knopf, oben auf der Seite.
+[ ] 3. Was Sie erwartet
+Tasten: Den Assistenten öffnen, mit Pfeil runter lesen.
+Ansage: „Willkommen bei CodeCockpit.“, „In diesem Programm erwartet Sie:“, dann kurze Stichpunkte. Die ersten beiden: „Die wichtigsten Aktionen für Ihre Code-Projekte, ganz ohne Terminal“ und „Volle Funktionalität mit integriertem Terminal und intelligenter Unterstützung“. Die letzte Zeile: „Videos: erstellt mit Google NotebookLM“.
+Fokus: Im Text.
 Ergebnis:
 
-[ ] 4. Was Sie erwartet
-Tasten: Tab, dann mit Pfeil runter lesen.
-Ansage: „Willkommen bei CodeCockpit.“, „In diesem Programm erwartet Sie:“, dann kurze Stichpunkte, zum Beispiel „Hochladen und Herunterladen mit GitHub“. Eine Zeile nennt Google NotebookLM als Quelle des Videos.
+[ ] 4. Knopf für das Video
+Tasten: Tab, noch einmal Tab.
+Ansage: Zuerst „Kurze Einführung anschauen, Schalter“, dann „Weiter“.
 Ergebnis:
 
 [ ] 5. Video abspielen
-Tasten: Umschalt+Tab zum Knopf, Enter.
+Tasten: Auf „Kurze Einführung anschauen“ Enter.
 Ansage: „Das Video wird geöffnet.“ Ihr Videoprogramm startet das Video „Code-Projekte barrierefrei und mit KI verwalten“.
 Ergebnis:
 
@@ -76,7 +76,7 @@ Ergebnis:
 
 [ ] 12. GitHub einrichten
 Tasten: Enter auf GitHub.
-Ansage: Das Fenster „Neues Konto: GitHub“. Die Erklärung sagt jetzt, dass der Code schon in die Zwischenablage kopiert ist und dass Sie nach dem Bestätigen ganz unten „Autorisieren“ wählen.
+Ansage: Das Fenster „Neues Konto: GitHub“. Beim Lesen mit Pfeil runter kommen nach „Im Browser anmelden, empfohlen. So geht es:“ drei Schritte: „1. Im Browser mit GitHub anmelden.“, „2. Bei der Code-Verifizierung den Code mit Strg+V einfügen. Er liegt schon in der Zwischenablage.“ und „3. Ganz unten auf Autorisieren klicken, auf Englisch Authorize.“
 Ergebnis:
 
 [ ] 13. Anmeldung im Browser
@@ -111,12 +111,12 @@ Ergebnis:
 
 [ ] 18. Text der Seite KI
 Tasten: Weiter bis zur Seite KI, mit Pfeil runter lesen.
-Ansage: Zuerst „Um Ihren Alltag zu vereinfachen, gibt es mehrere KI-Features …“. Danach der Stand, der Rechner und die Empfehlung, dann lokale KI, externe KI oder Firmen-KI, ohne KI, und „Die KI können Sie auch später noch einrichten und anpassen.“
+Ansage: Zuerst „Um Ihren Alltag zu vereinfachen, gibt es mehrere KI-Features …“. Danach der Stand, „Arbeitsspeicher Ihres Computers: …“, die Empfehlung für die Text-KI und darunter die Empfehlung für die Sprach-KI, dann lokale KI, externe KI oder Firmen-KI, ohne KI, und „Die KI können Sie auch später noch einrichten und anpassen.“
 Ergebnis:
 
 [ ] 19. KI einrichten
 Tasten: Tab zu „KI einrichten …“, Enter.
-Ansage: Fenster „KI-Verwaltung“. In der Liste „Text-KI und Sprach-KI“ stehen „Neue Text-KI einrichten …“ und direkt darunter „Neue Sprach-KI einrichten …“.
+Ansage: Fenster „KI-Verwaltung“. In der Liste „Text-KI und Sprach-KI“ stehen „Neue Text-KI einrichten …“ und direkt darunter „Neue Sprach-KI einrichten …“. Mit Tab kommt „Rechner und Empfehlung“ mit „Arbeitsspeicher Ihres Computers: …“ und beiden Empfehlungen.
 Ergebnis:
 
 [ ] 20. Sprach-KI
@@ -134,7 +134,7 @@ Ergebnis:
 
 [ ] 22. Liste
 Tasten: Weiter bis zur Zusammenfassung, mit Pfeil runter lesen.
-Ansage: Was eingerichtet oder übersprungen ist, zum Beispiel „Eingerichtet: GitHub-Konto: … Git-Identität: …“. Die letzte Zeile: „Mit Tab gelangen Sie zu den Tipps, zum Video und zu Fertig.“
+Ansage: Zuerst „Perfekt, Sie haben folgende Tools eingerichtet:“. Dann, was eingerichtet oder übersprungen ist, zum Beispiel „Eingerichtet: GitHub-Konto: … Git-Identität: …“. Die letzte Zeile: „Mit Tab gelangen Sie zu den Tipps, zum Video und zu Fertig.“
 Ergebnis:
 
 [ ] 23. Tipps

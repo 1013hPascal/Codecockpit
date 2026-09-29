@@ -33,16 +33,19 @@ from cockpit.ui.tasks import Task
 from cockpit.ui.text_dialog import TextDialog
 
 FEATURES = [
-    "Code-Projekte verwalten, ganz ohne Terminal",
+    "Die wichtigsten Aktionen für Ihre Code-Projekte, ganz ohne Terminal",
+    "Volle Funktionalität mit integriertem Terminal und intelligenter Unterstützung",
     "Hochladen und Herunterladen mit GitHub",
     "Branches, Pull Requests und Zusammenführen",
     "Versionen, Releases und Exe-Dateien",
     "README in mehreren Sprachen",
-    "Terminal mit Erklärung von Fehlern",
     "Spracheingabe",
     "KI-Hilfe bei Fragen zur Bedienung",
     "Alles per Tastatur, gemacht für Screenreader und Braillezeile",
 ]
+
+
+VIDEO_CREDIT = "Videos: erstellt mit Google NotebookLM"
 
 
 def _lines(name: str, lines: list[str]) -> QListWidget:
@@ -104,9 +107,7 @@ class WelcomePage(Page):
 
     def __init__(self, wizard) -> None:
         super().__init__(wizard)
-        # Wunsch des Nutzers: oben ein Knopf für das Einführungsvideo
-        self.video_button = QPushButton("Kurze &Einführung anschauen")
-        self.video_button.clicked.connect(self.show_video)
+        # Wunsch des Nutzers: erst der Text, mit Tab der Knopf für das Video, dann Weiter
         self.text = _lines("Willkommen", [
             f"Willkommen bei {APP_NAME}.",
             "In diesem Programm erwartet Sie:",
@@ -114,17 +115,20 @@ class WelcomePage(Page):
             "Dieser Assistent richtet das Wichtigste dafür ein.",
             "Nur der Schutz Ihrer Zugangsdaten ist Pflicht. Alles andere können Sie überspringen "
             "und später über die Menüs ändern.",
-            "Die kurze Einführung oben ist ein Video. Es wurde mit Google NotebookLM erstellt.",
+            "Mit Tab kommen Sie zur kurzen Einführung als Video.",
+            VIDEO_CREDIT,
         ])
-        self.layout_.addLayout(_button_row(self.video_button))
+        self.video_button = QPushButton("Kurze &Einführung anschauen")
+        self.video_button.clicked.connect(self.show_video)
         self.layout_.addWidget(self.text)
+        self.layout_.addLayout(_button_row(self.video_button))
 
     def show_video(self) -> None:
         videos.open_video(self.wizard, videos.INTRO, "Kurze Einführung")
         self.video_button.setFocus()
 
     def first_focus(self):
-        return self.video_button
+        return self.text
 
 
 class VaultPage(Page):
@@ -427,12 +431,15 @@ class AIPage(Page):
     def check(self) -> None:
         from cockpit.ai import ollama
         from cockpit.core import hardware
-        from cockpit.ui.ai_dialogs import manual_ram, recommendation_line
+        from cockpit.ui.ai_dialogs import (manual_ram, recommendation_line,
+                                           speech_recommendation_line)
         manual = manual_ram(self.services)
 
         def work(task):
             machine = hardware.detect(manual)
-            return machine.lines()[:1] + [recommendation_line(machine.ram_gb), ollama.state()]
+            return machine.lines()[:1] + [recommendation_line(machine.ram_gb),
+                                          speech_recommendation_line(machine.ram_gb),
+                                          ollama.state()]
 
         self.task = Task(work, self)
         self.task.result.connect(self.show_lines)
@@ -466,6 +473,7 @@ TIPS = [
     "Brauchen Sie noch eine kleine Auffrischung für einen gelungenen Umgang mit "
     "Code-Plattformen? Dann schauen Sie sich das Video Git für Anfänger an. Mit Tab kommen Sie "
     "zum Knopf.",
+    VIDEO_CREDIT,
 ]
 
 
@@ -490,7 +498,7 @@ class SummaryPage(Page):
         return "&Fertig"
 
     def on_show(self) -> None:
-        lines = []
+        lines = ["Perfekt, Sie haben folgende Tools eingerichtet:"]
         for page in self.wizard.pages:
             if not page.in_summary:
                 continue

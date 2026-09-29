@@ -68,6 +68,14 @@ def go_to(dialog, title: str) -> None:
         dialog.skip() if dialog.page.can_skip else dialog.next()
 
 
+def next_focus(widget):
+    """Das nächste Steuerelement, das Tab erreicht."""
+    widget = widget.nextInFocusChain()
+    while not widget.isVisible() or widget.focusPolicy() == Qt.FocusPolicy.NoFocus:
+        widget = widget.nextInFocusChain()
+    return widget
+
+
 def texts(listing) -> list[str]:
     return [listing.item(r).text() for r in range(listing.count())]
 
@@ -102,12 +110,15 @@ def test_summary_has_finish_then_back(wizard):
 def test_welcome_lists_features_and_offers_the_video(wizard, opened):
     dialog, _ = wizard
     page = dialog.page
-    assert dialog.focusWidget() is page.video_button          # oben der Knopf
+    assert dialog.focusWidget() is page.text                  # zuerst der Text
     assert page.video_button.text() == "Kurze &Einführung anschauen"
+    assert next_focus(page.text) is page.video_button         # Tab: Video, dann Weiter
+    assert next_focus(page.video_button) is dialog.next_button
     lines = texts(page.text)
     assert lines[1] == "In diesem Programm erwartet Sie:"
     assert lines[2:2 + len(sw.FEATURES)] == sw.FEATURES
-    assert any("Google NotebookLM" in line for line in lines)
+    assert sw.FEATURES[0] == "Die wichtigsten Aktionen für Ihre Code-Projekte, ganz ohne Terminal"
+    assert lines[-1] == "Videos: erstellt mit Google NotebookLM"
     page.video_button.click()
     assert opened == [paths.resource_dir() / "erklärvideos" / videos.INTRO]
     assert said("Das Video wird geöffnet.")
@@ -293,9 +304,13 @@ def test_token_page_buttons_forward_first(qtbot, make_services, monkeypatch):
 
 
 def test_login_texts_mention_clipboard_and_authorize():
-    lines = " ".join(GitHubPlatform.account_explanation(True))
-    assert "schon in die Zwischenablage kopiert" in lines
-    assert "ganz unten auf der Seite Autorisieren" in lines
+    lines = GitHubPlatform.account_explanation(True)
+    assert lines[2:6] == [
+        "Im Browser anmelden, empfohlen. So geht es:",
+        "1. Im Browser mit GitHub anmelden.",
+        "2. Bei der Code-Verifizierung den Code mit Strg+V einfügen. Er liegt schon in der "
+        "Zwischenablage.",
+        "3. Ganz unten auf Autorisieren klicken, auf Englisch Authorize."]
 
 
 def test_browser_dialog_names_authorize(qtbot, monkeypatch):
@@ -352,6 +367,7 @@ def test_summary_with_tips_and_video(wizard, opened):
     go_to(dialog, "Zusammenfassung")
     page = dialog.page
     lines = texts(page.list)
+    assert lines[0] == "Perfekt, Sie haben folgende Tools eingerichtet:"
     assert lines[-1] == "Mit Tab gelangen Sie zu den Tipps, zum Video und zu Fertig."
     tips = texts(page.tips)
     assert tips[0] == "Für einen perfekten Start hier noch ein paar Tipps."
