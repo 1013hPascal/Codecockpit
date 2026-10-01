@@ -664,12 +664,13 @@ def discard(result: BuildResult) -> None:
 
 def build(project: Project, settings: BuildSettings, on_status: Callable[[str], None],
           on_line: Callable[[str], None], cancel: threading.Event | None = None,
-          branch_dir: Path | None = None) -> BuildResult:
+          branch_dir: Path | None = None, branch_name: str = "") -> BuildResult:
     """Der ganze Ablauf, blockiert. on_status bekommt "Schritt 1 von 4: …".
     branch_dir: aus diesem Branch-Ordner bauen (Phase 10f). Die Exe heißt dann
-    <Name>_branch_<Ordner>.exe und kommt neben die normale."""
+    <Name>_branch_<Ordner>.exe und kommt neben die normale. branch_name ersetzt den Ordner im
+    Namen, zum Beispiel wenn der Ordner Code selbst auf dem Branch steht."""
     code_dir = branch_dir or project.code_dir
-    folder = branch_dir.name if branch_dir is not None else ""
+    folder = (branch_name or branch_dir.name) if branch_dir is not None else ""
 
     def step(number: int) -> None:
         on_status(f"Schritt {number} von {len(STEPS)}: {STEPS[number - 1]}")

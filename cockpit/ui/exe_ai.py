@@ -26,7 +26,7 @@ from cockpit.core.actions import ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.text import count
 from cockpit.core.projects import Project
-from cockpit.features.exe_build import ai_fix, setup_check
+from cockpit.features.exe_build import ai_fix, exe_branch, setup_check
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, PlainEdit, confirm, label_for, name_widget, show_info
 from cockpit.ui.error_dialog import show_error
@@ -231,7 +231,7 @@ class ProposalDialog(FocusDialog):
 
 class ExeAIFlow:
     def __init__(self, actions: "ExeActions", project: Project,
-                 on_finished: Callable[[list[str]], None] | None = None) -> None:
+                 on_finished: Callable[..., None] | None = None) -> None:
         self.on_finished = on_finished
         self.actions = actions
         self.window = actions.window
@@ -293,24 +293,43 @@ class ExeAIFlow:
             if self.on_finished is not None:
                 self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
-        if not confirm(self.window, TITLE, "Die passenden Änderungen werden übernommen. Die "
-                       "betroffenen Dateien kommen vorher in die Sicherheitskopien. Übernehmen?",
-                       yes="Übernehmen", no="Abbrechen"):
+        # Wunsch des Nutzers (01.10.2026): nie direkt in main, sondern im Branch Cockpit-exe-bauen
+        text = (f"{exe_branch.where_text(self.project)} Die betroffenen Dateien kommen vorher in "
+                "die Sicherheitskopien. Danach wird die Exe aus dem Branch gebaut und getestet. "
+                "Erst dann entscheiden Sie, ob die Änderungen in main kommen. Übernehmen?")
+        if not confirm(self.window, TITLE, text, yes="Übernehmen", no="Abbrechen"):
             if self.on_finished is not None:
                 self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
-        try:
-            ai_fix.apply(self.project.name, self.project.code_dir, proposal)
-        except (CockpitError, OSError) as exc:
-            show_error(self.window, TITLE, getattr(exc, "message", str(exc)))
-            return
-        self.window.refresh_status([self.project.id])
-        announce("Änderungen übernommen.")
-        if self.on_finished is not None:
-            self.on_finished(["Änderungen übernommen. Die betroffenen Dateien liegen in den "
-                              "Sicherheitskopien."] + [c.line() for c in proposal.usable])
-            return
-        if confirm(self.window, TITLE, "Soll die Exe jetzt gebaut und getestet werden?",
-                   yes="Bauen und testen", no="Später"):
-            context = ActionContext(self.services, self.project, Target.EXE)
-            self.actions.build(context)
+        self.apply_in_branch(proposal)
+
+    def apply_in_branch(self, proposal: ai_fix.Proposal) -> None:
+        """Branch vorbereiten, Änderungen dort übernehmen und committen, im Hintergrund."""
+        project = self.project
+        files = [c.file for c in proposal.usable] + ["cockpit.toml"]
+        if proposal.settings is not None:
+            files.append(proposal.settings.spec_name)
+
+        def work(task: Task):
+            folder = exe_branch.prepare(project)
+            ai_fix.apply(project.name, folder, proposal)
+            exe_branch.commit(folder, files)
+            return folder
+
+        def done(folder) -> None:
+            self.window.reload_projects(refresh=False)
+            self.window.refresh_status([project.id])
+            announce(f"Änderungen im Branch {exe_branch.BRANCH} übernommen.")
+            lines = ([f"Änderungen im Branch {exe_branch.BRANCH} übernommen, Ordner {folder}. "
+                      "Main ist unverändert."]
+                     + [c.line() for c in proposal.usable]
+                     + ["Mit „Exe erstellen“ baut das Cockpit die Exe aus diesem Branch und "
+                        "testet sie. Sie kommt als eigene Datei neben die normale Exe."])
+            if self.on_finished is not None:
+                self.on_finished(lines, folder)
+                return
+            context = ActionContext(self.services, project, Target.EXE)
+            self.actions.offer_build(context, lines, folder)
+
+        announce(f"Branch {exe_branch.BRANCH} wird vorbereitet.")
+        self.actions.controller.run_task(f"exe:{project.id}", work, done, TITLE)

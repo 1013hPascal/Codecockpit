@@ -506,3 +506,134 @@ def test_work_dialog_reports_errors(qtbot):
     dialog = work_dialog(qtbot, work)
     assert not dialog.exec()
     assert dialog.failure == ("Die KI antwortet nicht.", "Zeitüberschreitung")
+
+
+# -- Änderungen der KI im Branch Cockpit-exe-bauen (Wunsch vom 01.10.2026) --------------------
+def change_in(folder, text="neu\n"):
+    (folder / "exe_fix.txt").write_text(text, encoding="utf-8")
+
+
+def test_ai_branch_with_branch_folders(tmp_path, projects_root, make_services):
+    from cockpit.core import branches
+    from cockpit.features.exe_build import exe_branch
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    folder = exe_branch.prepare(project)
+    assert folder != project.code_dir and folder.name == "Cockpit-exe-bauen"
+    assert git.status(folder).branch == "Cockpit-exe-bauen"
+    change_in(folder)
+    (folder / "anderes.txt").write_text("nicht mitnehmen\n", encoding="utf-8")
+    assert exe_branch.commit(folder, ["exe_fix.txt", "cockpit.toml"])
+    assert not (project.code_dir / "exe_fix.txt").exists()       # main bleibt unberührt
+    assert "anderes.txt" in git.run(["status", "--porcelain"], folder).stdout   # nicht committet
+    assert exe_branch.prepare(project) == folder                 # wird weiterbenutzt
+    (folder / "anderes.txt").unlink()
+    outcome = exe_branch.merge_into_main(project)
+    assert outcome.kind.name == "NONE"
+    assert (project.code_dir / "exe_fix.txt").read_text(encoding="utf-8") == "neu\n"
+    exe_branch.delete(project)
+    assert not folder.exists()
+    assert "Cockpit-exe-bauen" not in [b.name for b in branches.list_branches(project.code_dir)
+                                       if b.local]
+
+
+def test_ai_branch_without_branch_folders(tmp_path, projects_root):
+    from cockpit.features.exe_build import exe_branch
+    from cockpit.core.database import Database
+    from cockpit.core.projects import ProjectStore
+    _bare, code, _other = branch_repo(tmp_path, projects_root)
+    project = ProjectStore(Database(tmp_path / "db.sqlite")).add(code.parent)
+    assert exe_branch.prepare(project) == code
+    assert git.status(code).branch == "Cockpit-exe-bauen"
+    change_in(code)
+    assert exe_branch.commit(code, ["exe_fix.txt"])
+    assert not exe_branch.commit(code, ["exe_fix.txt"])            # nichts Neues
+    exe_branch.merge_into_main(project)
+    assert git.status(code).branch == "main"
+    assert (code / "exe_fix.txt").is_file()
+    exe_branch.delete(project)
+
+
+def test_where_text_names_the_branch(tmp_path, projects_root, make_services):
+    from cockpit.features.exe_build import exe_branch
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    text = exe_branch.where_text(project)
+    assert text.startswith("Die Änderungen kommen in den Branch Cockpit-exe-bauen, nicht in main.")
+    assert "eigenen Ordner" in text
+
+
+def test_review_asks_with_branch_text(qtbot, tmp_path, projects_root, make_services,
+                                      monkeypatch):
+    from cockpit.features.exe_build.ai_fix import Change, Proposal
+    from cockpit.ui import exe_ai
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    asked, applied = [], []
+    monkeypatch.setattr(exe_ai, "confirm", lambda parent, title, text, **k: asked.append(text)
+                        or True)
+    monkeypatch.setattr(exe_ai.ProposalDialog, "exec", lambda self: True)
+    monkeypatch.setattr(exe_ai.ExeAIFlow, "apply_in_branch",
+                        lambda self, proposal: applied.append(proposal))
+    flow = exe_ai.ExeAIFlow(win.controller.exe, project, on_finished=lambda *a: None)
+    flow.review(Proposal(changes=[Change("main.py", "Grund", "", "x\n")]))
+    assert "Cockpit-exe-bauen, nicht in main" in asked[0]
+    assert "Erst dann entscheiden Sie" in asked[0]
+    assert len(applied) == 1
+
+
+def test_apply_in_branch_changes_only_the_branch(qtbot, tmp_path, projects_root, make_services):
+    from cockpit.features.exe_build.ai_fix import Change, Proposal
+    from cockpit.ui import exe_ai
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    got = []
+    flow = exe_ai.ExeAIFlow(win.controller.exe, project,
+                            on_finished=lambda lines, folder=None: got.append((lines, folder)))
+    flow.apply_in_branch(Proposal(changes=[Change("exe_fix.txt", "Grund", "", "neu\n")]))
+    qtbot.waitUntil(lambda: bool(got), timeout=10000)
+    lines, folder = got[0]
+    assert folder.name == "Cockpit-exe-bauen" and (folder / "exe_fix.txt").is_file()
+    assert not (project.code_dir / "exe_fix.txt").exists()
+    assert lines[0].startswith("Änderungen im Branch Cockpit-exe-bauen übernommen")
+    assert git.run(["status", "--porcelain"], folder).stdout.strip() == ""   # committet
+
+
+def test_ready_with_branch_builds_from_the_branch(exe_window, monkeypatch, tmp_path):
+    win, project, built, shown = exe_window
+    branch_builds = []
+    monkeypatch.setattr(exe_flow.ExeActions, "build_ai_branch",
+                        lambda self, p, folder: branch_builds.append(folder))
+    context = ActionContext(win.services, project, Target.EXE)
+    win.controller.exe.offer_build(context, ["Änderungen im Branch …"], tmp_path)
+    assert branch_builds == [tmp_path] and built == []
+
+
+@pytest.mark.parametrize("choice, merged, delete", [(0, False, None), (1, True, False),
+                                                    (2, True, True)])
+def test_after_test_offers_three_ways(exe_window, monkeypatch, choice, merged, delete):
+    win, project, _built, _shown = exe_window
+    asked, merges = [], []
+
+    def fake_ask(parent, title, text, buttons, default, escape):
+        asked.append((buttons, default, escape))
+        return choice
+
+    monkeypatch.setattr(exe_flow, "ask_buttons", fake_ask)
+    monkeypatch.setattr(exe_flow.ExeActions, "merge_ai_branch",
+                        lambda self, p, delete: merges.append(delete))
+    win.controller.exe.after_branch_test(project, "Rechner_branch_Cockpit-exe-bauen.exe")
+    assert asked == [([exe_flow.AFTER_TEST_LATER, exe_flow.AFTER_TEST_KEEP,
+                       exe_flow.AFTER_TEST_DELETE], 0, 0)]       # sicher: später
+    assert merges == ([delete] if merged else [])
+
+
+def test_merge_ai_branch_from_the_window(qtbot, tmp_path, projects_root, make_services):
+    from cockpit.features.exe_build import exe_branch
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    folder = exe_branch.prepare(project)
+    change_in(folder)
+    exe_branch.commit(folder, ["exe_fix.txt"])
+    win = window(qtbot, services)
+    win.controller.exe.merge_ai_branch(project, delete=True)
+    assert (project.code_dir / "exe_fix.txt").is_file() and not folder.exists()
+    assert said("Cockpit-exe-bauen ist in main übernommen. Main ist noch nicht hochgeladen. "
+                "Der Branch Cockpit-exe-bauen ist gelöscht.")
