@@ -30,7 +30,7 @@ Die KI ändert nie direkt main. Ihre Änderungen kommen in den Branch „Cockpit
 
 ## Was beim Bauen passiert
 
-1. Das Cockpit legt im Ordner Code eine eigene virtuelle Umgebung an (.venv) und installiert die Bibliotheken aus requirements.txt und PyInstaller. Die .venv wird nie hochgeladen.
+1. Das Cockpit legt eine eigene virtuelle Umgebung zum Bauen an und installiert die Bibliotheken aus requirements.txt und PyInstaller. Sie liegt nicht im Projekt, sondern an einem kurzen Ort unter %LOCALAPPDATA%\CodeCockpit\venvs. So bleiben die Pfade kurz. Ein Branch nutzt die Umgebung von main mit, wenn seine requirements.txt gleich ist.
 2. PyInstaller baut die Exe in einem temporären Ordner. Die Ausgabe steht Zeile für Zeile im Fenster.
 3. Das Cockpit startet die neue Exe zum Test. Läuft sie 10 Sekunden ohne Absturz, ist der Test bestanden.
 4. Erst dann kommt die bisherige Exe in die Sicherheitskopien (Menü Datei, Sicherheitskopien), und die neue ersetzt sie.
@@ -52,3 +52,11 @@ Exe-Dateien ohne digitale Signatur lösen bei anderen oft die Warnung „Der Com
 ## Exe ohne KI einrichten
 
 Diese Einrichtung prüft, ob sich die Exe künftig ohne Handarbeit bauen lässt: ob die .spec-Datei und die Startdatei da sind, ob alle Bibliotheken in requirements.txt stehen, ob die Versionen fest sind und ob die Exe zu groß ist.
+
+## Lange Pfade
+
+Windows erlaubt ohne Zusatzeinstellung nur Pfade bis 260 Zeichen. Einige Bibliotheken wie PySide6 haben sehr tief verschachtelte Dateien. Liegt ein Projekt tief, scheitert dann das Installieren. Das Cockpit bietet in diesem Fall an, lange Pfade einzuschalten. Windows fragt dafür einmal nach Administratorrechten.
+
+Von Hand geht es so: Windows-Taste, „PowerShell“ eingeben, „Als Administrator ausführen“. Dann diesen Befehl eingeben und mit Enter bestätigen:
+
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force

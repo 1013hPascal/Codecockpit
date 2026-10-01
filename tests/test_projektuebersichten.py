@@ -637,3 +637,110 @@ def test_merge_ai_branch_from_the_window(qtbot, tmp_path, projects_root, make_se
     assert (project.code_dir / "exe_fix.txt").is_file() and not folder.exists()
     assert said("Cockpit-exe-bauen ist in main übernommen. Main ist noch nicht hochgeladen. "
                 "Der Branch Cockpit-exe-bauen ist gelöscht.")
+
+
+# -- Kurzer Ort für die Umgebung zum Bauen und lange Pfade (Wunsch vom 01.10.2026) ------------
+def test_build_venv_is_short_and_shared_with_the_branch(tmp_path, projects_root, make_services):
+    from cockpit.core import exe, paths
+    from cockpit.features.exe_build import exe_branch
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    main_venv = exe.build_venv(project)
+    assert main_venv.parent == paths.cache_dir() / "venvs"
+    assert main_venv.name.startswith("Tagebuch-") and len(main_venv.name) <= 30
+    folder = exe_branch.prepare(project)
+    assert exe.build_venv(project, folder) == main_venv          # gleiche requirements.txt
+    (folder / "requirements.txt").write_text("requests==2.32.0\n", encoding="utf-8")
+    own = exe.build_venv(project, folder)
+    assert own != main_venv and own.name.endswith("-b")           # main bleibt sauber
+
+
+def fake_venv(tmp_path):
+    venv = tmp_path / "venv"
+    (venv / "Scripts").mkdir(parents=True)
+    (venv / "Scripts" / "python.exe").write_bytes(b"")
+    return venv
+
+
+def test_prepare_venv_names_long_paths(tmp_path, monkeypatch):
+    from cockpit.core import exe
+    from cockpit.core.errors import CockpitError
+    venv = fake_venv(tmp_path)
+    monkeypatch.setattr(exe, "_works", lambda python: True)
+
+    def pip(args, cwd, on_line=None, cancel=None, env=None):
+        on_line("HINT: This error might have occurred since this system does not have Windows "
+                "Long Path support enabled.")
+        return 1
+
+    monkeypatch.setattr(exe, "run_process", pip)
+    with pytest.raises(CockpitError) as raised:
+        exe.prepare_venv(tmp_path, venv=venv)
+    assert raised.value.message == exe.LONG_PATHS
+
+
+def test_prepare_venv_replaces_a_broken_environment(tmp_path, monkeypatch):
+    from cockpit.core import exe
+    venv = fake_venv(tmp_path)
+    calls = []
+    monkeypatch.setattr(exe, "_works", lambda python: False)
+    monkeypatch.setattr(exe, "find_python", lambda: ["py"])
+
+    def run(args, cwd, on_line=None, cancel=None, env=None):
+        calls.append(args)
+        if "venv" in args:
+            (venv / "Scripts").mkdir(parents=True)
+            (venv / "Scripts" / "python.exe").write_bytes(b"neu")
+        return 0
+
+    monkeypatch.setattr(exe, "run_process", run)
+    python = exe.prepare_venv(tmp_path, venv=venv)
+    assert calls[0] == ["py", "-m", "venv", str(venv)]            # neu angelegt
+    assert python.read_bytes() == b"neu"
+
+
+def test_long_path_hint_is_recognised():
+    from cockpit.core import long_paths
+    assert long_paths.is_long_path_error("... does not have Windows Long Path support enabled")
+    assert not long_paths.is_long_path_error("No matching distribution found")
+    assert isinstance(long_paths.enabled(), bool)
+
+
+def test_build_failure_offers_long_paths(qtbot, monkeypatch):
+    from cockpit.core import exe
+    offered = []
+    monkeypatch.setattr(exe_flow, "offer_long_paths", lambda parent: offered.append(True))
+    dialog = exe_flow.BuildDialog.__new__(exe_flow.BuildDialog)
+    monkeypatch.setattr(exe_flow.BuildDialog, "ended", lambda self, text, urgent=False: None)
+    dialog.output = type("Out", (), {"addItem": lambda self, text: None})()
+    exe_flow.BuildDialog.failed(dialog, exe.LONG_PATHS, "Details")
+    assert offered == [True]
+    exe_flow.BuildDialog.failed(dialog, "Etwas anderes.", "")
+    assert offered == [True]
+
+
+@pytest.mark.parametrize("agree, works, expected", [(False, True, False), (True, True, True),
+                                                    (True, False, False)])
+def test_offer_long_paths(monkeypatch, agree, works, expected):
+    from cockpit.core import long_paths
+    asked, enabled = [], []
+    monkeypatch.setattr(long_paths, "enabled", lambda: False)
+    monkeypatch.setattr(long_paths, "enable", lambda: enabled.append(True) or works)
+    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **k: asked.append(k)
+                        or agree)
+    monkeypatch.setattr(exe_flow, "show_info", lambda *a, **k: None)
+    monkeypatch.setattr(exe_flow, "show_error", lambda *a, **k: None)
+    assert exe_flow.offer_long_paths(None) is expected
+    assert asked == [{"yes": "Einschalten", "no": "Nicht jetzt"}]
+    assert enabled == ([True] if agree else [])
+
+
+def test_setup_check_warns_about_long_paths(projects_root, monkeypatch):
+    from cockpit.core import exe, long_paths
+    from cockpit.features.exe_build import setup_check
+    code, settings = exe_code(projects_root)
+    monkeypatch.setattr(long_paths, "enabled", lambda: False)
+    lines = setup_check.check_for(code, settings)
+    assert any(line.startswith("Warnung: Lange Pfade sind in Windows ausgeschaltet.")
+               for line in lines)
+    monkeypatch.setattr(long_paths, "enabled", lambda: True)
+    assert not any("Lange Pfade" in line for line in setup_check.check_for(code, settings))

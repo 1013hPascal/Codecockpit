@@ -119,6 +119,16 @@ Tasten: Nach dem erfolgreichen Test.
 Ansage: Rückfrage „Exe aus Cockpit-exe-bauen“ mit drei Knöpfen: „Selbst testen, später in main übernehmen“ (Vorgabe, auch mit Escape), „Jetzt in main übernehmen, Branch behalten“, „Jetzt in main übernehmen und Branch löschen“. Bei den beiden letzten: „Cockpit-exe-bauen ist in main übernommen. Main ist noch nicht hochgeladen.“
 Ergebnis:
 
+[ ] 15f. Bau der Vokabel-App aus dem Branch
+Tasten: Bei der Vokabel-App „Exe aus dem Code erstellen …“ bis zum Bau aus dem Branch Cockpit-exe-bauen.
+Ansage: Schritt 1 klappt jetzt. Die Umgebung zum Bauen liegt unter %LOCALAPPDATA%\CodeCockpit\venvs, nicht mehr im Branch-Ordner. Beim ersten Mal dauert Schritt 1 etwas länger.
+Ergebnis:
+
+[ ] 15g. Lange Pfade
+Tasten: Nur wenn ein Bau mit dem Hinweis auf lange Pfade scheitert.
+Ansage: Rückfrage „Lange Pfade einschalten“ mit „Einschalten“ und „Nicht jetzt“ (Vorgabe). Nach „Einschalten“ fragt Windows nach Administratorrechten. Danach: „Lange Pfade sind eingeschaltet. Starten Sie den Bau noch einmal.“ Bei „Exe ohne KI einrichten …“ steht eine Warnung, solange lange Pfade aus sind.
+Ergebnis:
+
 [ ] 16. Exe einlesen
 Tasten: Enter auf „Exe einlesen …“.
 Ansage: Auswahl „Woher kommt die Exe?“ mit „Exe-Datei wählen …“ und „Exe aus einem Release wählen …“. Danach geht es weiter wie bisher bei den beiden alten Einträgen.

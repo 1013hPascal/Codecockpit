@@ -241,6 +241,11 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
                      "zum Ordner Code angeben." if _ABSOLUTE.search(text)
                      else f"{OK}: Keine festen Pfade in {spec.name}.")
 
+    from cockpit.core import long_paths
+    if not long_paths.enabled():
+        lines.append(f"{WARNING}: Lange Pfade sind in Windows ausgeschaltet. Bei Bibliotheken "
+                     "mit tief verschachtelten Dateien wie PySide6 kann das Installieren "
+                     "scheitern. Das Cockpit bietet dann an, sie einzuschalten.")
     required = requirements(code_dir)
     if not (code_dir / "requirements.txt").is_file():
         lines.append(f"{WARNING}: Es gibt keine requirements.txt.")

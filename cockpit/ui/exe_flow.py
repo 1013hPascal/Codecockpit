@@ -127,6 +127,30 @@ class BuildSettingsDialog(FocusDialog):
         self.accept()
 
 
+def offer_long_paths(parent: QWidget) -> bool:
+    """Lange Pfade in Windows einschalten, nach Rückfrage (Wunsch des Nutzers, 01.10.2026).
+    Windows fragt danach selbst nach Administratorrechten."""
+    from cockpit.core import long_paths
+    if long_paths.enabled():
+        return True
+    if not confirm(parent, "Lange Pfade einschalten",
+                   "Windows erlaubt zurzeit nur Pfade bis 260 Zeichen. Einige Bibliotheken haben "
+                   "längere Pfade, deshalb ließen sie sich nicht installieren. Soll das Cockpit "
+                   "lange Pfade in Windows einschalten? Das gilt für den ganzen Rechner und "
+                   "schadet nicht. Windows fragt danach nach Administratorrechten.",
+                   yes="Einschalten", no="Nicht jetzt"):
+        return False
+    if long_paths.enable():
+        announce("Lange Pfade sind eingeschaltet. Starten Sie den Bau noch einmal.")
+        show_info(parent, "Lange Pfade einschalten", "Lange Pfade sind eingeschaltet. Starten "
+                  "Sie den Bau noch einmal.")
+        return True
+    show_error(parent, "Lange Pfade einschalten", "Lange Pfade wurden nicht eingeschaltet. "
+               "Vielleicht wurde die Rückfrage von Windows abgelehnt. Die Anleitung „Wie "
+               "funktioniert die Exe?“ beschreibt, wie es von Hand geht.")
+    return False
+
+
 class BuildDialog(FocusDialog):
     """Bau im Hintergrund mit Ausgabe. result nach dem Ende: BuildResult oder None."""
 
@@ -227,6 +251,8 @@ class BuildDialog(FocusDialog):
         if details:
             self.output.addItem(details)
         self.ended(f"Fehler: {message}", urgent=True)
+        if message == exe.LONG_PATHS:
+            offer_long_paths(self)
 
     def ended(self, text: str, urgent: bool = False) -> None:
         self.output.addItem(text)
@@ -490,7 +516,7 @@ class ExeActions:
     # -- Bauen ------------------------------------------------------------------------------
     def build(self, context: ActionContext) -> None:
         project = context.project
-        if exe.find_python() is None and not exe.venv_python(project.code_dir).is_file():
+        if exe.find_python() is None and not exe.python_in(exe.build_venv(project)).is_file():
             if confirm(self.window, "Exe erstellen", "Python wurde nicht gefunden. Zum Erstellen "
                        "einer Exe braucht das Cockpit Python. Anleitung anzeigen?",
                        yes="Anleitung", no="Schließen", default_yes=True):
@@ -509,7 +535,7 @@ class ExeActions:
         if first:
             parts.append(f"Im Ordner Code entsteht die Datei {settings.spec_name} mit den "
                          "Einstellungen. Sie wird mit hochgeladen.")
-        parts.append("Das Cockpit bereitet die virtuelle Umgebung .venv mit Ihren Bibliotheken "
+        parts.append("Das Cockpit bereitet eine virtuelle Umgebung mit Ihren Bibliotheken "
                      "und PyInstaller vor, baut die Exe in einem temporären Ordner und startet "
                      "sie zum Test.")
         if current is not None:
@@ -577,7 +603,8 @@ class ExeActions:
     # -- Exe aus dem Branch Cockpit-exe-bauen (01.10.2026) -----------------------------------------
     def build_ai_branch(self, project: Project, branch_dir: Path) -> None:
         from cockpit.features.exe_build import exe_branch
-        if exe.find_python() is None and not exe.venv_python(branch_dir).is_file():
+        if exe.find_python() is None and \
+                not exe.python_in(exe.build_venv(project, branch_dir)).is_file():
             show_error(self.window, "Exe erstellen", "Python wurde nicht gefunden. Zum Erstellen "
                        "einer Exe braucht das Cockpit Python.")
             return

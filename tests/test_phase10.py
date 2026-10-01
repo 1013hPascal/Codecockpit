@@ -167,7 +167,8 @@ def test_start_test(tmp_path):
 def test_build_replaces_only_after_the_test(make_services, projects_root, tmp_path, monkeypatch):
     services, project = project_with(make_services, projects_root)
     fake_exe(project.exe_dir, "Rechner.exe", "alt")
-    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel: Path("py.exe"))
+    monkeypatch.setattr(exe, "prepare_venv",
+                        lambda code_dir, on_line, cancel, venv=None: Path("py.exe"))
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir()
 
@@ -300,8 +301,10 @@ def test_github_releases(tmp_path):
 
 
 # -- Einrichtung prüfen -----------------------------------------------------------------------------
-def test_setup_check(make_services, projects_root):
+def test_setup_check(make_services, projects_root, monkeypatch):
+    from cockpit.core import long_paths
     from cockpit.features.exe_build.setup_check import check, third_party_imports
+    monkeypatch.setattr(long_paths, "enabled", lambda: True)   # unabhängig vom Rechner
     services, project = project_with(make_services, projects_root)
     code = project.code_dir
     assert check(project)[0].startswith("Nicht bereit")
@@ -479,7 +482,8 @@ def test_blocked_by_smart_app_control(tmp_path, monkeypatch):
 def blocked_build(make_services, projects_root, tmp_path, monkeypatch):
     services, project = project_with(make_services, projects_root)
     fake_exe(project.exe_dir, "Rechner.exe", "alt")
-    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel: Path("py.exe"))
+    monkeypatch.setattr(exe, "prepare_venv",
+                        lambda code_dir, on_line, cancel, venv=None: Path("py.exe"))
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir(exist_ok=True)
     monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,

@@ -14,6 +14,7 @@ Grundsätze:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -371,6 +372,39 @@ def venv_python(code_dir: Path) -> Path:
     return code_dir / ".venv" / "Scripts" / "python.exe"
 
 
+def python_in(venv: Path) -> Path:
+    return venv / "Scripts" / "python.exe"
+
+
+def _requirements_text(code_dir: Path) -> str:
+    path = code_dir / "requirements.txt"
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    return "\n".join(sorted(line.strip() for line in lines if line.strip()
+                            and not line.strip().startswith("#")))
+
+
+def build_venv(project: Project, code_dir: Path | None = None) -> Path:
+    """Ort der virtuellen Umgebung zum Bauen (Wunsch des Nutzers, 01.10.2026): kurz, unter
+    %LOCALAPPDATA%\\CodeCockpit\\venvs, nicht im Projektordner. Sonst wird der Pfad bei tief
+    liegenden Projekten mit Bibliotheken wie PySide6 länger als Windows erlaubt.
+    Ein Branch nutzt die Umgebung von main mit, wenn seine requirements.txt gleich ist. Sonst
+    bekommt er eine eigene, damit main sauber bleibt."""
+    main = project.code_dir
+    code_dir = code_dir or main
+    key = str(main.resolve()).lower()
+    suffix = ""
+    if code_dir.resolve() != main.resolve() and \
+            _requirements_text(code_dir) != _requirements_text(main):
+        key += "|" + code_dir.name.lower()
+        suffix = "-b"
+    name = re.sub(r"[^A-Za-z0-9_-]", "", project.name)[:20] or "Projekt"
+    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
+    return paths.cache_dir() / "venvs" / f"{name}-{digest}{suffix}"
+
+
 def run_process(args: list[str], cwd: Path, on_line: Callable[[str], None] | None = None,
                 cancel: threading.Event | None = None, env: dict | None = None) -> int:
     """Programm ausführen, jede Zeile der Ausgabe an on_line. Wirft Cancelled bei Abbruch."""
@@ -414,27 +448,53 @@ def _environment() -> dict[str, str]:
     return env
 
 
-def prepare_venv(code_dir: Path, on_line=None, cancel=None) -> Path:
-    """Virtuelle Umgebung des Projekts anlegen, requirements.txt und PyInstaller installieren."""
-    from cockpit.core import safety_check
-    python = venv_python(code_dir)
+LONG_PATHS = ("Die Bibliotheken ließen sich nicht installieren, weil ein Pfad länger ist, als "
+              "Windows erlaubt. Abhilfe: lange Pfade in Windows einschalten.")
+
+
+def _works(python: Path) -> bool:
+    """Startet das Python der Umgebung? Nach einem Wechsel der Python-Version nicht mehr."""
+    try:
+        return subprocess.run([str(python), "-c", "pass"], capture_output=True, timeout=30,
+                              creationflags=FLAGS).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = None) -> Path:
+    """Virtuelle Umgebung anlegen, requirements.txt und PyInstaller installieren. venv: Ort der
+    Umgebung, sonst .venv im Ordner Code. Eine kaputte Umgebung wird neu angelegt."""
+    from cockpit.core import long_paths, safety_check
+    venv = venv or code_dir / ".venv"
+    python = python_in(venv)
     env = _environment()
+    if python.is_file() and not _works(python):
+        shutil.rmtree(venv, ignore_errors=True)
     if not python.is_file():
         base = find_python()
         if base is None:
             raise CockpitError("Python wurde nicht gefunden. Zum Erstellen einer Exe braucht das "
                                "Cockpit Python. Die Anleitung steht im Menü Hilfe unter Python "
                                "installieren.")
-        if run_process([*base, "-m", "venv", str(code_dir / ".venv")], code_dir, on_line,
-                       cancel, env):
+        venv.parent.mkdir(parents=True, exist_ok=True)
+        if run_process([*base, "-m", "venv", str(venv)], code_dir, on_line, cancel, env):
             raise CockpitError("Die virtuelle Umgebung ließ sich nicht anlegen.")
-    if git.is_repo(code_dir):
+    if git.is_repo(code_dir) and venv.parent == code_dir:
         safety_check.ensure_gitignore(code_dir)          # .venv nie hochladen
     packages = ["pyinstaller"]
     args = [str(python), "-m", "pip", "install", "--quiet", "--progress-bar", "off"]
     if (code_dir / "requirements.txt").is_file():
         args += ["-r", "requirements.txt"]
-    if run_process(args + packages, code_dir, on_line, cancel, env):
+    output: list[str] = []
+
+    def line(text: str) -> None:
+        output.append(text)
+        if on_line is not None:
+            on_line(text)
+
+    if run_process(args + packages, code_dir, line, cancel, env):
+        if long_paths.is_long_path_error("\n".join(output)):
+            raise CockpitError(LONG_PATHS, "\n".join(output[-5:]))
         raise CockpitError("Die Bibliotheken ließen sich nicht installieren. Die Ausgabe nennt den "
                            "Grund.")
     return python
@@ -677,7 +737,7 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
 
     commit = head_commit(code_dir)
     step(1)
-    python = prepare_venv(code_dir, on_line, cancel)
+    python = prepare_venv(code_dir, on_line, cancel, venv=build_venv(project, code_dir))
     spec = ensure_spec(code_dir, settings)
     work = Path(tempfile.mkdtemp(prefix="codecockpit-exe-", dir=paths.cache_dir()))
     keep = False
