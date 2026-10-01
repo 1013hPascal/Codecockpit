@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QItemSelectionModel
+from PySide6.QtCore import QItemSelectionModel, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog, QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
 
@@ -156,8 +156,11 @@ class BuildDialog(FocusDialog):
 
     def __init__(self, services, project: Project, settings: exe.BuildSettings,
                  parent: QWidget | None = None, branch_dir: Path | None = None,
-                 branch_name: str = "") -> None:
+                 branch_name: str = "", continue_after: bool = False) -> None:
         super().__init__(parent)
+        # continue_after: nach Erfolg selbst schließen, damit der Ablauf weitergeht (Wunsch
+        # des Nutzers, 01.10.2026: beim Bau aus Cockpit-exe-bauen kommt danach die Frage)
+        self.continue_after = continue_after
         self.services = services
         self.project = project
         self.branch_dir = branch_dir                 # Exe aus einem Branch-Ordner (10f)
@@ -170,7 +173,7 @@ class BuildDialog(FocusDialog):
         make_copyable(self.output)
         self.stop_button = QPushButton("&Abbrechen")
         self.stop_button.clicked.connect(self.stop)
-        self.close_button = QPushButton("&Schließen")
+        self.close_button = QPushButton("&Weiter" if continue_after else "&Schließen")
         self.close_button.clicked.connect(self.reject)
         for button in (self.stop_button, self.close_button):
             button.setAutoDefault(False)
@@ -266,6 +269,8 @@ class BuildDialog(FocusDialog):
         if task is not None:
             task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
+        if self.continue_after and self.result is not None:
+            QTimer.singleShot(0, self.accept)    # erst wenn der Thread ganz fertig ist
 
     @property
     def running(self) -> bool:
@@ -616,11 +621,17 @@ class ExeActions:
             settings = dialog.settings
         settings.test_seconds = int(self.services.features.setting(FEATURE_ID, "test_seconds"))
         dialog = BuildDialog(self.services, project, settings, self.window,
-                             branch_dir=branch_dir, branch_name=exe_branch.BRANCH)
+                             branch_dir=branch_dir, branch_name=exe_branch.BRANCH,
+                             continue_after=True)
         dialog.exec()
         self.window.refresh_status([project.id])
         if dialog.result is not None and not dialog.result.untested:
-            self.after_branch_test(project, dialog.result.exe.name)
+            built = dialog.result.exe
+            try:                             # Programmordner: Unterordner mit nennen
+                shown = str(built.relative_to(project.exe_dir))
+            except (ValueError, TypeError):
+                shown = built.name
+            self.after_branch_test(project, shown)
 
     def after_branch_test(self, project: Project, exe_name: str) -> None:
         """Wunsch des Nutzers: Die Exe aus dem Branch funktioniert. Wie geht es weiter?"""
@@ -628,8 +639,8 @@ class ExeActions:
         branch = exe_branch.BRANCH
         choice = ask_buttons(
             self.window, f"Exe aus {branch}",
-            f"Die Exe aus dem Branch {branch} funktioniert. Sie liegt als {exe_name} im Ordner "
-            f"Exe, die normale Exe bleibt. Wie geht es weiter?",
+            f"Die Exe aus dem Branch {branch} ist fertig gebaut und getestet. Sie liegt als "
+            f"{exe_name} im Ordner Exe, die normale Exe bleibt. Wie geht es weiter?",
             [AFTER_TEST_LATER, AFTER_TEST_KEEP, AFTER_TEST_DELETE], default=0, escape=0)
         if choice == 0:
             where = "" if project.has_branch_folders else (
