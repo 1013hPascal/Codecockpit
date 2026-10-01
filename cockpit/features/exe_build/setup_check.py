@@ -57,12 +57,17 @@ def python_files(code_dir: Path) -> list[Path]:
             if not SKIP_DIRS & set(p.relative_to(code_dir).parts[:-1])]
 
 
-def third_party_imports(code_dir: Path) -> set[str]:
-    """Importierte Module, die weder zur Standardbibliothek noch zum Projekt gehören."""
+def third_party_imports(code_dir: Path, progress=None) -> set[str]:
+    """Importierte Module, die weder zur Standardbibliothek noch zum Projekt gehören. progress
+    bekommt pro Datei eine Zeile, zum Beispiel "Datei 3 von 12 gelesen: main.py"."""
     local = {p.stem for p in code_dir.glob("*.py")} | {p.name for p in code_dir.iterdir()
                                                        if p.is_dir()}
     found: set[str] = set()
-    for path in python_files(code_dir):
+    files = python_files(code_dir)
+    for number, path in enumerate(files, start=1):
+        if progress is not None:
+            progress(f"Datei {number} von {len(files)} gelesen: "
+                     f"{path.relative_to(code_dir).as_posix()}")
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:

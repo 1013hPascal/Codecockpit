@@ -94,6 +94,16 @@ Tasten: Noch einmal, diesmal „Exe mit KI einrichten …“.
 Ansage: Der gewohnte Ablauf mit Wunsch und Vorschlag. Am Ende statt der Frage „Soll die Exe jetzt gebaut werden?“ das Fenster mit dem Ergebnis und „Exe erstellen“.
 Ergebnis:
 
+[ ] 15a. Fortschritt, während die KI arbeitet
+Tasten: Nach dem Wunsch „Weiter“. Dann mit Pfeil runter lesen.
+Ansage: „Die KI liest den Code.“ Das Fenster „Exe mit KI einrichten: …, läuft“ bleibt offen. Die Liste „Fortschritt“ hat oben „Die KI liest den Code. Läuft seit … Sekunden.“ Die Zeit wird alle 5 Sekunden erneuert. Darunter „Datei 1 von … gelesen: …“ für jede Datei und „An die KI gesendet: …“. Dabei sagt NVDA einmal „Der Code ist gelesen. Die KI arbeitet.“ Ist die KI fertig, schließt sich das Fenster, und der Vorschlag öffnet sich.
+Ergebnis:
+
+[ ] 15b. Abbrechen
+Tasten: Noch einmal starten, während die KI arbeitet Tab auf „Abbrechen“, Enter. Escape geht auch.
+Ansage: „Abgebrochen. Nichts geändert.“ Das Fenster schließt sofort. Ein neuer Start geht gleich wieder, ohne „Das läuft schon.“
+Ergebnis:
+
 [ ] 16. Exe einlesen
 Tasten: Enter auf „Exe einlesen …“.
 Ansage: Auswahl „Woher kommt die Exe?“ mit „Exe-Datei wählen …“ und „Exe aus einem Release wählen …“. Danach geht es weiter wie bisher bei den beiden alten Einträgen.
