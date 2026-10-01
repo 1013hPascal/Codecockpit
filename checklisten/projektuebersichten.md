@@ -121,7 +121,7 @@ Ergebnis:
 
 [ ] 15f. Bau der Vokabel-App aus dem Branch
 Tasten: Bei der Vokabel-App „Exe aus dem Code erstellen …“ bis zum Bau aus dem Branch Cockpit-exe-bauen.
-Ansage: Schritt 1 klappt jetzt. Die Umgebung zum Bauen liegt unter %LOCALAPPDATA%\CodeCockpitenvs, nicht mehr im Branch-Ordner. Beim ersten Mal dauert Schritt 1 etwas länger.
+Ansage: Schritt 1 klappt jetzt. Die Umgebung zum Bauen liegt unter %LOCALAPPDATA%\CodeCockpit\venvs, nicht mehr im Branch-Ordner. Beim ersten Mal dauert Schritt 1 etwas länger.
 Ergebnis:
 
 [ ] 15g. Lange Pfade
