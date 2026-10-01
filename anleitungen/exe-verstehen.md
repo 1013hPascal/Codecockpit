@@ -18,6 +18,10 @@ Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
 2. Extern erstellt: „Exe einlesen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Exe.
 3. Aus dem Release: „Exe einlesen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
 
+## Einrichten mit KI
+
+Die KI ändert nie direkt main. Ihre Änderungen kommen in den Branch „Cockpit-exe-bauen“. Das Cockpit baut die Exe aus diesem Branch und legt sie als eigene Datei neben die normale Exe. Klappt der Test, wählen Sie: selbst testen und später in main übernehmen, jetzt übernehmen und den Branch behalten, oder jetzt übernehmen und den Branch löschen. So geht main nie kaputt.
+
 ## Was die Zeile Exe sagt
 
 - „noch keine Exe-Datei“: Der Ordner ist leer.

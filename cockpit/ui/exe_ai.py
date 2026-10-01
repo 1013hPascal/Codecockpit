@@ -4,7 +4,9 @@ Ablauf:
 1. WishDialog: Sie beschreiben, was die Exe können soll, zum Beispiel "Der Ordner
    Meine-Vokabeln soll neben der Exe liegen". Freiwillig.
 2. Im Hintergrund: fester Teil (Startdatei, Ordner neben der Exe, requirements.txt) und, wenn
-   eine KI da ist, ihr Vorschlag für den Code.
+   eine KI da ist, ihr Vorschlag für den Code. Dabei ist WorkDialog offen (Wunsch des Nutzers,
+   01.10.2026): Liste "Fortschritt" mit der Zeit seit dem Start und jeder gelesenen Datei,
+   dazu "Abbrechen". Ist die KI fertig, schließt es sich und der Vorschlag kommt.
 3. ProposalDialog: jede Änderung als Zeile, Enter zeigt alten und neuen Text. "Übernehmen" legt
    eine Sicherheitskopie an und ändert die Dateien.
 4. Danach bietet das Cockpit an, die Exe gleich zu bauen und zu testen. Aus "Exe aus dem Code
@@ -14,13 +16,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
+import time
+
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.core import exe
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.errors import CockpitError
+from cockpit.core.text import count
 from cockpit.core.projects import Project
-from cockpit.features.exe_build import ai_fix, setup_check
+from cockpit.features.exe_build import ai_fix, exe_branch, setup_check
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import FocusDialog, PlainEdit, confirm, label_for, name_widget, show_info
 from cockpit.ui.error_dialog import show_error
@@ -31,6 +37,7 @@ if TYPE_CHECKING:
     from cockpit.ui.exe_flow import ExeActions
 
 TITLE = "Exe mit KI einrichten"
+_RUNNING: list[Task] = []           # abgebrochene Aufgaben, die noch auslaufen
 
 
 class WishDialog(FocusDialog):
@@ -56,6 +63,114 @@ class WishDialog(FocusDialog):
     def accept_wish(self) -> None:
         self.wish = self.edit.toPlainText().strip()
         self.accept()
+
+
+class WorkDialog(FocusDialog):
+    """Fortschritt, solange das Cockpit liest und die KI arbeitet. Die erste Zeile nennt die Zeit
+    seit dem Start, darunter steht jeder Schritt. Neue Zeilen verschieben die Markierung nicht,
+    damit NVDA nicht ständig vorliest. Escape oder "Abbrechen" bricht ab."""
+
+    TICK_MS = 5000                     # so oft wird die Zeile mit der Zeit erneuert
+
+    def __init__(self, project: Project, work, with_ai: bool,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(f"{TITLE}: {project.name}, läuft")
+        self.result_value = None
+        self.failure: tuple[str, str] | None = None
+        self.closed = False
+        self.what = "Die KI liest den Code" if with_ai else "Die Einrichtung wird geprüft"
+        self.started = time.monotonic()
+        self.list = QListWidget()
+        label = label_for(self.list, "&Fortschritt:")
+        self.list.setWordWrap(True)
+        self.list.addItem(f"{self.what}. Gerade gestartet.")
+        self.list.setCurrentRow(0)
+        self.cancel_button = QPushButton("Abbrechen")
+        self.cancel_button.clicked.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(button_row(None, self.cancel_button))
+        self.resize(700, 380)
+        self.initial_focus_widget = self.list
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.task = Task(work, self)
+        self.task.status.connect(self.add_line)
+        self.task.result.connect(self.finished_ok)
+        self.task.error.connect(self.failed)
+        self.task.cancelled.connect(self.stopped)
+
+    def exec(self) -> int:
+        announce(f"{self.what}.")
+        self.timer.start(self.TICK_MS)
+        self.task.start()
+        return super().exec()
+
+    def seconds(self) -> int:
+        return int(time.monotonic() - self.started)
+
+    def tick(self) -> None:
+        seconds = self.seconds()
+        if seconds < 60:
+            since = count(seconds, "Sekunde", "Sekunden")
+        else:
+            since = f"{count(seconds // 60, 'Minute', 'Minuten')} {seconds % 60} Sekunden"
+        self.list.item(0).setText(f"{self.what}. Läuft seit {since}.")
+
+    def add_line(self, text: str) -> None:
+        if self.closed:
+            return
+        self.list.addItem(text)
+        if text.startswith("An die KI gesendet"):
+            announce("Der Code ist gelesen. Die KI arbeitet.")
+
+    def finished_ok(self, value) -> None:
+        if self.closed:
+            return
+        self.result_value = value
+        self._stop_timer()
+        self.accept()
+
+    def failed(self, message: str, details: str) -> None:
+        if self.closed:
+            return
+        self.failure = (message, details)
+        self._stop_timer()
+        super().reject()
+
+    def stopped(self) -> None:
+        if self.closed:
+            return
+        self._stop_timer()
+        super().reject()
+
+    def _stop_timer(self) -> None:
+        self.timer.stop()
+
+    def reject(self) -> None:
+        """Abbrechen: Die KI bekommt das Signal zum Aufhören. Das Fenster schließt sofort. Die
+        Aufgabe läuft am Hauptfenster aus, ihr Ergebnis wird nicht mehr gebraucht. So friert
+        nichts ein, auch wenn die KI erst nach einer Weile aufhört."""
+        self._stop_timer()
+        self._release_task()
+        super().reject()
+
+    def _release_task(self) -> None:
+        task = self.task
+        if not task.isRunning():
+            return
+        task.cancel()
+        self.closed = True                        # späte Meldungen der Aufgabe zählen nicht
+        task.setParent(None)
+        _RUNNING.append(task)                     # nie einen laufenden Thread zerstören
+        task.finished.connect(lambda: _RUNNING.remove(task) if task in _RUNNING else None)
+
+    def done(self, code: int) -> None:
+        self._stop_timer()
+        self._release_task()
+        super().done(code)
 
 
 class ProposalDialog(FocusDialog):
@@ -116,7 +231,7 @@ class ProposalDialog(FocusDialog):
 
 class ExeAIFlow:
     def __init__(self, actions: "ExeActions", project: Project,
-                 on_finished: Callable[[list[str]], None] | None = None) -> None:
+                 on_finished: Callable[..., None] | None = None) -> None:
         self.on_finished = on_finished
         self.actions = actions
         self.window = actions.window
@@ -148,10 +263,16 @@ class ExeAIFlow:
 
         def work(task: Task):
             return ai_fix.ask(ai, project.name, project.code_dir, settings, wish,
-                              task.cancel_event)
+                              task.cancel_event, progress=task.status.emit)
 
-        announce("Die KI sieht sich den Code an." if ai else "Die Einrichtung wird geprüft.")
-        self.actions.controller.run_task(f"exe:{project.id}", work, self.review, TITLE)
+        # Wunsch des Nutzers (01.10.2026): ein Fenster mit Fortschritt und "Abbrechen"
+        progress = WorkDialog(project, work, ai is not None, self.window)
+        if progress.exec() and progress.result_value is not None:
+            self.review(progress.result_value)
+        elif progress.failure is not None:
+            show_error(self.window, TITLE, *progress.failure)
+        else:
+            announce("Abgebrochen. Nichts geändert.")
 
     def review(self, proposal: ai_fix.Proposal) -> None:
         if proposal.empty:
@@ -172,24 +293,43 @@ class ExeAIFlow:
             if self.on_finished is not None:
                 self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
-        if not confirm(self.window, TITLE, "Die passenden Änderungen werden übernommen. Die "
-                       "betroffenen Dateien kommen vorher in die Sicherheitskopien. Übernehmen?",
-                       yes="Übernehmen", no="Abbrechen"):
+        # Wunsch des Nutzers (01.10.2026): nie direkt in main, sondern im Branch Cockpit-exe-bauen
+        text = (f"{exe_branch.where_text(self.project)} Die betroffenen Dateien kommen vorher in "
+                "die Sicherheitskopien. Danach wird die Exe aus dem Branch gebaut und getestet. "
+                "Erst dann entscheiden Sie, ob die Änderungen in main kommen. Übernehmen?")
+        if not confirm(self.window, TITLE, text, yes="Übernehmen", no="Abbrechen"):
             if self.on_finished is not None:
                 self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
-        try:
-            ai_fix.apply(self.project.name, self.project.code_dir, proposal)
-        except (CockpitError, OSError) as exc:
-            show_error(self.window, TITLE, getattr(exc, "message", str(exc)))
-            return
-        self.window.refresh_status([self.project.id])
-        announce("Änderungen übernommen.")
-        if self.on_finished is not None:
-            self.on_finished(["Änderungen übernommen. Die betroffenen Dateien liegen in den "
-                              "Sicherheitskopien."] + [c.line() for c in proposal.usable])
-            return
-        if confirm(self.window, TITLE, "Soll die Exe jetzt gebaut und getestet werden?",
-                   yes="Bauen und testen", no="Später"):
-            context = ActionContext(self.services, self.project, Target.EXE)
-            self.actions.build(context)
+        self.apply_in_branch(proposal)
+
+    def apply_in_branch(self, proposal: ai_fix.Proposal) -> None:
+        """Branch vorbereiten, Änderungen dort übernehmen und committen, im Hintergrund."""
+        project = self.project
+        files = [c.file for c in proposal.usable] + ["cockpit.toml"]
+        if proposal.settings is not None:
+            files.append(proposal.settings.spec_name)
+
+        def work(task: Task):
+            folder = exe_branch.prepare(project)
+            ai_fix.apply(project.name, folder, proposal)
+            exe_branch.commit(folder, files)
+            return folder
+
+        def done(folder) -> None:
+            self.window.reload_projects(refresh=False)
+            self.window.refresh_status([project.id])
+            announce(f"Änderungen im Branch {exe_branch.BRANCH} übernommen.")
+            lines = ([f"Änderungen im Branch {exe_branch.BRANCH} übernommen, Ordner {folder}. "
+                      "Main ist unverändert."]
+                     + [c.line() for c in proposal.usable]
+                     + ["Mit „Exe erstellen“ baut das Cockpit die Exe aus diesem Branch und "
+                        "testet sie. Sie kommt als eigene Datei neben die normale Exe."])
+            if self.on_finished is not None:
+                self.on_finished(lines, folder)
+                return
+            context = ActionContext(self.services, project, Target.EXE)
+            self.actions.offer_build(context, lines, folder)
+
+        announce(f"Branch {exe_branch.BRANCH} wird vorbereitet.")
+        self.actions.controller.run_task(f"exe:{project.id}", work, done, TITLE)

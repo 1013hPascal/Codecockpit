@@ -33,8 +33,9 @@ from cockpit.core.features import settings_fields as sf
 from cockpit.core.projects import Project
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import (FocusDialog, PlainEdit, choose_from_list, click_focused_button,
-                               confirm, label_for, make_copyable, pick_folder, show_info)
+from cockpit.ui.common import (FocusDialog, PlainEdit, ask_buttons, choose_from_list,
+                               click_focused_button, confirm, label_for, make_copyable,
+                               pick_folder, show_info)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.form_builder import FormError, SettingsForm
 from cockpit.ui.repo_dialogs import button_row
@@ -130,14 +131,16 @@ class BuildDialog(FocusDialog):
     """Bau im Hintergrund mit Ausgabe. result nach dem Ende: BuildResult oder None."""
 
     def __init__(self, services, project: Project, settings: exe.BuildSettings,
-                 parent: QWidget | None = None, branch_dir: Path | None = None) -> None:
+                 parent: QWidget | None = None, branch_dir: Path | None = None,
+                 branch_name: str = "") -> None:
         super().__init__(parent)
         self.services = services
         self.project = project
         self.branch_dir = branch_dir                 # Exe aus einem Branch-Ordner (10f)
         self.result: exe.BuildResult | None = None
-        self.setWindowTitle(f"Exe erstellen: {project.name}" + (f", Branch {branch_dir.name}"
-                                                                 if branch_dir else ""))
+        shown = branch_name or (branch_dir.name if branch_dir else "")
+        self.setWindowTitle(f"Exe erstellen: {project.name}" + (f", Branch {shown}"
+                                                                 if shown else ""))
         self.output = QListWidget()
         self.output.setWordWrap(True)
         make_copyable(self.output)
@@ -156,7 +159,7 @@ class BuildDialog(FocusDialog):
 
         def work(task: Task):
             return exe.build(project, settings, task.status.emit, task.status.emit,
-                             task.cancel_event, branch_dir)
+                             task.cancel_event, branch_dir, branch_name)
 
         self.task: Task | None = Task(work, self)
         self.task.status.connect(self.add_line)
@@ -317,6 +320,9 @@ class PublishDialog(FocusDialog):
         super().done(code)
 
 
+AFTER_TEST_LATER = "Selbst testen, später in main übernehmen"
+AFTER_TEST_KEEP = "Jetzt in main übernehmen, Branch behalten"
+AFTER_TEST_DELETE = "Jetzt in main übernehmen und Branch löschen"
 WITH_AI = "Exe mit KI einrichten …"
 WITHOUT_AI = "Exe ohne KI einrichten …"
 FROM_FILE = "Exe-Datei wählen …"
@@ -546,20 +552,106 @@ class ExeActions:
         project = context.project
         if options[chosen] == WITH_AI:
             from cockpit.ui.exe_ai import ExeAIFlow
-            ExeAIFlow(self, project, on_finished=lambda lines: self.offer_build(context, lines)
-                      ).start()
+            ExeAIFlow(self, project, on_finished=lambda lines, folder=None:
+                      self.offer_build(context, lines, folder)).start()
             return
         from cockpit.features.exe_build.setup_check import check
         self.controller.run_task(f"exe:{project.id}", lambda task: check(project),
                                  lambda lines: self.offer_build(context, lines),
                                  "Exe einrichten")
 
-    def offer_build(self, context: ActionContext, lines: list[str]) -> None:
-        """Ergebnis zeigen. "Exe erstellen" startet den Bau wie bisher in vier Schritten."""
+    def offer_build(self, context: ActionContext, lines: list[str],
+                    branch_dir: Path | None = None) -> None:
+        """Ergebnis zeigen. "Exe erstellen" startet den Bau wie bisher in vier Schritten. Hat die
+        KI etwas geändert, liegt das im Branch Cockpit-exe-bauen (branch_dir), und gebaut wird
+        aus dem Branch."""
         if lines:
             announce(lines[0])
-        if ReadyDialog(context.project, lines, self.window).exec():
+        if not ReadyDialog(context.project, lines, self.window).exec():
+            return
+        if branch_dir is None:
             self.build(context)
+        else:
+            self.build_ai_branch(context.project, branch_dir)
+
+    # -- Exe aus dem Branch Cockpit-exe-bauen (01.10.2026) -----------------------------------------
+    def build_ai_branch(self, project: Project, branch_dir: Path) -> None:
+        from cockpit.features.exe_build import exe_branch
+        if exe.find_python() is None and not exe.venv_python(branch_dir).is_file():
+            show_error(self.window, "Exe erstellen", "Python wurde nicht gefunden. Zum Erstellen "
+                       "einer Exe braucht das Cockpit Python.")
+            return
+        settings = exe.read_settings(branch_dir) or exe.read_settings(project.code_dir)
+        if settings is None:
+            dialog = BuildSettingsDialog(project, self.window)
+            if not dialog.exec() or dialog.settings is None:
+                return
+            settings = dialog.settings
+        settings.test_seconds = int(self.services.features.setting(FEATURE_ID, "test_seconds"))
+        dialog = BuildDialog(self.services, project, settings, self.window,
+                             branch_dir=branch_dir, branch_name=exe_branch.BRANCH)
+        dialog.exec()
+        self.window.refresh_status([project.id])
+        if dialog.result is not None and not dialog.result.untested:
+            self.after_branch_test(project, dialog.result.exe.name)
+
+    def after_branch_test(self, project: Project, exe_name: str) -> None:
+        """Wunsch des Nutzers: Die Exe aus dem Branch funktioniert. Wie geht es weiter?"""
+        from cockpit.features.exe_build import exe_branch
+        branch = exe_branch.BRANCH
+        choice = ask_buttons(
+            self.window, f"Exe aus {branch}",
+            f"Die Exe aus dem Branch {branch} funktioniert. Sie liegt als {exe_name} im Ordner "
+            f"Exe, die normale Exe bleibt. Wie geht es weiter?",
+            [AFTER_TEST_LATER, AFTER_TEST_KEEP, AFTER_TEST_DELETE], default=0, escape=0)
+        if choice == 0:
+            where = "" if project.has_branch_folders else (
+                f" Der Ordner Code steht noch auf {branch}. Zurück zu main geht es über "
+                "„Branches verwalten“.")
+            announce(f"Der Branch {branch} bleibt. Übernehmen geht später über „Branches "
+                     f"verwalten“, „In main übernehmen …“.{where}")
+            return
+        self.merge_ai_branch(project, delete=choice == 2)
+
+    def merge_ai_branch(self, project: Project, delete: bool) -> None:
+        from cockpit.core.sync import ConflictKind
+        from cockpit.features.exe_build import exe_branch
+        branch = exe_branch.BRANCH
+        try:
+            outcome = exe_branch.merge_into_main(project)
+        except CockpitError as exc:
+            show_error(self.window, "In main übernehmen", exc.message, exc.details)
+            return
+        if outcome.kind is not ConflictKind.NONE and not self._resolve(project, outcome.kind):
+            self.window.refresh_status([project.id])
+            return
+        text = f"{branch} ist in main übernommen. Main ist noch nicht hochgeladen."
+        if delete:
+            try:
+                exe_branch.delete(project)
+                text += f" Der Branch {branch} ist gelöscht."
+            except CockpitError as exc:
+                show_error(self.window, "Branch löschen", exc.message, exc.details)
+        self.window.reload_projects(refresh=False)
+        self.window.refresh_status([project.id])
+        announce(text)
+
+    def _resolve(self, project: Project, kind) -> bool:
+        from cockpit.core import sync
+        from cockpit.features.exe_build import exe_branch
+        from cockpit.ui import sync_dialogs
+        announce(f"Konflikte beim Übernehmen von {exe_branch.BRANCH}.")
+        dialog = sync_dialogs.ConflictDialog(project.code_dir, kind,
+                                             f"Branch {exe_branch.BRANCH}", self.window)
+        try:
+            if dialog.exec():
+                sync.finish(project.code_dir, kind)
+                return True
+            sync.abort(project.code_dir, kind)
+            announce("Übernehmen abgebrochen. Main ist wie vorher.")
+        except CockpitError as exc:
+            show_error(self.window, "Übernehmen", exc.message, exc.details)
+        return False
 
     # -- Exe einlesen (30.09.2026) --------------------------------------------------------------
     def import_exe(self, context: ActionContext) -> None:

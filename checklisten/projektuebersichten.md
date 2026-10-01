@@ -94,6 +94,31 @@ Tasten: Noch einmal, diesmal „Exe mit KI einrichten …“.
 Ansage: Der gewohnte Ablauf mit Wunsch und Vorschlag. Am Ende statt der Frage „Soll die Exe jetzt gebaut werden?“ das Fenster mit dem Ergebnis und „Exe erstellen“.
 Ergebnis:
 
+[ ] 15a. Fortschritt, während die KI arbeitet
+Tasten: Nach dem Wunsch „Weiter“. Dann mit Pfeil runter lesen.
+Ansage: „Die KI liest den Code.“ Das Fenster „Exe mit KI einrichten: …, läuft“ bleibt offen. Die Liste „Fortschritt“ hat oben „Die KI liest den Code. Läuft seit … Sekunden.“ Die Zeit wird alle 5 Sekunden erneuert. Darunter „Datei 1 von … gelesen: …“ für jede Datei und „An die KI gesendet: …“. Dabei sagt NVDA einmal „Der Code ist gelesen. Die KI arbeitet.“ Ist die KI fertig, schließt sich das Fenster, und der Vorschlag öffnet sich.
+Ergebnis:
+
+[ ] 15b. Abbrechen
+Tasten: Noch einmal starten, während die KI arbeitet Tab auf „Abbrechen“, Enter. Escape geht auch.
+Ansage: „Abgebrochen. Nichts geändert.“ Das Fenster schließt sofort. Ein neuer Start geht gleich wieder, ohne „Das läuft schon.“
+Ergebnis:
+
+[ ] 15c. Änderungen der KI kommen in einen Branch
+Tasten: Den Vorschlag der KI mit „Übernehmen“ annehmen.
+Ansage: Die Rückfrage beginnt mit „Die Änderungen kommen in den Branch Cockpit-exe-bauen, nicht in main.“ Danach „Branch Cockpit-exe-bauen wird vorbereitet.“ und „Änderungen im Branch Cockpit-exe-bauen übernommen.“ Mit Branch-Ordnern steht der Branch danach in der Projektliste als eigene Zeile. Main ist unverändert.
+Ergebnis:
+
+[ ] 15d. Exe aus dem Branch
+Tasten: Im Fenster mit dem Ergebnis „Exe erstellen“.
+Ansage: Der Bau in vier Schritten, Titel „Exe erstellen: …, Branch Cockpit-exe-bauen“. Die Exe kommt als eigene Datei mit „_branch_Cockpit-exe-bauen“ im Namen in den Ordner Exe. Die normale Exe bleibt.
+Ergebnis:
+
+[ ] 15e. Wie geht es weiter?
+Tasten: Nach dem erfolgreichen Test.
+Ansage: Rückfrage „Exe aus Cockpit-exe-bauen“ mit drei Knöpfen: „Selbst testen, später in main übernehmen“ (Vorgabe, auch mit Escape), „Jetzt in main übernehmen, Branch behalten“, „Jetzt in main übernehmen und Branch löschen“. Bei den beiden letzten: „Cockpit-exe-bauen ist in main übernommen. Main ist noch nicht hochgeladen.“
+Ergebnis:
+
 [ ] 16. Exe einlesen
 Tasten: Enter auf „Exe einlesen …“.
 Ansage: Auswahl „Woher kommt die Exe?“ mit „Exe-Datei wählen …“ und „Exe aus einem Release wählen …“. Danach geht es weiter wie bisher bei den beiden alten Einträgen.

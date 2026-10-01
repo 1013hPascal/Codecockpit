@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cockpit.core import backups, exe
-from cockpit.core.errors import CockpitError
+from cockpit.core.errors import Cancelled, CockpitError
 from cockpit.features.exe_build import setup_check
 
 CONTEXT_LINES = 12                    # Zeilen vor und nach einer Fundstelle im Auszug
@@ -56,7 +56,7 @@ class Proposal:
 
 
 # -- Fester Teil --------------------------------------------------------------------------------
-def fixed_part(code_dir: Path, settings: exe.BuildSettings) -> Proposal:
+def fixed_part(code_dir: Path, settings: exe.BuildSettings, progress=None) -> Proposal:
     """Was sich ohne KI sicher sagen lässt."""
     proposal = Proposal()
     start = settings.start_file
@@ -75,7 +75,7 @@ def fixed_part(code_dir: Path, settings: exe.BuildSettings) -> Proposal:
                                               settings.windowed, settings.icon, settings.datas,
                                               settings.hidden_imports, settings.self_test,
                                               settings.test_seconds, beside)
-    missing = missing_packages(code_dir)
+    missing = missing_packages(code_dir, progress)
     if missing:
         path = code_dir / "requirements.txt"
         old = path.read_text(encoding="utf-8") if path.is_file() else ""
@@ -86,11 +86,11 @@ def fixed_part(code_dir: Path, settings: exe.BuildSettings) -> Proposal:
     return proposal
 
 
-def missing_packages(code_dir: Path) -> list[str]:
+def missing_packages(code_dir: Path, progress=None) -> list[str]:
     """Paketnamen für requirements.txt, die importiert werden, aber dort fehlen."""
     required = setup_check.requirements(code_dir)
     names = []
-    for module in sorted(setup_check.third_party_imports(code_dir)):
+    for module in sorted(setup_check.third_party_imports(code_dir, progress)):
         package = setup_check.PACKAGE_NAMES.get(module.lower(), module)
         if setup_check._normalize(package) not in required and package not in names:
             names.append(package)
@@ -173,18 +173,30 @@ def check_changes(code_dir: Path, proposal: Proposal) -> None:
 
 
 def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish: str,
-        cancel: threading.Event | None = None) -> Proposal:
+        cancel: threading.Event | None = None, progress=None) -> Proposal:
     """Fester Teil plus Vorschlag der KI. Blockiert, also im Hintergrund aufrufen. ai: TextAI
-    oder None (dann nur der feste Teil)."""
-    proposal = fixed_part(code_dir, settings)
+    oder None (dann nur der feste Teil). progress bekommt Zeilen zum Stand, zum Beispiel
+    welche Datei gelesen ist (Wunsch des Nutzers, 01.10.2026)."""
+    say = progress or (lambda text: None)
+    say("Der Code wird gelesen.")
+    proposal = fixed_part(code_dir, settings, progress)
+    if cancel is not None and cancel.is_set():
+        raise Cancelled()
     if ai is None:
         check_changes(code_dir, proposal)
         return proposal
     effective = proposal.settings or settings
+    say("Die Einrichtung der Exe wird geprüft.")
     lines = setup_check.check_for(code_dir, effective)
-    prompt, system = build_prompt(project_name, effective, lines, wish,
-                                  excerpts(code_dir, effective.start_file, ai.max_chars // 2))
+    code = excerpts(code_dir, effective.start_file, ai.max_chars // 2)
+    files = sorted({part.split(",")[0] for part in re.findall(r"^--- (.+?) ---$", code,
+                                                               re.MULTILINE)})
+    prompt, system = build_prompt(project_name, effective, lines, wish, code)
+    name = getattr(ai, "name", "")
+    say(f"An die KI gesendet: {len(code)} Zeichen aus {', '.join(files) or 'keiner Datei'}. "
+        f"Jetzt wartet das Cockpit auf die Antwort " + (f"von {name}." if name else "der KI."))
     answered = parse(ai.ask(prompt, system, cancel))
+    say("Antwort der KI ist da.")
     proposal.summary = answered.summary
     proposal.changes += [c for c in answered.changes if c.file != "requirements.txt"]
     check_changes(code_dir, proposal)
