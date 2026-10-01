@@ -111,7 +111,7 @@ Ergebnis:
 
 [ ] 15d. Exe aus dem Branch
 Tasten: Im Fenster mit dem Ergebnis „Exe erstellen“.
-Ansage: Der Bau in vier Schritten, Titel „Exe erstellen: …, Branch Cockpit-exe-bauen“. Die Exe kommt als eigene Datei mit „_branch_Cockpit-exe-bauen“ im Namen in den Ordner Exe. Die normale Exe bleibt.
+Ansage: Der Bau in vier Schritten, Titel „Exe erstellen: …, Branch Cockpit-exe-bauen“. Die Exe kommt als eigene Datei mit „_branch_Cockpit-exe-bauen“ im Namen in den Ordner Exe. Die normale Exe bleibt. Nach dem erfolgreichen Test schließt sich das Fenster von selbst, und die Frage aus Punkt 15e kommt.
 Ergebnis:
 
 [ ] 15e. Wie geht es weiter?

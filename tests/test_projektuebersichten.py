@@ -744,3 +744,56 @@ def test_setup_check_warns_about_long_paths(projects_root, monkeypatch):
                for line in lines)
     monkeypatch.setattr(long_paths, "enabled", lambda: True)
     assert not any("Lange Pfade" in line for line in setup_check.check_for(code, settings))
+
+
+def test_build_dialog_continues_after_success(qtbot, monkeypatch, tmp_path):
+    """Rückmeldung vom 01.10.2026: Nach dem Bau aus Cockpit-exe-bauen blieb das Fenster offen,
+    die Frage danach kam nicht."""
+    from cockpit.core import exe
+    from cockpit.core.projects import Project
+    built = tmp_path / "Exe" / "VokabelApp_branch_Cockpit-exe-bauen" / "VokabelApp.exe"
+
+    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None,
+                   branch_name=""):
+        on_status("Schritt 4 von 4: Exe wird übernommen")
+        return exe.BuildResult(built, branch=branch_name)
+
+    monkeypatch.setattr(exe, "build", fake_build)
+    project = Project(1, "VokabelApp", tmp_path, tmp_path / "Code", None)
+    settings = exe.BuildSettings("gui.py", "VokabelApp")
+    dialog = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code",
+                                  branch_name="Cockpit-exe-bauen", continue_after=True)
+    qtbot.addWidget(dialog)
+    assert dialog.exec()                                        # schließt sich selbst
+    assert dialog.result.exe == built
+    stays = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code")
+    qtbot.addWidget(stays)
+    stays.show()
+    qtbot.waitUntil(lambda: not stays.running, timeout=5000)
+    qtbot.wait(100)
+    assert stays.isVisible() and stays.result is not None        # sonst bleibt es offen
+
+
+def test_branch_question_names_the_subfolder(exe_window, monkeypatch, tmp_path):
+    from cockpit.core import exe
+    win, project, _built, _shown = exe_window
+    branch_dir = tmp_path / "Branch"
+    branch_dir.mkdir()
+    built = project.exe_dir / "Rechner_branch_Cockpit-exe-bauen" / "Rechner.exe"
+
+    class FakeBuild:
+        def __init__(self, *args, **kwargs):
+            assert kwargs["continue_after"] is True
+            self.result = exe.BuildResult(built, branch="Cockpit-exe-bauen")
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(exe_flow, "BuildDialog", FakeBuild)
+    monkeypatch.setattr(exe, "read_settings", lambda folder: exe.BuildSettings("main.py",
+                                                                                "Rechner"))
+    named = []
+    monkeypatch.setattr(exe_flow.ExeActions, "after_branch_test",
+                        lambda self, p, name: named.append(name))
+    win.controller.exe.build_ai_branch(project, branch_dir)
+    assert named == [r"Rechner_branch_Cockpit-exe-bauen\Rechner.exe"]
