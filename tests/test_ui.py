@@ -295,15 +295,15 @@ def test_actions_follow_the_tree_selection(window):
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
     assert win.actions_list.texts() == [
-        "Projekt neu einlesen",
+        "Projekt neu einlesen", "Terminal …",
         "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
         "geht im Menü Features.",
-        "Terminal …", "Projektordner öffnen", "Aus der Liste entfernen …"]
+        "Aus der Liste entfernen …", "Projektordner öffnen"]
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
         "Projekt neu einlesen", "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.",
-        "Exe-Datei wählen …", "Exe-Ordner öffnen", "Wie funktioniert die Exe? …"]
+        "Exe einlesen …", "Exe-Ordner öffnen", "Wie funktioniert die Exe? …"]
 
 
 def test_unavailable_action_announces_reason(window, qtbot):
@@ -321,9 +321,10 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     win = window()
     select_project(win, "PDF-Chat")
     win.focus_actions()
-    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # oben steht Projekt neu einlesen
-    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # dann Features dieses Projekts
-    press(qtbot, win.actions_list, Qt.Key.Key_Down)          # dann Terminal
+    # Reihenfolge vom 30.09.2026: Projekt neu einlesen, Terminal, Features, Aus der Liste
+    # entfernen, Projektordner öffnen
+    for _ in range(4):
+        press(qtbot, win.actions_list, Qt.Key.Key_Down)
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)
     assert len(opened) == 2 and opened[0].name == "PDF-Chat"

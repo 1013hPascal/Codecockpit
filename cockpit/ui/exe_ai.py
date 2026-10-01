@@ -7,11 +7,12 @@ Ablauf:
    eine KI da ist, ihr Vorschlag für den Code.
 3. ProposalDialog: jede Änderung als Zeile, Enter zeigt alten und neuen Text. "Übernehmen" legt
    eine Sicherheitskopie an und ändert die Dateien.
-4. Danach bietet das Cockpit an, die Exe gleich zu bauen und zu testen.
+4. Danach bietet das Cockpit an, die Exe gleich zu bauen und zu testen. Aus "Exe aus dem Code
+   erstellen …" (on_finished) zeigt stattdessen ReadyDialog das Ergebnis mit "Exe erstellen".
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from PySide6.QtWidgets import QListWidget, QPushButton, QVBoxLayout, QWidget
 
@@ -114,7 +115,9 @@ class ProposalDialog(FocusDialog):
 
 
 class ExeAIFlow:
-    def __init__(self, actions: "ExeActions", project: Project) -> None:
+    def __init__(self, actions: "ExeActions", project: Project,
+                 on_finished: Callable[[list[str]], None] | None = None) -> None:
+        self.on_finished = on_finished
         self.actions = actions
         self.window = actions.window
         self.services = actions.services
@@ -158,15 +161,22 @@ class ExeAIFlow:
                 text += f" Die KI sagt: {proposal.summary}"
             if lines:
                 text += " " + " ".join(lines)
+            if self.on_finished is not None:
+                self.on_finished([text])
+                return
             show_info(self.window, TITLE, text)
             return
         announce("Vorschlag da.")
         if not ProposalDialog(self.project, proposal, self.window).exec():
             announce("Nichts geändert.")
+            if self.on_finished is not None:
+                self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
         if not confirm(self.window, TITLE, "Die passenden Änderungen werden übernommen. Die "
                        "betroffenen Dateien kommen vorher in die Sicherheitskopien. Übernehmen?",
                        yes="Übernehmen", no="Abbrechen"):
+            if self.on_finished is not None:
+                self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
         try:
             ai_fix.apply(self.project.name, self.project.code_dir, proposal)
@@ -175,6 +185,10 @@ class ExeAIFlow:
             return
         self.window.refresh_status([self.project.id])
         announce("Änderungen übernommen.")
+        if self.on_finished is not None:
+            self.on_finished(["Änderungen übernommen. Die betroffenen Dateien liegen in den "
+                              "Sicherheitskopien."] + [c.line() for c in proposal.usable])
+            return
         if confirm(self.window, TITLE, "Soll die Exe jetzt gebaut und getestet werden?",
                    yes="Bauen und testen", no="Später"):
             context = ActionContext(self.services, self.project, Target.EXE)

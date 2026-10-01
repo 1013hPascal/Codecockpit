@@ -36,6 +36,7 @@ class Target(Enum):
     REMOTE_BRANCH = "remote_branch"      # ausgewählter Branch anderer, noch ohne Ordner
     NEW_COLLECTION = "new_collection"    # oberster Eintrag "Neue Projektsammlung"
     COLLECTION = "collection"            # "Sammlung Webseiten, 3 Projekte"
+    BRANCH_OVERVIEW = "branch_overview"  # "Branches verwalten" unter dem Haupt-Branch
 
 
 @dataclass

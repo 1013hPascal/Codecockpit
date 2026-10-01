@@ -309,8 +309,9 @@ def test_project_actions(live, qtbot, account, tmp_path, projects_root):
     win = live(services)
     win.project_list.select(Target.PROJECT, project.id)
     texts = labels(win)
-    assert texts.index("Links …") < texts.index("Repository verwalten …")
-    assert texts[-1] == "Aus der Liste entfernen …"
+    # Reihenfolge vom 30.09.2026: Projekt verwalten, Links, ..., Projektordner öffnen am Ende
+    assert texts.index("Projekt verwalten …") < texts.index("Links …")
+    assert texts[-2:] == ["Aus der Liste entfernen …", "Projektordner öffnen"]
     services.projects.set_remote(project, None, None)
     win.refresh_actions()
     texts = labels(win)

@@ -1,8 +1,10 @@
 """Übersicht "Branches" und beiseitegelegte Änderungen (Konzept 10.14, Teilschritt 5f).
 
-BranchesDialog: alle Branches, lokal und auf der Plattform, zum Beispiel "design, hier und auf
-GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main". Enter wechselt zum markierten Branch. Per Tab: "Neuer Branch …",
-"In main übernehmen …", "Umbenennen …", "Löschen …".
+BranchesDialog ("Branches verwalten"): oben "Neuer Branch …", darunter der Haupt-Branch und alle
+Branches, lokal und auf der Plattform, zum Beispiel "design, hier und auf GitHub, zuletzt von Anna
+am 24.09.2026, 2 Commits vor main". Enter wechselt zum markierten Branch. Per Tab beim
+Haupt-Branch: "Exe" mit Version und Veröffentlichung (Wunsch des Nutzers, 30.09.2026). Bei einem
+Branch: "In main übernehmen …", "Umbenennen …", "Branch-Ordner entfernen …", "Löschen …".
 StashDialog: beiseitegelegte Änderungen. "Zurückholen …", "Als neuen Branch zurückholen …",
 "Löschen …".
 
@@ -17,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
 
-from cockpit.core import branches, sync
+from cockpit.core import branches, exe, sync
 from cockpit.core.branches import Branch, Stash
 from cockpit.core.errors import CockpitError
 from cockpit.core.sync import ConflictKind
@@ -31,6 +33,21 @@ from cockpit.ui.repo_dialogs import DialogWorker, _is_enter, button_row
 if TYPE_CHECKING:
     from cockpit.core.projects import Project
 
+NEW_BRANCH_TEXT = "Neuer Branch …"
+
+
+def exe_lines(project: "Project") -> list[str]:
+    """Stand der Exe für den Haupt-Branch: Version und ob sie veröffentlicht ist."""
+    if not project.has_exe_dir:
+        return ["Exe: Dieses Projekt hat keinen Ordner Exe."]
+    lines = [exe.status_line(project)]
+    record = exe.read_record(project.code_dir) if project.folder_found else None
+    if record is not None and record.version:
+        lines.append(f"Veröffentlicht als Version {record.version}.")
+    elif exe.current_exe(project) is not None:
+        lines.append("Noch nicht veröffentlicht.")
+    return lines
+
 
 class BranchesDialog(FocusDialog):
     """Nach dem Schließen ist changed True, wenn sich Branch oder Dateien geändert haben."""
@@ -43,7 +60,9 @@ class BranchesDialog(FocusDialog):
         self.single = single
         self.single_name = items[0].name if single and items else ""
         self.remove_request = False
+        self.remove_name = ""                         # Branch, dessen Ordner weg soll
         self.delete_request = ""
+        self.offset = 0 if single else 1              # oben "Neuer Branch …"
         self.project = project
         self.code_dir = project.code_dir
         self.items = items
@@ -76,13 +95,22 @@ class BranchesDialog(FocusDialog):
         self.rename_button, self.delete_button = rename, delete
         remove = QPushButton("Branch-&Ordner entfernen …")
         remove.clicked.connect(self.remove_folder)
+        self.remove_button = remove
         remove.setVisible(single)
-        new.setVisible(not single)
+        new.setVisible(False)                         # steht jetzt oben in der Liste
+        self.new_button = new
+        # Beim Haupt-Branch mit Tab: Stand der Exe (Wunsch des Nutzers, 30.09.2026)
+        self.exe_info = QListWidget()
+        self.exe_label = label_for(self.exe_info, "&Exe:")
+        self.exe_info.addItems(exe_lines(project))
+        self.exe_info.setCurrentRow(0)
         self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 1)
+        layout.addWidget(self.exe_label)
+        layout.addWidget(self.exe_info)
         layout.addLayout(button_row(switch, new, self.merge_button, rename, remove, delete, None,
                                     close))
         self.resize(760, 420)
@@ -92,9 +120,19 @@ class BranchesDialog(FocusDialog):
     # -- Anzeige ---------------------------------------------------------------------------
     def eventFilter(self, watched, event) -> bool:
         if watched is self.list and _is_enter(event):
-            self.switch_current()                       # Enter wechselt (Konzept 10.14)
+            if self.on_new_row():
+                self.new_branch()
+            else:
+                self.switch_current()                   # Enter wechselt (Konzept 10.14)
             return True
         return super().eventFilter(watched, event)
+
+    def on_new_row(self) -> bool:
+        return self.offset == 1 and self.list.currentRow() == 0
+
+    def row_of(self, name: str) -> int:
+        """Zeile eines Branches in der Liste."""
+        return [b.name for b in self.items].index(name) + self.offset
 
     def done(self, code: int) -> None:
         self.worker.wait()
@@ -108,10 +146,12 @@ class BranchesDialog(FocusDialog):
             self.setWindowTitle(f"Branches von {self.project.name}: "
                                 f"{count(len(self.items), 'Branch', 'Branches')}")
         self.list.clear()
+        if self.offset:
+            self.list.addItem(NEW_BRANCH_TEXT)
         self.list.addItems([self.line(b) for b in self.items] or ["Noch keine Branches."])
         names = [b.name for b in self.items]
         if select in names:
-            row = names.index(select)
+            row = names.index(select) + self.offset
         self.list.setCurrentRow(min(row, self.list.count() - 1))
         self.update_buttons()
 
@@ -131,7 +171,11 @@ class BranchesDialog(FocusDialog):
         return f"{name}, {where}, {rest}" if rest else f"{name}, {where}"
 
     def remove_folder(self) -> None:
+        branch = self.current()
+        if branch is None:
+            return
         self.remove_request = True
+        self.remove_name = branch.name
         self.accept()
 
     def update_buttons(self) -> None:
@@ -139,8 +183,14 @@ class BranchesDialog(FocusDialog):
         kein "Umbenennen …", beim aktuellen und beim Haupt-Branch kein "Löschen …". Die Knöpfe
         verschwinden dann, statt ausgegraut zu sein, weil Tab ausgegraute Knöpfe überspringt
         und man sonst nicht weiß, warum."""
-        row = self.list.currentRow()
+        row = self.list.currentRow() - self.offset
         branch = self.items[row] if 0 <= row < len(self.items) else None
+        main = branch is not None and branch.default
+        self.exe_label.setVisible(main and not self.single)
+        self.exe_info.setVisible(main and not self.single)
+        self.remove_button.setVisible(branch is not None and self.structured
+                                      and not branch.default
+                                      and (self.single or branch.name in self.folders))
         # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
         if self.structured:
             self.switch_button.setVisible(branch is not None and not branch.default
@@ -170,10 +220,11 @@ class BranchesDialog(FocusDialog):
         self.list.setFocus()
 
     def current(self) -> Branch | None:
-        row = self.list.currentRow()
+        row = self.list.currentRow() - self.offset
         if 0 <= row < len(self.items):
             return self.items[row]
-        announce("Es gibt keinen Branch.")
+        if not self.on_new_row():
+            announce("Es gibt keinen Branch.")
         return None
 
     def _current_name(self) -> str:

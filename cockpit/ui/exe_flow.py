@@ -1,8 +1,14 @@
 """Die Exe in der Oberfläche (Konzept 10.4, Phase 10).
 
-Aktionen: "Exe hinzufügen …" auf der Projektzeile. Bei "Exe": Exe aus dem Code erstellen bzw.
-aktualisieren, Exe-Datei wählen, Exe veröffentlichen, Exe aus dem Release holen, Exe-Einrichtung
-prüfen, Wie funktioniert die Exe?. Exe starten und Exe-Ordner öffnen stehen im Kern.
+Aktionen: "Exe hinzufügen …" auf der Projektzeile. Bei "Exe" (zusammengefasst nach dem Wunsch des
+Nutzers, 30.09.2026): Exe aus dem Code erstellen, Exe veröffentlichen, Exe einlesen,
+Exe-Einstellungen, Links der Exe, Wie funktioniert die Exe?. Exe starten und Exe-Ordner öffnen
+stehen im Kern.
+
+"Exe aus dem Code erstellen …" fragt zuerst: Exe mit KI einrichten oder Exe ohne KI einrichten.
+Mit eingerichteter Text-KI steht "mit KI" oben. Danach zeigt ReadyDialog das Ergebnis mit "Exe
+erstellen" und "Abbrechen". "Exe erstellen" startet den Bau in vier Schritten.
+"Exe einlesen …" fragt: Exe-Datei wählen oder Exe aus einem Release wählen.
 
 BuildDialog: Ausgabe von PyInstaller als Liste, eine Zeile pro Zeile. Die Schritte sagt NVDA an
 ("Schritt 2 von 4: Exe wird gebaut"). Escape bricht einen laufenden Bau ab, danach schließt es.
@@ -311,6 +317,51 @@ class PublishDialog(FocusDialog):
         super().done(code)
 
 
+WITH_AI = "Exe mit KI einrichten …"
+WITHOUT_AI = "Exe ohne KI einrichten …"
+FROM_FILE = "Exe-Datei wählen …"
+FROM_RELEASE = "Exe aus einem Release wählen …"
+
+
+def download_links(release, asset) -> list[tuple[str, str]]:
+    """Links zum Release und zum Herunterladen der Exe. Bei GitHub folgt der Download-Link aus
+    der Adresse des Releases: .../releases/tag/v1.2.0 wird .../releases/download/v1.2.0/Name."""
+    links = [(f"Release {release.tag}", release.url)]
+    marker = "/releases/tag/"
+    if marker in release.url:
+        base = release.url.split(marker, 1)[0]
+        links.append((f"Download der Exe {release.tag}",
+                       f"{base}/releases/download/{release.tag}/{asset.name}"))
+        links.append(("Download der neuesten Exe",
+                      f"{base}/releases/latest/download/{asset.name}"))
+    return links
+
+
+class ReadyDialog(FocusDialog):
+    """Nach dem Einrichten: Ergebnis lesen, dann "Exe erstellen" oder "Abbrechen"."""
+
+    def __init__(self, project: Project, lines: list[str], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}")
+        self.list = QListWidget()
+        label = label_for(self.list, "&Ergebnis der Einrichtung:")
+        self.list.setWordWrap(True)
+        self.list.addItems(lines or ["Die Einrichtung ist abgeschlossen."])
+        self.list.setCurrentRow(0)
+        make_copyable(self.list)
+        self.build_button = QPushButton("Exe e&rstellen")
+        self.build_button.setDefault(True)
+        self.build_button.clicked.connect(self.accept)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(button_row(self.build_button, cancel, None))
+        self.resize(700, 380)
+        self.initial_focus_widget = self.list
+
+
 # -- Aktionen ---------------------------------------------------------------------------------------
 class ExeActions:
     def __init__(self, controller: "ProjectController") -> None:
@@ -334,32 +385,26 @@ class ExeActions:
             Action("add_exe", "Exe hinzufügen …", Target.PROJECT, self.add_exe,
                    visible=lambda c: c.project is not None and c.project.folder_found
                    and not c.project.has_exe_dir, order=72),
-            Action("build_exe", "Exe aus dem Code erstellen …", Target.EXE, self.build,
-                   visible=lambda c: self._building(c) and not has_exe(c), order=20),
-            Action("update_exe", "Exe aus dem Code aktualisieren …", Target.EXE, self.build,
-                   visible=lambda c: self._building(c) and has_exe(c), order=20),
-            Action("choose_exe", "Exe-Datei wählen …", Target.EXE, self.choose,
-                   visible=lambda c: c.project is not None and c.project.has_exe_dir, order=30),
+            Action("build_exe", "Exe aus dem Code erstellen …", Target.EXE, self.build_menu,
+                   visible=self._building, order=20),
             Action("publish_exe", "Exe veröffentlichen …", Target.EXE, self.publish,
                    availability=self.controller._account_availability,
                    visible=lambda c: self._building(c) and has_exe(c)
                    and c.project.remote is not None, order=40),
-            Action("fetch_exe", "Exe aus dem Release holen …", Target.EXE, self.fetch,
-                   availability=self.controller._account_availability,
-                   visible=lambda c: c.project is not None and c.project.has_exe_dir
-                   and c.project.remote is not None, order=45),
-            Action("check_exe", "Exe-Einrichtung prüfen", Target.EXE, self.check_setup,
-                   visible=self._building, order=60),
+            Action("import_exe", "Exe einlesen …", Target.EXE, self.import_exe,
+                   visible=lambda c: c.project is not None and c.project.has_exe_dir, order=45),
             Action("exe_settings", "Exe-Einstellungen …", Target.EXE, self.edit_settings,
                    visible=lambda c: self._building(c)
-                   and exe.read_settings(c.project.code_dir) is not None, order=62),
-            Action("exe_ai_fix", "Exe mit KI einrichten …", Target.EXE, self.ai_fix,
-                   visible=self._building, order=64),
+                   and exe.read_settings(c.project.code_dir) is not None, order=50),
+            Action("exe_links", "Links der Exe …", Target.EXE, self.links,
+                   availability=self.controller._account_availability,
+                   visible=lambda c: c.project is not None and c.project.has_exe_dir
+                   and c.project.remote is not None, order=55),
             Action("exe_guide", "Wie funktioniert die Exe? …", Target.EXE,
                    lambda c: self.window.show_guide(exe.EXE_GUIDE, "Wie funktioniert die Exe?"),
                    visible=lambda c: c.project is not None, order=95),
             Action("build_branch_exe", "Exe aus diesem Branch erstellen …", Target.CODE,
-                   self.build_branch, visible=self._branch_building, order=70),
+                   self.build_branch, visible=self._branch_building, order=92),
         ]
 
     def _branch_building(self, context: ActionContext) -> bool:
@@ -488,6 +533,69 @@ class ExeActions:
             return
         exe.launch_restart(script)
         self.window.close()
+
+    # -- Ein Knopf für Einrichten und Bauen (30.09.2026) ----------------------------------------
+    def build_menu(self, context: ActionContext) -> None:
+        """Erst einrichten, mit oder ohne KI, dann bauen. Mit Text-KI steht "mit KI" oben."""
+        with_ai_first = not self.services.ai_problem()
+        options = [WITH_AI, WITHOUT_AI] if with_ai_first else [WITHOUT_AI, WITH_AI]
+        chosen = choose_from_list(self.window, "Exe aus dem Code erstellen", "Einrichtung",
+                                  options)
+        if chosen is None:
+            return
+        project = context.project
+        if options[chosen] == WITH_AI:
+            from cockpit.ui.exe_ai import ExeAIFlow
+            ExeAIFlow(self, project, on_finished=lambda lines: self.offer_build(context, lines)
+                      ).start()
+            return
+        from cockpit.features.exe_build.setup_check import check
+        self.controller.run_task(f"exe:{project.id}", lambda task: check(project),
+                                 lambda lines: self.offer_build(context, lines),
+                                 "Exe einrichten")
+
+    def offer_build(self, context: ActionContext, lines: list[str]) -> None:
+        """Ergebnis zeigen. "Exe erstellen" startet den Bau wie bisher in vier Schritten."""
+        if lines:
+            announce(lines[0])
+        if ReadyDialog(context.project, lines, self.window).exec():
+            self.build(context)
+
+    # -- Exe einlesen (30.09.2026) --------------------------------------------------------------
+    def import_exe(self, context: ActionContext) -> None:
+        options = [FROM_FILE] + ([FROM_RELEASE] if context.project.remote is not None else [])
+        chosen = choose_from_list(self.window, "Exe einlesen", "Woher kommt die Exe?", options)
+        if chosen is None:
+            return
+        if options[chosen] == FROM_FILE:
+            self.choose(context)
+        else:
+            self.fetch(context)
+
+    # -- Links der Exe (30.09.2026) -------------------------------------------------------------
+    def links(self, context: ActionContext) -> None:
+        from cockpit.ui.repo_dialogs import LinksDialog
+        project = context.project
+        platform = self._platform(project)
+        if platform is None:
+            return
+        ref = repo_admin.repo_ref(project)
+
+        def work(task: Task):
+            for release in platform.releases(ref):
+                asset = exe.pick_asset(release.assets)
+                if asset is not None:
+                    return download_links(release, asset)
+            return []
+
+        def done(found: list[tuple[str, str]]) -> None:
+            if not found:
+                show_info(self.window, "Links der Exe", "Die Exe ist noch nicht veröffentlicht. "
+                          "Mit „Exe veröffentlichen …“ kommt sie in ein Release.")
+                return
+            LinksDialog(f"{project.name}, Exe", found, self.window).exec()
+
+        self.controller.run_task(f"exe:{project.id}", work, done, "Links der Exe")
 
     # -- Einstellungen ändern (Phase 10g) ---------------------------------------------------
     def edit_settings(self, context: ActionContext) -> None:

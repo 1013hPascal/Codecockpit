@@ -14,15 +14,15 @@ Fehlt der Eintrag, wählen Sie auf der Projektzeile „Exe hinzufügen …“. D
 
 Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
 
-1. Vom Cockpit erstellt: „Exe aus dem Code erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner.
-2. Extern erstellt: „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Exe.
-3. Aus dem Release: „Exe aus dem Release holen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
+1. Vom Cockpit erstellt: „Exe aus dem Code erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner. Zuerst wählen Sie „Exe mit KI einrichten …“ oder „Exe ohne KI einrichten …“. Danach sehen Sie das Ergebnis und wählen „Exe erstellen“ oder „Abbrechen“.
+2. Extern erstellt: „Exe einlesen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Exe.
+3. Aus dem Release: „Exe einlesen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
 
 ## Was die Zeile Exe sagt
 
 - „noch keine Exe-Datei“: Der Ordner ist leer.
 - „aktuell“: Das Cockpit hat die Exe aus dem jetzigen Stand des Codes gebaut.
-- „älter als der Code“: Seit dem Bau gibt es neue Commits. Mit „Exe aus dem Code aktualisieren …“ bauen Sie neu.
+- „älter als der Code“: Seit dem Bau gibt es neue Commits. Mit „Exe aus dem Code erstellen …“ bauen Sie neu.
 
 ## Was beim Bauen passiert
 
@@ -39,10 +39,12 @@ In die Exe kommt nur, was Ihre Startdatei wirklich importiert, dazu Dateien, die
 
 „Exe veröffentlichen …“ legt auf GitHub ein Release an, zum Beispiel Version 1.0.1, und hängt die Exe an. Das Cockpit schlägt die nächste Nummer vor. Die Versionshinweise schreiben Sie selbst oder mit „Vorschlag der KI“.
 
+„Links der Exe …“ zeigt danach den Link zum Release und den Link zum Herunterladen der Exe. Enter kopiert den markierten Link.
+
 ## Warnung von Windows
 
 Exe-Dateien ohne digitale Signatur lösen bei anderen oft die Warnung „Der Computer wurde durch Windows geschützt“ aus. Man startet sie mit „Weitere Informationen“ und dann „Trotzdem ausführen“.
 
-## Exe-Einrichtung prüfen
+## Exe ohne KI einrichten
 
-Diese Aktion prüft, ob sich die Exe künftig ohne Handarbeit bauen lässt: ob die .spec-Datei und die Startdatei da sind, ob alle Bibliotheken in requirements.txt stehen, ob die Versionen fest sind und ob die Exe zu groß ist.
+Diese Einrichtung prüft, ob sich die Exe künftig ohne Handarbeit bauen lässt: ob die .spec-Datei und die Startdatei da sind, ob alle Bibliotheken in requirements.txt stehen, ob die Versionen fest sind und ob die Exe zu groß ist.

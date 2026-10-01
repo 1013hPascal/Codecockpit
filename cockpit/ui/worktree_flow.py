@@ -2,7 +2,8 @@
 
 Aktionen:
 - Code: "Ordner für Branches einrichten …" (alte Struktur) und "Neuer Branch …" (neue Struktur).
-- Branch-Ordner: die Aktionen von Code, dazu "Branch-Ordner entfernen …".
+- Branch-Ordner: die Aktionen von Code. "Branch-Ordner entfernen …" steht seit dem 30.09.2026
+  in "Branches verwalten".
 - "Branches auf GitHub": Enter zeigt die Branches anderer zur Auswahl. Der gewählte steht danach
   vorübergehend in der Liste.
 - Ein solcher Branch: "In Liste anpinnen" legt seinen Ordner an, "Aus der Liste entfernen",
@@ -57,18 +58,11 @@ class WorktreeActions:
     def actions(self) -> list[Action]:
         name = self.platform_name
         return [
+            # Neuer Branch, übernehmen, umbenennen, Ordner entfernen und löschen stehen seit
+            # dem 30.09.2026 in "Branches verwalten" (Wunsch des Nutzers)
             Action("setup_branch_folders", "Ordner für Branches einrichten …", Target.CODE,
                    self.setup, visible=lambda c: c.worktree is None and c.project is not None
-                   and _repo_with_commits(c) and worktrees.can_convert(c.project), order=80),
-            Action("new_branch_folder", "Neuer Branch …", Target.CODE, self.new_branch,
-                   visible=lambda c: c.project is not None and c.project.has_branch_folders
-                   and _repo_with_commits(c), order=24),
-            Action("remove_branch_folder", "Branch-Ordner entfernen …", Target.CODE,
-                   self.remove, visible=lambda c: c.worktree is not None, order=88),
-            # Wunsch aus dem Test von 10f: ganz oben der Name des Branches mit "verwalten"
-            Action("manage_branch", self._manage_text(), Target.CODE, self.manage,
-                   visible=lambda c: c.worktree is not None and bool(c.worktree.branch),
-                   order=0),
+                   and _repo_with_commits(c) and worktrees.can_convert(c.project), order=94),
             Action("show_remote_branches", f"Branches auf {name} anzeigen …",
                    Target.REMOTE_BRANCHES, self.pick_remote, is_default=True, order=10),
             Action("pin_branch", "In Liste anpinnen", Target.REMOTE_BRANCH, self.pin,
@@ -255,7 +249,9 @@ class WorktreeActions:
 
     # -- Entfernen ----------------------------------------------------------------------------
     def remove(self, context: ActionContext) -> None:
-        project, tree = context.main_project, context.worktree
+        self.remove_tree(context.main_project, context.worktree)
+
+    def remove_tree(self, project: Project, tree: Worktree) -> None:
         try:
             backup = worktrees.needs_backup(tree)
         except CockpitError as exc:

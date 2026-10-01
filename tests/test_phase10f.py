@@ -113,10 +113,12 @@ def test_status_lists_branch_folders(tmp_path, projects_root, make_services):
     assert [t.folder for t, _s in status.worktrees] == ["suche"]
     assert project_status.for_folder(status, "suche").pending == 1
     rows = children_of(project, status, "GitHub")
-    assert [r[0] for r in rows] == ["Code, main, alles hochgeladen",
+    # Wunsch vom 30.09.2026: "Main-Branch" und darunter "Branches verwalten"
+    assert [r[0] for r in rows] == ["Main-Branch, alles hochgeladen", "Branches verwalten",
                                     "Branch suche, 1 Datei noch nicht hochgeladen",
                                     "Branches auf GitHub"]
-    assert [r[1] for r in rows] == [Target.CODE, Target.BRANCH, Target.REMOTE_BRANCHES]
+    assert [r[1] for r in rows] == [Target.CODE, Target.BRANCH_OVERVIEW, Target.BRANCH,
+                                    Target.REMOTE_BRANCHES]
 
 
 def test_merge_state_is_found_in_a_branch_folder(tmp_path, projects_root, make_services):
@@ -174,7 +176,8 @@ def test_branch_row_uses_the_branch_folder(qtbot, tmp_path, projects_root, make_
     assert context.project.code_dir == tree.path and context.main_project.code_dir == \
         project.code_dir
     labels = [e.label for e in win.current_entries()]
-    assert "Branch-Ordner entfernen …" in labels and "Neuer Branch …" in labels
+    # Seit dem 30.09.2026 in "Branches verwalten"
+    assert "Branch-Ordner entfernen …" not in labels and "Neuer Branch …" not in labels
     assert "Ordner für Branches einrichten …" not in labels
     # "Code" gewünscht, Markierung bleibt auf dem Branch-Ordner
     assert win.project_list.select(Target.CODE, project.id)

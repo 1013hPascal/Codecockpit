@@ -253,7 +253,9 @@ def test_code_actions(live, qtbot, account, tmp_path, projects_root):
     select_code(win, services, code)
     texts = labels(win)
     assert "Pull Requests …" in texts and "Pull Request erstellen …" not in texts
-    assert texts.index("Branches …") < texts.index("Pull Requests …")
+    # Reihenfolge vom 30.09.2026: Pull Requests nach Holen, vor Verlauf
+    assert texts.index("Änderungen von GitHub holen …") < texts.index("Pull Requests …") \
+        < texts.index("Verlauf …")
     sh(code, "switch", "-q", "-c", "design")
     win.refresh_status()
     wait_idle(qtbot, win)

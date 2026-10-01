@@ -257,11 +257,12 @@ def test_readme_actions_on_the_project_row(qtbot, tmp_path, projects_root, make_
                                            {"main.py": "print(1)\n"})
     win = window(qtbot, services)
     win.project_list.select(Target.PROJECT, project.id)
+    # Seit dem 30.09.2026 ein Eintrag "README …" mit Auswahl (test_projektuebersichten.py)
     labels = [e.label for e in win.current_entries()]
-    assert "README erstellen …" in labels and "README-Sprachen …" in labels
+    assert "README …" in labels and "README-Sprachen …" not in labels
     (project.code_dir / "README.md").write_text("# Rechner\n", encoding="utf-8")
     labels = [e.label for e in win.current_entries()]
-    assert "README bearbeiten …" in labels and "README ansehen" in labels
+    assert "README …" in labels and "README ansehen" not in labels
     win.project_list.select(Target.CODE, project.id)
     assert not [l for l in (e.label for e in win.current_entries()) if "README" in l]
 

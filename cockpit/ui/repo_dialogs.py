@@ -158,7 +158,7 @@ class ManageRepoDialog(FocusDialog):
         self.platform_name = platform_name
         self.changed = self.deleted = self.removed = False
         self.worker = _Worker(self, "Repository verwalten")
-        self.setWindowTitle(f"Repository verwalten: {info.ref.name}")
+        self.setWindowTitle(f"Projekt verwalten: {info.ref.name}")
         self.list = QListWidget()
         name_widget(self.list, "Angaben")
         make_copyable(self.list)

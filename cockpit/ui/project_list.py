@@ -9,7 +9,8 @@ herunterladen", darunter die Sammlungen nach Namen und dann die Projekte ohne Sa
 aktualisierte oben.
 Eine geöffnete Sammlung zeigt oben "Sammlung Webseiten, 3 Projekte, geöffnet" und darunter nur
 ihre Projekte. Sie werden dort bedient wie sonst auch.
-Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt", darunter stehen "Code" und "Exe, ...".
+Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt", darunter stehen "Code" (mit
+Branch-Ordnern "Main-Branch"), "Branches verwalten" und "Exe, ...".
 Repositories des Kontos, die noch nicht auf dem Rechner liegen, stehen dazwischen als
 "Rechner, nur auf GitHub". Enter lädt sie herunter.
 
@@ -79,14 +80,18 @@ def children_of(project: Project, status: ProjectStatus | None = None,
                 ) -> list[tuple[str, Target, str | None]]:
     """Die Unterordner, die es gibt (Konzept 8.2: nur vorhandene Ordner). Mit Branch-Ordnern
     (Phase 10f): Code des Haupt-Branches, die Branch-Ordner, "Branches auf GitHub" und die dort
-    ausgewählten Branches anderer. Der dritte Wert unterscheidet Zeilen mit gleichem Ziel."""
+    ausgewählten Branches anderer. Der dritte Wert unterscheidet Zeilen mit gleichem Ziel.
+    Wunsch des Nutzers (30.09.2026): Oben steht der Haupt-Branch, darunter "Branches verwalten"."""
     if not project.folder_found:
         return []
     if not project.has_branch_folders:
         rows = [(code_line(status, platform_name), Target.CODE, None)]
+        if has_branches(status):
+            rows.append((BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None))
     else:
-        rows = [(code_line(status, platform_name, f"Code, {project.code_dir.name}"),
-                 Target.CODE, None)]
+        rows = [(code_line(status, platform_name, main_head(project)), Target.CODE, None)]
+        if has_branches(status):
+            rows.append((BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None))
         for tree, inner in (status.worktrees if status is not None else []):
             rows.append((branch_label(tree, inner, platform_name), Target.BRANCH, tree.folder))
         if status is not None and status.on_platform:
@@ -98,6 +103,21 @@ def children_of(project: Project, status: ProjectStatus | None = None,
     if project.has_exe_dir:
         rows.append((exe_label(project), Target.EXE, None))
     return rows
+
+
+BRANCH_OVERVIEW_TEXT = "Branches verwalten"
+
+
+def main_head(project: Project) -> str:
+    """Anfang der Zeile des Haupt-Branches, zum Beispiel "Main-Branch" oder "Main-Branch master"."""
+    name = project.code_dir.name
+    return "Main-Branch" if name == "main" else f"Main-Branch {name}"
+
+
+def has_branches(status: ProjectStatus | None) -> bool:
+    """Branches gibt es erst ab dem ersten Commit."""
+    return (status is not None and status.repo is not None and status.repo.is_repo
+            and status.repo.has_commits)
 
 
 def branch_label(tree: Worktree, status: ProjectStatus | None,
@@ -125,7 +145,7 @@ def collection_label(collection: Collection, size: int, opened: bool = False,
 
 
 CHILD_TARGETS = (Target.CODE, Target.EXE, Target.BRANCH, Target.REMOTE_BRANCHES,
-                 Target.REMOTE_BRANCH)
+                 Target.REMOTE_BRANCH, Target.BRANCH_OVERVIEW)
 
 
 def _sort_key(entry: Project | StoredRepo) -> str:

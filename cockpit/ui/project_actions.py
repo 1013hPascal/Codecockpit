@@ -16,6 +16,15 @@ die Aktionen des Kerns und der Features.
 - Links, Repository verwalten und Aus der Liste entfernen (Projekt, ab Phase 5e, repo_dialogs.py).
 - Branches, Beiseitelegen und beiseitegelegte Änderungen (Code, ab Phase 5f, branch_dialogs.py).
 
+Reihenfolge der Aktionen nach dem Wunsch des Nutzers (30.09.2026):
+- Main-Branch: Projekt neu einlesen, Terminal, Änderungen hochladen, Änderungen holen, Pull
+  Requests, Verlauf, Änderungen verwerfen, Änderungen beiseitelegen, Git-Identität, Code-Ordner.
+- Branch: wie Main-Branch, aber "Pull Request erstellen" und "Pull-Requests-Übersicht".
+- Projekt: Projekt neu einlesen, Terminal, Projekt verwalten, Links, README, Features dieses
+  Projekts, Aus der Liste entfernen, Projektordner öffnen.
+- Die Branches selbst verwaltet die Zeile "Branches verwalten" unter dem Haupt-Branch.
+Aktionen, die nur manchmal passen (Konflikte lösen, Neuen Ort angeben ...), erscheinen nur dann.
+
 Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine Bestätigung.
 """
 from __future__ import annotations
@@ -74,6 +83,7 @@ class ProjectController:
         reread = [Action(f"reread_{target.value}", "Projekt neu einlesen", target,
                          self.reread_action, visible=lambda c: c.project is not None, order=1)
                   for target in (Target.PROJECT, Target.CODE, Target.EXE)]
+        on_main = lambda c: c.worktree is None                          # noqa: E731
         return reread + [
             Action("add_local", "Projekt vom Rechner hinzufügen …", Target.ADD_LOCAL,
                    lambda c: self.add_local(), is_default=True, order=10),
@@ -84,8 +94,9 @@ class ProjectController:
                    self.upload_action, availability=self._upload_availability,
                    visible=_not_on_platform, is_default=True, order=10),
             Action("resolve_conflicts", "Konflikte lösen …", Target.CODE, self.resolve_action,
-                   visible=_unfinished_merge, is_default=True, order=5),
-            Action("push_changes", "Änderungen hochladen …", Target.CODE, self.push_action,
+                   visible=_unfinished_merge, is_default=True, order=2),
+            Action("push_changes", f"Änderungen auf {platform_name} hochladen …", Target.CODE,
+                   self.push_action,
                    availability=_git_availability,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c),
                    is_default=True, order=10),
@@ -97,16 +108,19 @@ class ProjectController:
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
                    self.pull_action, availability=_git_availability,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c), order=20),
-            # Mit Branch-Ordnern nur auf dem Haupt-Branch, als Übersicht. Ein Branch-Ordner hat
-            # stattdessen "<Branch> verwalten …" (Wunsch aus dem Test von 10f).
-            Action("branches", "Branches …", Target.CODE, self.branches_action,
-                   availability=_git_availability,
-                   visible=lambda c: _has_commits(c) and c.worktree is None, order=25),
-            Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
-                   availability=self._account_availability, visible=_has_remote, order=26),
+            # Die Branches verwaltet die eigene Zeile "Branches verwalten" (30.09.2026)
+            Action("branches", "Branches verwalten …", Target.BRANCH_OVERVIEW,
+                   self.branches_action, availability=_git_availability, is_default=True,
+                   order=10),
             Action("create_pull", "Pull Request erstellen …", Target.CODE,
                    self.create_pull_action, availability=self._account_availability,
-                   visible=_on_other_branch, order=27),
+                   visible=_on_other_branch, order=26),
+            Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
+                   availability=self._account_availability,
+                   visible=lambda c: _has_remote(c) and on_main(c), order=27),
+            Action("pull_requests_branch", "Pull-Requests-Übersicht …", Target.CODE,
+                   self.pull_requests_action, availability=self._account_availability,
+                   visible=lambda c: _has_remote(c) and not on_main(c), order=27),
             Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
                    availability=_discard_availability, visible=_has_commits, order=36),
             Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
@@ -122,17 +136,17 @@ class ProjectController:
             Action("terminal_project", "Terminal …", Target.PROJECT,
                    lambda c: self.terminal_action(c, False),
                    visible=lambda c: c.project is not None and c.project.folder_found,
-                   order=75),
+                   order=10),
             Action("terminal_code", "Terminal …", Target.CODE,
                    lambda c: self.terminal_action(c, True),
                    visible=lambda c: c.project is not None and c.project.folder_found,
-                   order=86),
+                   order=5),
             Action("links", "Links …", Target.PROJECT, self.links_action,
+                   availability=self._account_availability, visible=_has_remote, order=30),
+            Action("manage_repo", "Projekt verwalten …", Target.PROJECT, self.manage_action,
                    availability=self._account_availability, visible=_has_remote, order=20),
-            Action("manage_repo", "Repository verwalten …", Target.PROJECT, self.manage_action,
-                   availability=self._account_availability, visible=_has_remote, order=60),
             Action("remove_project", "Aus der Liste entfernen …", Target.PROJECT,
-                   self.remove_action, visible=lambda c: c.project is not None, order=95),
+                   self.remove_action, visible=lambda c: c.project is not None, order=90),
             Action("hide_remote", "Aus der Liste entfernen …", Target.REMOTE_REPO,
                    self.hide_remote_action, order=90),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
@@ -530,6 +544,11 @@ class ProjectController:
                 self.worktrees.create(project, dialog.new_request)
             elif dialog.open_request:
                 self.worktrees.open_folder_for(project, dialog.open_request)
+            elif getattr(dialog, "remove_request", False):
+                tree = next((t for t in worktrees.list_worktrees(project)
+                             if t.branch == dialog.remove_name), None)
+                if tree is not None:
+                    self.worktrees.remove_tree(project, tree)
             elif getattr(dialog, "delete_request", ""):
                 tree = next((t for t in worktrees.list_worktrees(project)
                              if t.branch == dialog.delete_request), None)
@@ -619,7 +638,28 @@ class ProjectController:
         except CockpitError as exc:
             show_error(self.window, "Links", exc.message, exc.details)
             return
-        LinksDialog(project.name, links, self.window).exec()
+        if not self.services.vault.is_unlocked():
+            LinksDialog(project.name, links, self.window).exec()
+            return
+        services = self.services
+
+        def work(task: Task):
+            """Wunsch des Nutzers (30.09.2026): auch das neueste Release, wenn es eins gibt.
+            Klappt die Abfrage nicht, kommen die Links ohne Release."""
+            from cockpit.platforms.base import SupportsReleases
+            try:
+                platform = services.platform_for(project)
+                if isinstance(platform, SupportsReleases):
+                    releases = platform.releases(repo_admin.repo_ref(project))
+                    if releases:
+                        return [(f"Neuestes Release {releases[0].tag}", releases[0].url)]
+            except CockpitError as exc:
+                log.info("Releases von %s nicht abgefragt: %s", project.name, exc.message)
+            return []
+
+        self.run_task(f"project:{project.id}", work,
+                      lambda extra: LinksDialog(project.name, links + extra, self.window).exec(),
+                      "Links")
 
     def manage_action(self, context: ActionContext) -> None:
         project = context.project

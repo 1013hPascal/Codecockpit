@@ -80,8 +80,8 @@ def test_ui_sections_describe_menus_and_actions(qtbot, make_services):
     sections = {s.title: s for s in ui_sections(win)}
     assert "KI-Hilfe … (Shift+F1)" in sections["Menüs"].text
     assert sections["Menüs"].always and sections["Tastenkürzel (F1)"].always
-    code = sections["Aktionen auf Code und auf einer Branch-Zeile"].text
-    assert "Branches …" in code and "Änderungen hochladen …" in code
+    code = sections["Aktionen auf Code bzw. Main-Branch und auf einer Branch-Zeile"].text
+    assert "Verlauf …" in code and "Änderungen auf GitHub hochladen …" in code
 
 
 def test_dialog_asks_and_shows_one_sentence_per_line(qtbot, make_services):

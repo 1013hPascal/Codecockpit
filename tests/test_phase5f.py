@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from cockpit.core import backups, branches, git, project_status, sync
+from cockpit.core.actions import Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.sync import ConflictKind
 from cockpit.ui import branch_dialogs
@@ -347,7 +348,7 @@ def rows(dialog) -> list[str]:
 
 
 def select(dialog, name: str) -> None:
-    dialog.list.setCurrentRow([b.name for b in dialog.items].index(name))
+    dialog.list.setCurrentRow(dialog.row_of(name))       # oben steht "Neuer Branch …"
 
 
 def test_code_actions(live, qtbot, make_services, projects_root, tmp_path):
@@ -356,7 +357,8 @@ def test_code_actions(live, qtbot, make_services, projects_root, tmp_path):
     win = live(services)
     select_code(win, services, code)
     texts = labels(win)
-    assert texts.index("Branches …") < texts.index("Verlauf …")
+    # Seit dem 30.09.2026 eigene Zeile "Branches verwalten" statt "Branches …" bei Code
+    assert "Branches …" not in texts and "Verlauf …" in texts
     assert "Änderungen beiseitelegen …, nicht verfügbar: Es gibt keine Änderungen ohne Commit." \
         in texts
     assert "Beiseitegelegte Änderungen …" not in texts
@@ -385,6 +387,8 @@ def test_branches_from_the_window(live, qtbot, make_services, projects_root, tmp
             return 0
 
     monkeypatch.setattr(branch_dialogs, "BranchesDialog", FakeBranches)
+    project_id = win.action_context().project.id
+    assert win.project_list.select(Target.BRANCH_OVERVIEW, project_id)
     entry = next(e for e in win.current_entries() if e.action.id == "branches")
     win.run_entry(entry)
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)
@@ -418,7 +422,9 @@ def test_dialog_lines_and_enter_switches(qtbot, make_services, tmp_path, project
     _, code, _ = branch_repo(tmp_path, projects_root)
     dialog = dialog_for(qtbot, make_services, code)
     assert dialog.windowTitle() == "Branches von Tagebuch: 4 Branches"
-    assert rows(dialog)[0] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
+    assert rows(dialog)[0] == "Neuer Branch …"
+    assert rows(dialog)[1] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
+    select(dialog, "main")
     dialog.switch_current()
     assert said("Sie sind schon auf main.")
     select(dialog, "design")

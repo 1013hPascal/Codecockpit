@@ -98,7 +98,7 @@ Im Fenster Branches: wechseln, neuen Branch anlegen, in main übernehmen, umbene
 
 In der Aktionsliste bei Code: Änderungen hochladen und holen, immer für den aktuellen Branch.
 
-Leute ins Repository holen gehört nicht zu Branches. Das ist „Mitarbeiter …“ beim Projekt unter „Repository verwalten …“.
+Leute ins Repository holen gehört nicht zu Branches. Das ist „Mitarbeiter …“ beim Projekt unter „Projekt verwalten …“.
 
 
 ## Wo bin ich gerade?
@@ -142,11 +142,11 @@ Das Cockpit hebt die Commits eines gelöschten Branches auf. Es geht also nichts
 
 ## Ein typischer Ablauf
 
-1. Code, „Branches …“, „Neuer Branch …“, Name design.
+1. Projekt ausklappen, „Branches verwalten“, oben „Neuer Branch …“, Name design.
 2. Im Ordner Code die Dateien ändern.
 3. „Änderungen hochladen“. Das legt einen Commit an und bringt den Branch auf GitHub.
 4. Andere schauen sich den Branch auf GitHub an.
-5. Passt alles: In der Übersicht Branches design markieren, „In main übernehmen …“.
+5. Passt alles: In „Branches verwalten“ design markieren, „In main übernehmen …“.
 6. Sie sind jetzt auf main. „Änderungen hochladen“ bringt das Ergebnis auf GitHub.
 7. design wird nicht mehr gebraucht: markieren, „Löschen …“, „Hier und auf GitHub“.
 

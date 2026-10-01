@@ -1,7 +1,8 @@
 """README-Pflege in der Oberfläche (Konzept 10.2, Phase 9).
 
-Aktionen auf Code (und auf Branch-Zeilen): "README erstellen …" oder "README aktualisieren …",
-"README ansehen", "README-Sprachen …".
+Aktion auf der Projektzeile: "README …" mit Auswahl (Wunsch des Nutzers, 30.09.2026): "README
+erstellen …" (nur ohne README) oder "README bearbeiten …", dazu "README-Einstellungen …" für die
+Sprachen.
 
 Wunsch des Nutzers zu Phase 9: Jeder neue Abschnitt kommt einzeln zum Lesen. Übernehmen (auch
 angepasst), Überspringen oder alles Abbrechen. In der README steht danach keine Markierung.
@@ -166,7 +167,7 @@ class LanguagesDialog(FocusDialog):
 
     def __init__(self, services, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(f"README-Sprachen: {project.name}")
+        self.setWindowTitle(f"README-Einstellungen: {project.name}")
         main_code, codes = plan.languages(services, project.code_dir)
         names = list(doc.LANGUAGES)
         self.main = QComboBox()
@@ -230,17 +231,22 @@ class ReadmeActions:
     def actions(self) -> list[Action]:
         # Auf der Projektzeile (Wunsch des Nutzers zu Phase 9): die README gehört zum Projekt
         return [
-            Action("readme_create", "README erstellen …", Target.PROJECT, self.start,
-                   visible=lambda c: self._active(c) and not self._has_readme(c), order=30),
-            Action("readme_show", "README ansehen", Target.PROJECT, self.show,
-                   visible=lambda c: self._active(c) and self._has_readme(c), order=30),
-            Action("readme_edit", "README bearbeiten …", Target.PROJECT, self.edit,
-                   visible=lambda c: self._active(c) and self._has_readme(c), order=31),
-            Action("readme_languages", "README-Sprachen …", Target.PROJECT, self.languages,
-                   visible=self._active, order=32),
+            # Ein Eintrag mit Auswahl (Wunsch des Nutzers, 30.09.2026)
+            Action("readme", "README …", Target.PROJECT, self.choose,
+                   visible=self._active, order=40),
         ]
 
     # -- Bearbeiten -------------------------------------------------------------------------
+    def choose(self, context: ActionContext) -> None:
+        """README erstellen (nur ohne README) oder bearbeiten, und README-Einstellungen."""
+        from cockpit.ui.common import choose_from_list
+        first = ("README bearbeiten …", self.edit) if self._has_readme(context) \
+            else ("README erstellen …", self.start)
+        options = [first, ("README-Einstellungen …", self.languages)]
+        chosen = choose_from_list(self.window, "README", "README", [o[0] for o in options])
+        if chosen is not None:
+            options[chosen][1](context)
+
     def edit(self, context: ActionContext) -> None:
         """Die README als Text zum selbst Bearbeiten. Bei mehreren Sprachen erst die Datei."""
         from cockpit.ui.common import choose_from_list

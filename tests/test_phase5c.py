@@ -421,7 +421,8 @@ def test_code_actions_on_platform(live, qtbot, make_services, projects_root, tmp
     win = live(services)
     select_code(win, services, projects_root / "Tagebuch" / "Code")
     texts = labels(win)
-    assert texts[:3] == ["Projekt neu einlesen", "Änderungen hochladen …",
+    # Reihenfolge vom 30.09.2026
+    assert texts[:4] == ["Projekt neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
                          "Änderungen von GitHub holen …"]
     assert "Auf GitHub hochladen …" not in texts and "Konflikte lösen …" not in texts
 

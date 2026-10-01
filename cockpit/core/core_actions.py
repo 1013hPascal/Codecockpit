@@ -83,7 +83,7 @@ def _run_exe(context: ActionContext) -> None:
 
 CORE_ACTIONS: tuple[Action, ...] = (
     Action("open_project_dir", "Projektordner öffnen", Target.PROJECT, _open_project_dir,
-           availability=_project_found, order=80),
+           availability=_project_found, order=95),
     Action("open_code_dir", "Code-Ordner öffnen", Target.CODE, _open_code_dir,
            availability=_project_found, order=90),
     Action("run_exe", "Exe starten", Target.EXE, _run_exe, availability=_exe_found,

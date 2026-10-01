@@ -367,12 +367,13 @@ def test_actions_follow_the_state(qtbot, make_services, projects_root):
     assert "Exe hinzufügen …" not in labels(win)
     win.project_list.select(Target.EXE, project.id)
     entries = labels(win)
-    assert "Exe aus dem Code erstellen …" in entries and "Exe-Datei wählen …" in entries
-    assert "Exe-Einrichtung prüfen" in entries and "Wie funktioniert die Exe? …" in entries
+    # Zusammengefasst am 30.09.2026: Erstellen mit Einrichten, Exe einlesen
+    assert "Exe aus dem Code erstellen …" in entries and "Exe einlesen …" in entries
+    assert "Wie funktioniert die Exe? …" in entries
     assert "Exe veröffentlichen …" not in entries             # kein Repository auf GitHub
     fake_exe(project.exe_dir)
     win.refresh_actions()
-    assert "Exe aus dem Code aktualisieren …" in labels(win)
+    assert "Exe aus dem Code erstellen …" in labels(win)
     services.features.disable("exe_build", project)
     win.refresh_actions()
     assert not any("aus dem Code" in e for e in labels(win))

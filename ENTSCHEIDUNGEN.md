@@ -855,3 +855,22 @@ Wunsch des Nutzers: Die Projekte sollen sich nach Themen ordnen lassen, zum Beis
 - Die Sammlungen stehen nur in der Datenbank des Rechners, nicht in cockpit.toml. Sie gehören zur eigenen Ordnung, nicht zum Projekt. Auflösen ändert keine Dateien, deshalb gibt es dafür keine Sicherheitskopie, nur die Rückfrage mit „Abbrechen“ als Vorgabe.
 - Nachtrag nach dem Test (Wunsch des Nutzers): Auch Repositories, die nur auf GitHub liegen, kommen in Sammlungen. Die Liste „Projekte für die Sammlung …“ sagt bei jedem Eintrag, wo er liegt: „nur auf dem Rechner“, „auf dem Rechner und auf GitHub“ oder „nur auf GitHub“. Für ein Repository nur auf GitHub merkt sich das Cockpit die Adresse. Nach dem Herunterladen steht das Projekt von selbst in derselben Sammlung.
 - Nachtrag nach dem Test (Wunsch des Nutzers): Die Zeile einer Sammlung sagt den Stand, zum Beispiel „Sammlung Web, 3 Projekte, Änderungen offen“ oder „…, nichts offen“. Offen heißt: Dateien noch nicht hochgeladen oder ein Zusammenführen nicht abgeschlossen, auch in Branch-Ordnern. „nichts offen“ steht erst da, wenn der Stand aller Projekte abgefragt ist. Repositories nur auf GitHub haben nichts offen.
+
+
+## 30.09.2026: Projektübersichten und Aktionsmenüs
+
+Wunsch des Nutzers, gebaut im Branch projektuebersichten. Checkliste in checklisten\projektuebersichten.md.
+
+- Unter einem ausgeklappten Projekt steht zuerst der Haupt-Branch. Mit Branch-Ordnern heißt die Zeile „Main-Branch, …“ statt „Code, main, …“. Ohne Branch-Ordner bleibt „Code, …“, weil die Zeile dann auch einen anderen Branch zeigen kann.
+- Direkt darunter steht „Branches verwalten“, sobald das Repository einen Commit hat. Enter öffnet die Übersicht der Branches. Sie ersetzt „Branches …“ im Menü von Code.
+- In der Übersicht steht oben „Neuer Branch …“, dann der Haupt-Branch und die Branches. Beim Haupt-Branch kommt mit Tab die Liste „Exe“ mit Version und ob die Exe veröffentlicht ist. Das Cockpit liest das aus seiner eigenen Notiz zur Exe, ohne GitHub zu fragen. Bei einem Branch kommen „In main übernehmen …“, „Umbenennen …“, „Branch-Ordner entfernen …“ und „Löschen …“.
+- Menü Main-Branch: Projekt neu einlesen, Terminal, Änderungen auf GitHub hochladen, Änderungen von GitHub holen, Pull Requests, Verlauf, Änderungen verwerfen, Änderungen beiseitelegen, Git-Identität, Code-Ordner öffnen.
+- Menü Branch: dasselbe, statt „Pull Requests …“ aber „Pull Request erstellen …“ und „Pull-Requests-Übersicht …“. „… verwalten …“ und „Branch-Ordner entfernen …“ sind in „Branches verwalten“ gewandert.
+- Einträge, die nur manchmal passen, bleiben und erscheinen nur dann: Konflikte lösen, Auf GitHub hochladen, Branch auf GitHub hochladen, Beiseitegelegte Änderungen, Mit vorhandenem Repository verbinden, Virtuelle Umgebung neu anlegen, Exe aus diesem Branch erstellen, Ordner für Branches einrichten. Sie stehen nach der gewünschten Reihenfolge, Konflikte lösen ganz oben.
+- Menü Exe: Projekt neu einlesen, Exe starten, Exe aus dem Code erstellen, Exe veröffentlichen, Exe einlesen, Exe-Einstellungen, Links der Exe, Exe-Ordner öffnen, Wie funktioniert die Exe?. „Exe starten“ bleibt, weil Enter auf der Zeile Exe es ausführt.
+- „Exe aus dem Code erstellen …“ fasst Erstellen, Aktualisieren, Exe-Einrichtung prüfen und Exe mit KI einrichten zusammen: erst die Wahl „Exe mit KI einrichten …“ oder „Exe ohne KI einrichten …“ (mit eingerichteter Text-KI steht „mit KI“ oben), dann das Ergebnis mit „Exe erstellen“ und „Abbrechen“. „Ohne KI“ ist die bisherige Prüfung der Einrichtung.
+- „Exe einlesen …“ fasst „Exe-Datei wählen …“ und „Exe aus dem Release holen …“ zusammen.
+- „Links der Exe …“ zeigt Release, Download dieser Version und Download der neuesten Version. Den Download-Link bildet das Cockpit nach dem Muster von GitHub aus der Adresse des Releases.
+- Menü Projekt: Projekt neu einlesen, Terminal, Projekt verwalten (bisher Repository verwalten), Links, README, Features dieses Projekts, Aus der Liste entfernen, Projektordner öffnen. „Links …“ nennt auch das neueste Release, wenn der Tresor offen ist und es eins gibt.
+- „README …“ fragt: „README erstellen …“ (nur ohne README) oder „README bearbeiten …“, dazu „README-Einstellungen …“ (bisher README-Sprachen). „README ansehen“ entfällt, weil Bearbeiten den Text auch zeigt.
+- Offen: „Releases …“ und „GitHub Actions …“ standen nicht in der Liste des Nutzers. Sie bleiben vorerst beim Projekt nach README.
