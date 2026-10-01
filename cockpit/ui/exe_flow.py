@@ -173,7 +173,7 @@ class BuildDialog(FocusDialog):
         make_copyable(self.output)
         self.stop_button = QPushButton("&Abbrechen")
         self.stop_button.clicked.connect(self.stop)
-        self.close_button = QPushButton("&Schließen")
+        self.close_button = QPushButton("&Weiter" if continue_after else "&Schließen")
         self.close_button.clicked.connect(self.reject)
         for button in (self.stop_button, self.close_button):
             button.setAutoDefault(False)

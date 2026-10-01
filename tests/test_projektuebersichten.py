@@ -764,6 +764,7 @@ def test_build_dialog_continues_after_success(qtbot, monkeypatch, tmp_path):
     dialog = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code",
                                   branch_name="Cockpit-exe-bauen", continue_after=True)
     qtbot.addWidget(dialog)
+    assert dialog.close_button.text() == "&Weiter"
     assert dialog.exec()                                        # schließt sich selbst
     assert dialog.result.exe == built
     stays = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code")
