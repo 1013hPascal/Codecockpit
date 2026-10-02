@@ -70,21 +70,23 @@ def test_beside_candidates(tmp_path):
     assert exe_flow.beside_candidates(project.code_dir) == ["config.csv", "Meine-Vokabeln"]
 
 
-def test_settings_dialog_has_a_checklist(qtbot, tmp_path):
+def test_settings_dialog_has_a_checklist(qtbot, tmp_path, monkeypatch):
     project = vokabel_project(tmp_path)
     dialog = exe_flow.BuildSettingsDialog(project)
     qtbot.addWidget(dialog)
     texts = [dialog.beside.item(r).text() for r in range(dialog.beside.count())]
-    assert texts == ["config.csv", "Meine-Vokabeln, vom Code benutzt"]
+    # Seit dem 03.10.2026 steht das Unbedingte oben und heißt so
+    assert texts == ["Meine-Vokabeln, unbedingt nötig, vom Code benutzt", "config.csv"]
     assert dialog.beside.accessibleName() == "Ordner und Dateien neben der Exe"
-    assert dialog.beside.item(1).checkState() == Qt.CheckState.Checked     # vorgeschlagen
-    assert dialog.beside.item(0).checkState() == Qt.CheckState.Unchecked
+    assert dialog.beside.item(0).checkState() == Qt.CheckState.Checked     # vorgeschlagen
+    assert dialog.beside.item(1).checkState() == Qt.CheckState.Unchecked
     dialog.new_name.setText("Sicherungen")
     dialog.add_new()
     assert dialog.beside.item(2).text() == "Sicherungen, wird neben der Exe leer angelegt"
     assert said("Sicherungen kommt neben die Exe.")
-    dialog.beside.item(1).setCheckState(Qt.CheckState.Unchecked)
+    dialog.beside.item(0).setCheckState(Qt.CheckState.Unchecked)
     assert dialog.chosen_beside() == ["Sicherungen"]
+    monkeypatch.setattr(exe_flow, "confirm", lambda *a, **k: True)     # trotzdem weglassen
     dialog.form.fields["start_file"].set("gui.py")
     dialog.check()
     assert dialog.settings.beside == ["Sicherungen"]
@@ -515,3 +517,96 @@ def test_readme_is_always_refreshed(tmp_path):
     exe.place_beside(project, ["config.csv"], home, None, None)               # andere Dateien
     assert (home / "config.csv").read_text(encoding="utf-8") == "eigene Einstellung\n"
     assert exe.is_readme("readme.de.md") and not exe.is_readme("config.csv")
+
+
+# -- 6. Eigene Bauanleitung schützen, Unbedingtes markieren (Rückmeldung vom 03.10.2026) -------
+HANDMADE = "# Bauanleitung von Hand\na = Analysis(['gui.py'], datas=[('hilfe', 'hilfe')])\n"
+
+
+def test_own_spec_is_recognised(tmp_path):
+    assert exe.own_spec(tmp_path / "fehlt.spec")
+    generated = tmp_path / "V.spec"
+    generated.write_text(exe.spec_text(exe.BuildSettings("gui.py", "V")), encoding="utf-8")
+    assert exe.own_spec(generated)
+    handmade = tmp_path / "H.spec"
+    handmade.write_text(HANDMADE, encoding="utf-8")
+    assert not exe.own_spec(handmade)
+
+
+def test_cockpit_spec_is_handmade():
+    """Die Bauanleitung des Cockpits selbst ist von Hand geschrieben und bleibt es."""
+    from cockpit.core import paths
+    spec = paths.resource_dir() / "CodeCockpit.spec"
+    assert not exe.own_spec(spec)
+    assert "EINFUEHRUNG.md" in spec.read_text(encoding="utf-8")
+
+
+def test_settings_never_overwrite_a_handmade_spec(tmp_path, home):
+    exe.write_settings(tmp_path, exe.BuildSettings("gui.py", "V"))
+    (tmp_path / "V.spec").write_text(HANDMADE, encoding="utf-8")
+    exe.change_settings(tmp_path, "V", exe.BuildSettings("main.py", "Anders",
+                                                         beside=["Meine-Vokabeln"]))
+    assert (tmp_path / "V.spec").read_text(encoding="utf-8") == HANDMADE
+    assert not (tmp_path / "Anders.spec").exists()
+    saved = exe.read_settings(tmp_path)
+    assert saved.beside == ["Meine-Vokabeln"] and saved.name == "V"   # Name zur .spec bleibt
+
+
+def test_generated_spec_is_still_updated(tmp_path, home):
+    exe.write_settings(tmp_path, exe.BuildSettings("gui.py", "V"))
+    (tmp_path / "V.spec").write_text(exe.spec_text(exe.BuildSettings("gui.py", "V")),
+                                     encoding="utf-8")
+    exe.change_settings(tmp_path, "V", exe.BuildSettings("main.py", "V", windowed=False))
+    assert "console=True" in (tmp_path / "V.spec").read_text(encoding="utf-8")
+
+
+def test_required_beside(tmp_path):
+    from cockpit.features.exe_build.setup_check import required_beside
+    project = vokabel_project(tmp_path)
+    assert required_beside(project.code_dir) == ["Meine-Vokabeln"]
+    (project.code_dir / "VokabelApp.spec").write_text(
+        "a = Analysis(['gui.py'], datas=[('Meine-Vokabeln', 'Meine-Vokabeln')])\n",
+        encoding="utf-8")
+    settings = exe.BuildSettings("gui.py", "VokabelApp")
+    assert required_beside(project.code_dir, settings) == []         # steckt schon in der Exe
+
+
+def test_required_is_checked_even_if_not_saved(qtbot, tmp_path):
+    project = vokabel_project(tmp_path)
+    current = exe.BuildSettings("gui.py", "VokabelApp", beside=[])
+    dialog = exe_flow.BuildSettingsDialog(project, current=current)
+    qtbot.addWidget(dialog)
+    assert dialog.chosen_beside() == ["Meine-Vokabeln"]
+
+
+def test_unchecking_required_asks_and_rechecks(qtbot, tmp_path, monkeypatch):
+    project = vokabel_project(tmp_path)
+    dialog = exe_flow.BuildSettingsDialog(project, current=exe.BuildSettings("gui.py",
+                                                                             "VokabelApp"))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    asked = []
+    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **k:
+                        asked.append((text, k)) or False)              # Wieder anhaken
+    dialog.beside.item(0).setCheckState(Qt.CheckState.Unchecked)
+    dialog.check()
+    assert asked[0][0].startswith("Meine-Vokabeln ist unbedingt nötig")
+    assert asked[0][1] == {"yes": "Trotzdem weglassen", "no": "Wieder anhaken"}
+    assert dialog.settings is None and dialog.isVisible()
+    assert dialog.chosen_beside() == ["Meine-Vokabeln"]
+
+
+def test_handmade_spec_hides_the_form(qtbot, tmp_path):
+    project = vokabel_project(tmp_path)
+    current = exe.BuildSettings("gui.py", "VokabelApp", one_file=False)
+    (project.code_dir / "VokabelApp.spec").write_text(HANDMADE, encoding="utf-8")
+    dialog = exe_flow.BuildSettingsDialog(project, current=current, in_flow=True)
+    qtbot.addWidget(dialog)
+    dialog.show()
+    assert dialog.handmade and not dialog.form.isVisible()
+    labels = [w.text() for w in dialog.findChildren(exe_flow.QLabel)]
+    assert any(t.startswith("Die Bauanleitung VokabelApp.spec ist von Hand geschrieben.")
+               for t in labels)
+    dialog.check()
+    assert dialog.settings == exe.BuildSettings("gui.py", "VokabelApp", one_file=False,
+                                                beside=["Meine-Vokabeln"])

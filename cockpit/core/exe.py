@@ -14,6 +14,7 @@ Grundsätze:
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import logging
 import os
@@ -571,10 +572,22 @@ def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = 
 
 
 # -- .spec-Datei ---------------------------------------------------------------------------------
+SPEC_MARK = "# Erstellt von CodeCockpit."
+
+
+def own_spec(path: Path) -> bool:
+    """Hat das Cockpit diese .spec-Datei selbst geschrieben? Eine fehlende zählt als eigene.
+    Eine von Hand geschriebene, etwa die des Cockpits, ändert es nie (Rückmeldung des Nutzers
+    vom 03.10.2026: die Standardvorlage hatte sie überschrieben, der Exe fehlten danach Dateien)."""
+    if not path.is_file():
+        return True
+    return path.read_text(encoding="utf-8", errors="replace").startswith(SPEC_MARK)
+
+
 def spec_text(settings: BuildSettings) -> str:
     icon = repr(settings.icon) if settings.icon else "None"
     datas = [tuple(d) for d in settings.datas]
-    head = (f"# Erstellt von CodeCockpit. Sie dürfen die Datei anpassen, das Cockpit nutzt sie\n"
+    head = (f"{SPEC_MARK} Sie dürfen die Datei anpassen, das Cockpit nutzt sie\n"
             f"# bei jedem Bau weiter. Pfade sind relativ zum Ordner Code.\n\n"
             f"a = Analysis([{settings.start_file!r}], pathex=[], binaries=[], "
             f"datas={datas!r},\n"
@@ -600,8 +613,13 @@ def ensure_spec(code_dir: Path, settings: BuildSettings) -> Path:
 
 def change_settings(code_dir: Path, project_name: str, settings: BuildSettings) -> Path | None:
     """Exe-Einstellungen ändern (Phase 10g). Die .spec-Datei wird neu geschrieben, wenn sich
-    etwas darin ändert. Die alte kommt vorher in die Sicherheitskopien. Gibt diese zurück."""
+    etwas darin ändert. Die alte kommt vorher in die Sicherheitskopien. Gibt diese zurück.
+    Eine von Hand geschriebene .spec-Datei bleibt, wie sie ist. Dann ändern sich nur die
+    Einstellungen in cockpit.toml, zum Beispiel die Ordner neben der Exe."""
     old = read_settings(code_dir)
+    if old is not None and not own_spec(code_dir / old.spec_name):
+        write_settings(code_dir, dataclasses.replace(settings, name=old.name))
+        return None
     write_settings(code_dir, settings)
     backup = None
     if old is not None and (code_dir / old.spec_name).is_file():
