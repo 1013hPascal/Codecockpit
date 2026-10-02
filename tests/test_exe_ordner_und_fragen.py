@@ -493,3 +493,25 @@ def test_files_like_the_readme_can_be_chosen(tmp_path):
     home.mkdir()
     exe.place_beside(project, ["readme.md"], home, None, None)
     assert (home / "readme.md").read_text(encoding="utf-8") == "# Vokabeln\n"
+
+
+def test_readme_is_always_refreshed(tmp_path):
+    """Wunsch des Nutzers: Die README neben der Exe ist immer die aktuelle aus dem Code."""
+    from cockpit.core import backups
+    project = vokabel_project(tmp_path)
+    readme = project.code_dir / "README.md"
+    readme.write_text("# Version 1\n", encoding="utf-8")
+    home = tmp_path / "home"
+    home.mkdir()
+    assert exe.place_beside(project, ["README.md"], home, None, None) == ["README.md"]
+    assert exe.place_beside(project, ["README.md"], home, None, None) == []   # gleich: nichts
+    readme.write_text("# Version 2\n", encoding="utf-8")
+    assert exe.place_beside(project, ["README.md"], home, None, None) == ["README.md"]
+    assert (home / "README.md").read_text(encoding="utf-8") == "# Version 2\n"
+    saved = list(backups.backups_dir().rglob("README.md"))
+    assert [p.read_text(encoding="utf-8") for p in saved] == ["# Version 1\n"]
+    (project.code_dir / "config.csv").write_text("neu\n", encoding="utf-8")
+    (home / "config.csv").write_text("eigene Einstellung\n", encoding="utf-8")
+    exe.place_beside(project, ["config.csv"], home, None, None)               # andere Dateien
+    assert (home / "config.csv").read_text(encoding="utf-8") == "eigene Einstellung\n"
+    assert exe.is_readme("readme.de.md") and not exe.is_readme("config.csv")

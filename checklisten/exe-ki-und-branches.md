@@ -168,5 +168,5 @@ Ergebnis:
 
 [ ] 28. README mitnehmen
 Tasten: Im ersten Schritt in der Liste „Ordner und Dateien neben der Exe“ readme.md anhaken, Weiter, bauen.
-Ansage: Nach dem Bau liegt readme.md neben der Exe.
+Ansage: Nach dem Bau liegt readme.md neben der Exe. Ändern Sie die README im Code und bauen Sie noch einmal: Neben der Exe liegt danach die neue Fassung, die alte steht in den Sicherheitskopien (Menü Datei, Sicherheitskopien).
 Ergebnis:

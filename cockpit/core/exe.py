@@ -355,6 +355,11 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
     source_dir = source_dir or project.code_dir
     for name in names:
         target = home / name
+        if is_readme(name) and (source_dir / name).is_file():
+            # Wunsch des Nutzers (02.10.2026): Die README ist immer die aktuelle aus dem Code
+            if _refresh_file(project, source_dir / name, target):
+                placed.append(name)
+            continue
         if target.exists() and not _empty_dir(target):
             continue
         previous = backup / old_home / name if backup is not None and old_home is not None \
@@ -384,6 +389,26 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
                                str(exc)) from None
         placed.append(name)
     return placed
+
+
+def is_readme(name: str) -> bool:
+    """README, README.md, readme.txt, README.de.md ..."""
+    return Path(name).name.lower().startswith("readme")
+
+
+def _refresh_file(project: Project, source: Path, target: Path) -> bool:
+    """Datei neben der Exe durch die aus dem Code ersetzen. Ist die bisherige anders, kommt sie
+    vorher in die Sicherheitskopien. Gibt True zurück, wenn sich etwas geändert hat."""
+    try:
+        if target.is_file():
+            if target.read_bytes() == source.read_bytes():
+                return False
+            backups.move_into_backup(target, project.name, f"{target.name} neben der Exe ersetzt")
+        shutil.copy2(source, target)
+    except OSError as exc:
+        raise CockpitError(f"{source.name} ließ sich nicht neben die Exe legen.",
+                           str(exc)) from None
+    return True
 
 
 def _empty_dir(path: Path) -> bool:
