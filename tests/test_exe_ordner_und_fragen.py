@@ -333,3 +333,121 @@ def test_branch_build_uses_the_new_folders(exe_window, monkeypatch, tmp_path):
     monkeypatch.setattr(exe, "find_python", lambda: ["py"])
     win.controller.exe.build_ai_branch(project, branch)
     assert used == [["Meine-Vokabeln", "Daten"]]
+
+
+# -- 4. Fehlerfenster beim Start und selbst testen (Rückmeldung vom 02.10.2026) ----------------
+def test_start_test_fails_on_an_error_window(tmp_path, monkeypatch):
+    """Bei einer Exe mit Fenster lief das Programm mit Fehlerfenster weiter, der Test bestand."""
+    import sys
+    import pytest
+    from cockpit.core.errors import CockpitError
+    script = tmp_path / "laeuft.py"
+    script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+    monkeypatch.setattr(exe, "error_window_text",
+                        lambda pid: "Unhandled exception in script\nNameError: name 'sys'")
+    monkeypatch.setattr(exe.subprocess, "Popen", _python_popen(sys.executable, script))
+    with pytest.raises(CockpitError) as raised:
+        exe.start_test(tmp_path / "VokabelApp.exe", seconds=5, windowed=True)
+    assert raised.value.message.startswith("Die neue Exe zeigt beim Start eine Fehlermeldung.")
+    assert "NameError: name 'sys'" in raised.value.details
+
+
+def _python_popen(python, script):
+    import subprocess
+    real = subprocess.Popen
+
+    def popen(args, **kwargs):
+        return real([python, str(script)], **kwargs)
+    return popen
+
+
+def test_error_window_is_read(tmp_path):
+    """Echtes Meldungsfenster wie bei PyInstaller: Titel und Fehlermeldung werden gelesen."""
+    import subprocess
+    import sys
+    import time
+    import pytest
+    if sys.platform != "win32":
+        pytest.skip("nur Windows")
+    from cockpit.core import error_windows
+    child = ("import ctypes\nctypes.windll.user32.MessageBoxW(0, 'Traceback (most recent call "
+             "last):\\nNameError: name sys is not defined', 'Unhandled exception in script', 0)\n")
+    process = subprocess.Popen([sys.executable, "-c", child])
+    try:
+        text = ""
+        for _ in range(60):
+            time.sleep(0.25)
+            text = error_windows.error_text(process.pid)
+            if text:
+                break
+        assert text.startswith("Unhandled exception in script")
+        assert "NameError: name sys is not defined" in text
+        assert error_windows.error_text(999999) == ""            # fremder Prozess: nichts
+    finally:
+        process.kill()
+
+
+def self_test_dialog(qtbot, tmp_path):
+    project = vokabel_project(tmp_path)
+    dialog = exe_flow.SelfTestDialog(project, project.exe_dir / "VokabelApp.exe")
+    qtbot.addWidget(dialog)
+    dialog.show()
+    return dialog
+
+
+def test_self_test_needs_a_message_for_the_ai(qtbot, tmp_path):
+    dialog = self_test_dialog(qtbot, tmp_path)
+    assert dialog.windowTitle() == "Exe selbst testen: VokabelApp"
+    assert dialog.edit.accessibleName() == "Fehlermeldung oder Beschreibung"
+    dialog.request_fix()
+    assert dialog.isVisible() and dialog.choice == ""
+    assert said("Bitte fügen Sie zuerst die Fehlermeldung ein")
+    dialog.edit.setPlainText("NameError: name 'sys' is not defined")
+    dialog.request_fix()
+    assert dialog.choice == exe_flow.SelfTestDialog.FIX
+    assert dialog.error_text == "NameError: name 'sys' is not defined"
+
+
+def test_self_test_starts_the_exe(qtbot, tmp_path, monkeypatch):
+    from cockpit.core import core_actions
+    started = []
+    monkeypatch.setattr(core_actions, "start_program", started.append)
+    dialog = self_test_dialog(qtbot, tmp_path)
+    dialog.start_exe()
+    assert started == [dialog.exe_path]
+
+
+def test_choose_self_test_opens_the_window(exe_window, monkeypatch, tmp_path):
+    win, project, _built, _shown = exe_window
+    monkeypatch.setattr(exe_flow, "ask_buttons", lambda *a, **k: 0)   # selbst testen
+    tested = []
+    monkeypatch.setattr(exe_flow.ExeActions, "self_test",
+                        lambda self, p, path: tested.append(path))
+    win.controller.exe.after_branch_test(project, "x.exe", tmp_path / "x.exe")
+    assert tested == [tmp_path / "x.exe"]
+
+
+def test_pasted_error_goes_to_the_ai(exe_window, monkeypatch, tmp_path):
+    win, project, _built, _shown = exe_window
+    fixes, merges = [], []
+
+    class Dialog:
+        FIX, MERGE = "fix", "merge"
+
+        def __init__(self, *args):
+            self.choice, self.error_text = "fix", "NameError: name 'sys' is not defined"
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(exe_flow, "SelfTestDialog", Dialog)
+    monkeypatch.setattr(exe_flow.ExeActions, "fix_with_ai",
+                        lambda self, p, error: fixes.append(error))
+    monkeypatch.setattr(exe_flow.ExeActions, "merge_ai_branch",
+                        lambda self, p, delete: merges.append(delete))
+    win.controller.exe.self_test(project, tmp_path / "x.exe")
+    assert fixes == ["NameError: name 'sys' is not defined"]
+    Dialog.__init__ = lambda self, *a: setattr(self, "choice", "merge")
+    monkeypatch.setattr(exe_flow, "ask_buttons", lambda *a, **k: 1)       # Branch löschen
+    win.controller.exe.self_test(project, tmp_path / "x.exe")
+    assert merges == [True]

@@ -811,7 +811,7 @@ def test_branch_question_names_the_subfolder(exe_window, monkeypatch, tmp_path):
                                                                                 "Rechner"))
     named = []
     monkeypatch.setattr(exe_flow.ExeActions, "after_branch_test",
-                        lambda self, p, name: named.append(name))
+                        lambda self, p, name, exe_path=None: named.append(name))
     win.controller.exe.build_ai_branch(project, branch_dir)
     assert named == [r"Rechner_branch_Cockpit-exe-bauen\Rechner.exe"]
 

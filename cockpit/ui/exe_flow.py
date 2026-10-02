@@ -477,6 +477,78 @@ def download_links(release, asset) -> list[tuple[str, str]]:
     return links
 
 
+class SelfTestDialog(FocusDialog):
+    """Selbst testen: die Exe starten, ausprobieren und bei einem Problem die Fehlermeldung
+    einfügen. "Problem mit KI lösen" gibt sie an die KI (Wunsch des Nutzers, 02.10.2026)."""
+    FIX, MERGE = "fix", "merge"
+
+    def __init__(self, project: Project, exe_path: Path, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.exe_path = exe_path
+        self.choice = ""
+        self.error_text = ""
+        self.setWindowTitle(f"Exe selbst testen: {project.name}")
+        self.info = QListWidget()
+        info_label = label_for(self.info, "&Hinweise:")
+        self.info.setWordWrap(True)
+        self.info.addItems([
+            f"Starten Sie die Exe mit „Exe starten“ und probieren Sie sie aus. Sie liegt hier: "
+            f"{exe_path}.",
+            "Klappt etwas nicht, fügen Sie die Fehlermeldung unten ein oder beschreiben Sie, "
+            "was passiert. Dann wählen Sie „Problem mit KI lösen“.",
+            "Klappt alles, wählen Sie „Funktioniert, in main übernehmen …“.",
+            "„Später“ lässt den Branch, wie er ist.",
+        ])
+        self.info.setCurrentRow(0)
+        self.edit = PlainEdit()
+        edit_label = label_for(self.edit, "&Fehlermeldung oder Beschreibung:")
+        start = QPushButton("Exe &starten")
+        start.clicked.connect(self.start_exe)
+        fix = QPushButton("Problem mit &KI lösen")
+        fix.clicked.connect(self.request_fix)
+        merge = QPushButton("Funktioniert, in &main übernehmen …")
+        merge.clicked.connect(self.request_merge)
+        later = QPushButton("S&päter")
+        later.clicked.connect(self.reject)
+        for button in (start, fix, merge, later):
+            button.setAutoDefault(False)
+        layout = QVBoxLayout(self)
+        layout.addWidget(info_label)
+        layout.addWidget(self.info, 1)
+        layout.addWidget(edit_label)
+        layout.addWidget(self.edit, 2)
+        layout.addLayout(button_row(start, fix, merge, None, later))
+        self.resize(720, 480)
+        self.initial_focus_widget = self.info
+
+    def keyPressEvent(self, event) -> None:
+        if not click_focused_button(self, event):
+            super().keyPressEvent(event)
+
+    def start_exe(self) -> None:
+        from cockpit.core import core_actions
+        try:
+            core_actions.start_program(self.exe_path)
+        except OSError as exc:
+            show_error(self, self.windowTitle(), "Die Exe ließ sich nicht starten.", repr(exc))
+            return
+        announce(f"{self.exe_path.name} wird gestartet.")
+
+    def request_fix(self) -> None:
+        text = self.edit.toPlainText().strip()
+        if not text:
+            announce("Bitte fügen Sie zuerst die Fehlermeldung ein oder beschreiben Sie, was "
+                     "passiert.")
+            self.edit.setFocus()
+            return
+        self.choice, self.error_text = self.FIX, text
+        self.accept()
+
+    def request_merge(self) -> None:
+        self.choice = self.MERGE
+        self.accept()
+
+
 def beside_line(project: Project, code_dir: Path | None = None) -> str:
     """Welche Ordner neben die Exe kommen (Rückmeldung des Nutzers vom 02.10.2026)."""
     settings = exe.read_settings(code_dir or project.code_dir) or         exe.read_settings(project.code_dir)
@@ -829,9 +901,10 @@ class ExeActions:
                 shown = str(built.relative_to(project.exe_dir))
             except (ValueError, TypeError):
                 shown = built.name
-            self.after_branch_test(project, shown)
+            self.after_branch_test(project, shown, built)
 
-    def after_branch_test(self, project: Project, exe_name: str) -> None:
+    def after_branch_test(self, project: Project, exe_name: str,
+                          exe_path: Path | None = None) -> None:
         """Wunsch des Nutzers: Die Exe aus dem Branch funktioniert. Wie geht es weiter?"""
         from cockpit.features.exe_build import exe_branch
         branch = exe_branch.BRANCH
@@ -841,13 +914,40 @@ class ExeActions:
             f"{exe_name} im Ordner Exe, die normale Exe bleibt. Wie geht es weiter?",
             [AFTER_TEST_LATER, AFTER_TEST_KEEP, AFTER_TEST_DELETE], default=0, escape=0)
         if choice == 0:
-            where = "" if project.has_branch_folders else (
-                f" Der Ordner Code steht noch auf {branch}. Zurück zu main geht es über "
-                "„Branches verwalten“.")
-            announce(f"Der Branch {branch} bleibt. Übernehmen geht später über „Branches "
-                     f"verwalten“, „In main übernehmen …“.{where}")
+            if exe_path is not None:
+                self.self_test(project, exe_path)
+                return
+            self.keep_branch_later(project)
             return
         self.merge_ai_branch(project, delete=choice == 2)
+
+    def keep_branch_later(self, project: Project) -> None:
+        from cockpit.features.exe_build import exe_branch
+        branch = exe_branch.BRANCH
+        where = "" if project.has_branch_folders else (
+            f" Der Ordner Code steht noch auf {branch}. Zurück zu main geht es über "
+            "„Branches verwalten“.")
+        announce(f"Der Branch {branch} bleibt. Übernehmen geht später über „Branches "
+                 f"verwalten“, „In main übernehmen …“.{where}")
+
+    def self_test(self, project: Project, exe_path: Path) -> None:
+        """Selbst testen (Wunsch des Nutzers, 02.10.2026): Klappt etwas nicht, fügt man die
+        Fehlermeldung ein, und die KI versucht, das Problem zu lösen."""
+        dialog = SelfTestDialog(project, exe_path, self.window)
+        dialog.exec()
+        if dialog.choice == SelfTestDialog.FIX:
+            self.fix_with_ai(project, dialog.error_text)
+        elif dialog.choice == SelfTestDialog.MERGE:
+            answer = ask_buttons(self.window, "In main übernehmen",
+                                 "Die Exe funktioniert. Soll der Branch nach dem Übernehmen "
+                                 "bleiben?", ["Branch behalten", "Branch löschen", "Abbrechen"],
+                                 default=2, escape=2)
+            if answer == 2:
+                self.keep_branch_later(project)
+                return
+            self.merge_ai_branch(project, delete=answer == 1)
+        else:
+            self.keep_branch_later(project)
 
     def merge_ai_branch(self, project: Project, delete: bool) -> None:
         from cockpit.core.sync import ConflictKind

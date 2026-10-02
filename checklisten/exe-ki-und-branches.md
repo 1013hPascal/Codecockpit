@@ -134,3 +134,26 @@ Ergebnis:
 Tasten: Im ersten Fenster Escape.
 Ansage: Es passiert nichts weiter, die Einstellungen bleiben, wie sie waren.
 Ergebnis:
+
+
+## Fehler beim Start und selbst testen
+
+[ ] 23. Start-Test erkennt das Fehlerfenster
+Tasten: Eine Exe bauen, die beim Start abstürzt, zum Beispiel mit dem Fehler „name 'sys' is not defined“.
+Ansage: Schritt 3 meldet „Fehler: Die neue Exe zeigt beim Start eine Fehlermeldung. Die bisherige Exe bleibt.“ Darüber steht die Fehlermeldung aus dem Fenster, mit Traceback. Der Knopf „Problem mit KI lösen“ hat den Fokus.
+Ergebnis:
+
+[ ] 24. Fenster „Exe selbst testen“
+Tasten: Nach einem bestandenen Test „Selbst testen, später in main übernehmen“.
+Ansage: Fenster „Exe selbst testen: …“ mit der Liste „Hinweise“. Mit Tab: „Fehlermeldung oder Beschreibung“, dann „Exe starten“, „Problem mit KI lösen“, „Funktioniert, in main übernehmen …“, „Später“.
+Ergebnis:
+
+[ ] 25. Fehlermeldung an die KI
+Tasten: „Exe starten“, ausprobieren. Bei einem Fehler die Meldung in das Feld einfügen, „Problem mit KI lösen“.
+Ansage: Das Fenster „Fortschritt“ mit „Die KI versucht, das Problem zu lösen“. Danach der gewohnte Ablauf mit Vorschlag und „Exe erstellen“. Ohne Text im Feld sagt das Cockpit, dass zuerst die Fehlermeldung hineingehört.
+Ergebnis:
+
+[ ] 26. Funktioniert
+Tasten: „Funktioniert, in main übernehmen …“.
+Ansage: Rückfrage mit „Branch behalten“, „Branch löschen“ und „Abbrechen“ (Vorgabe). Danach „Cockpit-exe-bauen ist in main übernommen.“
+Ergebnis:

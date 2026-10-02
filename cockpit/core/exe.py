@@ -624,6 +624,15 @@ QUICK_EXIT = ("Die neue Exe hat sich gleich nach dem Start ohne Fenster beendet.
               "bisherige Exe bleibt.")
 
 
+def error_window_text(pid: int) -> str:
+    """Text eines Fehlerfensters der gestarteten Exe, sonst leer (in Tests ersetzbar)."""
+    from cockpit.core import error_windows
+    try:
+        return error_windows.error_text(pid)
+    except (OSError, AttributeError, ValueError):
+        return ""
+
+
 def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
                cancel: threading.Event | None = None, windowed: bool = False) -> str:
     """Start-Test: läuft die Exe nach seconds noch, ist alles gut, dann wird sie beendet. Beendet
@@ -643,10 +652,19 @@ def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
         raise CockpitError("Die neue Exe ließ sich nicht starten.", repr(exc)) from None
     limit = 60 if self_test else seconds
     deadline = time.monotonic() + limit
+    next_look = time.monotonic() + 1
     try:
         while time.monotonic() < deadline:
             if cancel is not None and cancel.is_set():
                 raise Cancelled()
+            if time.monotonic() >= next_look:
+                # Ein Absturz zeigt bei einer Exe mit Fenster ein Meldungsfenster, das Programm
+                # läuft dann weiter. Das zählt nicht als bestanden (Rückmeldung vom 02.10.2026).
+                next_look = time.monotonic() + 1
+                shown = error_window_text(process.pid)
+                if shown:
+                    raise CockpitError("Die neue Exe zeigt beim Start eine Fehlermeldung. Die "
+                                       "bisherige Exe bleibt.", shown)
             code = process.poll()
             if code is not None:
                 if code == 0 and windowed and not self_test:
