@@ -20,7 +20,7 @@ from pathlib import Path
 
 from cockpit.core import backups, exe
 from cockpit.core.errors import Cancelled, CockpitError
-from cockpit.features.exe_build import setup_check
+from cockpit.features.exe_build import imports_check, setup_check
 
 CONTEXT_LINES = 12                    # Zeilen vor und nach einer Fundstelle im Auszug
 SMALL_FILE = 4000                     # kleinere Startdateien gehen ganz an die KI
@@ -45,6 +45,7 @@ class Proposal:
     changes: list[Change] = field(default_factory=list)
     settings: exe.BuildSettings | None = None     # geänderte Exe-Einstellungen, sonst None
     settings_lines: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)      # was das Cockpit selbst ergänzt hat
 
     @property
     def usable(self) -> list[Change]:
@@ -75,6 +76,7 @@ def fixed_part(code_dir: Path, settings: exe.BuildSettings, progress=None) -> Pr
                                               settings.windowed, settings.icon, settings.datas,
                                               settings.hidden_imports, settings.self_test,
                                               settings.test_seconds, beside)
+    proposal.changes += import_changes(code_dir)
     missing = missing_packages(code_dir, progress)
     if missing:
         path = code_dir / "requirements.txt"
@@ -84,6 +86,25 @@ def fixed_part(code_dir: Path, settings: exe.BuildSettings, progress=None) -> Pr
             "requirements.txt", f"Bibliotheken ergänzen, damit sie in die Exe kommen: "
             f"{', '.join(missing)}.", "", old + tail + "".join(f"{m}\n" for m in missing)))
     return proposal
+
+
+def import_changes(code_dir: Path) -> list[Change]:
+    """Dateien, die sys, os oder Path benutzen, ohne sie zu importieren (zum Beispiel nach
+    einer früheren Änderung der KI). Die Änderung fügt die Zeile vor dem ersten Import ein."""
+    changes = []
+    for path in setup_check.python_files(code_dir):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        small = imports_check.small_change(text)
+        if small is None:
+            continue
+        old, new, added = small
+        changes.append(Change(path.relative_to(code_dir).as_posix(),
+                              f"{', '.join(added)} fehlt, der Code benutzt es aber. Ohne die "
+                              "Zeile stürzt die Exe mit NameError ab.", old, new))
+    return changes
 
 
 def missing_packages(code_dir: Path, progress=None) -> list[str]:
@@ -277,25 +298,46 @@ def apply(project_name: str, code_dir: Path, proposal: Proposal) -> Path:
     """Die passenden Änderungen übernehmen. Die betroffenen Dateien und cockpit.toml kommen
     vorher in eine Sicherheitskopie. Gibt deren Ordner zurück."""
     changes = proposal.usable
+    # Erst alles im Speicher ändern und prüfen, dann schreiben. So bleibt bei einem Fehler
+    # jede Datei, wie sie war (Rückmeldung vom 02.10.2026: fehlendes import sys).
+    texts: dict[str, str] = {}
+    for change in changes:
+        path = code_dir / change.file
+        if change.file not in texts:
+            texts[change.file] = path.read_text(encoding="utf-8") if path.is_file() else ""
+        if change.old:
+            if texts[change.file].count(change.old) != 1:
+                raise CockpitError(f"{change.file} hat sich inzwischen geändert. Es wurde nichts "
+                                   "übernommen.")
+            texts[change.file] = texts[change.file].replace(change.old, change.new)
+        else:
+            texts[change.file] = change.new
+    problems = []
+    for name, text in texts.items():
+        if not name.endswith(".py"):
+            continue
+        text, added = imports_check.add_imports(text)
+        if added:
+            texts[name] = text
+            proposal.notes.append(f"Ergänzt in {name}: {', '.join(added)}.")
+        problem = imports_check.compile_problem(text, name)
+        if problem:
+            problems.append(problem)
+    if problems:
+        raise CockpitError("Die Änderungen der KI ergeben fehlerhaften Code. Es wurde nichts "
+                           "übernommen. Fragen Sie die KI noch einmal, am besten mit dem "
+                           "Hinweis auf diesen Fehler.", "\n".join(problems))
     folder = backups.new_backup_dir(project_name, "vor den Änderungen für die Exe", code_dir)
-    for name in {c.file for c in changes} | {"cockpit.toml"}:
+    for name in set(texts) | {"cockpit.toml"}:
         source = code_dir / name
         if source.is_file():
             target = folder / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-    for change in changes:
-        path = code_dir / change.file
-        if change.old:
-            text = path.read_text(encoding="utf-8")
-            if text.count(change.old) != 1:
-                raise CockpitError(f"{change.file} hat sich inzwischen geändert. Es wurde nicht "
-                                   "alles übernommen. Die Sicherheitskopie steht im Ordner "
-                                   "backups.")
-            path.write_text(text.replace(change.old, change.new), encoding="utf-8")
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(change.new, encoding="utf-8")
+    for name, text in texts.items():
+        path = code_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
     if proposal.settings is not None:
         exe.change_settings(code_dir, project_name, proposal.settings)
     return folder

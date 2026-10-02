@@ -241,6 +241,13 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
                      "zum Ordner Code angeben." if _ABSOLUTE.search(text)
                      else f"{OK}: Keine festen Pfade in {spec.name}.")
 
+    from cockpit.features.exe_build import imports_check
+    for path in python_files(code_dir):
+        lacking = imports_check.missing(_read(path))
+        if lacking:
+            lines.append(f"{PROBLEM}: {path.relative_to(code_dir).as_posix()} benutzt etwas, "
+                         f"ohne es zu importieren. Es fehlt: {', '.join(lacking)}. Die Exe "
+                         "stürzt dann mit NameError ab.")
     from cockpit.core import long_paths
     if not long_paths.enabled():
         lines.append(f"{WARNING}: Lange Pfade sind in Windows ausgeschaltet. Bei Bibliotheken "

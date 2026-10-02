@@ -170,3 +170,21 @@ Ergebnis:
 Tasten: Im ersten Schritt in der Liste „Ordner und Dateien neben der Exe“ readme.md anhaken, Weiter, bauen.
 Ansage: Nach dem Bau liegt readme.md neben der Exe. Ändern Sie die README im Code und bauen Sie noch einmal: Neben der Exe liegt danach die neue Fassung, die alte steht in den Sicherheitskopien (Menü Datei, Sicherheitskopien).
 Ergebnis:
+
+
+## Fehlende Importe
+
+[ ] 29. Vorschlag für import sys
+Tasten: Bei der Vokabel-App „Exe aus dem Code erstellen …“, mit KI einrichten.
+Ansage: Im Vorschlag steht „engine.py: import sys fehlt, der Code benutzt es aber. Ohne die Zeile stürzt die Exe mit NameError ab.“ Enter darauf zeigt bisher „import csv“ und neu „import sys“ und „import csv“.
+Ergebnis:
+
+[ ] 30. Ohne KI
+Tasten: „Exe ohne KI einrichten …“.
+Ansage: Im Ergebnis steht „Problem: engine.py benutzt etwas, ohne es zu importieren. Es fehlt: import sys. …“, solange die Zeile fehlt.
+Ergebnis:
+
+[ ] 31. Bau danach
+Tasten: Übernehmen, „Exe erstellen“.
+Ansage: Der Start-Test besteht, die Exe öffnet sich ohne NameError.
+Ergebnis:

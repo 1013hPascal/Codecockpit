@@ -415,7 +415,7 @@ class ExeAIFlow:
             announce(f"Änderungen im Branch {exe_branch.BRANCH} übernommen.")
             lines = ([f"Änderungen im Branch {exe_branch.BRANCH} übernommen, Ordner {folder}. "
                       "Main ist unverändert."]
-                     + [c.line() for c in proposal.usable]
+                     + [c.line() for c in proposal.usable] + proposal.notes
                      + ["Mit „Exe erstellen“ baut das Cockpit die Exe aus diesem Branch und "
                         "testet sie. Sie kommt als eigene Datei neben die normale Exe."])
             if self.on_finished is not None:
