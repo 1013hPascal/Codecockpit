@@ -16,6 +16,7 @@ Alles, was Dateien verändert, beschreibt vorher, was passiert, und braucht eine
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 import shutil
 import tempfile
@@ -83,11 +84,17 @@ class BuildSettingsDialog(FocusDialog):
     """Erster Bau: Startdatei, Name, Bauart, Konsolenfenster, Symbol. Darunter die Liste "Ordner
     und Dateien neben der Exe" mit Kontrollkästchen (Wunsch des Nutzers, 02.10.2026): vom Code
     benutzte Ordner sind vorgeschlagen und so benannt. Mit "Neuer Ordner" kommt ein Name dazu,
-    den es im Ordner Code noch nicht gibt. Er wird neben der Exe leer angelegt."""
+    den es im Ordner Code noch nicht gibt. Er wird neben der Exe leer angelegt.
+    Wunsch des Nutzers (03.10.2026): Was der Code unbedingt braucht, heißt "…, unbedingt nötig"
+    und ist immer vorab angehakt. Wer es abhakt, wird beim Weiter gewarnt.
+    Bei einer von Hand geschriebenen .spec-Datei stehen Startdatei, Name und Bauart dort. Das
+    Formular dafür ist dann ausgeblendet, das Fenster sagt das, und gespeichert wird nur die
+    Liste."""
 
     def __init__(self, project: Project, parent: QWidget | None = None,
                  current: exe.BuildSettings | None = None, in_flow: bool = False) -> None:
-        from cockpit.features.exe_build.setup_check import data_folders, guess_start_file
+        from cockpit.features.exe_build.setup_check import (data_folders, guess_start_file,
+                                                            required_beside)
         super().__init__(parent)
         # in_flow: erster Schritt von "Exe aus dem Code erstellen" (Wunsch des Nutzers,
         # 02.10.2026). Mit Weiter wird gespeichert wie unter "Exe-Einstellungen …".
@@ -113,13 +120,17 @@ class BuildSettingsDialog(FocusDialog):
                   sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Code",
                           current.icon)]
         self.form = SettingsForm(fields)
-        used = set(data_folders(project.code_dir))
+        self.handmade = self.current is not None and \
+            not exe.own_spec(project.code_dir / self.current.spec_name)
+        self.required = required_beside(project.code_dir, self.current)
         self.beside = QListWidget()
         beside_label = label_for(self.beside, "&Ordner und Dateien neben der Exe:")
-        names = beside_candidates(project.code_dir)
+        names = list(self.required)
+        names += [n for n in beside_candidates(project.code_dir) if n not in names]
         names += [n for n in current.beside if n not in names]
         for name in names:
-            self._add_beside(name, name in current.beside, name in used,
+            needed = name in self.required
+            self._add_beside(name, needed or name in current.beside, needed,
                              not (project.code_dir / name).exists())
         self.beside.setCurrentRow(0)
         self.new_name = QLineEdit()
@@ -139,6 +150,13 @@ class BuildSettingsDialog(FocusDialog):
                           "Danach richten Sie die Exe mit oder ohne KI ein.")
             hint.setWordWrap(True)
             layout.addWidget(hint)
+        if self.handmade:
+            spec = QLabel(f"Die Bauanleitung {self.current.spec_name} ist von Hand geschrieben. "
+                          "Startdatei, Name, Bauart und Symbol stehen dort. Das Cockpit ändert "
+                          "sie nicht, hier wählen Sie nur, was neben die Exe kommt.")
+            spec.setWordWrap(True)
+            layout.addWidget(spec)
+            self.form.setVisible(False)
         layout.addWidget(self.form)
         layout.addWidget(beside_label)
         layout.addWidget(self.beside, 1)
@@ -147,9 +165,34 @@ class BuildSettingsDialog(FocusDialog):
         layout.addLayout(button_row(None, ok, cancel))
         self.resize(600, 560 if in_flow else 520)
         # Im Ablauf zuerst die Ordner, darum geht es meistens; mit Umschalt+Tab die übrigen Felder
-        self.initial_focus_widget = self.beside if in_flow else self.form.first_focus()
+        self.initial_focus_widget = self.beside if in_flow or self.handmade \
+            else self.form.first_focus()
+
+    def _missing_required_ok(self) -> bool:
+        """Ist etwas Unbedingtes abgehakt, nachfragen. Die sichere Antwort hakt es wieder an."""
+        chosen = set(self.chosen_beside())
+        missing = [n for n in self.required if n not in chosen]
+        if not missing:
+            return True
+        names = ", ".join(missing)
+        if confirm(self, self.windowTitle(), f"{names} ist unbedingt nötig, der Code benutzt "
+                   "es. Ohne liegt es nicht neben der Exe, und die Exe findet es dann vermutlich "
+                   "nicht. Trotzdem weglassen?", yes="Trotzdem weglassen", no="Wieder anhaken"):
+            return True
+        for row in range(self.beside.count()):
+            item = self.beside.item(row)
+            if item.data(BESIDE_ROLE) in missing:
+                item.setCheckState(Qt.CheckState.Checked)
+        self.beside.setFocus()
+        return False
 
     def check(self) -> None:
+        if not self._missing_required_ok():
+            return
+        if self.handmade:
+            self.settings = dataclasses.replace(self.current, beside=self.chosen_beside())
+            self.accept()
+            return
         try:
             values = self.form.values()
         except FormError as exc:
@@ -176,7 +219,7 @@ class BuildSettingsDialog(FocusDialog):
     def _add_beside(self, name: str, checked: bool, used: bool, missing: bool) -> None:
         text = name
         if used:
-            text += ", vom Code benutzt"
+            text += ", unbedingt nötig, vom Code benutzt"
         if missing:
             text += ", wird neben der Exe leer angelegt"
         item = QListWidgetItem(text)
@@ -1032,11 +1075,13 @@ class ExeActions:
         if not dialog.exec() or dialog.settings is None:
             return
         settings = dialog.settings
+        spec = (f"Die von Hand geschriebene Datei {settings.spec_name} bleibt unverändert."
+                if dialog.handmade else
+                f"Die Datei {settings.spec_name} wird neu geschrieben, die bisherige kommt in die "
+                "Sicherheitskopien.")
         if not confirm(self.window, "Exe-Einstellungen",
-                       f"Die Einstellungen kommen in cockpit.toml. Die Datei {settings.spec_name} "
-                       "wird neu geschrieben, die bisherige kommt in die Sicherheitskopien. Die "
-                       "Exe ändert sich erst beim nächsten Bau. Speichern?", yes="Speichern",
-                       no="Abbrechen"):
+                       f"Die Einstellungen kommen in cockpit.toml. {spec} Die Exe ändert sich "
+                       "erst beim nächsten Bau. Speichern?", yes="Speichern", no="Abbrechen"):
             return
         try:
             exe.change_settings(project.code_dir, project.name, settings)

@@ -176,6 +176,30 @@ def relative_data_paths(code_dir: Path, known: set[str] | None = None) -> list[t
     return found
 
 
+def spec_known(code_dir: Path, spec: Path | None) -> set[str]:
+    """Namen im Ordner Code, die die .spec-Datei schon nennt. Sie stecken in der Exe."""
+    text = _read(spec) if spec is not None and spec.is_file() else ""
+    return {p.name for p in code_dir.iterdir() if p.name in text} if text else set()
+
+
+def _spec_of(code_dir: Path, settings: exe.BuildSettings | None) -> Path | None:
+    if settings is not None and (code_dir / settings.spec_name).is_file():
+        return code_dir / settings.spec_name
+    specs = sorted(code_dir.glob("*.spec"))
+    return specs[0] if specs else None
+
+
+def required_beside(code_dir: Path, settings: exe.BuildSettings | None = None) -> list[str]:
+    """Was neben die Exe muss, weil der Code es benutzt und die .spec-Datei es nicht schon in
+    die Exe packt: Ordner und Dateien, die es im Ordner Code gibt (Wunsch des Nutzers vom
+    03.10.2026: in den Exe-Einstellungen angehakt und als "unbedingt nötig" markiert)."""
+    known = spec_known(code_dir, _spec_of(code_dir, settings))
+    names = data_folders(code_dir, known)
+    names += [name for _file, name in relative_data_paths(code_dir, known)
+              if (code_dir / name).exists() and name not in names]
+    return names
+
+
 def check(project: Project) -> list[str]:
     """Alle Prüfpunkte. Erste Zeile: Gesamtbewertung."""
     return check_for(project.code_dir, exe.read_settings(project.code_dir),
@@ -215,9 +239,7 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
                 lines.append(f"{PROBLEM}: Der Ordner {name}, der neben die Exe soll, fehlt im "
                              "Ordner Code.")
         # Was die .spec-Datei schon einbindet, fehlt in der Exe nicht (beim Cockpit: anleitungen)
-        spec_text_known = _read(spec) if spec is not None and spec.is_file() else ""
-        known = {p.name for p in code_dir.iterdir() if p.name in spec_text_known} \
-            if spec_text_known else set()
+        known = spec_known(code_dir, spec)
         for name in data_folders(code_dir, known):
             if name not in settings.beside:
                 lines.append(f"{WARNING}: Der Code nutzt den Ordner {name}. In der Exe fehlt er. "
