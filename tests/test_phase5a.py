@@ -574,7 +574,9 @@ def test_remote_only_repo_is_listed_and_enter_downloads_it(live, qtbot, account,
     assert "Rechner, nur auf GitHub, aktualisiert am 10.09.2026" in row_texts(win)
     repo = services.remote_repos.all()[0]
     assert win.project_list.select(Target.REMOTE_REPO, repo.id)
+    # Seit dem 02.10.2026 auch "Repository löschen …" (test_repo_loeschen.py)
     assert [e.label for e in win.current_entries()] == ["Herunterladen", "Auf GitHub öffnen",
+                                                        "Repository löschen …",
                                                         "Aus der Liste entfernen …"]
     qtbot.keyClick(win.project_list, Qt.Key.Key_Return)
     wait_idle(qtbot, win)

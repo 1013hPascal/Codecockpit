@@ -150,6 +150,10 @@ class ProjectController:
                    availability=self._account_availability, visible=_has_remote, order=20),
             Action("remove_project", "Aus der Liste entfernen …", Target.PROJECT,
                    self.remove_action, visible=lambda c: c.project is not None, order=90),
+            # Wunsch des Nutzers (02.10.2026): löschen, ohne vorher herunterzuladen
+            Action("delete_remote_repo", "Repository löschen …", Target.REMOTE_REPO,
+                   self.delete_remote_action, availability=self._remote_account_availability,
+                   order=85),
             Action("hide_remote", "Aus der Liste entfernen …", Target.REMOTE_REPO,
                    self.hide_remote_action, order=90),
             Action("relocate", "Neuen Ort angeben …", Target.PROJECT, self.relocate_action,
@@ -716,6 +720,49 @@ class ProjectController:
             self.services.remote_repos.hide(project.remote)   # nicht als "nur auf GitHub"
         self.window.reload_projects(refresh=False)
         announce(f"{project.name} aus der Liste entfernt.")
+
+    def _remote_account_availability(self, context: ActionContext) -> Availability:
+        repo = context.remote_repo
+        if repo is None:
+            return Availability.no("Das Repository ist nicht mehr in der Liste.")
+        account = self.services.accounts.get(repo.account_id)
+        if account is None:
+            return Availability.no("Das Konto zu diesem Repository gibt es nicht mehr.")
+        return Availability.yes()
+
+    def delete_remote_action(self, context: ActionContext) -> None:
+        """Repository löschen, das nur auf der Plattform liegt. Dieselben Rückfragen wie bei
+        "Projekt verwalten": Warnung mit "Stattdessen archivieren …", dann den Namen eintippen."""
+        from cockpit.platforms.base import RepoRef
+        from cockpit.ui.repo_dialogs import RepoDeleter, _Worker
+        repo = context.remote_repo
+        if not vault_ui.ensure_unlocked(self.services, self.window):
+            return
+        platform = self.services.platform(repo.account_id)
+        if platform is None:
+            show_error(self.window, "Repository löschen", "Das Konto zu diesem Repository gibt "
+                       "es nicht mehr.")
+            return
+        name = self.window.project_list.platform_name
+        ref = RepoRef(repo.owner, repo.name)
+        worker = _Worker(self.window, "Repository löschen")
+        self.remote_worker = worker                 # lebt, solange die Aufgabe läuft
+
+        def deleted() -> None:
+            self.services.remote_repos.forget(repo.address)
+            self.window.reload_projects(refresh=False)
+            announce(f"{repo.name} ist auf {name} gelöscht.")
+
+        def archive() -> None:
+            text = (f"{repo.name} wird schreibgeschützt. Niemand kann mehr hochladen, auch Sie "
+                    f"nicht. Das Repository bleibt auf {name} erhalten, und die Archivierung lässt "
+                    "sich jederzeit wieder aufheben. Archivieren?")
+            if confirm(self.window, "Archivieren", text, yes="Archivieren", no="Abbrechen"):
+                worker.run(lambda: platform.archive(ref),
+                           lambda _value: announce(f"{repo.name} ist archiviert."))
+
+        RepoDeleter(self.window, worker, platform, ref, name, False, deleted, archive,
+                    local=False).start()
 
     def hide_remote_action(self, context: ActionContext) -> None:
         repo = context.remote_repo

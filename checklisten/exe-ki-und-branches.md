@@ -188,3 +188,21 @@ Ergebnis:
 Tasten: Übernehmen, „Exe erstellen“.
 Ansage: Der Start-Test besteht, die Exe öffnet sich ohne NameError.
 Ergebnis:
+
+
+## Repository nur auf GitHub löschen
+
+[ ] 32. Aktion vorhanden
+Tasten: Auf einem Repository „…, nur auf GitHub“ Tab, mit Pfeil runter.
+Ansage: „Herunterladen“, „Auf GitHub öffnen“, „Repository löschen …“, „Aus der Liste entfernen …“.
+Ergebnis:
+
+[ ] 33. Rückfragen
+Tasten: Enter auf „Repository löschen …“.
+Ansage: „Löschen lässt sich nicht rückgängig machen. … Auf Ihrem Rechner gibt es keine Kopie. Sanfter ist Archivieren …“ mit „Weiter zum Löschen …“, „Stattdessen archivieren …“ und „Abbrechen“ (Vorgabe, auch mit Escape). Nach „Weiter zum Löschen …“ muss der Name eingetippt werden.
+Ergebnis:
+
+[ ] 34. Löschen
+Tasten: Nur mit einem Test-Repository: Namen eintippen, „Endgültig löschen“. Fehlt das Recht zum Löschen, die kurze Anmeldung im Browser bestätigen.
+Ansage: „Wird gelöscht.“, dann „… ist auf GitHub gelöscht.“ Das Repository steht nicht mehr in der Liste.
+Ergebnis:
