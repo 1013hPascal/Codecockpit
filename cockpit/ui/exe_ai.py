@@ -178,9 +178,10 @@ class ProposalDialog(FocusDialog):
     """Vorschlag als Liste. Enter auf einer Änderung zeigt alten und neuen Text."""
 
     def __init__(self, project: Project, proposal: ai_fix.Proposal,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, services=None) -> None:
         super().__init__(parent)
         self.proposal = proposal
+        self.repeat_hints = ""            # gesetzt: mit diesen Hinweisen noch einmal fragen
         usable = len(proposal.usable) + (1 if proposal.settings is not None else 0)
         self.setWindowTitle(f"Vorschlag für die Exe von {project.name}: "
                             f"{usable} {'Änderung' if usable == 1 else 'Änderungen'}")
@@ -204,9 +205,45 @@ class ProposalDialog(FocusDialog):
         cancel.clicked.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list, 1)
-        layout.addLayout(button_row(show, None, apply, cancel))
-        self.resize(760, 420)
+        self.chat = None
+        repeat = None
+        if services is not None:          # Fragen an die KI (Wunsch des Nutzers, 02.10.2026)
+            from cockpit.ui.exe_chat import REPEAT_TEXT, ExeChat
+            self.chat = ExeChat(services, project.name, "Die KI hat den Code gelesen und "
+                                "Änderungen für die Exe vorgeschlagen.", self.lines, self)
+            layout.addWidget(self.chat, 1)
+            repeat = QPushButton(REPEAT_TEXT)
+            repeat.setAutoDefault(False)
+            repeat.clicked.connect(self.repeat)
+        layout.addLayout(button_row(show, None, apply, repeat, cancel) if repeat is not None
+                         else button_row(show, None, apply, cancel))
+        self.resize(760, 560 if services is not None else 420)
         self.initial_focus_widget = self.list
+
+    def lines(self) -> list[str]:
+        """Was im Vorschlag steht, mit altem und neuem Text, für die Fragen an die KI."""
+        lines = []
+        for row in range(self.list.count()):
+            lines.append(self.list.item(row).text())
+            change = self.rows[row]
+            if change is not None:
+                lines += ["Bisher:", change.old or "(neue Datei)", "Neu:", change.new]
+        return lines
+
+    def repeat(self) -> None:
+        from cockpit.ui.exe_chat import NO_HINTS
+        if self.chat is None or not self.chat.history:
+            announce(NO_HINTS)
+            if self.chat is not None:
+                self.chat.question.setFocus()
+            return
+        self.repeat_hints = self.chat.hints()
+        self.reject()
+
+    def done(self, code: int) -> None:
+        if self.chat is not None:
+            self.chat.stop()
+        super().done(code)
 
     def _add(self, text: str, change: ai_fix.Change | None) -> None:
         self.list.addItem(text)
@@ -296,6 +333,12 @@ class ExeAIFlow:
         self.run(ai, "", error)
 
     def run(self, ai, wish: str, error: str = "") -> None:
+        self.ai, self.wish, self.error = ai, wish, error      # für "Mit den Hinweisen wiederholen"
+        try:                               # nach einem ersten Durchgang gibt es den Branch
+            self.branch_folder = exe_branch.current_folder(self.project) or self.branch_folder
+        except CockpitError:
+            pass
+        self.source_dir = self.branch_folder or self.project.code_dir
         project, settings, source = self.project, self.settings(), self.source_dir
 
         def work(task: Task):
@@ -326,7 +369,13 @@ class ExeAIFlow:
             show_info(self.window, TITLE, text)
             return
         announce("Vorschlag da.")
-        if not ProposalDialog(self.project, proposal, self.window).exec():
+        dialog = ProposalDialog(self.project, proposal, self.window,
+                                self.services if getattr(self, "ai", None) else None)
+        accepted = dialog.exec()
+        if dialog.repeat_hints:
+            self.repeat(dialog.repeat_hints)
+            return
+        if not accepted:
             announce("Nichts geändert.")
             if self.on_finished is not None:
                 self._finish(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
@@ -340,6 +389,12 @@ class ExeAIFlow:
                 self._finish(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
         self.apply_in_branch(proposal)
+
+    def repeat(self, hints: str) -> None:
+        """Den letzten Schritt, das Lesen und Vorschlagen, mit den Hinweisen aus dem Gespräch
+        noch einmal ausführen. Die Hinweise bleiben für weitere Durchgänge erhalten."""
+        announce("Der letzte Schritt wird mit den Hinweisen wiederholt.")
+        self.run(self.ai, ai_fix.with_hints(self.wish, hints), self.error)
 
     def apply_in_branch(self, proposal: ai_fix.Proposal) -> None:
         """Branch vorbereiten, Änderungen dort übernehmen und committen, im Hintergrund."""
@@ -367,7 +422,7 @@ class ExeAIFlow:
                 self.on_finished(lines, folder)
                 return
             context = ActionContext(self.services, project, Target.EXE)
-            self.actions.offer_build(context, lines, folder)
+            self.actions.offer_build(context, lines, folder, self)
 
         announce(f"Branch {exe_branch.BRANCH} wird vorbereitet.")
         self.actions.controller.run_task(f"exe:{project.id}", work, done, TITLE)

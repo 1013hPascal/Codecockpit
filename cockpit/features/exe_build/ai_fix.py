@@ -241,6 +241,37 @@ def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish
     return proposal
 
 
+# -- Fragen nach einem Schritt (Wunsch des Nutzers, 02.10.2026) ------------------------------------
+CHAT_CHARS = 6000                       # so viel vom Fensterinhalt geht an die KI
+
+
+def chat_hints(history: list[tuple[str, str]]) -> str:
+    """Gespräch als Hinweise für die Wiederholung des letzten Schritts."""
+    return "\n".join(f"Frage: {question}\nAntwort der KI: {answer}"
+                     for question, answer in history)
+
+
+def ask_chat(ai, project_name: str, step: str, content: list[str],
+             history: list[tuple[str, str]], question: str,
+             cancel: threading.Event | None = None) -> str:
+    """Frage zum gerade abgeschlossenen Schritt. Die KI antwortet nur, sie ändert nichts."""
+    from cockpit.ai import prompt_files
+    prompt = prompt_files.fill(prompt_files.load("exe_chat"), projekt=project_name,
+                               schritt=step,
+                               inhalt="\n".join(content)[:CHAT_CHARS] or "nichts",
+                               gespraech=chat_hints(history) or "noch keins",
+                               frage=question.strip())
+    return ai.ask(prompt, prompt_files.load("exe_chat_system"), cancel)
+
+
+def with_hints(wish: str, hints: str) -> str:
+    """Wunsch für die Wiederholung: der bisherige Wunsch und die Hinweise aus dem Gespräch."""
+    if not hints.strip():
+        return wish
+    head = wish.strip() + "\n\n" if wish.strip() else ""
+    return head + "Hinweise aus dem Gespräch mit dem Nutzer:\n" + hints.strip()
+
+
 # -- Übernehmen ---------------------------------------------------------------------------------
 def apply(project_name: str, code_dir: Path, proposal: Proposal) -> Path:
     """Die passenden Änderungen übernehmen. Die betroffenen Dateien und cockpit.toml kommen

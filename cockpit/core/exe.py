@@ -342,24 +342,28 @@ def _home_of(project: Project) -> Path | None:
 
 
 def place_beside(project: Project, names: list[str], home: Path, backup: Path | None,
-                 old_home: Path | None) -> list[str]:
+                 old_home: Path | None, source_dir: Path | None = None) -> list[str]:
     """Ordner neben die Exe legen. Ein vorhandener bleibt unverändert. Lag er bei der bisherigen
     Exe (jetzt in der Sicherheitskopie), kommt er von dort zurück, mit allem, was die Nutzer
-    hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Code. Gibt die neu
-    angelegten Namen zurück."""
+    hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Code (source_dir, sonst
+    der Ordner Code des Projekts). Gibt es ihn dort nicht, wird er leer angelegt (Wunsch des
+    Nutzers, 02.10.2026). Gibt die neu angelegten Namen zurück."""
     placed: list[str] = []
+    source_dir = source_dir or project.code_dir
     for name in names:
         target = home / name
         if target.exists():
             continue
         previous = backup / old_home / name if backup is not None and old_home is not None \
             else None
-        source = previous if previous is not None and previous.exists() else project.code_dir / name
+        source = previous if previous is not None and previous.exists() else source_dir / name
         try:
             if source.is_dir():
                 shutil.copytree(source, target)
             elif source.is_file():
                 shutil.copy2(source, target)
+            elif not Path(name).suffix:
+                target.mkdir(parents=True)            # leerer Ordner, den der Code füllt
             else:
                 continue
         except OSError as exc:
@@ -716,10 +720,13 @@ def is_branch_exe(path: Path) -> bool:
 
 
 def install_branch(project: Project, built: Path, folder: str,
-                   settings: BuildSettings | None = None) -> BuildResult:
+                   settings: BuildSettings | None = None,
+                   source_dir: Path | None = None) -> BuildResult:
     """Exe aus einem Branch-Ordner neben die normale Exe legen. Die normale bleibt unberührt,
     eine ältere Exe desselben Branches kommt in die Sicherheitskopien. Kein Vermerk in
-    cockpit.toml, der gilt nur für die Exe aus dem Haupt-Branch."""
+    cockpit.toml, der gilt nur für die Exe aus dem Haupt-Branch. Die Ordner neben der Exe
+    kommen aus dem Branch (source_dir) mit, wie bei der normalen Exe (Rückmeldung des Nutzers
+    vom 02.10.2026: Meine-Vokabeln fehlte)."""
     settings = settings or read_settings(project.code_dir) or BuildSettings("main.py",
                                                                            project.name)
     exe_dir = add_exe_dir(project)
@@ -735,7 +742,13 @@ def install_branch(project: Project, built: Path, folder: str,
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben.",
                            str(exc)) from None
-    return BuildResult(exe_in(target), backup=backup, branch=folder)
+    # Programmordner: Die Sicherheitskopie ist der alte Ordner selbst, die Ordner der Nutzer
+    # liegen darin und kommen von dort zurück. Bei einer einzelnen Exe-Datei bleiben sie im
+    # Ordner Exe liegen.
+    old_home = Path(".") if backup is not None and backup.is_dir() else None
+    placed = place_beside(project, list(settings.beside), exe_in(target).parent, backup,
+                          old_home, source_dir)
+    return BuildResult(exe_in(target), backup=backup, branch=folder, placed=placed)
 
 
 def discard(result: BuildResult) -> None:
@@ -776,7 +789,7 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
                                commit=commit, branch=folder)
         step(4)
         if folder:
-            return install_branch(project, built, folder, settings)
+            return install_branch(project, built, folder, settings, code_dir)
         return install(project, built, commit)
     finally:
         if not keep:

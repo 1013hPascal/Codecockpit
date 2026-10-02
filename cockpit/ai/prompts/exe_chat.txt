@@ -1,0 +1,11 @@
+Projekt: <<projekt>>
+Gerade abgeschlossener Schritt: <<schritt>>
+
+Was der Nutzer im Fenster sieht:
+<<inhalt>>
+
+Bisheriges Gespräch:
+<<gespraech>>
+
+Frage des Nutzers:
+<<frage>>

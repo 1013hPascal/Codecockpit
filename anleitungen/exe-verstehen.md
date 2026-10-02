@@ -22,6 +22,12 @@ Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
 
 Die KI ändert nie direkt main. Ihre Änderungen kommen in den Branch „Cockpit-exe-bauen“. Das Cockpit baut die Exe aus diesem Branch und legt sie als eigene Datei neben die normale Exe. Klappt der Test, wählen Sie: selbst testen und später in main übernehmen, jetzt übernehmen und den Branch behalten, oder jetzt übernehmen und den Branch löschen. So geht main nie kaputt.
 
+## Ordner neben der Exe
+
+Manche Programme brauchen Ordner neben der Exe, zum Beispiel Meine-Vokabeln. Sie wählen sie in „Exe-Einstellungen …“ in der Liste „Ordner und Dateien neben der Exe“. Ordner, die der Code benutzt, schlägt das Cockpit vor. Einen neuen Ordner fügen Sie mit „Neuer Ordner neben der Exe“ hinzu. Er wird neben der Exe leer angelegt. Beim Bau kopiert das Cockpit die gewählten Ordner neben die Exe. Ein Ordner, der dort schon liegt, bleibt unverändert, damit Ihre Daten erhalten bleiben.
+
+Beim Einrichten mit KI können Sie nach jedem Schritt Fragen stellen, zum Beispiel „Kommt Meine-Vokabeln mit?“. Mit „Mit den Hinweisen wiederholen“ führt die KI den letzten Schritt mit dem Gespräch noch einmal aus.
+
 ## Was die Zeile Exe sagt
 
 - „noch keine Exe-Datei“: Der Ordner ist leer.

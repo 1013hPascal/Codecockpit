@@ -157,8 +157,9 @@ def exe_window(qtbot, make_services, projects_root, monkeypatch):
     monkeypatch.setattr(exe_flow.ExeActions, "build", lambda self, c: built.append(c.project.name))
 
     class FakeReady:
-        def __init__(self, project_, lines, parent=None):
+        def __init__(self, project_, lines, parent=None, services=None):
             shown.append(lines)
+            self.repeat_hints = ""
 
         def exec(self):
             return True
@@ -205,7 +206,9 @@ def test_build_with_ai_is_first_when_ai_is_there(exe_window, monkeypatch):
     win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
     assert asked == [[exe_flow.WITH_AI, exe_flow.WITHOUT_AI]]     # mit KI oben
     assert started == [True]
-    assert shown == [["Änderungen übernommen."]] and built == ["Rechner"]
+    # Seit dem 02.10.2026 nennt die letzte Zeile die Ordner neben der Exe
+    assert shown[0][0] == "Änderungen übernommen." and built == ["Rechner"]
+    assert shown[0][-1].startswith("Neben die Exe kommt")
 
 
 def test_cancelled_choice_builds_nothing(exe_window, monkeypatch):

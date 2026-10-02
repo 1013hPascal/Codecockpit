@@ -7,6 +7,8 @@ Wichtige Regeln für Exe-Dateien:
 - Daten der Nutzer, zum Beispiel Ordner mit Vokabeln oder Einstellungsdateien, gehören neben die Exe. Den Ort bestimmt man so: Path(sys.executable).parent, wenn getattr(sys, "frozen", False) wahr ist, sonst Path(__file__).resolve().parent.
 - Relative Pfade wie "Daten" oder "config.csv" beziehen sich auf den Startordner. Der ist in der Exe oft ein anderer.
 - input() und print() gehen in einer Exe ohne Konsolenfenster nicht.
+- Die Ordner unter "Ordner neben der Exe" legt das Cockpit beim Bau neben die Exe. Der Code muss sie über den Ort der Exe finden, wie oben beschrieben. Packe sie nicht in die Exe und erfinde keine anderen Orte.
+- Braucht der Code einen Ordner, den es noch nicht gibt, soll er ihn beim Start anlegen (mkdir mit parents=True und exist_ok=True).
 
 Antworte nur in diesem Format, ohne weitere Erklärungen:
 

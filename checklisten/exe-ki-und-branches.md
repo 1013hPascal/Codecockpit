@@ -80,3 +80,39 @@ Ergebnis:
 Tasten: In der Projektliste nach den drei obersten Einträgen mit Pfeil runter lesen.
 Ansage: Sammlungen und einzelne Projekte stehen gemischt, das zuletzt Geänderte oben. Eine Sammlung steht so weit oben wie ihr neuestes Projekt. In einer geöffneten Sammlung bleibt alles wie bisher.
 Ergebnis:
+
+
+## Ordner neben der Exe
+
+[ ] 14. Auswahl in den Exe-Einstellungen
+Tasten: Bei der Vokabel-App auf „Exe, …“ „Exe-Einstellungen …“, mit Tab bis zur Liste.
+Ansage: Liste „Ordner und Dateien neben der Exe“ mit Kontrollkästchen, zum Beispiel „Meine-Vokabeln, vom Code benutzt“, angehakt, und „config.csv“. Leertaste hakt an oder ab.
+Ergebnis:
+
+[ ] 15. Neuer leerer Ordner
+Tasten: Tab bis „Neuer Ordner neben der Exe“, einen Namen eingeben, Alt+H für „Hinzufügen“.
+Ansage: „… kommt neben die Exe.“ In der Liste steht „…, wird neben der Exe leer angelegt“, angehakt.
+Ergebnis:
+
+[ ] 16. Meine-Vokabeln kommt mit
+Tasten: „Exe aus dem Code erstellen …“ mit KI bis „Exe erstellen“.
+Ansage: Das Ergebnis nennt „Neben die Exe kommen: Meine-Vokabeln.“ Nach dem Bau steht im Ordner Exe neben der VokabelApp.exe der Ordner Meine-Vokabeln mit Ihren Vokabeln. Das Bau-Fenster nennt „Neu neben der Exe: Meine-Vokabeln.“
+Ergebnis:
+
+
+## Fragen an die KI nach einem Schritt
+
+[ ] 17. Frage zum Vorschlag
+Tasten: Im Fenster mit dem Vorschlag der KI mit Tab zu „Frage an die KI“, eine Frage schreiben, Enter.
+Ansage: „Die KI antwortet.“, dann „Antwort da.“ In der Liste „Gespräch mit der KI“ stehen „Sie: …“ und „KI: …“, ein Satz pro Zeile. Das Feld ist wieder leer für die nächste Frage.
+Ergebnis:
+
+[ ] 18. Mit den Hinweisen wiederholen
+Tasten: Nach einer Antwort Tab bis „Mit den Hinweisen wiederholen“, Enter.
+Ansage: „Der letzte Schritt wird mit den Hinweisen wiederholt.“ Das Fenster „Fortschritt“ kommt wieder, danach ein neuer Vorschlag. Ohne vorherige Frage sagt das Cockpit, dass Sie zuerst fragen sollen.
+Ergebnis:
+
+[ ] 19. Frage vor „Exe erstellen“
+Tasten: Im Fenster „Exe aus dem Code erstellen: …“ nach dem Übernehmen eine Frage stellen, zum Beispiel „Kommt Meine-Vokabeln mit?“.
+Ansage: Die KI antwortet wie in Punkt 17. Danach „Exe erstellen“ oder „Mit den Hinweisen wiederholen“.
+Ergebnis:

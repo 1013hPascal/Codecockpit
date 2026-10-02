@@ -22,9 +22,10 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QItemSelectionModel, QTimer
+from PySide6.QtCore import QItemSelectionModel, Qt, QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QFileDialog, QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QFileDialog, QLineEdit, QListWidget, QListWidgetItem,
+                               QPushButton, QVBoxLayout, QWidget)
 
 from cockpit.core import exe, paths, repo_admin
 from cockpit.core.actions import Action, ActionContext, Target
@@ -57,8 +58,32 @@ def _size(path: Path) -> str:
 
 
 # -- Fenster ----------------------------------------------------------------------------------------
+NOT_BESIDE = {"cockpit.toml", "requirements.txt", ".gitignore"}
+BESIDE_ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+def beside_candidates(code_dir: Path) -> list[str]:
+    """Was neben die Exe kommen kann: Ordner und Datendateien im Ordner Code, ohne Code,
+    Pakete, versteckte und Build-Ordner."""
+    from cockpit.features.exe_build.setup_check import SKIP_DIRS, _packages
+    packages = _packages(code_dir)
+    names = []
+    for path in sorted(code_dir.iterdir(), key=lambda p: p.name.lower()):
+        name = path.name
+        if name.startswith(".") or name in SKIP_DIRS or name in packages or name in NOT_BESIDE:
+            continue
+        if path.is_file() and path.suffix.lower() in (".py", ".spec", ".md", ".bat", ".exe",
+                                                      ".ico", ".toml"):
+            continue
+        names.append(name)
+    return names
+
+
 class BuildSettingsDialog(FocusDialog):
-    """Erster Bau: Startdatei, Name, Bauart, Konsolenfenster, Symbol."""
+    """Erster Bau: Startdatei, Name, Bauart, Konsolenfenster, Symbol. Darunter die Liste "Ordner
+    und Dateien neben der Exe" mit Kontrollkästchen (Wunsch des Nutzers, 02.10.2026): vom Code
+    benutzte Ordner sind vorgeschlagen und so benannt. Mit "Neuer Ordner" kommt ein Name dazu,
+    den es im Ordner Code noch nicht gibt. Er wird neben der Exe leer angelegt."""
 
     def __init__(self, project: Project, parent: QWidget | None = None,
                  current: exe.BuildSettings | None = None) -> None:
@@ -81,10 +106,21 @@ class BuildSettingsDialog(FocusDialog):
                   sf.YesNo("windowed", "Ohne Konsolenfenster (für Programme mit Fenster)",
                            current.windowed),
                   sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Code",
-                          current.icon),
-                  sf.Text("beside", "Ordner neben der Exe, mit Komma getrennt, zum Beispiel "
-                          "Meine-Vokabeln", ", ".join(current.beside))]
+                          current.icon)]
         self.form = SettingsForm(fields)
+        used = set(data_folders(project.code_dir))
+        self.beside = QListWidget()
+        beside_label = label_for(self.beside, "&Ordner und Dateien neben der Exe:")
+        names = beside_candidates(project.code_dir)
+        names += [n for n in current.beside if n not in names]
+        for name in names:
+            self._add_beside(name, name in current.beside, name in used,
+                             not (project.code_dir / name).exists())
+        self.beside.setCurrentRow(0)
+        self.new_name = QLineEdit()
+        new_label = label_for(self.new_name, "&Neuer Ordner neben der Exe:")
+        add = QPushButton("&Hinzufügen")
+        add.clicked.connect(self.add_new)
         ok = QPushButton("&Weiter")
         ok.setDefault(True)
         ok.clicked.connect(self.check)
@@ -93,8 +129,12 @@ class BuildSettingsDialog(FocusDialog):
         self.code_dir = project.code_dir
         layout = QVBoxLayout(self)
         layout.addWidget(self.form)
+        layout.addWidget(beside_label)
+        layout.addWidget(self.beside, 1)
+        layout.addWidget(new_label)
+        layout.addLayout(button_row(self.new_name, add, None))
         layout.addLayout(button_row(None, ok, cancel))
-        self.resize(560, 280)
+        self.resize(600, 520)
         self.initial_focus_widget = self.form.first_focus()
 
     def check(self) -> None:
@@ -113,18 +153,48 @@ class BuildSettingsDialog(FocusDialog):
             show_error(self, self.windowTitle(), f"Das Symbol {values['icon']} gibt es nicht.")
             self.form.focus_field("icon")
             return
-        beside = [n.strip() for n in values["beside"].split(",") if n.strip()]
-        missing = [n for n in beside if not (self.code_dir / n).exists()]
-        if missing:
-            show_error(self, self.windowTitle(), f"Im Ordner Code gibt es {missing[0]} nicht.")
-            self.form.focus_field("beside")
-            return
+        beside = self.chosen_beside()
         keep = self.current or exe.BuildSettings()
         self.settings = exe.BuildSettings(values["start_file"], values["name"],
                                           values["mode"] == ONE_FILE, values["windowed"],
                                           values["icon"], keep.datas, keep.hidden_imports,
                                           keep.self_test, keep.test_seconds, beside)
         self.accept()
+
+    def _add_beside(self, name: str, checked: bool, used: bool, missing: bool) -> None:
+        text = name
+        if used:
+            text += ", vom Code benutzt"
+        if missing:
+            text += ", wird neben der Exe leer angelegt"
+        item = QListWidgetItem(text)
+        item.setData(BESIDE_ROLE, name)
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        self.beside.addItem(item)
+
+    def chosen_beside(self) -> list[str]:
+        return [self.beside.item(r).data(BESIDE_ROLE) for r in range(self.beside.count())
+                if self.beside.item(r).checkState() == Qt.CheckState.Checked]
+
+    def add_new(self) -> None:
+        name = self.new_name.text().strip().strip("\\/")
+        if not name or any(c in name for c in '\\/:*?"<>|'):
+            show_error(self, self.windowTitle(),
+                       "Bitte einen Ordnernamen ohne \\ / : * ? \" < > | eingeben.")
+            self.new_name.setFocus()
+            return
+        existing = [self.beside.item(r).data(BESIDE_ROLE) for r in range(self.beside.count())]
+        if name in existing:
+            row = existing.index(name)
+            self.beside.item(row).setCheckState(Qt.CheckState.Checked)
+        else:
+            self._add_beside(name, True, False, not (self.code_dir / name).exists())
+            row = self.beside.count() - 1
+        self.new_name.clear()
+        self.beside.setCurrentRow(row)
+        self.beside.setFocus()
+        announce(f"{name} kommt neben die Exe.")
 
 
 def offer_long_paths(parent: QWidget) -> bool:
@@ -225,6 +295,8 @@ class BuildDialog(FocusDialog):
             text = f"Exe aus dem Branch erstellt und abgelegt: {result.exe.name}."
             if result.backup is not None:
                 text += " Die vorherige Exe dieses Branches steht in den Sicherheitskopien."
+            if result.placed:
+                text += f" Neu neben der Exe: {', '.join(result.placed)}."
             self.ended(text)
             return
         tested = "getestet" if exe.read_record(self.project.code_dir) is None or \
@@ -393,11 +465,22 @@ def download_links(release, asset) -> list[tuple[str, str]]:
     return links
 
 
+def beside_line(project: Project, code_dir: Path | None = None) -> str:
+    """Welche Ordner neben die Exe kommen (Rückmeldung des Nutzers vom 02.10.2026)."""
+    settings = exe.read_settings(code_dir or project.code_dir) or         exe.read_settings(project.code_dir)
+    names = list(settings.beside) if settings is not None else []
+    if names:
+        return f"Neben die Exe kommen: {', '.join(names)}."
+    return "Neben die Exe kommt kein Ordner. Das ändern Sie unter „Exe-Einstellungen …“."
+
+
 class ReadyDialog(FocusDialog):
     """Nach dem Einrichten: Ergebnis lesen, dann "Exe erstellen" oder "Abbrechen"."""
 
-    def __init__(self, project: Project, lines: list[str], parent: QWidget | None = None) -> None:
+    def __init__(self, project: Project, lines: list[str], parent: QWidget | None = None,
+                 services=None) -> None:
         super().__init__(parent)
+        self.repeat_hints = ""            # gesetzt: letzten Schritt mit Hinweisen wiederholen
         self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}")
         self.list = QListWidget()
         label = label_for(self.list, "&Ergebnis der Einrichtung:")
@@ -413,9 +496,36 @@ class ReadyDialog(FocusDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(label)
         layout.addWidget(self.list, 1)
-        layout.addLayout(button_row(self.build_button, cancel, None))
-        self.resize(700, 380)
+        self.chat = None
+        buttons = [self.build_button]
+        if services is not None:          # Fragen an die KI (Wunsch des Nutzers, 02.10.2026)
+            from cockpit.ui.exe_chat import REPEAT_TEXT, ExeChat
+            self.chat = ExeChat(services, project.name, "Die Änderungen der KI sind im Branch "
+                                "Cockpit-exe-bauen übernommen, die Exe ist noch nicht gebaut.",
+                                lambda: [self.list.item(r).text()
+                                         for r in range(self.list.count())], self)
+            layout.addWidget(self.chat, 1)
+            repeat = QPushButton(REPEAT_TEXT)
+            repeat.setAutoDefault(False)
+            repeat.clicked.connect(self.repeat)
+            buttons.append(repeat)
+        layout.addLayout(button_row(*buttons, cancel, None))
+        self.resize(700, 560 if services is not None else 380)
         self.initial_focus_widget = self.list
+
+    def repeat(self) -> None:
+        from cockpit.ui.exe_chat import NO_HINTS
+        if not self.chat.history:
+            announce(NO_HINTS)
+            self.chat.question.setFocus()
+            return
+        self.repeat_hints = self.chat.hints()
+        self.reject()
+
+    def done(self, code: int) -> None:
+        if self.chat is not None:
+            self.chat.stop()
+        super().done(code)
 
 
 # -- Aktionen ---------------------------------------------------------------------------------------
@@ -589,8 +699,10 @@ class ExeActions:
         es wieder "Problem mit KI lösen". So sind mehrere Durchgänge möglich."""
         from cockpit.ui.exe_ai import ExeAIFlow
         context = ActionContext(self.services, project, Target.EXE)
-        ExeAIFlow(self, project, on_finished=lambda lines, folder=None:
-                  self.offer_build(context, lines, folder)).start_fix(error)
+        flow = ExeAIFlow(self, project)
+        flow.on_finished = lambda lines, folder=None: self.offer_build(context, lines, folder,
+                                                                      flow)
+        flow.start_fix(error)
 
     def offer_restart(self, project: Project) -> None:
         if not confirm(self.window, "Neue Version", "Die neue Version wird beim nächsten Start "
@@ -616,8 +728,10 @@ class ExeActions:
         project = context.project
         if options[chosen] == WITH_AI:
             from cockpit.ui.exe_ai import ExeAIFlow
-            ExeAIFlow(self, project, on_finished=lambda lines, folder=None:
-                      self.offer_build(context, lines, folder)).start()
+            flow = ExeAIFlow(self, project)
+            flow.on_finished = lambda lines, folder=None: self.offer_build(context, lines,
+                                                                          folder, flow)
+            flow.start()
             return
         from cockpit.features.exe_build.setup_check import check
         self.controller.run_task(f"exe:{project.id}", lambda task: check(project),
@@ -625,13 +739,21 @@ class ExeActions:
                                  "Exe einrichten")
 
     def offer_build(self, context: ActionContext, lines: list[str],
-                    branch_dir: Path | None = None) -> None:
+                    branch_dir: Path | None = None, flow=None) -> None:
         """Ergebnis zeigen. "Exe erstellen" startet den Bau wie bisher in vier Schritten. Hat die
         KI etwas geändert, liegt das im Branch Cockpit-exe-bauen (branch_dir), und gebaut wird
         aus dem Branch."""
         if lines:
             announce(lines[0])
-        if not ReadyDialog(context.project, lines, self.window).exec():
+        lines = list(lines) + [beside_line(context.project, branch_dir)]
+        with_ai = flow is not None and getattr(flow, "ai", None) is not None
+        dialog = ReadyDialog(context.project, lines, self.window,
+                             self.services if with_ai else None)
+        accepted = dialog.exec()
+        if dialog.repeat_hints:
+            flow.repeat(dialog.repeat_hints)
+            return
+        if not accepted:
             return
         if branch_dir is None:
             self.build(context)
