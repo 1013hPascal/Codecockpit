@@ -116,3 +116,21 @@ Ergebnis:
 Tasten: Im Fenster „Exe aus dem Code erstellen: …“ nach dem Übernehmen eine Frage stellen, zum Beispiel „Kommt Meine-Vokabeln mit?“.
 Ansage: Die KI antwortet wie in Punkt 17. Danach „Exe erstellen“ oder „Mit den Hinweisen wiederholen“.
 Ergebnis:
+
+
+## Alles in einem Rutsch
+
+[ ] 20. Einstellungen als erster Schritt
+Tasten: Auf „Exe, …“ Enter auf „Exe aus dem Code erstellen …“.
+Ansage: Zuerst das Fenster „Exe aus dem Code erstellen: …, Einstellungen“. Der Fokus steht in der Liste „Ordner und Dateien neben der Exe“, mit der gespeicherten Auswahl. Mit Umschalt+Tab kommen Startdatei, Name, Bauart und die übrigen Felder.
+Ergebnis:
+
+[ ] 21. Auswahl wird gespeichert
+Tasten: Einen Ordner an- oder abhaken, Weiter.
+Ansage: „Exe-Einstellungen gespeichert.“ Danach die Frage mit oder ohne KI. Unter „Exe-Einstellungen …“ steht danach dieselbe Auswahl.
+Ergebnis:
+
+[ ] 22. Abbrechen
+Tasten: Im ersten Fenster Escape.
+Ansage: Es passiert nichts weiter, die Einstellungen bleiben, wie sie waren.
+Ergebnis:

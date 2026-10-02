@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QItemSelectionModel, Qt, QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QFileDialog, QLineEdit, QListWidget, QListWidgetItem,
+from PySide6.QtWidgets import (QFileDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton, QVBoxLayout, QWidget)
 
 from cockpit.core import exe, paths, repo_admin
@@ -86,11 +86,16 @@ class BuildSettingsDialog(FocusDialog):
     den es im Ordner Code noch nicht gibt. Er wird neben der Exe leer angelegt."""
 
     def __init__(self, project: Project, parent: QWidget | None = None,
-                 current: exe.BuildSettings | None = None) -> None:
+                 current: exe.BuildSettings | None = None, in_flow: bool = False) -> None:
         from cockpit.features.exe_build.setup_check import data_folders, guess_start_file
         super().__init__(parent)
-        self.setWindowTitle(f"Exe-Einstellungen: {project.name}" if current
-                            else f"Exe einrichten: {project.name}")
+        # in_flow: erster Schritt von "Exe aus dem Code erstellen" (Wunsch des Nutzers,
+        # 02.10.2026). Mit Weiter wird gespeichert wie unter "Exe-Einstellungen …".
+        if in_flow:
+            self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}, Einstellungen")
+        else:
+            self.setWindowTitle(f"Exe-Einstellungen: {project.name}" if current
+                                else f"Exe einrichten: {project.name}")
         self.current = current
         self.settings: exe.BuildSettings | None = None
         if current is None:
@@ -128,14 +133,21 @@ class BuildSettingsDialog(FocusDialog):
         cancel.clicked.connect(self.reject)
         self.code_dir = project.code_dir
         layout = QVBoxLayout(self)
+        if in_flow:
+            hint = QLabel("Prüfen Sie zuerst die Einstellungen, vor allem die Ordner neben der "
+                          "Exe. Mit Weiter werden sie gespeichert, wie unter Exe-Einstellungen. "
+                          "Danach richten Sie die Exe mit oder ohne KI ein.")
+            hint.setWordWrap(True)
+            layout.addWidget(hint)
         layout.addWidget(self.form)
         layout.addWidget(beside_label)
         layout.addWidget(self.beside, 1)
         layout.addWidget(new_label)
         layout.addLayout(button_row(self.new_name, add, None))
         layout.addLayout(button_row(None, ok, cancel))
-        self.resize(600, 520)
-        self.initial_focus_widget = self.form.first_focus()
+        self.resize(600, 560 if in_flow else 520)
+        # Im Ablauf zuerst die Ordner, darum geht es meistens; mit Umschalt+Tab die übrigen Felder
+        self.initial_focus_widget = self.beside if in_flow else self.form.first_focus()
 
     def check(self) -> None:
         try:
@@ -718,7 +730,11 @@ class ExeActions:
 
     # -- Ein Knopf für Einrichten und Bauen (30.09.2026) ----------------------------------------
     def build_menu(self, context: ActionContext) -> None:
-        """Erst einrichten, mit oder ohne KI, dann bauen. Mit Text-KI steht "mit KI" oben."""
+        """In einem Rutsch (Wunsch des Nutzers, 02.10.2026): zuerst die Exe-Einstellungen mit
+        den Ordnern neben der Exe, dann einrichten mit oder ohne KI, dann bauen. Mit Text-KI
+        steht "mit KI" oben."""
+        if not self.settings_step(context.project):
+            return
         with_ai_first = not self.services.ai_problem()
         options = [WITH_AI, WITHOUT_AI] if with_ai_first else [WITHOUT_AI, WITH_AI]
         chosen = choose_from_list(self.window, "Exe aus dem Code erstellen", "Einrichtung",
@@ -737,6 +753,25 @@ class ExeActions:
         self.controller.run_task(f"exe:{project.id}", lambda task: check(project),
                                  lambda lines: self.offer_build(context, lines),
                                  "Exe einrichten")
+
+    def settings_step(self, project: Project) -> bool:
+        """Exe-Einstellungen zeigen, mit dem gespeicherten Stand. Weiter speichert sie in
+        cockpit.toml und die .spec-Datei, die bisherige .spec kommt vorher in die
+        Sicherheitskopien. False: abgebrochen."""
+        current = exe.read_settings(project.code_dir)
+        dialog = BuildSettingsDialog(project, self.window, current, in_flow=True)
+        if not dialog.exec() or dialog.settings is None:
+            return False
+        settings = dialog.settings
+        if current is not None and settings == current:
+            return True
+        try:
+            exe.change_settings(project.code_dir, project.name, settings)
+        except (CockpitError, OSError) as exc:
+            show_error(self.window, "Exe-Einstellungen", getattr(exc, "message", str(exc)))
+            return False
+        announce("Exe-Einstellungen gespeichert.")
+        return True
 
     def offer_build(self, context: ActionContext, lines: list[str],
                     branch_dir: Path | None = None, flow=None) -> None:
@@ -769,6 +804,11 @@ class ExeActions:
                        "einer Exe braucht das Cockpit Python.")
             return
         settings = exe.read_settings(branch_dir) or exe.read_settings(project.code_dir)
+        main = exe.read_settings(project.code_dir)
+        if settings is not None and main is not None:
+            # Die Ordner aus dem ersten Schritt gelten auch für den Branch, dazu was die KI dort
+            # ergänzt hat. Ein älterer Branch kennt die neue Auswahl sonst nicht.
+            settings.beside = list(dict.fromkeys(main.beside + settings.beside))
         if settings is None:
             dialog = BuildSettingsDialog(project, self.window)
             if not dialog.exec() or dialog.settings is None:

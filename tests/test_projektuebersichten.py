@@ -165,6 +165,8 @@ def exe_window(qtbot, make_services, projects_root, monkeypatch):
             return True
 
     monkeypatch.setattr(exe_flow, "ReadyDialog", FakeReady)
+    # Erster Schritt seit dem 02.10.2026: Exe-Einstellungen, geprüft in test_exe_ordner_und_fragen
+    monkeypatch.setattr(exe_flow.ExeActions, "settings_step", lambda self, p: True)
     return win, project, built, shown
 
 

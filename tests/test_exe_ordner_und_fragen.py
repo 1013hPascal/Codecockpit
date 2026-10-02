@@ -248,3 +248,88 @@ def test_ready_dialog_buttons(qtbot, make_services):
     plain = exe_flow.ReadyDialog(project, ["x"])
     qtbot.addWidget(plain)
     assert plain.chat is None
+
+
+# -- 3. Einstellungen als erster Schritt (Wunsch vom 02.10.2026) -------------------------------
+def test_flow_dialog_starts_with_the_folders(qtbot, tmp_path):
+    project = vokabel_project(tmp_path)
+    dialog = exe_flow.BuildSettingsDialog(project, in_flow=True)
+    qtbot.addWidget(dialog)
+    assert dialog.windowTitle() == "Exe aus dem Code erstellen: VokabelApp, Einstellungen"
+    assert dialog.initial_focus_widget is dialog.beside
+
+
+def settings_window(exe_window, monkeypatch, answer):
+    """answer(dialog) wählt im Einstellungs-Fenster und gibt True für Weiter zurück."""
+    win, project, _built, _shown = exe_window
+    monkeypatch.undo()
+    shown = []
+
+    def fake_exec(dialog):
+        shown.append(dialog.chosen_beside())
+        if not answer(dialog):
+            return False
+        dialog.form.fields["start_file"].set("main.py")
+        dialog.check()
+        return dialog.settings is not None
+
+    monkeypatch.setattr(exe_flow.BuildSettingsDialog, "exec", fake_exec)
+    return win, project, shown
+
+
+def test_settings_step_saves_the_choice(exe_window, monkeypatch):
+    def choose(dialog):
+        dialog.new_name.setText("Meine-Vokabeln")
+        dialog.add_new()
+        return True
+
+    win, project, shown = settings_window(exe_window, monkeypatch, choose)
+    assert win.controller.exe.settings_step(project)
+    assert exe.read_settings(project.code_dir).beside == ["Meine-Vokabeln"]
+    assert (project.code_dir / exe.read_settings(project.code_dir).spec_name).is_file()
+    assert said("Exe-Einstellungen gespeichert.")
+    assert win.controller.exe.settings_step(project)                # gespeicherte Auswahl
+    assert shown[-1] == ["Meine-Vokabeln"]
+
+
+def test_cancelled_settings_stop_the_flow(exe_window, monkeypatch):
+    win, project, shown = settings_window(exe_window, monkeypatch, lambda dialog: False)
+    asked = []
+    monkeypatch.setattr(exe_flow, "choose_from_list", lambda *a: asked.append(a) or None)
+    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
+    assert shown and asked == []                                  # keine Frage mit oder ohne KI
+    assert exe.read_settings(project.code_dir) is None
+
+
+def test_settings_come_before_the_ai_choice(exe_window, monkeypatch):
+    win, project, _built, _shown = exe_window
+    order = []
+    monkeypatch.setattr(exe_flow.ExeActions, "settings_step",
+                        lambda self, p: order.append("Einstellungen") or True)
+    monkeypatch.setattr(exe_flow, "choose_from_list",
+                        lambda *a: order.append("mit oder ohne KI") or None)
+    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
+    assert order == ["Einstellungen", "mit oder ohne KI"]
+
+
+def test_branch_build_uses_the_new_folders(exe_window, monkeypatch, tmp_path):
+    win, project, _built, _shown = exe_window
+    branch = tmp_path / "Branch"
+    branch.mkdir()
+    exe.write_settings(project.code_dir, exe.BuildSettings("main.py", "Rechner",
+                                                           beside=["Meine-Vokabeln"]))
+    exe.write_settings(branch, exe.BuildSettings("main.py", "Rechner", beside=["Daten"]))
+    used = []
+
+    class FakeBuild:
+        def __init__(self, services, project_, settings, *args, **kwargs):
+            used.append(settings.beside)
+            self.result, self.fix_requested = None, False
+
+        def exec(self):
+            return False
+
+    monkeypatch.setattr(exe_flow, "BuildDialog", FakeBuild)
+    monkeypatch.setattr(exe, "find_python", lambda: ["py"])
+    win.controller.exe.build_ai_branch(project, branch)
+    assert used == [["Meine-Vokabeln", "Daten"]]
