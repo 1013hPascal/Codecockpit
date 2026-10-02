@@ -81,6 +81,14 @@ def _gone(code_dir: Path, branch: str) -> bool:
     return "[gone]" in result.stdout
 
 
+def prune(code_dir: Path) -> None:
+    """Einträge von Branch-Ordnern vergessen, deren Ordner es nicht mehr gibt (git worktree
+    prune). Sonst weigert sich Git, dort wieder einen Ordner anzulegen ("missing but already
+    registered worktree"), zum Beispiel nachdem ein Ordner im Explorer gelöscht wurde oder ein
+    Entfernen mittendrin abbrach. Löscht keine Dateien."""
+    git.run(["worktree", "prune"], code_dir, check=False)
+
+
 def free_folder(project: Project, branch: str) -> Path:
     base = folder_name(branch)
     path = project.code_root / base
@@ -112,6 +120,7 @@ def create(project: Project, name: str, env: Mapping[str, str] | None = None,
     if problem:
         raise CockpitError(problem)
     _refresh(project, env, cancel)
+    prune(project.code_dir)
     main = git.status(project.code_dir).default_branch
     base = next((ref for ref in (f"origin/{main}", main) if _exists(project.code_dir, ref)),
                 "HEAD")
@@ -128,6 +137,7 @@ def open_branch(project: Project, name: str, env: Mapping[str, str] | None = Non
     for existing in list_worktrees(project):
         if existing.branch == name:
             return existing
+    prune(project.code_dir)
     path = free_folder(project, name)
     if _exists(project.code_dir, f"refs/heads/{name}"):
         args = ["worktree", "add", "-q", str(path), name]

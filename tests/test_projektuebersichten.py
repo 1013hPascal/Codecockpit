@@ -798,3 +798,32 @@ def test_branch_question_names_the_subfolder(exe_window, monkeypatch, tmp_path):
                         lambda self, p, name: named.append(name))
     win.controller.exe.build_ai_branch(project, branch_dir)
     assert named == [r"Rechner_branch_Cockpit-exe-bauen\Rechner.exe"]
+
+
+# -- Rückmeldung vom 01.10.2026: Branch-Ordner nach gelöschtem Ordner -------------------------
+def test_new_folder_after_a_deleted_one(tmp_path, projects_root, make_services):
+    """Git: "missing but already registered worktree, use 'add -f' to override, or 'prune'"."""
+    import shutil
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    tree = worktrees.open_branch(project, "suche")
+    shutil.rmtree(tree.path)                               # zum Beispiel im Explorer gelöscht
+    again = worktrees.open_branch(project, "suche")
+    assert again.path == tree.path and again.path.is_dir()
+    new = worktrees.create(project, "neue-suche")
+    shutil.rmtree(new.path)
+    assert worktrees.open_branch(project, "neue-suche").path.is_dir()   # nur lokal
+
+
+def test_ai_branch_after_a_deleted_folder(tmp_path, projects_root, make_services):
+    import shutil
+    from cockpit.features.exe_build import exe_branch
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    folder = exe_branch.prepare(project)
+    shutil.rmtree(folder)
+    assert exe_branch.prepare(project) == folder and folder.is_dir()
+    shutil.rmtree(folder)
+    git.run(["worktree", "prune"], project.code_dir)
+    git.run(["branch", "-D", "Cockpit-exe-bauen"], project.code_dir)
+    (project.code_root / "Cockpit-exe-bauen").mkdir()     # fremder Ordner gleichen Namens
+    shutil.rmtree(project.code_root / "Cockpit-exe-bauen")
+    assert exe_branch.prepare(project).is_dir()

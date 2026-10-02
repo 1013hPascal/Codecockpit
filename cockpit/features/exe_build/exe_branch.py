@@ -46,6 +46,7 @@ def prepare(project: Project) -> Path:
     if project.has_branch_folders:
         if _local(code_dir, BRANCH):
             return worktrees.open_branch(project, BRANCH).path
+        worktrees.prune(code_dir)
         path = worktrees.free_folder(project, BRANCH)
         git.run(["worktree", "add", "-q", "--no-track", "-b", BRANCH, str(path), main],
                 code_dir, action="Branch-Ordner anlegen")
