@@ -313,7 +313,7 @@ def test_overview_starts_with_new_branch(qtbot, tmp_path, projects_root, make_se
     dialog = overview(qtbot, project)
     assert dialog.list.item(0).text() == NEW_BRANCH_TEXT
     assert dialog.list.currentRow() == 0
-    assert dialog.list.item(1).text().startswith("main, ")
+    assert dialog.list.item(2).text().startswith("main, ")    # davor "Branches anzeigen"
     assert not dialog.new_button.isVisible()                   # steht jetzt in der Liste
     called = []
     monkeypatch.setattr(BranchesDialog, "new_branch", lambda self: called.append("neu"))
@@ -711,7 +711,17 @@ def test_build_failure_offers_long_paths(qtbot, monkeypatch):
     monkeypatch.setattr(exe_flow, "offer_long_paths", lambda parent: offered.append(True))
     dialog = exe_flow.BuildDialog.__new__(exe_flow.BuildDialog)
     monkeypatch.setattr(exe_flow.BuildDialog, "ended", lambda self, text, urgent=False: None)
-    dialog.output = type("Out", (), {"addItem": lambda self, text: None})()
+    dialog.output = type("Out", (), {"addItem": lambda self, text: None,
+                                     "count": lambda self: 0})()
+
+    class Button:
+        def setVisible(self, value): pass
+
+        def setDefault(self, value): pass
+
+        def setFocus(self): pass
+
+    dialog.fix_button = Button()
     exe_flow.BuildDialog.failed(dialog, exe.LONG_PATHS, "Details")
     assert offered == [True]
     exe_flow.BuildDialog.failed(dialog, "Etwas anderes.", "")
@@ -786,6 +796,7 @@ def test_branch_question_names_the_subfolder(exe_window, monkeypatch, tmp_path):
         def __init__(self, *args, **kwargs):
             assert kwargs["continue_after"] is True
             self.result = exe.BuildResult(built, branch="Cockpit-exe-bauen")
+            self.fix_requested = False
 
         def exec(self):
             return True

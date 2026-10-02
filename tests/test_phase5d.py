@@ -329,7 +329,7 @@ def test_code_actions_for_history(live, qtbot, make_services, projects_root, tmp
     write(code, "main.py", "x\n")
     win.refresh_status()
     wait_idle(qtbot, win)
-    assert "Änderungen verwerfen …" in labels(win)
+    assert "Änderungen verwerfen …, 1 Datei geändert" in labels(win)    # Stand seit 02.10.
 
 
 def test_history_dialog_and_revert(qtbot, make_services, tmp_path, projects_root, monkeypatch):

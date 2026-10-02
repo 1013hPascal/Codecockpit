@@ -269,11 +269,13 @@ def test_branch_row_has_manage_and_publish(qtbot, tmp_path, projects_root, make_
     assert labels[0] == "Projekt neu einlesen"
     assert "neue-funktion verwalten …" not in labels
     assert "Branch auf GitHub hochladen …" in labels
-    assert "Änderungen auf GitHub hochladen …" not in labels and "Branches …" not in labels
+    assert not any(label.startswith("Änderungen auf GitHub hochladen …") for label in labels)
+    assert "Branches …" not in labels
     win.project_list.select(Target.CODE, project.id)
     win.project_list.setCurrentRow(win.project_list.row_of(Target.CODE, project.id))
     labels = [e.label for e in win.current_entries()]
-    assert "Branches …" not in labels and "Änderungen auf GitHub hochladen …" in labels
+    assert "Branches …" not in labels
+    assert "Änderungen auf GitHub hochladen …, nichts offen" in labels
 
 
 def test_overview_names_folders_instead_of_current(qtbot, tmp_path, projects_root,
@@ -288,9 +290,10 @@ def test_overview_names_folders_instead_of_current(qtbot, tmp_path, projects_roo
     dialog = BranchesDialog(project, branches.list_branches(project.code_dir),
                             folders={"suche": tree.folder})
     qtbot.addWidget(dialog)
+    dialog.set_show("all")                     # auch design, das nur auf GitHub liegt
     lines = [dialog.list.item(r).text() for r in range(dialog.list.count())]
     assert lines[0] == "Neuer Branch …"
-    assert lines[1].startswith("main, Ordner Code\\main, Haupt-Branch")
+    assert lines[2].startswith("main, Ordner Code\\main, Haupt-Branch")
     assert not any("aktueller Branch" in line for line in lines)
     assert any(line.startswith("suche, Ordner Code\\suche") for line in lines)
     assert any(line.startswith("design, ohne Ordner") for line in lines)

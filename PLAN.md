@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] Problem mit KI lösen, Stand in den Aktionen, Branches anzeigen, Reihenfolge der Projektliste (Wunsch vom 02.10.2026, Checkliste checklisten\exe-ki-und-branches.md)
 - [ ] Projektübersichten und Aktionsmenüs: Main-Branch, Branches verwalten, Menüs von Main, Branch, Exe und Projekt (Wunsch vom 30.09.2026, gebaut am 30.09.2026, Checkliste checklisten\projektuebersichten.md)
 - [ ] Einrichtungsassistent überarbeitet: Knöpfe, Zugangsdaten, Code-Plattformen, Videos und Tipps (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\einrichtung.md)
 - [ ] Phase 17: Sicherung und Wiederherstellung, Export und Import von Einstellungen, Signieren der Exe, Prüfung aller Feature-Einführungen, Feinschliff

@@ -5,11 +5,14 @@ nicht versteckt, sondern mit Grund angezeigt.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Iterable
 
 from cockpit.core.availability import Availability
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from cockpit.core.branches import Branch
@@ -66,6 +69,9 @@ class Action:
     # Nur zeigen, wenn es passt, zum Beispiel "Neuen Ort angeben" nur bei fehlendem Ordner.
     # Anders als availability: Eine versteckte Aktion steht gar nicht in der Liste.
     visible: Callable[[ActionContext], bool] | None = None
+    # Stand hinter dem Namen, zum Beispiel "3 Dateien offen" oder "alles aktuell" (Wunsch des
+    # Nutzers, 02.10.2026: Man sieht in der Aktionsliste, ob es etwas zu tun gibt)
+    detail: Callable[[ActionContext], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -73,12 +79,13 @@ class ActionEntry:
     """Eine Zeile der Aktionsliste."""
     action: Action
     availability: Availability
+    detail: str = ""
 
     @property
     def label(self) -> str:
-        if self.availability.available:
-            return self.action.text
-        return f"{self.action.text}, nicht verfügbar: {self.availability.reason}"
+        if not self.availability.available:
+            return f"{self.action.text}, nicht verfügbar: {self.availability.reason}"
+        return f"{self.action.text}, {self.detail}" if self.detail else self.action.text
 
 
 def entries_for(actions: Iterable[Action], context: ActionContext) -> list[ActionEntry]:
@@ -90,8 +97,19 @@ def entries_for(actions: Iterable[Action], context: ActionContext) -> list[Actio
         if action.visible is not None and not action.visible(context):
             continue
         availability = action.availability(context) if action.availability else Availability.yes()
-        result.append(ActionEntry(action, availability))
+        result.append(ActionEntry(action, availability, _detail(action, context)))
     return sorted(result, key=lambda e: (e.action.order, e.action.text))
+
+
+def _detail(action: Action, context: ActionContext) -> str:
+    """Stand hinter dem Namen. Ein Fehler dabei darf die Aktionsliste nie verhindern."""
+    if action.detail is None:
+        return ""
+    try:
+        return action.detail(context) or ""
+    except Exception:                      # noqa: BLE001 (nur Zusatzinfo)
+        log.exception("Stand für die Aktion %s nicht ermittelt", action.id)
+        return ""
 
 
 def default_entry(entries: list[ActionEntry]) -> ActionEntry | None:

@@ -348,7 +348,12 @@ def rows(dialog) -> list[str]:
 
 
 def select(dialog, name: str) -> None:
-    dialog.list.setCurrentRow(dialog.row_of(name))       # oben steht "Neuer Branch …"
+    """Oben stehen "Neuer Branch …" und "Branches anzeigen". Liegt der Branch nur auf der
+    Plattform, erst "Alle" anzeigen (seit dem 02.10.2026 zeigt die Übersicht zuerst die
+    lokalen Branches)."""
+    if name not in [b.name for b in dialog.items]:
+        dialog.set_show(branch_dialogs.ALL)
+    dialog.list.setCurrentRow(dialog.row_of(name))
 
 
 def test_code_actions(live, qtbot, make_services, projects_root, tmp_path):
@@ -423,7 +428,8 @@ def test_dialog_lines_and_enter_switches(qtbot, make_services, tmp_path, project
     dialog = dialog_for(qtbot, make_services, code)
     assert dialog.windowTitle() == "Branches von Tagebuch: 4 Branches"
     assert rows(dialog)[0] == "Neuer Branch …"
-    assert rows(dialog)[1] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
+    assert rows(dialog)[1] == "Branches anzeigen: Die Sie lokal haben"
+    assert rows(dialog)[2] == f"main, aktueller Branch, Haupt-Branch, hier und auf GitHub, {BY}"
     select(dialog, "main")
     dialog.switch_current()
     assert said("Sie sind schon auf main.")
@@ -682,7 +688,9 @@ def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, proj
     assert visible() == (True, True, False)
     assert not dialog.switch_button.isVisible()
     select(dialog, "design")
-    assert visible() == (True, True, True)
+    # Nur auf GitHub: Herunterladen, Umbenennen, Löschen, aber nicht übernehmen (02.10.2026)
+    assert visible() == (False, True, True)
+    assert dialog.switch_button.text() == "&Herunterladen"
 
 
 def test_branches_guide_in_the_help_menu():

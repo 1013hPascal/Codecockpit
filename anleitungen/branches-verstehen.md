@@ -140,6 +140,11 @@ Nur auf GitHub löschen: Die anderen brauchen ihn nicht mehr, Sie behalten ihn f
 Das Cockpit hebt die Commits eines gelöschten Branches auf. Es geht also nichts verloren.
 
 
+## Branches anzeigen
+
+In „Branches verwalten“ steht unter „Neuer Branch …“ die Auswahl „Branches anzeigen“. Zuerst sehen Sie die Branches, die Sie lokal haben. Mit Leertaste oder Enter wählen Sie „Die nur auf GitHub sind“ oder „Alle“. Einen Branch, der nur auf GitHub liegt, können Sie dort herunterladen, umbenennen oder löschen.
+
+
 ## Ein typischer Ablauf
 
 1. Projekt ausklappen, „Branches verwalten“, oben „Neuer Branch …“, Name design.

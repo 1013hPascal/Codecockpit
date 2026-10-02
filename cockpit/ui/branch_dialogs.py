@@ -1,10 +1,14 @@
 """Übersicht "Branches" und beiseitegelegte Änderungen (Konzept 10.14, Teilschritt 5f).
 
-BranchesDialog ("Branches verwalten"): oben "Neuer Branch …", darunter der Haupt-Branch und alle
-Branches, lokal und auf der Plattform, zum Beispiel "design, hier und auf GitHub, zuletzt von Anna
-am 24.09.2026, 2 Commits vor main". Enter wechselt zum markierten Branch. Per Tab beim
-Haupt-Branch: "Exe" mit Version und Veröffentlichung (Wunsch des Nutzers, 30.09.2026). Bei einem
-Branch: "In main übernehmen …", "Umbenennen …", "Branch-Ordner entfernen …", "Löschen …".
+BranchesDialog ("Branches verwalten"): oben "Neuer Branch …", darunter "Branches anzeigen: Die Sie
+lokal haben" (Wunsch des Nutzers, 02.10.2026). Leertaste oder Enter öffnet dort ein Menü mit
+"Die Sie lokal haben" (Vorgabe), "Die nur auf GitHub sind" und "Alle". So behält man den
+Überblick, auch wenn viele Leute an eigenen Branches arbeiten. Darunter die Branches, zum Beispiel
+"design, hier und auf GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main". Enter wechselt
+zum markierten Branch. Per Tab beim Haupt-Branch: "Exe" mit Version und Veröffentlichung. Bei einem
+Branch: "In main übernehmen …, 2 Commits offen" bzw. "…, alles aktuell", "Umbenennen …",
+"Branch-Ordner entfernen …", "Löschen …". Bei einem Branch nur auf GitHub: "Herunterladen",
+"Umbenennen …", "Löschen …".
 StashDialog: beiseitegelegte Änderungen. "Zurückholen …", "Als neuen Branch zurückholen …",
 "Löschen …".
 
@@ -17,7 +21,9 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QActionGroup
+from PySide6.QtWidgets import QLineEdit, QListWidget, QMenu, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.core import branches, exe, sync
 from cockpit.core.branches import Branch, Stash
@@ -34,6 +40,21 @@ if TYPE_CHECKING:
     from cockpit.core.projects import Project
 
 NEW_BRANCH_TEXT = "Neuer Branch …"
+SHOW_PREFIX = "Branches anzeigen: "
+LOCAL, REMOTE, ALL = "local", "remote", "all"
+
+
+def filter_names(platform_name: str = "GitHub") -> dict[str, str]:
+    return {LOCAL: "Die Sie lokal haben", REMOTE: f"Die nur auf {platform_name} sind",
+            ALL: "Alle"}
+
+
+def filtered(items: list[Branch], kind: str) -> list[Branch]:
+    if kind == LOCAL:
+        return [b for b in items if b.local]
+    if kind == REMOTE:
+        return [b for b in items if not b.local]
+    return list(items)
 
 
 def exe_lines(project: "Project") -> list[str]:
@@ -62,10 +83,12 @@ class BranchesDialog(FocusDialog):
         self.remove_request = False
         self.remove_name = ""                         # Branch, dessen Ordner weg soll
         self.delete_request = ""
-        self.offset = 0 if single else 1              # oben "Neuer Branch …"
+        self.offset = 0 if single else 2              # oben "Neuer Branch …" und die Auswahl
         self.project = project
         self.code_dir = project.code_dir
-        self.items = items
+        self.show_kind = LOCAL
+        self.all_items = items
+        self.items = items if single else filtered(items, LOCAL)
         self.env = env or {}
         self.platform_name = platform_name
         self.main = branches.default_branch(self.code_dir)
@@ -122,13 +145,54 @@ class BranchesDialog(FocusDialog):
         if watched is self.list and _is_enter(event):
             if self.on_new_row():
                 self.new_branch()
+            elif self.on_show_row():
+                self.choose_show()
             else:
                 self.switch_current()                   # Enter wechselt (Konzept 10.14)
+            return True
+        if (watched is self.list and event.type() == event.Type.KeyPress
+                and event.key() == Qt.Key.Key_Space and self.on_show_row()):
+            self.choose_show()
             return True
         return super().eventFilter(watched, event)
 
     def on_new_row(self) -> bool:
-        return self.offset == 1 and self.list.currentRow() == 0
+        return self.offset > 0 and self.list.currentRow() == 0
+
+    def on_show_row(self) -> bool:
+        return self.offset > 1 and self.list.currentRow() == 1
+
+    def show_text(self) -> str:
+        return SHOW_PREFIX + filter_names(self.platform_name)[self.show_kind]
+
+    def choose_show(self) -> None:
+        """Menü mit den drei Möglichkeiten. Pfeil hoch und runter, Enter oder Leertaste wählt,
+        Escape lässt alles, wie es ist."""
+        menu = QMenu(self.list)
+        name_widget(menu, "Branches anzeigen")
+        group = QActionGroup(menu)
+        chosen = {}
+        for key, label in filter_names(self.platform_name).items():
+            action = menu.addAction(label)
+            action.setCheckable(True)
+            action.setChecked(key == self.show_kind)
+            group.addAction(action)
+            chosen[action] = key
+        current = next(a for a, k in chosen.items() if k == self.show_kind)
+        menu.setActiveAction(current)
+        rect = self.list.visualItemRect(self.list.currentItem())
+        picked = menu.exec(self.list.viewport().mapToGlobal(rect.bottomLeft()), current)
+        if picked is not None:
+            self.set_show(chosen[picked])
+        self.list.setFocus()
+
+    def set_show(self, kind: str) -> None:
+        self.show_kind = kind
+        self.items = filtered(self.all_items, kind)
+        self.fill()
+        self.list.setCurrentRow(1)
+        announce(f"{filter_names(self.platform_name)[kind]}: "
+                 f"{count(len(self.items), 'Branch', 'Branches')}.")
 
     def row_of(self, name: str) -> int:
         """Zeile eines Branches in der Liste."""
@@ -143,12 +207,16 @@ class BranchesDialog(FocusDialog):
         if self.single:
             self.setWindowTitle(f"{self.single_name} verwalten")
         else:
+            # Der Titel zählt alle Branches, auch die gerade nicht angezeigten
             self.setWindowTitle(f"Branches von {self.project.name}: "
-                                f"{count(len(self.items), 'Branch', 'Branches')}")
+                                f"{count(len(self.all_items), 'Branch', 'Branches')}")
         self.list.clear()
         if self.offset:
             self.list.addItem(NEW_BRANCH_TEXT)
-        self.list.addItems([self.line(b) for b in self.items] or ["Noch keine Branches."])
+            self.list.addItem(self.show_text())
+        empty = "Noch keine Branches." if self.single or self.show_kind == ALL else \
+            "Hier gibt es keine Branches. Mit „Branches anzeigen“ sehen Sie die anderen."
+        self.list.addItems([self.line(b) for b in self.items] or [empty])
         names = [b.name for b in self.items]
         if select in names:
             row = names.index(select) + self.offset
@@ -203,19 +271,34 @@ class BranchesDialog(FocusDialog):
             self.switch_button.setVisible(branch is not None and not branch.current)
             if branch is not None:
                 self.switch_button.setText(f"Zu {branch.name.replace('&', '&&')} &wechseln")
-        self.merge_button.setVisible(branch is not None and not branch.default)
+        if branch is not None and not branch.local:
+            # Wunsch des Nutzers (02.10.2026): nur auf GitHub heißt das Holen "Herunterladen"
+            self.switch_button.setVisible(not self.single)
+            self.switch_button.setText("&Herunterladen")
+        main = self.main.replace("&", "&&")
+        if branch is not None and not branch.default:
+            state = (f"{count(branch.ahead_main, 'Commit', 'Commits')} offen"
+                     if branch.ahead_main else "alles aktuell")
+            self.merge_button.setText(f"In &{main} übernehmen …, {state}")
+        self.merge_button.setVisible(branch is not None and not branch.default
+                                     and branch.local)
         self.rename_button.setVisible(branch is not None and not branch.default)
         self.delete_button.setVisible(branch is not None and not branch.default
                                       and (not branch.current or self.structured))
 
     def reload(self, select: str = "") -> None:
         try:
-            self.items = branches.list_branches(self.code_dir)
+            self.all_items = branches.list_branches(self.code_dir)
         except CockpitError as exc:
             show_error(self, "Branches", exc.message, exc.details)
         if self.single:
             self.single_name = select or self.single_name
-            self.items = [b for b in self.items if b.name == self.single_name]
+            self.items = [b for b in self.all_items if b.name == self.single_name]
+        else:
+            self.items = filtered(self.all_items, self.show_kind)
+            if select and select not in [b.name for b in self.items]:
+                self.show_kind = ALL                     # der gewählte Branch soll sichtbar bleiben
+                self.items = list(self.all_items)
         self.fill(select)
         self.list.setFocus()
 
@@ -223,12 +306,12 @@ class BranchesDialog(FocusDialog):
         row = self.list.currentRow() - self.offset
         if 0 <= row < len(self.items):
             return self.items[row]
-        if not self.on_new_row():
+        if not self.on_new_row() and not self.on_show_row():
             announce("Es gibt keinen Branch.")
         return None
 
     def _current_name(self) -> str:
-        return next((b.name for b in self.items if b.current), "")
+        return next((b.name for b in self.all_items if b.current), "")
 
     # -- Wechseln ----------------------------------------------------------------------------
     def switch_current(self) -> None:

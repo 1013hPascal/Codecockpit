@@ -5,8 +5,8 @@ Zuklappen waren Einträge nicht mehr erreichbar. Deshalb ist die Projektliste ei
 in die beim Ausklappen die Unterordner eingefügt werden.
 
 Oben stehen "Neue Projektsammlung", "Projekt vom Rechner hinzufügen" und "Projekt von GitHub
-herunterladen", darunter die Sammlungen nach Namen und dann die Projekte ohne Sammlung, zuletzt
-aktualisierte oben.
+herunterladen", darunter Sammlungen und Projekte ohne Sammlung gemischt, zuletzt aktualisierte
+oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt (Wunsch des Nutzers, 02.10.2026).
 Eine geöffnete Sammlung zeigt oben "Sammlung Webseiten, 3 Projekte, geöffnet" und darunter nur
 ihre Projekte. Sie werden dort bedient wie sonst auch.
 Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt", darunter stehen "Code" (mit
@@ -79,9 +79,12 @@ def children_of(project: Project, status: ProjectStatus | None = None,
                 platform_name: str = "GitHub", shown: list[Branch] | None = None
                 ) -> list[tuple[str, Target, str | None]]:
     """Die Unterordner, die es gibt (Konzept 8.2: nur vorhandene Ordner). Mit Branch-Ordnern
-    (Phase 10f): Code des Haupt-Branches, die Branch-Ordner, "Branches auf GitHub" und die dort
-    ausgewählten Branches anderer. Der dritte Wert unterscheidet Zeilen mit gleichem Ziel.
-    Wunsch des Nutzers (30.09.2026): Oben steht der Haupt-Branch, darunter "Branches verwalten"."""
+    (Phase 10f): Code des Haupt-Branches und die Branch-Ordner. Der dritte Wert unterscheidet
+    Zeilen mit gleichem Ziel.
+    Wunsch des Nutzers (30.09.2026): Oben steht der Haupt-Branch, darunter "Branches verwalten".
+    Wunsch des Nutzers (02.10.2026): Hier stehen nur die Branches, die man lokal hat. Branches
+    auf GitHub zeigt "Branches verwalten" mit "Branches anzeigen". shown bleibt nur für den
+    Aufruf erhalten und wird nicht mehr benutzt."""
     if not project.folder_found:
         return []
     if not project.has_branch_folders:
@@ -94,12 +97,6 @@ def children_of(project: Project, status: ProjectStatus | None = None,
             rows.append((BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None))
         for tree, inner in (status.worktrees if status is not None else []):
             rows.append((branch_label(tree, inner, platform_name), Target.BRANCH, tree.folder))
-        if status is not None and status.on_platform:
-            rows.append((f"Branches auf {platform_name}", Target.REMOTE_BRANCHES, None))
-            main = status.repo.default_branch
-            for branch in shown or []:
-                rows.append((f"Branch {branch.line(main, platform_name)}", Target.REMOTE_BRANCH,
-                             branch.name))
     if project.has_exe_dir:
         rows.append((exe_label(project), Target.EXE, None))
     return rows
@@ -225,19 +222,36 @@ class ProjectList(QListWidget):
             self.addItem(self._item(ADD_LOCAL_TEXT, Target.ADD_LOCAL, None))
             self.addItem(self._item(add_remote_text(self.platform_name), Target.ADD_REMOTE,
                                     None))
-            for collection in sorted(self._collections.values(), key=lambda c: c.name.lower()):
-                self.addItem(self._item(self._collection_text(collection), Target.COLLECTION,
-                                        collection.id))
             entries = [p for p in self._projects.values() if p.id not in self._member_of]
             entries += [r for r in self._remote.values() if r.id not in self._remote_of]
+            # Wunsch des Nutzers (02.10.2026): Sammlungen und einzelne Projekte gemischt, das
+            # zuletzt Geänderte oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt.
+            top: list[tuple[str, Collection | Project | StoredRepo]] = [
+                (self._collection_key(c), c) for c in self._collections.values()]
+            top += [(_sort_key(e), e) for e in entries]
+            top.sort(key=lambda pair: (pair[0], isinstance(pair[1], Collection)), reverse=True)
+            for _key, entry in top:
+                self._add_entry(entry)
+            return
         entries.sort(key=_sort_key, reverse=True)
         for entry in entries:
-            if isinstance(entry, StoredRepo):
-                self.addItem(self._item(remote_line(entry.name, entry.pushed_at,
-                                                    self.platform_name),
-                                        Target.REMOTE_REPO, entry.id))
-            else:
-                self.addItem(self._item(self._project_text(entry), Target.PROJECT, entry.id))
+            self._add_entry(entry)
+
+    def _collection_key(self, collection: Collection) -> str:
+        members: list[Project | StoredRepo] = [
+            self._projects[p] for p, c in self._member_of.items() if c == collection.id]
+        members += [self._remote[r] for r, c in self._remote_of.items() if c == collection.id]
+        return max((_sort_key(m) for m in members), default="")
+
+    def _add_entry(self, entry: Collection | Project | StoredRepo) -> None:
+        if isinstance(entry, Collection):
+            self.addItem(self._item(self._collection_text(entry), Target.COLLECTION, entry.id))
+            return
+        if isinstance(entry, StoredRepo):
+            self.addItem(self._item(remote_line(entry.name, entry.pushed_at, self.platform_name),
+                                    Target.REMOTE_REPO, entry.id))
+        else:
+            self.addItem(self._item(self._project_text(entry), Target.PROJECT, entry.id))
 
     def _collection_text(self, collection: Collection) -> str:
         members = [p for p, c in self._member_of.items() if c == collection.id]

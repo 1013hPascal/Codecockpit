@@ -8,5 +8,8 @@ Ergebnis der Prüfung:
 Wunsch des Nutzers:
 <<wunsch>>
 
+Fehler beim letzten Bau oder Test der Exe:
+<<fehler>>
+
 Auszüge aus dem Code:
 <<code>>

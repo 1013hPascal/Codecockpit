@@ -96,7 +96,7 @@ class ProjectController:
             Action("resolve_conflicts", "Konflikte lösen …", Target.CODE, self.resolve_action,
                    visible=_unfinished_merge, is_default=True, order=2),
             Action("push_changes", f"Änderungen auf {platform_name} hochladen …", Target.CODE,
-                   self.push_action,
+                   self.push_action, detail=_push_detail,
                    availability=_git_availability,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c),
                    is_default=True, order=10),
@@ -106,7 +106,7 @@ class ProjectController:
                    self.push_action, availability=_git_availability,
                    visible=_branch_unpublished, is_default=True, order=10),
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
-                   self.pull_action, availability=_git_availability,
+                   self.pull_action, availability=_git_availability, detail=_pull_detail,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c), order=20),
             # Die Branches verwaltet die eigene Zeile "Branches verwalten" (30.09.2026)
             Action("branches", "Branches verwalten …", Target.BRANCH_OVERVIEW,
@@ -116,19 +116,22 @@ class ProjectController:
                    self.create_pull_action, availability=self._account_availability,
                    visible=_on_other_branch, order=26),
             Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
-                   availability=self._account_availability,
+                   availability=self._account_availability, detail=self._all_pulls_detail,
                    visible=lambda c: _has_remote(c) and on_main(c), order=27),
             Action("pull_requests_branch", "Pull-Requests-Übersicht …", Target.CODE,
                    self.pull_requests_action, availability=self._account_availability,
+                   detail=_branch_pulls_detail,
                    visible=lambda c: _has_remote(c) and not on_main(c), order=27),
             Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
-                   availability=_discard_availability, visible=_has_commits, order=36),
+                   availability=_discard_availability, visible=_has_commits, order=36,
+                   detail=_changed_detail),
             Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
                    visible=_has_stashes, order=37),
             Action("history", "Verlauf …", Target.CODE, self.history_action,
                    availability=_git_availability, visible=_is_repo, order=30),
             Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
-                   availability=_discard_availability, visible=_is_repo, order=35),
+                   availability=_discard_availability, visible=_is_repo, order=35,
+                   detail=_changed_detail),
             Action("project_features", "Features dieses Projekts …", Target.PROJECT,
                    self.project_features_action, availability=self._features_availability,
                    visible=lambda c: c.project is not None and c.project.folder_found,
@@ -557,6 +560,14 @@ class ProjectController:
 
         self.run_task(f"project:{project.id}", work, done, "Branches")
 
+    def _all_pulls_detail(self, context: ActionContext) -> str:
+        """Beim Haupt-Branch zählen alle offenen Pull Requests des Repositories, aus dem
+        Zwischenspeicher, ohne Netz."""
+        if context.project is None or context.project.remote is None:
+            return ""
+        return _pulls_text(len(self.services.pull_request_cache.open_pulls(
+            context.project.remote)))
+
     # -- Pull Requests (Konzept 10.14, Phase 6) ---------------------------------------------
     def pull_requests_action(self, context: ActionContext) -> None:
         from cockpit.ui.pull_request_flow import PullRequestRunner
@@ -863,6 +874,43 @@ def _key(repo) -> str:
     from urllib.parse import urlparse
     host = (urlparse(repo.web_url or repo.clone_url).hostname or "").lower()
     return git.RemoteAddress(host, repo.ref.owner, repo.ref.name).key
+
+
+# -- Stand hinter den Aktionen (Wunsch des Nutzers, 02.10.2026) --------------------------------
+def _push_detail(context: ActionContext) -> str:
+    status = context.status
+    if status is None or status.repo is None or not status.repo.is_repo:
+        return ""
+    parts = []
+    if status.pending:
+        parts.append(f"{count(status.pending, 'Datei', 'Dateien')} offen")
+    if status.repo.ahead:
+        parts.append(f"{count(status.repo.ahead, 'Commit', 'Commits')} nicht hochgeladen")
+    return ", ".join(parts) or "nichts offen"
+
+
+def _pull_detail(context: ActionContext) -> str:
+    status = context.status
+    if status is None or status.repo is None or not status.repo.is_repo:
+        return ""
+    behind = status.repo.behind
+    return count(behind, "neue Änderung", "neue Änderungen") if behind else "alles aktuell"
+
+
+def _changed_detail(context: ActionContext) -> str:
+    status = context.status
+    if status is None or status.repo is None or not status.repo.is_repo:
+        return ""
+    changed = len(status.repo.changed)
+    return f"{count(changed, 'Datei', 'Dateien')} geändert" if changed else "nichts geändert"
+
+
+def _pulls_text(number: int) -> str:
+    return f"{number} offen" if number else "keine offen"
+
+
+def _branch_pulls_detail(context: ActionContext) -> str:
+    return _pulls_text(context.status.open_pulls) if context.status is not None else ""
 
 
 def _has_commits(context: ActionContext) -> bool:

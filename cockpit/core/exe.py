@@ -231,6 +231,27 @@ def status_line(project: Project, head: str | None = None) -> str:
     return ", ".join(parts)
 
 
+def build_state(project: Project) -> str:
+    """Kurzer Stand für "Exe aus dem Code erstellen …" (Wunsch des Nutzers, 02.10.2026)."""
+    if current_exe(project) is None:
+        return "noch keine Exe"
+    record = read_record(project.code_dir) if project.folder_found else None
+    if record is None or record.source != "cockpit" or not record.commit:
+        return ""
+    head = head_commit(project.code_dir)
+    if not head:
+        return ""
+    return "Exe aktuell" if head == record.commit else "Code geändert seit dem letzten Bau"
+
+
+def publish_state(project: Project) -> str:
+    """Kurzer Stand für "Exe veröffentlichen …"."""
+    record = read_record(project.code_dir) if project.folder_found else None
+    if record is not None and record.version:
+        return f"zuletzt Version {record.version}"
+    return "noch nicht veröffentlicht"
+
+
 def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 

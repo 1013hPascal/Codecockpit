@@ -251,7 +251,8 @@ def test_code_actions(live, qtbot, account, tmp_path, projects_root):
     connected_project(services, code, acc.id)
     win = live(services)
     select_code(win, services, code)
-    texts = labels(win)
+    # Seit dem 02.10.2026 steht hinter manchen Aktionen der Stand, hier zählen die Namen
+    texts = [e.action.text for e in win.current_entries()]
     assert "Pull Requests …" in texts and "Pull Request erstellen …" not in texts
     # Reihenfolge vom 30.09.2026: Pull Requests nach Holen, vor Verlauf
     assert texts.index("Änderungen von GitHub holen …") < texts.index("Pull Requests …") \
@@ -259,7 +260,7 @@ def test_code_actions(live, qtbot, account, tmp_path, projects_root):
     sh(code, "switch", "-q", "-c", "design")
     win.refresh_status()
     wait_idle(qtbot, win)
-    assert "Pull Request erstellen …" in labels(win)
+    assert "Pull Request erstellen …" in [e.action.text for e in win.current_entries()]
 
 
 def test_open_list_from_the_window(live, qtbot, account, tmp_path, projects_root, monkeypatch):

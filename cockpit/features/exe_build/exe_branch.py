@@ -36,6 +36,15 @@ def _local(code_dir: Path, name: str) -> bool:
                    check=False).returncode == 0
 
 
+def current_folder(project: Project) -> Path | None:
+    """Ordner, in dem der Branch schon ausgecheckt ist, sonst None. Die KI liest dann dort,
+    damit ein zweiter Versuch auf dem ersten aufbaut."""
+    if project.has_branch_folders:
+        tree = next((t for t in worktrees.list_worktrees(project) if t.branch == BRANCH), None)
+        return tree.path if tree is not None else None
+    return project.code_dir if git.status(project.code_dir).branch == BRANCH else None
+
+
 def prepare(project: Project) -> Path:
     """Ordner, in dem der Branch ausgecheckt ist. Gibt es ihn schon, wird er weiterbenutzt.
     Ein neuer Branch beginnt beim Stand von main auf diesem Rechner, nicht auf der Plattform.

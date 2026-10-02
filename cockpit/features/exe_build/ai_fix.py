@@ -118,14 +118,46 @@ def excerpts(code_dir: Path, start_file: str, max_chars: int) -> str:
     return "\n\n".join(parts)[:max_chars]
 
 
+ERROR_CHARS = 4000                    # so viel von der Fehlermeldung geht an die KI
+_TRACE_FILE = re.compile(r'File "([^"]+\.py)", line (\d+)')
+
+
+def error_excerpts(code_dir: Path, error: str) -> list[tuple[str, str]]:
+    """Stellen im Code, die die Fehlermeldung nennt, zum Beispiel aus einem Traceback
+    ("File ...\\gui.py", line 12). Nur Dateien im Ordner Code. Gibt (Datei, Auszug) zurück."""
+    root = code_dir.resolve()
+    found: list[tuple[str, str]] = []
+    seen: set[tuple[str, int]] = set()
+    for raw, number in _TRACE_FILE.findall(error):
+        path = Path(raw)
+        if not path.is_absolute():
+            path = code_dir / path
+        try:
+            path = path.resolve()
+            relative = path.relative_to(root).as_posix()
+        except (OSError, ValueError):
+            continue
+        line = int(number)
+        if (relative, line) in seen or not path.is_file():
+            continue
+        seen.add((relative, line))
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        first, last = max(0, line - 1 - CONTEXT_LINES), line + CONTEXT_LINES
+        found.append((relative, "\n".join(lines[first:last])))
+    return found
+
+
 def build_prompt(project_name: str, settings: exe.BuildSettings, check_lines: list[str],
-                 wish: str, code: str) -> tuple[str, str]:
+                 wish: str, code: str, error: str = "") -> tuple[str, str]:
     from cockpit.ai import prompt_files
+    error = error.strip()
+    if len(error) > ERROR_CHARS:                 # das Ende enthält meist den eigentlichen Fehler
+        error = "...\n" + error[-ERROR_CHARS:]
     prompt = prompt_files.fill(prompt_files.load("exe_fix"), projekt=project_name,
                                startdatei=settings.start_file,
                                neben=", ".join(settings.beside) or "keine",
                                pruefung="\n".join(check_lines), wunsch=wish.strip() or "keiner",
-                               code=code)
+                               fehler=error or "keiner", code=code)
     return prompt, prompt_files.load("exe_fix_system")
 
 
@@ -173,7 +205,7 @@ def check_changes(code_dir: Path, proposal: Proposal) -> None:
 
 
 def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish: str,
-        cancel: threading.Event | None = None, progress=None) -> Proposal:
+        cancel: threading.Event | None = None, progress=None, error: str = "") -> Proposal:
     """Fester Teil plus Vorschlag der KI. Blockiert, also im Hintergrund aufrufen. ai: TextAI
     oder None (dann nur der feste Teil). progress bekommt Zeilen zum Stand, zum Beispiel
     welche Datei gelesen ist (Wunsch des Nutzers, 01.10.2026)."""
@@ -189,9 +221,15 @@ def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish
     say("Die Einrichtung der Exe wird geprüft.")
     lines = setup_check.check_for(code_dir, effective)
     code = excerpts(code_dir, effective.start_file, ai.max_chars // 2)
+    if error:
+        say("Die Fehlermeldung wird gelesen.")
+        for filename, text in error_excerpts(code_dir, error):
+            say(f"Stelle aus der Fehlermeldung gelesen: {filename}")
+            code += f"\n\n--- {filename}, Stelle aus der Fehlermeldung ---\n{text}"
+        code = code[:ai.max_chars // 2]
     files = sorted({part.split(",")[0] for part in re.findall(r"^--- (.+?) ---$", code,
                                                                re.MULTILINE)})
-    prompt, system = build_prompt(project_name, effective, lines, wish, code)
+    prompt, system = build_prompt(project_name, effective, lines, wish, code, error)
     name = getattr(ai, "name", "")
     say(f"An die KI gesendet: {len(code)} Zeichen aus {', '.join(files) or 'keiner Datei'}. "
         f"Jetzt wartet das Cockpit auf die Antwort " + (f"von {name}." if name else "der KI."))

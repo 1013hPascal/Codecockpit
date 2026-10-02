@@ -114,11 +114,10 @@ def test_status_lists_branch_folders(tmp_path, projects_root, make_services):
     assert project_status.for_folder(status, "suche").pending == 1
     rows = children_of(project, status, "GitHub")
     # Wunsch vom 30.09.2026: "Main-Branch" und darunter "Branches verwalten"
+    # Seit dem 02.10.2026 nur lokale Branches, ohne "Branches auf GitHub"
     assert [r[0] for r in rows] == ["Main-Branch, alles hochgeladen", "Branches verwalten",
-                                    "Branch suche, 1 Datei noch nicht hochgeladen",
-                                    "Branches auf GitHub"]
-    assert [r[1] for r in rows] == [Target.CODE, Target.BRANCH_OVERVIEW, Target.BRANCH,
-                                    Target.REMOTE_BRANCHES]
+                                    "Branch suche, 1 Datei noch nicht hochgeladen"]
+    assert [r[1] for r in rows] == [Target.CODE, Target.BRANCH_OVERVIEW, Target.BRANCH]
 
 
 def test_merge_state_is_found_in_a_branch_folder(tmp_path, projects_root, make_services):
@@ -193,24 +192,6 @@ def test_setup_action_only_for_old_structure(qtbot, tmp_path, projects_root, mak
     win.project_list.select(Target.CODE, project.id)
     labels = [e.label for e in win.current_entries()]
     assert "Ordner für Branches einrichten …" in labels and "Neuer Branch …" not in labels
-
-
-def test_remote_branch_rows(qtbot, tmp_path, projects_root, make_services):
-    from cockpit.core import branches
-    services, project, other = structured(tmp_path, projects_root, make_services)
-    win = window(qtbot, services)
-    win.project_list.update_status(project_status.compute(project), project)
-    win.project_list.expand(project.id, speak=False)
-    design = next(b for b in branches.list_branches(project.code_dir) if b.name == "design")
-    win.project_list.show_remote_branch(project.id, design)
-    assert win.project_list.select(Target.REMOTE_BRANCH, project.id, "design")
-    assert win.project_list.currentItem().text().startswith("Branch design, nur auf GitHub")
-    context = win.action_context()
-    assert context.remote_branch.name == "design"
-    labels = [e.label for e in win.current_entries()]
-    assert labels[0] == "In Liste anpinnen"
-    win.project_list.hide_remote_branch(project.id, "design")
-    assert win.project_list.row_of(Target.REMOTE_BRANCH, project.id, "design") < 0
 
 
 def test_branch_context_project_is_a_copy(tmp_path, projects_root, make_services):

@@ -422,8 +422,10 @@ def test_code_actions_on_platform(live, qtbot, make_services, projects_root, tmp
     select_code(win, services, projects_root / "Tagebuch" / "Code")
     texts = labels(win)
     # Reihenfolge vom 30.09.2026
-    assert texts[:4] == ["Projekt neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
-                         "Änderungen von GitHub holen …"]
+    # Seit dem 02.10.2026 mit dem Stand hinter dem Namen
+    assert texts[:4] == ["Projekt neu einlesen", "Terminal …",
+                         "Änderungen auf GitHub hochladen …, nichts offen",
+                         "Änderungen von GitHub holen …, alles aktuell"]
     assert "Auf GitHub hochladen …" not in texts and "Konflikte lösen …" not in texts
 
 

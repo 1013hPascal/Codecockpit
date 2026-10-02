@@ -175,12 +175,18 @@ class BuildDialog(FocusDialog):
         self.stop_button.clicked.connect(self.stop)
         self.close_button = QPushButton("&Weiter" if continue_after else "&Schließen")
         self.close_button.clicked.connect(self.reject)
-        for button in (self.stop_button, self.close_button):
+        # Wunsch des Nutzers (02.10.2026): nach einem Fehler die KI das Problem lösen lassen
+        self.fix_button = QPushButton("Problem mit &KI lösen")
+        self.fix_button.clicked.connect(self.request_fix)
+        self.fix_button.setVisible(False)
+        self.fix_requested = False
+        self.error_text = ""
+        for button in (self.stop_button, self.fix_button, self.close_button):
             button.setAutoDefault(False)
         layout = QVBoxLayout(self)
         layout.addWidget(label_for(self.output, "&Ausgabe:"))
         layout.addWidget(self.output, 1)
-        layout.addLayout(button_row(None, self.stop_button, self.close_button))
+        layout.addLayout(button_row(None, self.stop_button, self.fix_button, self.close_button))
         self.resize(820, 560)
         self.initial_focus_widget = self.output
 
@@ -256,6 +262,19 @@ class BuildDialog(FocusDialog):
         self.ended(f"Fehler: {message}", urgent=True)
         if message == exe.LONG_PATHS:
             offer_long_paths(self)
+            return
+        # Für die KI: Meldung, Details und das Ende der Ausgabe, dort steht meist der Grund
+        output = [self.output.item(r).text() for r in range(self.output.count())]
+        self.error_text = "\n".join([message, details] + output[-60:])
+        self.fix_button.setVisible(True)
+        self.fix_button.setDefault(True)
+        self.fix_button.setFocus()
+
+    def request_fix(self) -> None:
+        if self.running:
+            return
+        self.fix_requested = True
+        self.accept()
 
     def ended(self, text: str, urgent: bool = False) -> None:
         self.output.addItem(text)
@@ -423,9 +442,11 @@ class ExeActions:
                    visible=lambda c: c.project is not None and c.project.folder_found
                    and not c.project.has_exe_dir, order=72),
             Action("build_exe", "Exe aus dem Code erstellen …", Target.EXE, self.build_menu,
-                   visible=self._building, order=20),
+                   visible=self._building, order=20,
+                   detail=lambda c: exe.build_state(c.project)),
             Action("publish_exe", "Exe veröffentlichen …", Target.EXE, self.publish,
                    availability=self.controller._account_availability,
+                   detail=lambda c: exe.publish_state(c.project),
                    visible=lambda c: self._building(c) and has_exe(c)
                    and c.project.remote is not None, order=40),
             Action("import_exe", "Exe einlesen …", Target.EXE, self.import_exe,
@@ -556,8 +577,20 @@ class ExeActions:
         self.window.reload_projects(refresh=False)
         self.window.project_list.select(Target.EXE, project.id)
         self.window.refresh_status([project.id])
+        if dialog.fix_requested:
+            self.fix_with_ai(project, dialog.error_text)
+            return
         if dialog.result is not None and dialog.result.pending:
             self.offer_restart(project)
+
+    def fix_with_ai(self, project: Project, error: str) -> None:
+        """Die KI bekommt die Fehlermeldung, schlägt eine Lösung vor, und die kommt in den Branch
+        Cockpit-exe-bauen. Danach "Exe erstellen" aus dem Branch. Scheitert der Bau wieder, gibt
+        es wieder "Problem mit KI lösen". So sind mehrere Durchgänge möglich."""
+        from cockpit.ui.exe_ai import ExeAIFlow
+        context = ActionContext(self.services, project, Target.EXE)
+        ExeAIFlow(self, project, on_finished=lambda lines, folder=None:
+                  self.offer_build(context, lines, folder)).start_fix(error)
 
     def offer_restart(self, project: Project) -> None:
         if not confirm(self.window, "Neue Version", "Die neue Version wird beim nächsten Start "
@@ -625,6 +658,9 @@ class ExeActions:
                              continue_after=True)
         dialog.exec()
         self.window.refresh_status([project.id])
+        if dialog.fix_requested:
+            self.fix_with_ai(project, dialog.error_text)
+            return
         if dialog.result is not None and not dialog.result.untested:
             built = dialog.result.exe
             try:                             # Programmordner: Unterordner mit nennen

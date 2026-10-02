@@ -881,3 +881,15 @@ Wunsch des Nutzers, gebaut im Branch projektuebersichten. Checkliste in checklis
   - Ein Branch nutzt die Umgebung von main mit, wenn seine requirements.txt gleich ist. Sonst bekommt er eine eigene (Kennung mit -b), damit die Umgebung von main sauber bleibt.
   - Scheitert pip an langen Pfaden, bietet das Cockpit an, lange Pfade in Windows einzuschalten. Windows fragt dafür nach Administratorrechten. Die Einrichtung ohne KI warnt, wenn lange Pfade aus sind. Die Anleitung zur Exe beschreibt auch den Weg von Hand.
   - Vorinstallierte Bibliotheken zum Kopieren gibt es nicht: Virtuelle Umgebungen lassen sich nicht zuverlässig verschieben, jedes Projekt braucht andere Versionen, und pip hebt Downloads ohnehin auf.
+
+
+## 02.10.2026: Problem mit KI lösen, Stand in den Aktionen, Branches anzeigen, Reihenfolge
+
+Wünsche des Nutzers, gebaut im Branch exe-ki-und-branches. Checkliste in checklisten\exe-ki-und-branches.md.
+
+- Scheitert der Bau der Exe, zeigt das Bau-Fenster „Problem mit KI lösen“. Die KI bekommt die Fehlermeldung, das Ende der Ausgabe und die Stellen im Code, die ein Traceback nennt. Das Fenster „Fortschritt“ sagt „Die KI versucht, das Problem zu lösen“ mit der Zeit seit dem Start. Danach wie beim Einrichten: Vorschlag, Branch Cockpit-exe-bauen, „Exe erstellen“. Scheitert der Bau wieder, beginnt der nächste Durchgang. Gibt es den Branch schon, liest die KI dort, damit jeder Versuch auf dem vorigen aufbaut.
+- Hinter vielen Aktionen steht der Stand, zum Beispiel „Änderungen auf GitHub hochladen …, 3 Dateien offen“ oder „…, alles aktuell“. Er kommt aus dem schon bekannten Stand des Projekts, ohne neue Abfrage. Pull Requests zählen beim Haupt-Branch alle offenen des Repositories, bei einem Branch die aus diesem Branch. Reviews zählt das Cockpit noch nicht, dafür müsste es sie erst abfragen und speichern.
+- „In main übernehmen …“ nennt „2 Commits offen“ oder „alles aktuell“. Die Exe nennt „noch keine Exe“, „Exe aktuell“ oder „Code geändert seit dem letzten Bau“, Veröffentlichen die letzte Version.
+- „Branches verwalten“: unter „Neuer Branch …“ die Auswahl „Branches anzeigen“ mit „Die Sie lokal haben“ (Vorgabe), „Die nur auf GitHub sind“ und „Alle“. Leertaste oder Enter öffnet ein Menü. So bleibt die Übersicht klar, auch wenn viele an eigenen Branches arbeiten. Branches nur auf GitHub: „Herunterladen“, „Umbenennen …“, „Löschen …“. Der Titel zählt weiter alle Branches.
+- In der Projektliste stehen unter einem Projekt nur die lokalen Branches. „Branches auf GitHub“ und die dort angepinnten Branches entfallen.
+- Ganz oben stehen Sammlungen und Projekte ohne Sammlung gemischt, das zuletzt Geänderte oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt. In den Sammlungen bleibt die Reihenfolge, wie sie war.

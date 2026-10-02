@@ -73,13 +73,14 @@ class WorkDialog(FocusDialog):
     TICK_MS = 5000                     # so oft wird die Zeile mit der Zeit erneuert
 
     def __init__(self, project: Project, work, with_ai: bool,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, what: str = "") -> None:
         super().__init__(parent)
         self.setWindowTitle(f"{TITLE}: {project.name}, läuft")
         self.result_value = None
         self.failure: tuple[str, str] | None = None
         self.closed = False
-        self.what = "Die KI liest den Code" if with_ai else "Die Einrichtung wird geprüft"
+        self.what = what or ("Die KI liest den Code" if with_ai
+                             else "Die Einrichtung wird geprüft")
         self.started = time.monotonic()
         self.list = QListWidget()
         label = label_for(self.list, "&Fortschritt:")
@@ -237,14 +238,38 @@ class ExeAIFlow:
         self.window = actions.window
         self.services = actions.services
         self.project = project
+        # Gibt es den Branch Cockpit-exe-bauen schon, liest die KI dort. So baut ein weiterer
+        # Versuch auf dem vorigen auf (Wunsch des Nutzers, 02.10.2026: mehrere Durchgänge).
+        try:
+            self.branch_folder = exe_branch.current_folder(project) if project else None
+        except CockpitError:
+            self.branch_folder = None
+        self.source_dir = self.branch_folder or (project.code_dir if project else None)
+
+    def _finish(self, lines: list[str]) -> None:
+        """Ohne Änderung weiter: Gebaut wird dann aus dem Branch, wenn es ihn schon gibt."""
+        if self.branch_folder is not None:
+            self.on_finished(lines, self.branch_folder)
+        else:
+            self.on_finished(lines)
 
     def settings(self) -> exe.BuildSettings:
-        current = exe.read_settings(self.project.code_dir)
+        current = exe.read_settings(self.source_dir) or exe.read_settings(self.project.code_dir)
         if current is not None:
             return current
-        code_dir = self.project.code_dir
-        return exe.BuildSettings(setup_check.guess_start_file(code_dir),
+        return exe.BuildSettings(setup_check.guess_start_file(self.source_dir),
                                  self.project.name.replace(" ", "-"))
+
+    def _ai(self, purpose: str):
+        """Text-KI oder None. purpose ergänzt die Rückfrage, wenn keine KI da ist."""
+        from cockpit.ui import ai_ui
+        ai = ai_ui.prepare(self.services, self.window, "exe_fix",
+                           "die Prüfung der Exe, Fehlermeldungen und Auszüge aus dem Code")
+        if not isinstance(ai, str):
+            return ai
+        if ai != ai_ui.DECLINED:
+            show_error(self.window, TITLE, f"{ai} {purpose}")
+        return False
 
     def start(self) -> None:
         from cockpit.ui import ai_ui
@@ -259,14 +284,27 @@ class ExeAIFlow:
         dialog = WishDialog(self.project, ai is not None, self.window)
         if not dialog.exec():
             return
-        project, settings, wish = self.project, self.settings(), dialog.wish
+        self.run(ai, dialog.wish)
+
+    def start_fix(self, error: str) -> None:
+        """Problem mit KI lösen (Wunsch des Nutzers, 02.10.2026): Die KI bekommt die
+        Fehlermeldung des Baus. Danach geht es wie beim Einrichten weiter, mit "Exe erstellen".
+        Scheitert der Bau wieder, beginnt der nächste Durchgang."""
+        ai = self._ai("Ohne KI lässt sich der Fehler nicht automatisch lösen.")
+        if ai is False:
+            return
+        self.run(ai, "", error)
+
+    def run(self, ai, wish: str, error: str = "") -> None:
+        project, settings, source = self.project, self.settings(), self.source_dir
 
         def work(task: Task):
-            return ai_fix.ask(ai, project.name, project.code_dir, settings, wish,
-                              task.cancel_event, progress=task.status.emit)
+            return ai_fix.ask(ai, project.name, source, settings, wish, task.cancel_event,
+                              progress=task.status.emit, error=error)
 
         # Wunsch des Nutzers (01.10.2026): ein Fenster mit Fortschritt und "Abbrechen"
-        progress = WorkDialog(project, work, ai is not None, self.window)
+        what = "Die KI versucht, das Problem zu lösen" if error else ""
+        progress = WorkDialog(project, work, ai is not None, self.window, what)
         if progress.exec() and progress.result_value is not None:
             self.review(progress.result_value)
         elif progress.failure is not None:
@@ -283,7 +321,7 @@ class ExeAIFlow:
             if lines:
                 text += " " + " ".join(lines)
             if self.on_finished is not None:
-                self.on_finished([text])
+                self._finish([text])
                 return
             show_info(self.window, TITLE, text)
             return
@@ -291,7 +329,7 @@ class ExeAIFlow:
         if not ProposalDialog(self.project, proposal, self.window).exec():
             announce("Nichts geändert.")
             if self.on_finished is not None:
-                self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
+                self._finish(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
         # Wunsch des Nutzers (01.10.2026): nie direkt in main, sondern im Branch Cockpit-exe-bauen
         text = (f"{exe_branch.where_text(self.project)} Die betroffenen Dateien kommen vorher in "
@@ -299,7 +337,7 @@ class ExeAIFlow:
                 "Erst dann entscheiden Sie, ob die Änderungen in main kommen. Übernehmen?")
         if not confirm(self.window, TITLE, text, yes="Übernehmen", no="Abbrechen"):
             if self.on_finished is not None:
-                self.on_finished(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
+                self._finish(["Nichts geändert. Der Vorschlag der KI wurde nicht übernommen."])
             return
         self.apply_in_branch(proposal)
 
