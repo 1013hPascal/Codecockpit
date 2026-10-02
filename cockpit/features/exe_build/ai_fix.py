@@ -12,6 +12,7 @@ Nichts wird ohne Bestätigung geändert. apply() legt vorher eine Sicherheitskop
 """
 from __future__ import annotations
 
+import dataclasses
 import re
 import shutil
 import threading
@@ -58,24 +59,23 @@ class Proposal:
 
 # -- Fester Teil --------------------------------------------------------------------------------
 def fixed_part(code_dir: Path, settings: exe.BuildSettings, progress=None) -> Proposal:
-    """Was sich ohne KI sicher sagen lässt."""
+    """Was sich ohne KI sicher sagen lässt.
+    Ordner neben der Exe schlägt der feste Teil nicht mehr vor (Rückmeldung des Nutzers vom
+    03.10.2026: er wollte erklärvideos daneben legen, obwohl die .spec-Datei sie schon in die Exe
+    packt). Die Ordner wählt man im ersten Schritt, das Unbedingte ist dort schon angehakt.
+    Bei einer von Hand geschriebenen .spec-Datei steht die Startdatei dort, dann auch kein
+    Vorschlag dazu."""
     proposal = Proposal()
     start = settings.start_file
-    if not (code_dir / start).is_file() or not setup_check.starts_something(code_dir / start):
+    handmade = not exe.own_spec(code_dir / settings.spec_name)
+    if not handmade and (not (code_dir / start).is_file()
+                         or not setup_check.starts_something(code_dir / start)):
         guess = setup_check.guess_start_file(code_dir)
         if guess != start and setup_check.starts_something(code_dir / guess):
             start = guess
             proposal.settings_lines.append(f"Startdatei: {guess} statt {settings.start_file}.")
-    beside = list(settings.beside)
-    for name in setup_check.data_folders(code_dir):
-        if name not in beside:
-            beside.append(name)
-            proposal.settings_lines.append(f"Ordner neben der Exe: {name}.")
-    if start != settings.start_file or beside != settings.beside:
-        proposal.settings = exe.BuildSettings(start, settings.name, settings.one_file,
-                                              settings.windowed, settings.icon, settings.datas,
-                                              settings.hidden_imports, settings.self_test,
-                                              settings.test_seconds, beside)
+    if start != settings.start_file:
+        proposal.settings = dataclasses.replace(settings, start_file=start)
     proposal.changes += import_changes(code_dir)
     missing = missing_packages(code_dir, progress)
     if missing:
