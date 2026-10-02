@@ -347,16 +347,29 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
     Exe (jetzt in der Sicherheitskopie), kommt er von dort zurück, mit allem, was die Nutzer
     hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Code (source_dir, sonst
     der Ordner Code des Projekts). Gibt es ihn dort nicht, wird er leer angelegt (Wunsch des
-    Nutzers, 02.10.2026). Gibt die neu angelegten Namen zurück."""
+    Nutzers, 02.10.2026). Gibt die neu angelegten oder gefüllten Namen zurück.
+    Ein leerer Ordner zählt nicht als vorhanden: Die Exe legt ihn beim Start-Test oft selbst an,
+    dann würden die Dateien aus dem Code fehlen (Rückmeldung vom 02.10.2026, Meine-Vokabeln war
+    leer). Er wird gefüllt, aus der bisherigen Exe oder aus dem Ordner Code."""
     placed: list[str] = []
     source_dir = source_dir or project.code_dir
     for name in names:
         target = home / name
-        if target.exists():
+        if target.exists() and not _empty_dir(target):
             continue
         previous = backup / old_home / name if backup is not None and old_home is not None \
             else None
-        source = previous if previous is not None and previous.exists() else source_dir / name
+        source = previous if previous is not None and previous.exists() \
+            and not _empty_dir(previous) else source_dir / name
+        if target.exists():                           # leerer Ordner: nur füllen
+            if source.is_dir() and not _empty_dir(source):
+                try:
+                    shutil.copytree(source, target, dirs_exist_ok=True)
+                except OSError as exc:
+                    raise CockpitError(f"Der Ordner {name} ließ sich nicht neben der Exe "
+                                       "füllen.", str(exc)) from None
+                placed.append(name)
+            continue
         try:
             if source.is_dir():
                 shutil.copytree(source, target)
@@ -371,6 +384,13 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
                                str(exc)) from None
         placed.append(name)
     return placed
+
+
+def _empty_dir(path: Path) -> bool:
+    try:
+        return path.is_dir() and not any(path.iterdir())
+    except OSError:
+        return False
 
 
 # -- Python und virtuelle Umgebung ---------------------------------------------------------------

@@ -157,3 +157,16 @@ Ergebnis:
 Tasten: „Funktioniert, in main übernehmen …“.
 Ansage: Rückfrage mit „Branch behalten“, „Branch löschen“ und „Abbrechen“ (Vorgabe). Danach „Cockpit-exe-bauen ist in main übernommen.“
 Ergebnis:
+
+
+## Inhalt der Ordner und Dateien neben der Exe
+
+[ ] 27. Meine-Vokabeln mit Inhalt
+Tasten: Bei der Vokabel-App „Exe aus dem Code erstellen …“ bis zum fertigen Bau. Vorher den leeren Ordner Meine-Vokabeln neben der bisherigen Branch-Exe nicht löschen, er soll gefüllt werden.
+Ansage: Das Bau-Fenster nennt „Neu neben der Exe: Meine-Vokabeln.“ Im Ordner Exe liegen in Meine-Vokabeln jetzt SpanischA11 und Test mit allen Dateien.
+Ergebnis:
+
+[ ] 28. README mitnehmen
+Tasten: Im ersten Schritt in der Liste „Ordner und Dateien neben der Exe“ readme.md anhaken, Weiter, bauen.
+Ansage: Nach dem Bau liegt readme.md neben der Exe.
+Ergebnis:

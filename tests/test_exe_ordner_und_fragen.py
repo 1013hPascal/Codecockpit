@@ -451,3 +451,45 @@ def test_pasted_error_goes_to_the_ai(exe_window, monkeypatch, tmp_path):
     monkeypatch.setattr(exe_flow, "ask_buttons", lambda *a, **k: 1)       # Branch löschen
     win.controller.exe.self_test(project, tmp_path / "x.exe")
     assert merges == [True]
+
+
+# -- 5. Leerer Ordner neben der Exe wird gefüllt (Rückmeldung vom 02.10.2026) ------------------
+def test_empty_folder_from_the_start_test_gets_the_files(tmp_path):
+    """Die Exe legte Meine-Vokabeln beim Start-Test leer an. Die Vokabeln fehlten danach."""
+    project = vokabel_project(tmp_path)
+    home = tmp_path / "home"
+    (home / "Meine-Vokabeln").mkdir(parents=True)                 # von der Exe angelegt
+    placed = exe.place_beside(project, ["Meine-Vokabeln"], home, None, None)
+    assert placed == ["Meine-Vokabeln"]
+    assert (home / "Meine-Vokabeln" / "Spanisch" / "essen.csv").is_file()
+
+
+def test_folder_with_user_data_stays_untouched(tmp_path):
+    project = vokabel_project(tmp_path)
+    home = tmp_path / "home"
+    (home / "Meine-Vokabeln").mkdir(parents=True)
+    (home / "Meine-Vokabeln" / "eigene.csv").write_text("meins\n", encoding="utf-8")
+    assert exe.place_beside(project, ["Meine-Vokabeln"], home, None, None) == []
+    assert [p.name for p in (home / "Meine-Vokabeln").iterdir()] == ["eigene.csv"]
+
+
+def test_empty_previous_folder_does_not_hide_the_code(tmp_path):
+    project = vokabel_project(tmp_path)
+    backup = tmp_path / "backup"
+    (backup / "Meine-Vokabeln").mkdir(parents=True)               # alte Exe: nur leer
+    home = tmp_path / "home"
+    home.mkdir()
+    exe.place_beside(project, ["Meine-Vokabeln"], home, backup, Path("."))
+    assert (home / "Meine-Vokabeln" / "Spanisch" / "essen.csv").is_file()
+
+
+def test_files_like_the_readme_can_be_chosen(tmp_path):
+    project = vokabel_project(tmp_path)
+    (project.code_dir / "readme.md").write_text("# Vokabeln\n", encoding="utf-8")
+    (project.code_dir / "start.bat").write_text("@echo off\n", encoding="utf-8")
+    names = exe_flow.beside_candidates(project.code_dir)
+    assert "readme.md" in names and "start.bat" in names and "gui.py" not in names
+    home = tmp_path / "home"
+    home.mkdir()
+    exe.place_beside(project, ["readme.md"], home, None, None)
+    assert (home / "readme.md").read_text(encoding="utf-8") == "# Vokabeln\n"

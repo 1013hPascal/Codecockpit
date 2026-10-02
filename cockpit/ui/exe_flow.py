@@ -63,8 +63,9 @@ BESIDE_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 def beside_candidates(code_dir: Path) -> list[str]:
-    """Was neben die Exe kommen kann: Ordner und Datendateien im Ordner Code, ohne Code,
-    Pakete, versteckte und Build-Ordner."""
+    """Was neben die Exe kommen kann: Ordner und Dateien im Ordner Code, zum Beispiel auch die
+    README (Wunsch des Nutzers, 02.10.2026). Ohne Python-Code, .spec-Datei, Pakete, versteckte
+    und Build-Ordner."""
     from cockpit.features.exe_build.setup_check import SKIP_DIRS, _packages
     packages = _packages(code_dir)
     names = []
@@ -72,8 +73,7 @@ def beside_candidates(code_dir: Path) -> list[str]:
         name = path.name
         if name.startswith(".") or name in SKIP_DIRS or name in packages or name in NOT_BESIDE:
             continue
-        if path.is_file() and path.suffix.lower() in (".py", ".spec", ".md", ".bat", ".exe",
-                                                      ".ico", ".toml"):
+        if path.is_file() and path.suffix.lower() in (".py", ".pyw", ".pyc", ".spec", ".exe"):
             continue
         names.append(name)
     return names
