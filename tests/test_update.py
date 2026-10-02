@@ -225,3 +225,61 @@ def test_swap_script_really_swaps_after_the_process_ended(tmp_path, monkeypatch)
     assert old.read_text(encoding="utf-8") == "neu"
     assert (backup / "CodeCockpit.exe").read_text(encoding="utf-8") == "alt"
     assert not (folder / exe.PENDING).exists()
+
+# -- Release als ZIP-Datei (Rückmeldung vom 03.10.2026) -------------------------------------------
+def zipped(files: dict[str, bytes]) -> bytes:
+    """ZIP-Datei wie von exe.asset_for_upload: Ordner CodeCockpit mit Exe und LICENSE."""
+    import io
+    import zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as bundle:
+        for name, content in files.items():
+            bundle.writestr(name, content)
+    return buffer.getvalue()
+
+
+ZIP = zipped({"CodeCockpit/CodeCockpit.exe": NEW_BYTES, "CodeCockpit/LICENSE": b"MIT"})
+
+
+def test_zip_release_is_found(own):
+    """Ab 1.1.13 hing CodeCockpit.zip am Release, weil LICENSE neben die Exe kommt. Die Suche
+    kannte nur .exe und fand kein Update mehr."""
+    found = update.check(own, transport=transport(release(ZIP, name="CodeCockpit.zip"), ZIP))
+    assert found.asset_name == "CodeCockpit.zip" and found.is_zip
+
+
+def test_exe_is_preferred_over_zip(own):
+    data = release()
+    data["assets"].insert(0, release(ZIP, name="CodeCockpit.zip")["assets"][0])
+    assert update.check(own, transport=transport(data)).asset_name == "CodeCockpit.exe"
+
+
+def test_zip_download_extracts_the_exe(own):
+    data = release(ZIP, name="CodeCockpit.zip")
+    found = update.check(own, transport=transport(data, ZIP))
+    target = update.download(found, own, transport=transport(data, ZIP))
+    assert target == own.parent / exe.PENDING / "CodeCockpit.exe"
+    assert target.read_bytes() == NEW_BYTES
+    assert [p.name for p in (own.parent / exe.PENDING).iterdir()] == ["CodeCockpit.exe"]
+    assert update.is_waiting(own)
+
+
+def test_zip_without_exe_or_folder_build_is_refused(own):
+    for content, text in ((zipped({"CodeCockpit/LICENSE": b"MIT"}), "keine passende Exe"),
+                          (zipped({"CodeCockpit/CodeCockpit.exe": NEW_BYTES,
+                                   "CodeCockpit/_internal/python314.dll": b"x"}),
+                           "Programmordner")):
+        data = release(content, name="CodeCockpit.zip")
+        found = update.check(own, transport=transport(data, content))
+        with pytest.raises(CockpitError, match=text):
+            update.download(found, own, transport=transport(data, content))
+        assert not (own.parent / exe.PENDING).exists()
+        assert own.read_bytes() == b"alte Version"
+
+
+def test_changed_zip_is_deleted(own):
+    data = release(ZIP, name="CodeCockpit.zip")
+    found = update.check(own, transport=transport(data, ZIP))
+    with pytest.raises(CockpitError, match="beschädigt oder verändert"):
+        update.download(found, own, transport=transport(data, b"untergeschoben"))
+    assert not (own.parent / exe.PENDING).exists()

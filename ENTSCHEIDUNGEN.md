@@ -915,3 +915,12 @@ Rückmeldung des Nutzers: Die neue Exe des Cockpits brach beim Start mit „Die 
 - Das Cockpit schreibt eine .spec-Datei nur noch neu, wenn es sie selbst erstellt hat. Das erkennt es an der ersten Zeile „# Erstellt von CodeCockpit.“. Bei einer von Hand geschriebenen ändern sich nur die Einstellungen in cockpit.toml. Das Einstellungsfenster blendet dann Startdatei, Name, Bauart und Symbol aus und sagt, dass sie in der Bauanleitung stehen.
 - Wunsch des Nutzers: Was der Code unbedingt braucht, steht oben in der Liste „Ordner und Dateien neben der Exe“, heißt „…, unbedingt nötig, vom Code benutzt“ und ist immer vorab angehakt. Unbedingt nötig ist, was der Code als Ordner oder Datei im Ordner Code benutzt und die .spec-Datei nicht schon in die Exe packt. Wer es abhakt, wird beim Weiter gefragt. Die sichere Antwort „Wieder anhaken“ ist die Vorgabe.
 - Nachtrag (Rückmeldung des Nutzers: die Einrichtung wollte erklärvideos neben die Exe legen, obwohl nicht angehakt): Den Vorschlag machte nicht die KI, sondern der feste Teil der Einrichtung. Er kannte die .spec-Datei nicht und übersah, dass sie erklärvideos schon in die Exe packt. Er schlägt jetzt gar keine Ordner neben der Exe mehr vor, denn die wählt man im ersten Schritt, und das Unbedingte ist dort angehakt. Bei einer von Hand geschriebenen .spec-Datei schlägt er auch keine andere Startdatei vor.
+
+
+## 03.10.2026: Update-Suche findet auch ZIP-Releases
+
+Rückmeldung des Nutzers: Die Suche nach Updates fand keine neue Version mehr. Ursache: Seit Version 1.1.13 liegt LICENSE neben der Exe. Deshalb hängt am Release CodeCockpit.zip statt CodeCockpit.exe, und die Suche kannte nur Exe-Dateien.
+
+- Die Suche nimmt eine Exe am Release, wenn es eine gibt, sonst CodeCockpit.zip. Andere ZIP-Dateien zählen nicht.
+- Die ZIP-Datei wird geladen und gegen die Prüfsumme von GitHub geprüft. Dann holt das Cockpit nur die Exe heraus, an einen festen Ort in Exe\_neu, und tauscht sie wie bisher aus. Die übrigen Dateien der ZIP, etwa LICENSE, bleiben, wie sie sind.
+- Enthält die ZIP keine passende Exe oder einen Programmordner mit _internal, bricht das Cockpit ab und erklärt es. Die bisherige Version bleibt.

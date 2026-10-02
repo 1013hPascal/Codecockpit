@@ -7,14 +7,20 @@ gebaute, neuere Exe wird so nicht durch ein älteres Release ersetzt.
 
 Die neue Exe wird heruntergeladen, gegen die Prüfsumme geprüft und wartet in Exe\\_neu. Nach dem
 Beenden tauscht ein kleines Skript sie aus, die bisherige Exe kommt in die Sicherheitskopien.
+
+Liegen Dateien neben der Exe (zum Beispiel LICENSE), steht am Release statt der Exe die ZIP-Datei
+CodeCockpit.zip. Dann wird die ZIP-Datei geladen und geprüft, und die Exe kommt aus ihr
+(Rückmeldung des Nutzers vom 03.10.2026: ab Version 1.1.13 fand die Suche kein Update mehr).
 Einstellungen, Konten und Tresor liegen in %APPDATA% und bleiben unberührt.
 """
 from __future__ import annotations
 
 import hashlib
 import logging
+import shutil
 import sys
 import threading
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +33,7 @@ from cockpit.core.errors import Cancelled, CockpitError
 log = logging.getLogger(__name__)
 
 OWNER, REPO = "1013hPascal", "Codecockpit"
+ZIP_PREFIX = "codecockpit"                   # nur CodeCockpit.zip, keine fremde ZIP-Datei
 API = "https://api.github.com"
 SKIPPED_KEY = "update.skipped"               # übersprungene Version (Tag)
 LAST_CHECK_KEY = "update.last_check"         # Zeitpunkt der letzten Prüfung, Sekunden
@@ -47,6 +54,10 @@ class Update:
     @property
     def version(self) -> str:
         return self.tag.lstrip("v")
+
+    @property
+    def is_zip(self) -> bool:
+        return self.asset_name.lower().endswith(".zip")
 
     @property
     def size_text(self) -> str:
@@ -86,14 +97,16 @@ def latest(transport: httpx.BaseTransport | None = None) -> Update | None:
         raise CockpitError("GitHub hat die Anfrage nach Updates abgelehnt. Bitte später erneut "
                            "versuchen.", f"HTTP {response.status_code}")
     data = response.json()
-    for asset in data.get("assets") or []:
-        name = asset.get("name", "")
-        digest = asset.get("digest") or ""
-        if name.lower().endswith(".exe") and digest.startswith("sha256:"):
-            return Update(data.get("tag_name", ""), data.get("body") or "", name,
-                          asset["browser_download_url"], int(asset.get("size", 0)),
-                          digest.split(":", 1)[1].lower(),
-                          _time(data.get("published_at") or asset["updated_at"]))
+    usable = [a for a in data.get("assets") or []
+              if (a.get("digest") or "").startswith("sha256:")]
+    exes = [a for a in usable if a.get("name", "").lower().endswith(".exe")]
+    zips = [a for a in usable if a.get("name", "").lower().endswith(".zip")
+            and a.get("name", "").lower().startswith(ZIP_PREFIX)]
+    for asset in exes + zips:                   # Exe bevorzugt, sonst CodeCockpit.zip
+        return Update(data.get("tag_name", ""), data.get("body") or "", asset["name"],
+                      asset["browser_download_url"], int(asset.get("size", 0)),
+                      asset["digest"].split(":", 1)[1].lower(),
+                      _time(data.get("published_at") or asset["updated_at"]))
     return None
 
 
@@ -120,7 +133,7 @@ def download(update: Update, exe_path: Path, cancel: threading.Event | None = No
     pending = exe_path.parent / exe.PENDING
     backups.remove_tree(pending)
     pending.mkdir()
-    target = pending / exe_path.name
+    target = pending / (update.asset_name if update.is_zip else exe_path.name)
     digest = hashlib.sha256()
     try:
         with http.make_client(transport=transport) as client, \
@@ -145,6 +158,38 @@ def download(update: Update, exe_path: Path, cancel: threading.Event | None = No
         backups.remove_tree(pending)
         raise CockpitError("Die heruntergeladene Datei ist beschädigt oder verändert. Sie wurde "
                            "gelöscht, die bisherige Version bleibt.", "SHA-256 weicht ab")
+    if update.is_zip:
+        try:
+            return _exe_from_zip(target, pending / exe_path.name)
+        except BaseException:
+            backups.remove_tree(pending)
+            raise
+    return target
+
+
+def _exe_from_zip(archive: Path, target: Path) -> Path:
+    """Die Exe aus der geprüften ZIP-Datei holen, unter dem Namen der laufenden Exe. Nur diese
+    eine Datei wird geschrieben, an einen festen Ort, egal welche Pfade in der ZIP stehen."""
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            members = [m for m in bundle.infolist()
+                       if not m.is_dir() and m.filename.lower().endswith(".exe")]
+            same = [m for m in members if Path(m.filename).name.lower() == target.name.lower()]
+            chosen = (same or members)[:1]
+            if not chosen or len(members) > 1 and not same:
+                raise CockpitError("In der ZIP-Datei der neuen Version steckt keine passende "
+                                   "Exe. Die bisherige Version bleibt.",
+                                   ", ".join(m.filename for m in members) or "keine Exe")
+            if any("_internal/" in m.filename.replace("\\", "/") for m in bundle.infolist()):
+                raise CockpitError("Die neue Version ist ein Programmordner. Den kann das Cockpit "
+                                   "nicht selbst austauschen. Laden Sie die ZIP-Datei bitte von "
+                                   "der Release-Seite.", archive.name)
+            with bundle.open(chosen[0]) as source, open(target, "wb") as file:
+                shutil.copyfileobj(source, file)
+    except zipfile.BadZipFile as exc:
+        raise CockpitError("Die ZIP-Datei der neuen Version ist beschädigt. Die bisherige Version "
+                           "bleibt.", repr(exc)) from None
+    archive.unlink()
     return target
 
 
