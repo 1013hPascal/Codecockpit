@@ -29,3 +29,8 @@ Ergebnis:
 Tasten: Auf „Meine-Vokabeln“ Leertaste, dann Weiter.
 Ansage: Rückfrage „Meine-Vokabeln ist unbedingt nötig, der Code benutzt es. …“ mit „Trotzdem weglassen“ und „Wieder anhaken“ (Vorgabe, auch mit Escape). Bei „Wieder anhaken“ ist der Eintrag wieder angehakt, der Fokus steht in der Liste.
 Ergebnis:
+
+[ ] 6. Kein Vorschlag für erklärvideos
+Tasten: Beim Cockpit „Exe aus dem Code erstellen …“, Weiter, „Exe mit KI einrichten …“.
+Ansage: Im Vorschlag steht keine Zeile „Einstellung: Ordner neben der Exe: erklärvideos.“ Ordner neben der Exe kommen nur aus Ihrer Wahl im ersten Schritt.
+Ergebnis:

@@ -610,3 +610,21 @@ def test_handmade_spec_hides_the_form(qtbot, tmp_path):
     dialog.check()
     assert dialog.settings == exe.BuildSettings("gui.py", "VokabelApp", one_file=False,
                                                 beside=["Meine-Vokabeln"])
+
+
+def test_fixed_part_leaves_the_folders_alone(tmp_path):
+    """Rückmeldung vom 03.10.2026: Die Einrichtung wollte erklärvideos neben die Exe legen,
+    obwohl die .spec-Datei sie schon einpackt und der Nutzer sie nicht angehakt hatte."""
+    project = vokabel_project(tmp_path)
+    settings = exe.BuildSettings("gui.py", "VokabelApp", beside=[])
+    proposal = ai_fix.fixed_part(project.code_dir, settings)
+    assert proposal.settings is None
+    assert not any("Ordner neben der Exe" in line for line in proposal.settings_lines)
+
+
+def test_fixed_part_keeps_the_start_file_of_a_handmade_spec(tmp_path):
+    project = vokabel_project(tmp_path)
+    (project.code_dir / "engine.py").write_text("class Engine:\n    pass\n", encoding="utf-8")
+    (project.code_dir / "VokabelApp.spec").write_text(HANDMADE, encoding="utf-8")
+    settings = exe.BuildSettings("engine.py", "VokabelApp")
+    assert ai_fix.fixed_part(project.code_dir, settings).settings is None

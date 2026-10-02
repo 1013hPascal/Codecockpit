@@ -218,7 +218,9 @@ def test_fixed_part_without_ai(tmp_path):
     proposal = ai_fix.ask(None, "VokabelApp", code,
                           exe.BuildSettings("engine.py", "VokabelApp"), "")
     assert proposal.settings.start_file == "gui.py"
-    assert proposal.settings.beside == ["Meine-Vokabeln"]
+    # Seit dem 03.10.2026 wählt man die Ordner im ersten Schritt, nicht hier
+    assert proposal.settings.beside == []
+    assert proposal.settings_lines == ["Startdatei: gui.py statt engine.py."]
     assert [c.file for c in proposal.usable] == ["requirements.txt"]
     assert proposal.usable[0].new == "PySide6\n"
 
@@ -240,7 +242,7 @@ def test_ai_proposal_is_checked_and_applied_with_backup(tmp_path, home):
         encoding="utf-8")
     assert (code / "requirements.txt").read_text(encoding="utf-8") == "PySide6\n"
     assert 'VocabEngine("Meine-Vokabeln")' in (folder / "gui.py").read_text(encoding="utf-8")
-    assert exe.read_settings(code).beside == ["Meine-Vokabeln"]
+    assert exe.read_settings(code) is None          # Ordner kommen aus dem ersten Schritt
 
 
 def test_ai_may_not_touch_files_outside(tmp_path):

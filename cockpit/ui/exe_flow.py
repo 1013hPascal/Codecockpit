@@ -93,8 +93,7 @@ class BuildSettingsDialog(FocusDialog):
 
     def __init__(self, project: Project, parent: QWidget | None = None,
                  current: exe.BuildSettings | None = None, in_flow: bool = False) -> None:
-        from cockpit.features.exe_build.setup_check import (data_folders, guess_start_file,
-                                                            required_beside)
+        from cockpit.features.exe_build.setup_check import guess_start_file, required_beside
         super().__init__(parent)
         # in_flow: erster Schritt von "Exe aus dem Code erstellen" (Wunsch des Nutzers,
         # 02.10.2026). Mit Weiter wird gespeichert wie unter "Exe-Einstellungen …".
@@ -108,7 +107,7 @@ class BuildSettingsDialog(FocusDialog):
         if current is None:
             current = exe.BuildSettings(guess_start_file(project.code_dir),
                                         project.name.replace(" ", "-"),
-                                        beside=data_folders(project.code_dir))
+                                        beside=required_beside(project.code_dir))
         fields = [sf.Text("start_file", "Startdatei", current.start_file, required=True),
                   sf.Text("name", "Name der Exe", current.name, required=True,
                           pattern=r"[\w\-. ]+", pattern_hint="Bitte nur Buchstaben, Ziffern, "
