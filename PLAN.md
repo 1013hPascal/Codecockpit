@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] README überarbeitet: aus Ordner hochladen, mit KI schreiben, mit KI bearbeiten, danach übersetzen (Wunsch vom 03.10.2026, Checkliste checklisten\readme-ueberarbeiten.md)
 - [ ] Eigene Bauanleitung schützen, Unbedingtes in den Exe-Einstellungen (Rückmeldung vom 03.10.2026, Checkliste checklisten\exe-einstellungen.md)
 - [ ] Problem mit KI lösen, Stand in den Aktionen, Branches anzeigen, Reihenfolge der Projektliste (Wunsch vom 02.10.2026, Checkliste checklisten\exe-ki-und-branches.md)
 - [ ] Projektübersichten und Aktionsmenüs: Main-Branch, Branches verwalten, Menüs von Main, Branch, Exe und Projekt (Wunsch vom 30.09.2026, gebaut am 30.09.2026, Checkliste checklisten\projektuebersichten.md)

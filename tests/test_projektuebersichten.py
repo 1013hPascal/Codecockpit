@@ -288,18 +288,21 @@ def test_readme_offers_create_or_edit_and_settings(qtbot, make_services, project
     project = next(p for p in services.projects.all() if p.name == "Doku")
     readme = win.controller.readme
     called, asked = [], []
-    monkeypatch.setattr(type(readme), "start", lambda self, c: called.append("erstellen"))
+    monkeypatch.setattr(type(readme), "write", lambda self, c: called.append("schreiben"))
     monkeypatch.setattr(type(readme), "edit", lambda self, c: called.append("bearbeiten"))
     monkeypatch.setattr(type(readme), "languages", lambda self, c: called.append("Einstellungen"))
     monkeypatch.setattr(common, "choose_from_list",
-                        lambda parent, title, name, items: asked.append(list(items)) or 0)
+                        lambda parent, title, name, items: asked.append(list(items))
+                        or len(items) - 1)
     context = ActionContext(services, project, Target.PROJECT)
     readme.choose(context)
-    assert asked[-1] == ["README erstellen …", "README-Einstellungen …"]
+    # Wunsch des Nutzers vom 03.10.2026 (test_readme_neu.py)
+    assert asked[-1] == ["README-Einstellungen …", "README aus Ordner hochladen …",
+                         "README mit KI schreiben …"]
     (project.code_dir / "README.md").write_text("# Doku\n", encoding="utf-8")
     readme.choose(context)
-    assert asked[-1] == ["README bearbeiten …", "README-Einstellungen …"]
-    assert called == ["erstellen", "bearbeiten"]
+    assert asked[-1] == ["README-Einstellungen …", "README bearbeiten …"]
+    assert called == ["schreiben", "bearbeiten"]
 
 
 # -- Branches verwalten ---------------------------------------------------------------------

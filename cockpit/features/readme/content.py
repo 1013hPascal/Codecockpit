@@ -1,11 +1,11 @@
 """Inhalt der README-Abschnitte (Konzept 10.2, Phase 9), ohne Qt.
 
-Was das Cockpit sicher weiß, schreibt es selbst: Download, Installation, Änderungen aus den
-Versionen, Hinweis zu Windows-Warnungen, Lizenz und die Liste der Bibliotheken. Funktionen,
-Bedienung, Systemanforderungen und die Erklärung der Bibliotheken schreibt die KI aus Auszügen des
-Codes, ohne Geheimnisse (Frage 5 zu Phase 9). Übersetzungen macht ebenfalls die KI.
+Was das Cockpit sicher weiß, gibt es der KI als fertige Bausteine mit: Download, Installation,
+Änderungen aus den Versionen, Hinweis zu Windows-Warnungen, Lizenz und die Liste der Bibliotheken.
+Den Rest schreibt die KI aus Auszügen des Codes, ohne Geheimnisse (Frage 5 zu Phase 9).
 
-Alles hier sind nur Vorschläge (Proposal). Übernommen wird erst, was der Nutzer bestätigt.
+Seit dem 03.10.2026 schreibt die KI die ganze README auf einmal (plan.py). Gespeichert wird erst,
+was der Nutzer mit „fertig so“ bestätigt.
 """
 from __future__ import annotations
 
@@ -16,30 +16,7 @@ from pathlib import Path
 
 from cockpit.features.readme import document as doc
 
-AI_KEYS = ("features", "usage", "requirements", "tools")
-DESCRIPTIONS = {
-    "features": "die Funktionen des Programms, als kurze Liste mit Spiegelstrichen",
-    "usage": "die Bedienung, mit den wichtigsten Tastenkürzeln, als kurze Liste",
-    "requirements": "die Systemanforderungen: Betriebssystem, Arbeitsspeicher, Zusatzprogramme "
-                    "wie Ollama oder ein Mikrofon, als kurze Liste",
-    "tools": "die verwendeten Bibliotheken und Werkzeuge. Für jede aus der Liste unter Fakten "
-             "genau eine Zeile: Name, Doppelpunkt, ein Satz, wofür das Programm sie nutzt",
-}
 LANGUAGE_NAMES = {"en": "Englisch", "de": "Deutsch", "fr": "Französisch", "es": "Spanisch"}
-
-
-@dataclass
-class Proposal:
-    file: str                            # README.md oder README.de.md
-    code: str                            # Sprache, zum Beispiel "de"
-    key: str
-    title: str                           # Überschrift in dieser Sprache
-    text: str
-    reason: str = "neu"                  # "neu", "erneuert", "übersetzt" oder ein Satz der KI
-
-    @property
-    def line(self) -> str:
-        return f"{self.title}, {self.reason}"
 
 
 @dataclass
@@ -159,28 +136,27 @@ def code_excerpt(code_dir: Path, name: str, start_file: str, max_chars: int) -> 
     return "\n\n".join(parts)[:max_chars]
 
 
-def write_section(ai, key: str, code: str, facts: Facts, excerpt: str,
-                  current: str = "", cancel: threading.Event | None = None) -> str:
-    from cockpit.ai import prompt_files
-    prompt = prompt_files.fill(
-        prompt_files.load("readme_section"), abschnitt=DESCRIPTIONS[key],
-        sprache=LANGUAGE_NAMES.get(code, "Englisch"), fakten="\n".join(facts.lines()),
-        bisher=fixed(key, facts, code) or current or "nichts", code=excerpt)
-    return clean(ai.ask(prompt, prompt_files.load("readme_section_system"), cancel))
+def blocks(keys: list[str], facts: Facts, code: str) -> str:
+    """Fertige Bausteine für die KI, mit Überschrift. Andere Sprachen als Englisch und Deutsch
+    bekommen die englische Fassung, die KI übersetzt sie."""
+    source = code if code in ("en", "de") else "en"
+    parts = [f"## {doc.heading(key, code)}\n\n{text}" for key in keys
+             if (text := fixed(key, facts, source))]
+    return "\n\n".join(parts)
 
 
-def translate(ai, text: str, code: str, cancel: threading.Event | None = None) -> str:
+def translate_file(ai, text: str, code: str, cancel: threading.Event | None = None) -> str:
+    """Die ganze README in die Sprache code."""
     from cockpit.ai import prompt_files
-    prompt = prompt_files.fill(prompt_files.load("readme_translate"),
+    prompt = prompt_files.fill(prompt_files.load("readme_translate_file"),
                                sprache=LANGUAGE_NAMES.get(code, "Englisch"), inhalt=text)
-    return clean(ai.ask(prompt, prompt_files.load("readme_translate_system"), cancel))
+    return clean_file(ai.ask(prompt, prompt_files.load("readme_translate_file_system"), cancel))
 
 
-def clean(answer: str) -> str:
-    """Überschrift und Code-Zaun um die ganze Antwort entfernen, falls die KI sie mitliefert."""
-    text = answer.strip()
-    text = re.sub(r"^```(?:markdown|md)?\s*\n(.*)\n```$", r"\1", text, flags=re.DOTALL)
-    return re.sub(r"^#{1,3} .*\n+", "", text).strip()
+def clean_file(answer: str) -> str:
+    """Code-Zaun um die ganze Antwort entfernen, falls die KI ihn mitliefert."""
+    text = answer.strip().replace("\r\n", "\n")
+    return re.sub(r"^```(?:markdown|md)?\s*\n(.*)\n```$", r"\1", text, flags=re.DOTALL).strip()
 
 
 # -- Prüfung vor dem Hochladen ------------------------------------------------------------------

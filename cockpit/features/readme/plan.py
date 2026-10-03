@@ -1,26 +1,32 @@
-"""README erstellen und aktualisieren (Konzept 10.2, Phase 9), ohne Qt.
+"""README schreiben, überarbeiten und übersetzen (Konzept 10.2, Phase 9), ohne Qt.
 
-1. plan_main: Vorschläge für die Hauptsprache. Fehlende Abschnitte kommen neu dazu. Vorhandene,
-   die vom Cockpit stammen und unverändert sind, erneuert es, wenn sich die Fakten geändert haben
-   (zum Beispiel neue Version, neue Prüfsumme). Selbst geschriebene bleiben unberührt.
-2. Der Nutzer sieht jeden Vorschlag einzeln und übernimmt, passt an oder überspringt.
-3. plan_translations: die übernommenen Abschnitte in die weiteren Sprachen.
-4. apply: schreibt die Dateien, vorher kommen die alten in die Sicherheitskopien.
+Wunsch des Nutzers vom 03.10.2026: Die KI schreibt die ganze README auf einmal, statt jeden
+Abschnitt einzeln vorzuschlagen.
+1. compose: Die KI schreibt die README in der Hauptsprache, aus Fakten, fertigen Bausteinen,
+   Auszügen des Codes, Infodateien und Hinweisen des Nutzers. Mit bisherigem Text und Anweisungen
+   überarbeitet sie ihn.
+2. Der Nutzer liest und ändert den Text und bestätigt mit „fertig so“.
+3. save_files schreibt die Dateien. Die alten kommen vorher in die Sicherheitskopien.
+4. translate: die fertige README in die weiteren Sprachen, jede zum Lesen und Anpassen.
+import_file übernimmt eine fertige README aus einer Datei.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import threading
 from pathlib import Path
 from typing import Callable
 
 from cockpit.core import backups, exe
+from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project
 from cockpit.features.readme import content
 from cockpit.features.readme import document as doc
-from cockpit.features.readme.content import Facts, Proposal
+from cockpit.features.readme.content import Facts
 
 FEATURE_ID = "readme"
+MAIN_FILE = "README.md"
 
 
 def _setting(services, key: str, fallback):
@@ -60,7 +66,7 @@ def _active(services, feature_id: str, project: Project) -> bool:
 def gather_facts(services, project: Project) -> Facts:
     code_dir = project.code_dir
     facts = Facts(project.name, libraries=content.libraries(code_dir))
-    head = doc.parse(_read(code_dir / "README.md")).head
+    head = doc.parse(_read(code_dir / MAIN_FILE)).head
     lines = [l for l in head.splitlines() if l.strip() and not l.startswith("#") and "|" not in l]
     facts.description = lines[0].strip() if lines else ""
     settings = exe.read_settings(code_dir)
@@ -94,101 +100,137 @@ def _read(path: Path) -> str:
         return ""
 
 
-def plan_main(services, project: Project, ai, cancel: threading.Event | None = None,
-              status: Callable[[str], None] = lambda text: None) -> list[Proposal]:
-    """Vorschläge für die README in der Hauptsprache. ai: TextAI oder None (dann nur die
-    Abschnitte, die das Cockpit selbst schreiben kann)."""
+# -- Infodateien --------------------------------------------------------------------------------
+def info_text(paths: list[Path], max_chars: int) -> tuple[str, list[str]]:
+    """Text der Infodateien für die KI, ohne Geheimnisse. Gibt auch die Namen der Dateien zurück,
+    die nicht mitgehen: vertrauliche, unlesbare und solche, die kein Text sind."""
+    from cockpit.features.ai_assistant.context import confidential, redact
+    parts: list[str] = []
+    skipped: list[str] = []
+    for path in paths:
+        try:
+            data = path.read_bytes()[:max(max_chars, 1) * 4]
+        except OSError:
+            skipped.append(path.name)
+            continue
+        if confidential(path.name) or b"\0" in data[:4096]:
+            skipped.append(path.name)
+            continue
+        text = redact(data.decode("utf-8", errors="replace")).strip()
+        if text:
+            parts.append(f"Datei {path.name}:\n{text}")
+    return "\n\n".join(parts)[:max_chars], skipped
+
+
+# -- Schreiben und überarbeiten -----------------------------------------------------------------
+def compose(services, project: Project, ai, notes: str = "", info: str = "", current: str = "",
+            wishes: str = "", cancel: threading.Event | None = None,
+            status: Callable[[str], None] = lambda text: None) -> str:
+    """Die ganze README in der Hauptsprache. Ohne current schreibt die KI sie neu, mit current
+    und wishes überarbeitet sie den Text. ai: TextAI."""
+    from cockpit.ai import prompt_files
     code_dir = project.code_dir
     main_code, _codes = languages(services, code_dir)
-    file = "README.md"
-    readme = doc.parse(_read(code_dir / file))
     facts = gather_facts(services, project)
-    excerpt = None
-    proposals: list[Proposal] = []
-    for key in enabled_keys(services):
+    keys = enabled_keys(services)
+    status("Die KI überarbeitet die README." if current else "Die KI schreibt die README.")
+    values = dict(
+        name=project.name, sprache=content.LANGUAGE_NAMES.get(main_code, "Englisch"),
+        fakten="\n".join(facts.lines()), bausteine=content.blocks(keys, facts, main_code) or "keine",
+        hinweise=notes.strip() or "keine", infos=info.strip() or "keine",
+        code=content.code_excerpt(code_dir, project.name, facts.start_file, ai.max_chars // 3))
+    if current.strip():
+        prompt = prompt_files.fill(prompt_files.load("readme_revise"), bisher=current.strip(),
+                                   wuensche=wishes.strip() or "Verbessere Sprache und Aufbau.",
+                                   **values)
+    else:
+        headings = "\n".join(f"- {doc.heading(key, main_code)}" for key in keys)
+        prompt = prompt_files.fill(prompt_files.load("readme_write"), abschnitte=headings,
+                                   **values)
+    text = content.clean_file(ai.ask(prompt, prompt_files.load("readme_write_system"), cancel))
+    if not text:
+        raise CockpitError("Die KI hat keinen Text geliefert. Bitte versuchen Sie es noch einmal.")
+    return text
+
+
+def translate(services, project: Project, ai, text: str, only: list[str] | None = None,
+              cancel: threading.Event | None = None,
+              status: Callable[[str], None] = lambda text: None) -> list[tuple[str, str, str]]:
+    """Die README in alle weiteren Sprachen, oder nur in die Sprachen only. Gibt (Datei,
+    Sprache, Text) zurück."""
+    main_code, codes = languages(services, project.code_dir)
+    source = _with_language_line(text, project.name, "")
+    result = []
+    for code in [c for c in codes[1:] if only is None or c in only]:
         if cancel is not None and cancel.is_set():
             break
-        part = readme.find(key)
-        title = part.title if part is not None else doc.heading(key, main_code)
-        if part is not None and doc.is_own(code_dir, file, part):
-            continue                                    # selbst geschrieben: nie anfassen
-        text = content.fixed(key, facts, main_code) if main_code in ("en", "de") else ""
-        if key in content.AI_KEYS and ai is not None and (part is None or key == "tools") \
-                and not (key == "requirements" and facts.requirements):
-            status(f"Die KI schreibt den Abschnitt {doc.KEY_NAMES[key]}.")
-            if excerpt is None:
-                excerpt = content.code_excerpt(code_dir, project.name, facts.start_file,
-                                               ai.max_chars // 2)
-            text = content.write_section(ai, key, main_code, facts, excerpt,
-                                         part.body if part else "", cancel)
-        elif text and main_code not in ("en", "de") and ai is not None:
-            text = content.translate(ai, content.fixed(key, facts, "en"), main_code, cancel)
-        if not text.strip():
-            continue
-        if part is None:
-            proposals.append(Proposal(file, main_code, key, title, text, "neu"))
-        elif doc.fingerprint(part.body) != doc.fingerprint(text):
-            proposals.append(Proposal(file, main_code, key, title, text, "erneuert"))
-    return proposals
+        status(f"Die KI übersetzt die README ins {content.LANGUAGE_NAMES.get(code, code)}.")
+        translated = content.translate_file(ai, source, code, cancel)
+        if translated:
+            result.append((doc.file_name(code, main_code), code, translated))
+    return result
 
 
-def plan_translations(services, project: Project, ai, accepted: list[Proposal],
-                      cancel: threading.Event | None = None,
-                      status: Callable[[str], None] = lambda text: None) -> list[Proposal]:
-    """Übernommene Abschnitte der Hauptsprache in die weiteren Sprachen (Frage 9). In einer
-    Übersetzung selbst geschriebene Abschnitte bleiben unberührt."""
+def missing_translations(services, project: Project) -> list[str]:
+    """Weitere Sprachen, für die es noch keine Datei gibt."""
+    main_code, codes = languages(services, project.code_dir)
+    return [c for c in codes[1:] if not (project.code_dir / doc.file_name(c, main_code)).is_file()]
+
+
+# -- Speichern ----------------------------------------------------------------------------------
+def _with_language_line(text: str, title: str, line: str) -> str:
+    """Nur den Kopf ändern: die Zeile mit den Sprachen einfügen, erneuern oder entfernen."""
+    text = text.replace("\r\n", "\n")
+    readme = doc.parse(text)
+    doc.set_head(readme, title, "", line)
+    start = re.search(r"(?m)^## ", text)
+    rest = text[start.start():] if start else ""
+    return "\n\n".join(p for p in (readme.head, rest.strip()) if p).strip() + "\n"
+
+
+def save_files(services, project: Project, files: dict[str, str]) -> Path | None:
+    """README-Dateien schreiben. Bei mehreren Sprachen bekommt jede vorhandene Datei oben die
+    Links zu allen. Was sich ändert und schon da war, kommt vorher in die Sicherheitskopien.
+    Gibt deren Ordner zurück, None wenn es nichts zu sichern gab."""
     code_dir = project.code_dir
     main_code, codes = languages(services, code_dir)
-    proposals: list[Proposal] = []
-    if ai is None:
-        return proposals
-    main = doc.parse(_read(code_dir / "README.md"))
-    for code in codes[1:]:
-        file = doc.file_name(code, main_code)
-        target = doc.parse(_read(code_dir / file))
-        wanted = {p.key: p.text for p in accepted}
-        for part in main.parts:                         # fehlt in der Übersetzung ganz
-            if part.key and part.key not in wanted and target.find(part.key) is None:
-                wanted[part.key] = part.body
-        for key in [k for k in doc.KEYS if k in wanted]:
-            if cancel is not None and cancel.is_set():
-                return proposals
-            existing = target.find(key)
-            if existing is not None and doc.is_own(code_dir, file, existing):
-                continue
-            status(f"Die KI übersetzt {doc.KEY_NAMES[key]} ins "
-                   f"{content.LANGUAGE_NAMES.get(code, code)}.")
-            text = content.translate(ai, wanted[key], code, cancel)
-            if text.strip():
-                proposals.append(Proposal(file, code, key,
-                                          existing.title if existing else doc.heading(key, code),
-                                          text, "übersetzt"))
-    return proposals
-
-
-def apply(services, project: Project, proposals: list[Proposal]) -> Path | None:
-    """Übernommene Vorschläge schreiben. Alte Dateien vorher in die Sicherheitskopien. Gibt den
-    Ordner der Sicherheitskopie zurück, None wenn es noch keine README gab."""
-    code_dir = project.code_dir
-    main_code, codes = languages(services, code_dir)
-    facts_name, description = project.name, gather_facts(services, project).description
-    files = sorted({p.file for p in proposals} | ({"README.md"} if len(codes) > 1 else set()))
-    existing = [code_dir / f for f in files if (code_dir / f).is_file()]
+    final = {name: text.replace("\r\n", "\n").rstrip() + "\n" for name, text in files.items()}
+    if len(codes) > 1:
+        present = [c for c in codes if doc.file_name(c, main_code) in final
+                   or (code_dir / doc.file_name(c, main_code)).is_file()]
+        for code in present:
+            name = doc.file_name(code, main_code)
+            text = final.get(name) or _read(code_dir / name)
+            line = doc.language_line(code, present, main_code) if len(present) > 1 else ""
+            final[name] = _with_language_line(text, project.name, line)
+    changed = {name: text for name, text in final.items() if _read(code_dir / name) != text}
+    existing = [code_dir / name for name in changed if (code_dir / name).is_file()]
     backup = None
     if existing:
-        backup = backups.new_backup_dir(project.name, "README vor dem Aktualisieren", code_dir)
+        backup = backups.new_backup_dir(project.name, "README vor dem Speichern", code_dir)
         for path in existing:
             shutil.copy2(path, backup / path.name)
-    for file in files:
-        code = main_code if file == "README.md" else file.split(".")[1]
-        readme = doc.parse(_read(code_dir / file))
-        for proposal in [p for p in proposals if p.file == file]:
-            readme.put(proposal.key, proposal.title, proposal.text)
-        line = doc.language_line(code, codes, main_code) if len(codes) > 1 else ""
-        doc.set_head(readme, facts_name, description, line)
-        (code_dir / file).write_text(readme.text(), encoding="utf-8")
-        for proposal in [p for p in proposals if p.file == file]:
-            doc.remember(code_dir, file, proposal.key, readme.find(proposal.key).body)
-            if proposal.key == "requirements" and file == "README.md":
-                doc.save(code_dir, {"requirements": readme.find("requirements").body})
+    for name, text in changed.items():
+        (code_dir / name).write_text(text, encoding="utf-8")
+    part = doc.parse(final.get(MAIN_FILE, "")).find("requirements")
+    if part is not None and part.body:
+        doc.save(code_dir, {"requirements": part.body})   # für die Prüfung vor dem Hochladen
     return backup
+
+
+def import_file(services, project: Project, source: Path) -> Path | None:
+    """Eine fertige README aus einer Datei als README.md übernehmen."""
+    try:
+        data = source.read_bytes()
+    except OSError as exc:
+        raise CockpitError(f"Die Datei {source.name} ließ sich nicht lesen.", str(exc)) from None
+    try:
+        if b"\0" in data:
+            raise UnicodeDecodeError("utf-8", data, 0, 1, "Nullbyte")
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise CockpitError(f"{source.name} ist keine Textdatei in UTF-8. Bitte wählen Sie eine "
+                           "Markdown- oder Textdatei.") from None
+    if not text.strip():
+        raise CockpitError(f"{source.name} ist leer.")
+    return save_files(services, project, {MAIN_FILE: text})
