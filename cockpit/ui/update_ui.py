@@ -1,4 +1,7 @@
-"""Updates der Exe des Cockpits: Prüfung beim Start und täglich, Rückfrage, Austausch.
+"""Updates der Exe des Cockpits: Prüfung bei jedem Start, Rückfrage, Austausch.
+
+Wunsch des Nutzers vom 03.10.2026: Die Suche läuft einmal bei jedem Start des Programms, nicht mehr
+nur einmal am Tag.
 
 Die Prüfung läuft still im Hintergrund. Nur wenn es eine neue Version gibt, kommt eine Rückfrage.
 Fehler der automatischen Prüfung landen nur im Log. Hilfe, Nach Updates suchen prüft sofort und
@@ -49,8 +52,11 @@ class Updater(QObject):
         """Nur in der Exe und nicht mit Testdaten."""
         if self.exe_path is None or self.window.testdata:
             return
-        QTimer.singleShot(FIRST_CHECK_MS, self.auto_check)
-        self.timer.start()
+        QTimer.singleShot(FIRST_CHECK_MS, self.check_at_start)
+
+    def check_at_start(self) -> None:
+        if self.waiting is None and self.services.settings.load().update_check:
+            self.run(manual=False)
 
     # -- Prüfen -----------------------------------------------------------------------------
     def auto_check(self) -> None:

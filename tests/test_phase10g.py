@@ -155,11 +155,11 @@ def test_upload_zip_contains_the_folders_from_code(make_services, projects_root,
     (result.exe.parent / "Meine-Vokabeln" / "privat.csv").write_text("x\n", encoding="utf-8")
     work = tmp_path / "upload"
     work.mkdir()
-    asset = exe.asset_for_upload(project, result.exe, work)
-    assert asset.suffix == ".zip"
+    asset = exe.asset_for_upload(project, result.exe, work, "2.0.0")
+    assert asset.name == "VokabelApp.zip"
     names = zipfile.ZipFile(asset).namelist()
-    assert "VokabelApp/VokabelApp.exe" in names
-    assert "VokabelApp/Meine-Vokabeln/Spanisch/zeit.csv" in names
+    assert "VokabelApp-2.0.0/VokabelApp.exe" in names
+    assert "VokabelApp-2.0.0/Meine-Vokabeln/Spanisch/zeit.csv" in names
     assert not any("privat.csv" in n for n in names)                # eigene Daten bleiben hier
 
 

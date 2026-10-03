@@ -355,47 +355,15 @@ def test_exe_lines_without_release(tmp_path, projects_root, make_services):
     assert exe_lines(project)[-1] == "Noch nicht veröffentlicht."
 
 
-def test_branch_row_has_merge_rename_remove_delete(qtbot, tmp_path, projects_root,
-                                                   make_services):
+def test_branch_row_has_merge_rename_delete(qtbot, tmp_path, projects_root, make_services):
+    """Seit dem 03.10.2026 ohne "Branch-Ordner entfernen …" (Wunsch des Nutzers)."""
     services, project, _other = structured(tmp_path, projects_root, make_services)
     tree = worktrees.open_branch(project, "suche")
     dialog = overview(qtbot, project, {"suche": tree.folder})
     dialog.list.setCurrentRow(dialog.row_of("suche"))
-    for button in (dialog.merge_button, dialog.rename_button, dialog.delete_button,
-                   dialog.remove_button):
+    for button in (dialog.merge_button, dialog.rename_button, dialog.delete_button):
         assert button.isVisible(), button.text()
-    dialog.remove_folder()
-    assert dialog.remove_request and dialog.remove_name == "suche"
-    other = overview(qtbot, project, {"suche": tree.folder})
-    other.list.setCurrentRow(other.row_of("lokal-neu"))        # ohne Ordner
-    assert not other.remove_button.isVisible()
-
-
-def test_overview_remove_request_removes_the_folder(qtbot, tmp_path, projects_root,
-                                                    make_services, monkeypatch):
-    services, project, _other = structured(tmp_path, projects_root, make_services)
-    worktrees.open_branch(project, "suche")
-    win = window(qtbot, services)
-    removed = []
-    monkeypatch.setattr(type(win.controller.worktrees), "remove_tree",
-                        lambda self, p, tree: removed.append(tree.branch))
-
-    class FakeDialog:
-        new_request = open_request = delete_request = ""
-        remove_request, remove_name = True, "suche"
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def exec(self):
-            return True
-
-    from cockpit.ui import branch_dialogs
-    monkeypatch.setattr(branch_dialogs, "BranchesDialog", FakeDialog)
-    context = ActionContext(services, project, Target.BRANCH_OVERVIEW,
-                            status=project_status.compute(project))
-    win.controller.branches_action(context)
-    qtbot.waitUntil(lambda: removed == ["suche"], timeout=10000)
+    assert not hasattr(dialog, "remove_button")
 
 
 # -- Fortschritt beim Einrichten mit KI (Wunsch vom 01.10.2026) ------------------------------

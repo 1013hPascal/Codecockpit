@@ -551,11 +551,6 @@ class ProjectController:
                 self.worktrees.create(project, dialog.new_request)
             elif dialog.open_request:
                 self.worktrees.open_folder_for(project, dialog.open_request)
-            elif getattr(dialog, "remove_request", False):
-                tree = next((t for t in worktrees.list_worktrees(project)
-                             if t.branch == dialog.remove_name), None)
-                if tree is not None:
-                    self.worktrees.remove_tree(project, tree)
             elif getattr(dialog, "delete_request", ""):
                 tree = next((t for t in worktrees.list_worktrees(project)
                              if t.branch == dialog.delete_request), None)

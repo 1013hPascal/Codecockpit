@@ -7,7 +7,9 @@ lokal haben" (Wunsch des Nutzers, 02.10.2026). Leertaste oder Enter öffnet dort
 "design, hier und auf GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main". Enter wechselt
 zum markierten Branch. Per Tab beim Haupt-Branch: "Exe" mit Version und Veröffentlichung. Bei einem
 Branch: "In main übernehmen …, 2 Commits offen" bzw. "…, alles aktuell", "Umbenennen …",
-"Branch-Ordner entfernen …", "Löschen …". Bei einem Branch nur auf GitHub: "Herunterladen",
+"Löschen …". "Branch-Ordner entfernen …" entfällt seit dem 03.10.2026 (Wunsch des Nutzers), weil
+"Löschen …" fragt, ob nur hier, nur auf GitHub oder beides. Löschen verwirft auch die Änderungen
+ohne Commit, nichts davon landet in main. Bei einem Branch nur auf GitHub: "Herunterladen",
 "Umbenennen …", "Löschen …".
 StashDialog: beiseitegelegte Änderungen. "Zurückholen …", "Als neuen Branch zurückholen …",
 "Löschen …".
@@ -80,8 +82,6 @@ class BranchesDialog(FocusDialog):
         # single (Wunsch aus dem Test von 10f): nur ein Branch-Ordner, "<Name> verwalten"
         self.single = single
         self.single_name = items[0].name if single and items else ""
-        self.remove_request = False
-        self.remove_name = ""                         # Branch, dessen Ordner weg soll
         self.delete_request = ""
         self.offset = 0 if single else 2              # oben "Neuer Branch …" und die Auswahl
         self.project = project
@@ -116,10 +116,6 @@ class BranchesDialog(FocusDialog):
         delete = QPushButton("&Löschen …")
         delete.clicked.connect(self.delete_current)
         self.rename_button, self.delete_button = rename, delete
-        remove = QPushButton("Branch-&Ordner entfernen …")
-        remove.clicked.connect(self.remove_folder)
-        self.remove_button = remove
-        remove.setVisible(single)
         new.setVisible(False)                         # steht jetzt oben in der Liste
         self.new_button = new
         # Beim Haupt-Branch mit Tab: Stand der Exe (Wunsch des Nutzers, 30.09.2026)
@@ -134,7 +130,7 @@ class BranchesDialog(FocusDialog):
         layout.addWidget(self.list, 1)
         layout.addWidget(self.exe_label)
         layout.addWidget(self.exe_info)
-        layout.addLayout(button_row(switch, new, self.merge_button, rename, remove, delete, None,
+        layout.addLayout(button_row(switch, new, self.merge_button, rename, delete, None,
                                     close))
         self.resize(760, 420)
         self.initial_focus_widget = self.list
@@ -238,14 +234,6 @@ class BranchesDialog(FocusDialog):
         name, _, rest = text.partition(", ")
         return f"{name}, {where}, {rest}" if rest else f"{name}, {where}"
 
-    def remove_folder(self) -> None:
-        branch = self.current()
-        if branch is None:
-            return
-        self.remove_request = True
-        self.remove_name = branch.name
-        self.accept()
-
     def update_buttons(self) -> None:
         """Wunsch aus dem Test von 5f: Beim Haupt-Branch gibt es kein "In main übernehmen …" und
         kein "Umbenennen …", beim aktuellen und beim Haupt-Branch kein "Löschen …". Die Knöpfe
@@ -256,9 +244,6 @@ class BranchesDialog(FocusDialog):
         main = branch is not None and branch.default
         self.exe_label.setVisible(main and not self.single)
         self.exe_info.setVisible(main and not self.single)
-        self.remove_button.setVisible(branch is not None and self.structured
-                                      and not branch.default
-                                      and (self.single or branch.name in self.folders))
         # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
         if self.structured:
             self.switch_button.setVisible(branch is not None and not branch.default
@@ -283,8 +268,7 @@ class BranchesDialog(FocusDialog):
         self.merge_button.setVisible(branch is not None and not branch.default
                                      and branch.local)
         self.rename_button.setVisible(branch is not None and not branch.default)
-        self.delete_button.setVisible(branch is not None and not branch.default
-                                      and (not branch.current or self.structured))
+        self.delete_button.setVisible(branch is not None and not branch.default)
 
     def reload(self, select: str = "") -> None:
         try:
@@ -521,10 +505,28 @@ class BranchesDialog(FocusDialog):
             self.delete_request = branch.name       # mit Ordner, erledigt WorktreeActions
             self.accept()
             return
-        if branch.current or branch.default:
-            what = "der aktuelle Branch. Wechseln Sie zuerst zu einem anderen" if branch.current \
-                else "der Haupt-Branch. Er lässt sich hier nicht löschen"
-            show_error(self, title, f"{branch.name} ist {what}.")
+        if branch.default:
+            show_error(self, title, f"{branch.name} ist der Haupt-Branch. Er lässt sich hier "
+                       "nicht löschen.")
+            return
+        if branch.current:
+            # Wunsch des Nutzers (03.10.2026): Was im Branch war, kommt nicht nach main
+            if not confirm(self, title, f"{branch.name} ist der aktuelle Branch. Das Cockpit "
+                           f"wechselt zu {self.main} und löscht {branch.name} auf diesem Rechner. "
+                           "Änderungen ohne Commit werden verworfen und kommen nicht nach "
+                           f"{self.main}. Sie kommen vorher in die Sicherheitskopien. Löschen?",
+                           yes="Löschen", no="Abbrechen"):
+                return
+            try:
+                branches.leave_discarding(self.code_dir, self.project.name, self.main)
+                branches.delete_local(self.code_dir, branch.name)
+            except CockpitError as exc:
+                show_error(self, title, exc.message, exc.details)
+                self.reload()
+                return
+            self.changed = True
+            self.reload(self.main)
+            announce(f"{branch.name} gelöscht. Sie sind jetzt auf {self.main}.")
             return
         local = remote = False
         if branch.local and branch.remote:

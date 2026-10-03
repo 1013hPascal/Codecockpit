@@ -11,6 +11,9 @@ Beenden tauscht ein kleines Skript sie aus, die bisherige Exe kommt in die Siche
 Liegen Dateien neben der Exe (zum Beispiel LICENSE), steht am Release statt der Exe die ZIP-Datei
 CodeCockpit.zip. Dann wird die ZIP-Datei geladen und geprüft, und die Exe kommt aus ihr
 (Rückmeldung des Nutzers vom 03.10.2026: ab Version 1.1.13 fand die Suche kein Update mehr).
+README und Lizenz aus der ZIP-Datei ersetzen die neben der Exe (Wunsch des Nutzers vom
+03.10.2026). Andere Dateien neben der Exe bleiben, wie sie sind, weil die Nutzer darin eigene Daten
+haben können.
 Einstellungen, Konten und Tresor liegen in %APPDATA% und bleiben unberührt.
 """
 from __future__ import annotations
@@ -186,6 +189,13 @@ def _exe_from_zip(archive: Path, target: Path) -> Path:
                                    "der Release-Seite.", archive.name)
             with bundle.open(chosen[0]) as source, open(target, "wb") as file:
                 shutil.copyfileobj(source, file)
+            folder = Path(chosen[0].filename.replace("\\", "/")).parent
+            for member in bundle.infolist():          # README und Lizenz aus demselben Ordner
+                path = Path(member.filename.replace("\\", "/"))
+                if member.is_dir() or path.parent != folder or not exe.is_doc(path.name):
+                    continue
+                with bundle.open(member) as source, open(target.parent / path.name, "wb") as file:
+                    shutil.copyfileobj(source, file)
     except zipfile.BadZipFile as exc:
         raise CockpitError("Die ZIP-Datei der neuen Version ist beschädigt. Die bisherige Version "
                            "bleibt.", repr(exc)) from None
@@ -204,5 +214,8 @@ def swap(exe_path: Path, version: str, start: bool) -> Path:
         raise CockpitError("Es wartet keine neue Version.")
     folder = backups.new_backup_dir("CodeCockpit", f"Exe vor dem Update auf {version} ersetzt",
                                     exe_path.parent)
-    return exe.swap_script(exe_path.parent, [exe_path], [new], folder,
+    docs = sorted(p for p in new.parent.iterdir() if p.is_file() and exe.is_doc(p.name))
+    old = [exe_path] + [exe_path.parent / d.name for d in docs
+                        if (exe_path.parent / d.name).is_file()]
+    return exe.swap_script(exe_path.parent, old, [new] + docs, folder,
                            exe_path if start else None)
