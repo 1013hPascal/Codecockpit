@@ -924,3 +924,17 @@ Rückmeldung des Nutzers: Die Suche nach Updates fand keine neue Version mehr. U
 - Die Suche nimmt eine Exe am Release, wenn es eine gibt, sonst CodeCockpit.zip. Andere ZIP-Dateien zählen nicht.
 - Die ZIP-Datei wird geladen und gegen die Prüfsumme von GitHub geprüft. Dann holt das Cockpit nur die Exe heraus, an einen festen Ort in Exe\_neu, und tauscht sie wie bisher aus. Die übrigen Dateien der ZIP, etwa LICENSE, bleiben, wie sie sind.
 - Enthält die ZIP keine passende Exe oder einen Programmordner mit _internal, bricht das Cockpit ab und erklärt es. Die bisherige Version bleibt.
+
+
+## 03.10.2026: README aus Ordner hochladen, mit KI schreiben und bearbeiten
+
+Wunsch des Nutzers: „README …“ auf der Projektzeile bekommt neue Einträge. Die KI schreibt die ganze README auf einmal, statt jeden Abschnitt einzeln vorzuschlagen. Gebaut im Branch Readme-ueberarbeiten, Checkliste in checklisten\readme-ueberarbeiten.md.
+
+- Ohne README stehen dort „README-Einstellungen …“, „README aus Ordner hochladen …“ und „README mit KI schreiben …“. Mit README stehen dort „README-Einstellungen …“ und „README bearbeiten …“. Die Reihenfolge folgt dem Wunsch des Nutzers.
+- „README aus Ordner hochladen …“ kopiert eine gewählte Markdown- oder Textdatei als README.md in den Ordner Code, nach einer Rückfrage. Hochgeladen auf GitHub wird sie nicht sofort, sondern wie jede Änderung (Antwort des Nutzers).
+- „README mit KI schreiben …“: Liste „Dateien mit Infos zum Programm“ mit Hinzufügen und Entfernen, Feld „Infos für die README“, Knöpfe „Von KI verfassen lassen“ und „README ist fertig so“. Nach dem ersten Text erscheinen das Feld „README-Text“ und darunter „Verbesserungsvorschläge für die KI“. Mit Vorschlägen überarbeitet die KI den Text, ohne Vorschläge schreibt sie ihn neu. Der Fokus springt auf den Text, wenn er da ist, weil der Nutzer darauf wartet.
+- „README bearbeiten …“: Feld „README-Text“, Feld „Anweisungen an die KI zur Überarbeitung“, Knöpfe „Von KI überarbeiten lassen“ und „Die README ist fertig so“. Bearbeitet wird README.md. Die Übersetzungen entstehen danach neu aus ihr.
+- Der bisherige Weg mit einzelnen Abschnitten (Übernehmen, Überspringen pro Abschnitt) entfällt ganz (Antwort des Nutzers). Was das Cockpit sicher weiß, geht als fertige Bausteine an die KI. Die Einstellung „Abschnitte“ sagt der KI, welche Abschnitte die README haben soll.
+- Infodateien gehen ohne Geheimnisse an die KI. Vertrauliche Dateien wie .env und Dateien, die kein Text sind, bleiben weg. Das Cockpit sagt, welche nicht gesendet wurden.
+- Nach „fertig so“ wird README.md gespeichert, die alte kommt vorher in die Sicherheitskopien. Gibt es weitere Sprachen, übersetzt die KI danach die ganze README (Antwort des Nutzers). Jede Übersetzung kommt einzeln zum Lesen und Ändern, Escape überspringt. Erst wenn es mehr als eine Sprachdatei gibt, bekommen alle oben die Zeile mit den Links. Ist beim Bearbeiten nichts geändert, übersetzt die KI nur in Sprachen, für die es noch keine Datei gibt.
+- Die Prüfung vor dem Hochladen bleibt, wie sie war.

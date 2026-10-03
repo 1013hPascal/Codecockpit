@@ -9,9 +9,9 @@ import pytest
 from cockpit.core import git, sync
 from cockpit.core.flows.engine import FlowContext
 from cockpit.core.flows.questions import ScriptedAsker
-from cockpit.features.readme import content, plan
+from cockpit.features.readme import content
 from cockpit.features.readme import document as doc
-from cockpit.features.readme.content import Facts, Proposal
+from cockpit.features.readme.content import Facts
 from cockpit.features.readme.manifest import MANIFEST as README
 from cockpit.features.versions import versions
 from cockpit.features.versions.manifest import MANIFEST as VERSIONS
@@ -157,50 +157,7 @@ def test_parse_check():
     assert content.parse_check("KEINE ÄNDERUNG") == []
 
 
-# -- README: Planen und Schreiben ----------------------------------------------------------------
-def test_new_readme_is_planned_and_written_with_translations(tmp_path, projects_root,
-                                                             make_services):
-    services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
-                                           {"main.py": "print(1)\n"})
-    services.features.set_setting("readme", "sections", ["Funktionen", "Lizenz"])
-    (project.code_dir / "LICENSE").write_text("MIT License\n", encoding="utf-8")
-    ai = ScriptedAI("- Rechnet schnell", "- Calcula rápido")
-    proposals = plan.plan_main(services, project, ai)
-    assert [(p.key, p.reason) for p in proposals] == [("features", "neu"), ("license", "neu")]
-    assert "Englisch" in ai.prompts[0]
-    plan.apply(services, project, proposals)
-    text = (project.code_dir / "README.md").read_text(encoding="utf-8")
-    assert "## Features\n\n- Rechnet schnell" in text and "## License" in text
-    assert "English | [Deutsch](README.de.md)" in text
-    translations = plan.plan_translations(services, project, ai, proposals)
-    assert [(p.file, p.key) for p in translations] == [("README.de.md", "features"),
-                                                       ("README.de.md", "license")]
-    plan.apply(services, project, translations)
-    german = (project.code_dir / "README.de.md").read_text(encoding="utf-8")
-    assert "[English](README.md) | Deutsch" in german and "## Funktionen" in german
-
-
-def test_own_sections_stay_and_unchanged_ones_are_renewed(tmp_path, projects_root,
-                                                          make_services):
-    services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
-                                           {"main.py": "print(1)\n"})
-    services.features.set_setting("readme", "sections", ["Funktionen", "Lizenz"])
-    services.features.set_setting("readme", "languages", [])
-    code = project.code_dir
-    (code / "README.md").write_text("# Rechner\n\n## Features\n\nMein Text.\n\n## License\n\n"
-                                    "License: MIT. See [LICENSE](LICENSE) for the full text.\n",
-                                    encoding="utf-8")
-    doc.remember(code, "README.md", "license",
-                 "License: MIT. See [LICENSE](LICENSE) for the full text.")
-    (code / "LICENSE").write_text("Apache License\n", encoding="utf-8")
-    proposals = plan.plan_main(services, project, ScriptedAI())
-    assert [(p.key, p.reason) for p in proposals] == [("license", "erneuert")]
-    assert proposals[0].text.startswith("License: Apache-2.0.")
-    backup = plan.apply(services, project, proposals)
-    assert "Mein Text." in (code / "README.md").read_text(encoding="utf-8")
-    assert (backup / "README.md").is_file()
-
-
+# -- README: Prüfung vor dem Hochladen ------------------------------------------------------------
 def test_check_before_upload_proposes_and_takes_the_edited_text(tmp_path, projects_root,
                                                                 make_services, monkeypatch):
     services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
@@ -231,24 +188,6 @@ def test_check_is_skipped_when_only_the_readme_changed(tmp_path, projects_root, 
 
 
 # -- Oberfläche -----------------------------------------------------------------------------------
-def test_review_takes_edited_text_and_escape_skips(qtbot, monkeypatch):
-    from cockpit.ui import readme_flow
-    choices = iter([(readme_flow.TAKE, "- angepasst"), (readme_flow.SKIP, None)])
-
-    def fake_exec(dialog):
-        choice, text = next(choices)
-        dialog.choice = choice
-        if text:
-            dialog.edit.setPlainText(text)
-        return 1
-
-    monkeypatch.setattr(readme_flow.SectionDialog, "exec", fake_exec)
-    proposals = [Proposal("README.md", "en", "features", "Features", "- plus"),
-                 Proposal("README.md", "en", "license", "License", "MIT")]
-    taken = readme_flow.review(proposals, None)
-    assert [(p.key, p.text) for p in taken] == [("features", "- angepasst")]
-
-
 def test_readme_actions_on_the_project_row(qtbot, tmp_path, projects_root, make_services):
     """Wunsch des Nutzers zu Phase 9: README bei den Aktionen des Projekts."""
     from cockpit.core.actions import Target
@@ -265,21 +204,6 @@ def test_readme_actions_on_the_project_row(qtbot, tmp_path, projects_root, make_
     assert "README …" in labels and "README ansehen" not in labels
     win.project_list.select(Target.CODE, project.id)
     assert not [l for l in (e.label for e in win.current_entries()) if "README" in l]
-
-
-def test_edit_dialog_saves_with_backup(qtbot, tmp_path, projects_root, make_services, home):
-    from cockpit.core import backups
-    from cockpit.ui import readme_flow
-    services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
-                                           {"README.md": "# Rechner\n"})
-    dialog = readme_flow.EditDialog(project, "README.md")
-    qtbot.addWidget(dialog)
-    dialog.edit.setPlainText("# Rechner\n\nRechnet schnell.")
-    dialog.save()
-    assert (project.code_dir / "README.md").read_text(encoding="utf-8") == \
-        "# Rechner\n\nRechnet schnell.\n"
-    saved = [p for p in backups.backups_dir().iterdir() if "README vor dem Bearbeiten" in p.name]
-    assert (saved[0] / "README.md").read_text(encoding="utf-8") == "# Rechner\n"
 
 
 def test_new_version_proposes_changes_and_asks_the_ai(tmp_path, projects_root, make_services,
