@@ -36,3 +36,10 @@ not_secret = [
     "tests/test_phase5c.py:5c3d3f8be6e2aaeb",
     "tests/test_phase5c.py:f08f8cd4c81c6e7e",
 ]
+
+[readme]
+main_language = "Deutsch"
+languages = [
+    "Englisch",
+]
+requirements = "Windows 10 oder 11."
