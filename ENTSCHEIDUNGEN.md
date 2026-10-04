@@ -1014,3 +1014,14 @@ Rückmeldung des Nutzers: Bei Chatbot-fuer-Text stand in Git noch die Adresse ei
 - „Projekt neu einlesen“ fragt bei einem Projekt ohne Repository auch, ob es hochgeladen werden soll (Wunsch des Nutzers).
 - Sobald das Repository angelegt ist, verschwindet der Eintrag zum Anlegen wieder, auch wenn danach nur das Hochladen scheitert (Rückmeldung des Nutzers).
 - Nach dem Löschen eines Repositorys entfernt das Cockpit die Verbindung origin immer, auch wenn das Projekt danach aus der Liste entfernt wird. Beim Löschen eines Repositorys, das nur auf GitHub steht, trennt es alle Projekte mit dieser Adresse, auch aus der Liste entfernte.
+
+
+## 04.10.2026: Fehlerfenster beim Exe-Bau, „Mit KI chatten“
+
+Rückmeldung des Nutzers: Nach „Exe erstellen“ kam ein Fehler beim Übernehmen der Änderungen der KI. „Details“ zeigte nur noch einmal die Meldung, und es gab nur „OK“.
+
+- „Mit KI schreiben“ heißt jetzt „Mit KI chatten“.
+- Fehler unterwegs im Ablauf (Einrichtung, Übernehmen der Änderungen der KI) zeigen ein eigenes Fenster „Schritt …: Fehler“: Meldung, darunter das Feld „Ausgabe“ zum Lesen. Der Text liegt schon in der Zwischenablage.
+- Knöpfe: „Problem mit KI lösen“ gibt den Fehler an die KI und wiederholt die Einrichtung. „Mit KI chatten“ klappt das Gespräch auf, seine Hinweise gehen dann mit. Dazu „Zurück“ und als letztes „Abbrechen“. Ohne KI nur „Zurück“ und „Abbrechen“.
+- Beim Wiederholen steht im Fortschritt und in der Ansage „Fehler wurde an die KI übergeben“ oder „Fehler und Chat wurden an die KI übergeben“ (Wunsch des Nutzers).
+- Ursache für die leeren Details: Es wurde die Meldung statt der Details weitergegeben. Jetzt stehen die Details der KI-Prüfung im Feld.
