@@ -166,3 +166,14 @@ Ergebnis:
 Tasten: Im Fehlerfenster „Mit KI chatten“, eine Frage stellen, dann „Problem mit KI lösen“.
 Ansage: „… Fehler und Chat wurden an die KI übergeben.“
 Ergebnis:
+
+
+[ ] 30. Exe aus dem Branch, Branch schon weg
+Tasten: Bei Chatbot für Text bei Exe „Exe-Bau abschließen …“.
+Ansage: Liste mit „Exe als normale Exe übernehmen und Release veröffentlichen“, „Exe als normale Exe übernehmen, später veröffentlichen“, „Ordner der neuen Exe im Explorer öffnen“, „Exe aus dem Branch verwerfen …“.
+Ergebnis:
+
+[ ] 31. Exe aus dem Branch veröffentlichen
+Tasten: Bei Exe „Exe veröffentlichen …“, wenn nur die Exe aus dem Branch da ist.
+Ansage: Das Veröffentlichen startet. Danach liegt die Exe in Exe\Chatbot-für-Text-v…, und „Exe-Bau abschließen …“ ist verschwunden.
+Ergebnis:

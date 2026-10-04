@@ -543,3 +543,45 @@ def test_real_fix_button_goes_to_step_three_with_error_and_chat(qtbot, tmp_path,
                         "KI übergeben")
     assert "NameError: sys" in wizard.error and "import sys" in wizard.hints
     assert asked == []                        # keine Frage nach dem Abbrechen
+
+
+# -- Branch schon in main, die Exe aus ihm liegt noch da (Rückmeldung vom 04.10.2026) -----------
+def orphan_branch_exe(tmp_path, projects_root, make_services, monkeypatch):
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    exe.write_settings(project.code_dir, exe.BuildSettings("main.py", "Tagebuch"))
+    branch_exe = fake_exe(project.exe_dir / exe.branch_exe_name("Tagebuch", exe_branch.BRANCH))
+    monkeypatch.setattr(exe_flow.ExeActions, "_building", lambda self, c: True)
+    return services, project, branch_exe
+
+
+def test_finish_is_offered_for_the_leftover_branch_exe(qtbot, tmp_path, projects_root,
+                                                       make_services, monkeypatch):
+    services, project, branch_exe = orphan_branch_exe(tmp_path, projects_root, make_services,
+                                                      monkeypatch)
+    win = window(qtbot, services)
+    actions = win.controller.exe
+    context = ActionContext(services, project, Target.EXE)
+    assert not exe_branch.exists(project) and actions._branch_open(context)
+    asked = []
+    monkeypatch.setattr(exe_flow, "choose_from_list",
+                        lambda parent, title, name, items: asked.append(list(items)) or 1)
+    actions.finish_menu(context)
+    assert asked[0] == [exe_flow.ADOPT_PUBLISH, exe_flow.ADOPT_ONLY, exe_flow.OPEN_TEST,
+                        exe_flow.DISCARD_EXE]
+    assert (project.exe_dir / "Tagebuch" / "Tagebuch.exe").read_text() == "neu"   # übernommen
+    assert not branch_exe.parent.exists() and not actions._branch_open(context)
+    assert said("Cockpit-exe-bauen ist schon in main. Die Exe aus dem Branch ist jetzt die "
+                "normale Exe.")
+
+
+def test_branch_exe_can_be_published(qtbot, tmp_path, projects_root, make_services,
+                                     monkeypatch):
+    """Release und Repository sind getrennt: Veröffentlichen geht auch mit der Exe aus dem
+    Branch. Danach heißt ihr Ordner mit Version und gilt als normale Exe."""
+    services, project, branch_exe = orphan_branch_exe(tmp_path, projects_root, make_services,
+                                                      monkeypatch)
+    win = window(qtbot, services)
+    assert win.controller.exe._publishable(project) == [branch_exe]
+    moved = exe.mark_published(project, branch_exe, "1.0.0")
+    assert moved == project.exe_dir / "Tagebuch-v1.0.0" / "Tagebuch.exe"
+    assert exe.current_exe(project) == moved and exe.branch_home(project, "x") is None
