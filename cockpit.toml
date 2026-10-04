@@ -10,9 +10,7 @@ datas = []
 hidden_imports = []
 self_test = true
 test_seconds = 10
-beside = [
-    "LICENSE",
-]
+beside = []
 
 [features]
 enabled = [
