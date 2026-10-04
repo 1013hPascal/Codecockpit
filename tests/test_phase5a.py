@@ -631,8 +631,13 @@ def test_add_existing_project_folder(live, qtbot, make_services, projects_root, 
     win = live(services)
     folder = make_project(tmp_path, "Extern")
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder / "Code")
+    # Seit dem 04.10.2026 fragt das Cockpit, ob der Code nach Code\main soll: "So lassen"
+    asked = []
+    monkeypatch.setattr(project_actions, "confirm",
+                        lambda parent, title, text, **k: asked.append(text) or False)
     win.controller.add_local()
     assert said("Extern hinzugefügt.")
+    assert asked and "liegt der Code direkt im Ordner Code" in asked[0]
     project = services.projects.find_by_dir(folder)
     assert win.project_list.current_target() == (Target.PROJECT, project.id)
     win.controller.add_local()

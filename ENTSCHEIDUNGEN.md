@@ -976,3 +976,29 @@ Update:
 Branches:
 - „Branch-Ordner entfernen …“ entfällt, weil „Löschen …“ fragt, ob nur hier, nur auf GitHub oder beides.
 - Löschen verwirft die Änderungen ohne Commit. Nichts davon kommt nach main. Der aktuelle Branch lässt sich ohne Branch-Ordner jetzt auch löschen: Das Cockpit sichert die Änderungen, wechselt zu main und löscht ihn.
+
+
+## 04.10.2026: Aufbau Code\main und Exe, Exe-Ordner mit Version, Update nach Versionsnummer
+
+Rückmeldung des Nutzers: Bei „Chatbot für Text“ hatte er den Code von Hand nach Code\main kopiert, das Cockpit zeigte aber weiter Code. Ursache: Der Git-Ordner .git lag noch direkt in Code. Dazu Wünsche zu Update, Versionsordnern und der Anzeige beim Hochladen. Gebaut im Branch projekt-aufbau-und-version, Checkliste in checklisten\aufbau-und-version.md.
+
+Aufbau beim Hinzufügen vom Rechner:
+- Richtig ist: Projektordner, darin Code und Exe, in Code der Ordner main mit dem Code. Das steht im Titel des Ordner-Dialogs.
+- Liegt der Code in Code\main, .git aber noch in Code, bietet das Cockpit an, .git nach Code\main zu verschieben. Am Code ändert sich nichts.
+- Liegt der Code direkt in Code, bietet das Cockpit an, ihn nach Code\main zu verschieben. Mit Git geht das wie „Ordner für Branches einrichten …“ (mit Sicherheitskopie, Ordner nach dem Branch benannt), ohne Git heißt der Ordner main. Nur wenn die Grundeinstellung „Neue Projekte mit einem Ordner pro Branch“ an ist.
+- Fehlt der Ordner Exe, legt das Cockpit ihn leer an.
+- Dasselbe prüft „Projekt neu einlesen“ und das Hinzufügen eines Projekts, das schon in der Liste ist.
+- Ohne Git zählt Code\main als Code-Ordner, wenn in Code sonst nichts liegt. Liegt der Code inzwischen dort, merkt sich das Cockpit den neuen Ort von selbst.
+- Ein fremder Ordner ohne Code kommt beim Verschieben ohne Git jetzt auch nach Code\main.
+
+Exe-Ordner mit Version (Antwort des Nutzers: auch im Ordner Exe):
+- Nach dem Veröffentlichen heißt der Ordner der Exe zum Beispiel Exe\VokabelApp-v1.2.0, darin liegt version.txt. Ältere veröffentlichte Versionen bleiben liegen. Neu gebaut wird in Exe\VokabelApp, die Daten der Nutzer kommen aus der neuesten Version mit. Läuft die Exe gerade, behält ihr Ordner den Namen.
+- Im Release-ZIP heißt der Ordner jetzt VokabelApp-v1.2.0, mit v, und enthält version.txt.
+
+Update:
+- Die Suche vergleicht Versionsnummern. Die eigene Version ist die höhere aus version.txt neben der Exe und __version__ im Code. Nur ein Release mit höherer Nummer ist ein Update. Dieselbe Datei ist nie ein Update. Ohne lesbare Nummer gilt der alte Vergleich nach Prüfsumme und Datum.
+- Grund: Seit das Release eine ZIP-Datei ist, passte die Prüfsumme nie zur Exe. Das Cockpit bot dann die eigene, gerade veröffentlichte Version als Update an.
+- Beim Update kommt version.txt mit, wie README und Lizenz.
+
+Anzeige beim Hochladen:
+- Während das Release hochgeladen wird, steht bei „Exe veröffentlichen …“ „wird gerade hochgeladen“ statt „noch nicht veröffentlicht“.

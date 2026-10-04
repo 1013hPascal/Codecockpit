@@ -431,8 +431,10 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
     qtbot.waitUntil(lambda: bool(infos) or bool(errors), timeout=20000)
     assert errors == []
     wait_idle(qtbot, win)
-    target = projects_root / "Mein Rechner" / "Code"
+    # Seit dem 04.10.2026 auch ohne Git nach Code\main, daneben der Ordner Exe
+    target = projects_root / "Mein Rechner" / "Code" / "main"
     assert not source.exists() and (target / "main.py").exists()          # verschoben
+    assert (projects_root / "Mein Rechner" / "Exe").is_dir()
     offer, buttons = asked[-1]
     assert offer.startswith("Mein Rechner ist noch nicht auf GitHub. Jetzt hochladen?")
     assert buttons == {"yes": "Jetzt hochladen …", "no": "Später"}
@@ -443,7 +445,7 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
     assert "ist in der Zwischenablage" in infos[0]
     files = sh(platform.base_dir / "Mein-Rechner.git", "ls-tree", "--name-only", "main")
     assert "main.py" in files and "LICENSE" in files and "alt.bak" not in files
-    project = services.projects.find_by_dir(target.parent)
+    project = services.projects.find_by_dir(target.parent.parent)
     assert project.account_id == acc.id
     assert said("Schritt 4 von 4: Wird hochgeladen …")
 

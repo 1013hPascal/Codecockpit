@@ -123,8 +123,17 @@ class ProjectStore:
             remote=remote)
 
     def all(self) -> list[Project]:
-        """Alle Projekte, zuletzt aktualisierte oben."""
-        projects = [self._from_row(r) for r in self.database.query("SELECT * FROM projects")]
+        """Alle Projekte, zuletzt aktualisierte oben. Liegt der Code inzwischen in Code\\main,
+        merkt sich das Cockpit den neuen Ort (Rückmeldung des Nutzers vom 04.10.2026: nach dem
+        Verschieben von Hand hieß die Zeile weiter Code)."""
+        projects = []
+        for row in self.database.query("SELECT * FROM projects"):
+            project = self._from_row(row)
+            if not project.linked and project.code_dir == project.project_dir / CODE_DIR:
+                found = main_code_dir(project.code_dir)
+                if found != project.code_dir:
+                    project = self.set_code_dir(project, found)
+            projects.append(project)
         return sorted(projects, key=lambda p: (p.last_updated or "", p.last_activity()),
                       reverse=True)
 
@@ -323,16 +332,85 @@ def _key(folder: Path) -> str:
 def main_code_dir(code_root: Path) -> Path:
     """Der Arbeitsordner des Haupt-Branches (Phase 10f). Hat Code selbst kein Git, aber ein
     Unterordner einen Ordner .git (nicht nur eine Datei wie die Branch-Ordner), ist er es.
-    Sonst ist es Code selbst, wie bisher."""
+    Ohne Git zählt auch ein Unterordner main (Wunsch des Nutzers vom 04.10.2026). Sonst ist es
+    Code selbst, wie bisher."""
     if (code_root / ".git").exists():
         return code_root
     try:
-        for child in sorted(code_root.iterdir()):
-            if child.is_dir() and (child / ".git").is_dir():
-                return child
+        children = sorted(code_root.iterdir())
     except OSError:
-        pass
+        return code_root
+    for child in children:
+        if child.is_dir() and (child / ".git").is_dir():
+            return child
+    # Nur wenn in Code sonst nichts liegt: ein Paket namens main im Code zählt nicht
+    if (code_root / MAIN_DIR).is_dir() and all(p.name == MAIN_DIR or p.name.startswith(".")
+                                               for p in children):
+        return code_root / MAIN_DIR
     return code_root
+
+
+# -- Aufbau Projektordner\Code\main und Projektordner\Exe (Wunsch des Nutzers, 04.10.2026) ----
+MAIN_DIR = "main"
+GIT_OUTSIDE, FLAT = "git_outside", "flat"
+
+
+def layout_problem(code_root: Path) -> str:
+    """GIT_OUTSIDE: Der Code liegt schon in Code\\main, der Git-Ordner .git aber noch in Code
+    (zum Beispiel nach dem Verschieben von Hand). FLAT: Der Code liegt direkt in Code. Leer:
+    alles passt."""
+    try:
+        names = {p.name for p in code_root.iterdir()}
+    except OSError:
+        return ""
+    main = code_root / MAIN_DIR
+    if ".git" in names and main.is_dir() and not (main / ".git").exists() \
+            and names <= {".git", MAIN_DIR}:
+        return GIT_OUTSIDE
+    if main_code_dir(code_root) == code_root and any(not n.startswith(".") or n == ".git"
+                                                     for n in names):
+        return FLAT
+    return ""
+
+
+def fix_git_outside(code_root: Path) -> Path:
+    """Den Git-Ordner zum Code nach Code\\main verschieben. Am Inhalt ändert sich nichts."""
+    if layout_problem(code_root) != GIT_OUTSIDE:
+        raise CockpitError("Der Ordner Code hat nicht den erwarteten Aufbau.")
+    try:
+        os.rename(code_root / ".git", code_root / MAIN_DIR / ".git")
+    except OSError as exc:
+        raise CockpitError("Der Git-Ordner ließ sich nicht verschieben. Ist der Ordner noch in "
+                           "einem anderen Programm geöffnet?", str(exc)) from None
+    return code_root / MAIN_DIR
+
+
+def nest_code(code_root: Path, name: str = MAIN_DIR) -> Path:
+    """Den Code, der direkt in Code liegt, nach Code\\<name> verschieben. Nur der Ort ändert
+    sich. Klappt ein Teil nicht, kommt alles zurück."""
+    target = code_root / name
+    if target.exists():
+        raise CockpitError(f"Den Ordner {target} gibt es schon.")
+    children = [p for p in code_root.iterdir()]
+    target.mkdir()
+    moved: list[Path] = []
+    try:
+        for child in children:
+            os.rename(child, target / child.name)
+            moved.append(child)
+    except OSError as exc:
+        for child in moved:
+            try:
+                os.rename(target / child.name, child)
+            except OSError:
+                log.exception("Zurückverschieben fehlgeschlagen: %s", child)
+        try:
+            target.rmdir()
+        except OSError:
+            pass
+        raise CockpitError("Der Code ließ sich nicht verschieben. Ist der Ordner noch in einem "
+                           "anderen Programm geöffnet?", str(exc)) from None
+    return target
 
 
 def classify_folder(folder: Path) -> tuple[str, Path]:

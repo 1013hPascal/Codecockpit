@@ -537,6 +537,14 @@ class ExeActions:
         self.controller = controller
         self.window = controller.window
         self.services = controller.services
+        self.uploading: set[int] = set()          # Projekte, deren Release gerade hochlädt
+
+    def _publish_detail(self, context: ActionContext) -> str:
+        """Wunsch des Nutzers (04.10.2026): Während des Hochladens nicht "noch nicht
+        veröffentlicht", sondern "wird gerade hochgeladen"."""
+        if context.project.id in self.uploading:
+            return "wird gerade hochgeladen"
+        return exe.publish_state(context.project)
 
     # -- Sichtbarkeit ------------------------------------------------------------------------
     def _building(self, context: ActionContext) -> bool:
@@ -569,7 +577,7 @@ class ExeActions:
                    visible=self._branch_open, order=30),
             Action("publish_exe", "Exe veröffentlichen …", Target.EXE, self.publish,
                    availability=self.controller._account_availability,
-                   detail=lambda c: exe.publish_state(c.project),
+                   detail=self._publish_detail,
                    visible=lambda c: self._building(c) and has_exe(c)
                    and c.project.remote is not None, order=40),
             Action("import_exe", "Exe einlesen …", Target.EXE, self.import_exe,
@@ -968,16 +976,27 @@ class ExeActions:
             return release
 
         def done(release) -> None:
+            self.uploading.discard(project.id)
             if record is not None:
                 record.version = version
                 exe.write_record(project.code_dir, record)
+            moved = exe.mark_published(project, current, version)
+            where = f" Die Exe liegt jetzt in Exe\\{moved.parent.name}." \
+                if moved.parent != current.parent else ""
             QGuiApplication.clipboard().setText(release.url)
-            self._after(project, f"Version {version} veröffentlicht. Link kopiert.")
+            self._after(project, f"Version {version} veröffentlicht. Link kopiert.{where}")
             show_info(self.window, "Exe veröffentlicht", f"Version {version} ist veröffentlicht. "
                       f"Der Link ist in der Zwischenablage: {release.url}")
 
+        def failed() -> None:
+            self.uploading.discard(project.id)
+            self.window.refresh_actions(keep_selection=True)
+
         announce("Release wird angelegt und die Exe hochgeladen.")
-        self.controller.run_task(f"exe:{project.id}", work, done, "Exe veröffentlichen")
+        self.uploading.add(project.id)
+        self.window.refresh_actions(keep_selection=True)
+        self.controller.run_task(f"exe:{project.id}", work, done, "Exe veröffentlichen",
+                                 on_failed=failed)
 
     def _suggested_version(self, project: Project, tags: list[str]) -> str:
         """Mit dem Feature Versionen die zuletzt gesetzte, wenn es dazu noch kein Release gibt
