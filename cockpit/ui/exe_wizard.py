@@ -6,7 +6,7 @@
    Branch Cockpit-exe-bauen, main bleibt unverändert.
 3. Einrichtung: Das Cockpit legt den Branch an, ohne zu fragen, speichert dort die Einstellungen
    und prüft die Einrichtung. Mit KI liest die KI den Code und schlägt Änderungen vor.
-4. Zusammenfassung, was passiert. "Mit KI schreiben" klappt erst auf Wunsch die Frage an die KI
+4. Zusammenfassung, was passiert. "Mit KI chatten" klappt erst auf Wunsch die Frage an die KI
    und das Gespräch auf. Weiter heißt "Exe erstellen".
 5. Der Bau mit Ausgabe.
 6. Ergebnis im selben Fenster. Bei einem Fehler: "Problem mit KI lösen" (nur mit KI), "Neuer
@@ -15,6 +15,11 @@
    überführen, später veröffentlichen".
 Jeder Schritt hat "Zurück" und "Abbrechen". Abbrechen löscht den Branch wieder, wenn dieser
 Durchgang ihn angelegt hat. Main bleibt dann, wie es war.
+
+Fehler unterwegs, zum Beispiel beim Übernehmen der Änderungen der KI, zeigt ProblemDialog
+(Wunsch des Nutzers vom 04.10.2026): die Ausgabe in einem Feld zum Lesen, der Text liegt schon in
+der Zwischenablage. "Problem mit KI lösen" gibt den Fehler an die KI und wiederholt die
+Einrichtung, "Mit KI chatten" klappt das Gespräch auf, dessen Hinweise dann mitgehen.
 """
 from __future__ import annotations
 
@@ -23,6 +28,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.core import exe
@@ -30,7 +36,8 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project
 from cockpit.features.exe_build import ai_fix, exe_branch, setup_check
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, click_focused_button, confirm, label_for, make_copyable
+from cockpit.ui.common import (FocusDialog, PlainEdit, click_focused_button, confirm, label_for,
+                               make_copyable)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.exe_flow import BuildDialog, BuildSettingsDialog, beside_line
 from cockpit.ui.repo_dialogs import _is_enter, button_row
@@ -51,6 +58,8 @@ MODE_TEXT = ("Sie können den Vorgang der Exe-Erstellung mit oder ohne KI durchf
 TEST_LATER_TEXT = "&Erst testen, später in main überführen und Release veröffentlichen"
 MERGE_PUBLISH_TEXT = "Jetzt in main überführen und Release &veröffentlichen"
 MERGE_ONLY_TEXT = "Jetzt in &main überführen, später veröffentlichen"
+CHAT_TEXT = "Mit KI &chatten"                        # vorher "Mit KI schreiben" (04.10.2026)
+FIX_TEXT = "Problem mit &KI lösen"
 
 
 def step_title(project: Project, number: int, name: str) -> str:
@@ -123,7 +132,7 @@ class ModeDialog(StepDialog):
 
 class SummaryDialog(StepDialog):
     """Schritt 4: was passiert. Enter auf einer Änderung der KI zeigt alten und neuen Text.
-    "Mit KI schreiben" klappt die Frage an die KI und das Gespräch auf (Wunsch des Nutzers)."""
+    "Mit KI chatten" klappt die Frage an die KI und das Gespräch auf (Wunsch des Nutzers)."""
 
     def __init__(self, project: Project, number: int, lines: list[str],
                  changes: list[ai_fix.Change | None], services=None, next_text: str = "",
@@ -151,7 +160,7 @@ class SummaryDialog(StepDialog):
                                 f"{exe_branch.BRANCH}.", self.lines, self)
             self.chat.setVisible(False)
             self.body.addWidget(self.chat, 1)
-            self.chat_button = QPushButton("Mit &KI schreiben")
+            self.chat_button = QPushButton(CHAT_TEXT)
             self.chat_button.setAutoDefault(False)
             self.chat_button.clicked.connect(self.open_chat)
             self.repeat_button = QPushButton(REPEAT_TEXT)
@@ -202,6 +211,65 @@ class SummaryDialog(StepDialog):
         lines = [change.line(), "Bisher:"] + (change.old.splitlines() or ["(neue Datei)"]) \
             + ["Neu:"] + change.new.splitlines()
         TextDialog(f"Änderung an {change.file}", lines, "Änderung", self).exec()
+
+    def done(self, code: int) -> None:
+        if self.chat is not None:
+            self.chat.stop()
+        super().done(code)
+
+
+class ProblemDialog(StepDialog):
+    """Ein Fehler unterwegs: Meldung und Ausgabe zum Lesen, der Text liegt in der Zwischenablage.
+    Mit KI: "Problem mit KI lösen" (choice FIX) und "Mit KI chatten". Die Hinweise aus dem
+    Gespräch stehen danach in hints. Immer "Zurück" und als letztes "Abbrechen"."""
+
+    def __init__(self, project: Project, number: int, message: str, details: str,
+                 services=None, parent: QWidget | None = None) -> None:
+        super().__init__(step_title(project, number, "Fehler"), FIX_TEXT, parent)
+        self.hints = ""
+        self.text = "\n\n".join(p for p in (message.strip(), details.strip()) if p)
+        label = QLabel(message)
+        label.setWordWrap(True)
+        self.output = PlainEdit()
+        self.output.setReadOnly(True)
+        self.output.setPlainText(self.text)
+        output_label = label_for(self.output, "&Ausgabe:")
+        self.body.addWidget(label)
+        self.body.addWidget(output_label)
+        self.body.addWidget(self.output, 1)
+        self.next_button.setVisible(services is not None)
+        self.chat = None
+        self.chat_button = None
+        if services is not None:
+            from cockpit.ui.exe_chat import ExeChat
+            self.chat = ExeChat(services, project.name, "Beim Erstellen der Exe ist ein Fehler "
+                                "aufgetreten. Die Ausgabe steht im Fenster.",
+                                lambda: self.text.splitlines(), self)
+            self.chat.setVisible(False)
+            self.body.addWidget(self.chat, 1)
+            self.chat_button = QPushButton(CHAT_TEXT)
+            self.chat_button.setAutoDefault(False)
+            self.chat_button.clicked.connect(self.open_chat)
+            self.button_layout.insertWidget(self.button_layout.indexOf(self.next_button) + 1,
+                                            self.chat_button)
+        # Wunsch des Nutzers: der Fehler liegt gleich in der Zwischenablage
+        QGuiApplication.clipboard().setText(self.text)
+        self.resize(760, 520)
+        self.initial_focus_widget = self.output
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        announce("Fehler. Der Text ist in der Zwischenablage.", urgent=True)
+
+    def open_chat(self) -> None:
+        self.chat.setVisible(True)
+        self.chat_button.setVisible(False)
+        self.chat.question.setFocus()
+
+    def finish(self, choice: str) -> None:
+        if self.chat is not None:
+            self.hints = self.chat.hints()
+        super().finish(choice)
 
     def done(self, code: int) -> None:
         if self.chat is not None:
@@ -343,7 +411,10 @@ class ExeWizard:
             return folder, ai_fix.ask(ai, project.name, folder, saved, wish, task.cancel_event,
                                       progress=task.status.emit, error=error), []
 
-        what = ("Die KI versucht, das Problem zu lösen" if error else
+        # Wunsch des Nutzers (04.10.2026): sagen, was an die KI ging
+        handed = ("Fehler und Chat wurden an die KI übergeben" if self.hints
+                  else "Fehler wurde an die KI übergeben")
+        what = (f"Die KI versucht, das Problem zu lösen. {handed}" if error else
                 "Die KI liest den Code" if ai is not None else "Die Einrichtung wird geprüft")
         progress = WorkDialog(project, work, ai is not None, self.window, what,
                               step_title(project, self._number("setup"), "Einrichtung"))
@@ -353,8 +424,7 @@ class ExeWizard:
             return "summary"
         previous = "mode" if self.ai_available else "files"
         if progress.failure is not None:
-            show_error(self.window, TITLE, *progress.failure)
-            return previous
+            return self.problem(*progress.failure, back_to=previous)
         if progress.back_requested:
             return previous
         return self.cancel("setup")
@@ -414,16 +484,33 @@ class ExeWizard:
             return "setup"
         if dialog.choice != NEXT:
             return self.cancel("summary")
-        if not self.apply_proposal():
-            return "summary"
+        failure = self.apply_proposal()
+        if failure is not None:
+            return self.problem(*failure, back_to="summary")
         return "build"
 
-    def apply_proposal(self) -> bool:
+    def problem(self, message: str, details: str, back_to: str):
+        """Fehler unterwegs: Fenster mit der Ausgabe. "Problem mit KI lösen" wiederholt die
+        Einrichtung mit dem Fehler und den Hinweisen aus dem Gespräch."""
+        with_ai = self.use_ai and self.ai is not None
+        dialog = ProblemDialog(self.project, self._number("setup"), message, details,
+                               self.services if with_ai else None, self.window)
+        dialog.exec()
+        if dialog.choice == FIX:
+            self.error = dialog.text
+            self.hints = dialog.hints
+            self.proposal = None
+            return "setup"
+        if dialog.choice == BACK:
+            return back_to
+        return self.cancel(back_to)
+
+    def apply_proposal(self) -> tuple[str, str] | None:
         """Die Änderungen der KI im Branch übernehmen und committen. Die betroffenen Dateien
-        kommen vorher in die Sicherheitskopien."""
+        kommen vorher in die Sicherheitskopien. Gibt bei einem Fehler (Meldung, Details) zurück."""
         proposal, self.proposal = self.proposal, None
         if proposal is None or proposal.empty:
-            return True
+            return None
         files = [c.file for c in proposal.usable] + ["cockpit.toml"]
         if proposal.settings is not None:
             files.append(proposal.settings.spec_name)
@@ -432,12 +519,12 @@ class ExeWizard:
             exe_branch.commit(self.folder, files)
         except (CockpitError, OSError) as exc:
             self.proposal = proposal
-            show_error(self.window, TITLE, getattr(exc, "message", "Die Änderungen ließen sich "
-                                                   "nicht übernehmen."), str(exc))
-            return False
+            # Vorher stand unter "Details" nur noch einmal die Meldung (Rückmeldung vom 04.10.)
+            return (getattr(exc, "message", "Die Änderungen ließen sich nicht übernehmen."),
+                    getattr(exc, "details", "") or str(exc))
         self.settings = exe.read_settings(self.folder) or self.settings
         announce(f"Änderungen im Branch {exe_branch.BRANCH} übernommen.")
-        return True
+        return None
 
     # -- Schritte 5 und 6 ---------------------------------------------------------------------
     def step_build(self):

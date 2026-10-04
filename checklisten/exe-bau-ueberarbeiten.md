@@ -143,3 +143,26 @@ Ergebnis:
 Tasten: In einem Branch etwas ändern, ohne Commit. Dann den Branch löschen.
 Ansage: Die Rückfrage sagt, dass Änderungen verworfen werden und nicht nach main kommen. Danach zeigt main keine neuen Änderungen.
 Ergebnis:
+
+
+## Nachtrag 04.10.2026: Fehlerfenster
+
+[ ] 26. Mit KI chatten
+Tasten: In Schritt 4 Tab bis zum Knopf.
+Ansage: Der Knopf heißt „Mit KI chatten“.
+Ergebnis:
+
+[ ] 27. Fehler beim Übernehmen
+Tasten: Wenn nach „Exe erstellen“ ein Fehler kommt.
+Ansage: „Fehler. Der Text ist in der Zwischenablage.“ Titel „…: Fehler“. Fokus im Feld „Ausgabe“ mit Meldung und Details. Knöpfe „Zurück“, „Problem mit KI lösen“, „Mit KI chatten“, „Abbrechen“ als letzter.
+Ergebnis:
+
+[ ] 28. Problem mit KI lösen
+Tasten: „Problem mit KI lösen“.
+Ansage: „Die KI versucht, das Problem zu lösen. Fehler wurde an die KI übergeben.“ Danach wieder die Zusammenfassung.
+Ergebnis:
+
+[ ] 29. Erst chatten, dann lösen
+Tasten: Im Fehlerfenster „Mit KI chatten“, eine Frage stellen, dann „Problem mit KI lösen“.
+Ansage: „… Fehler und Chat wurden an die KI übergeben.“
+Ergebnis:

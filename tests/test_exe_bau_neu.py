@@ -432,3 +432,70 @@ def test_chat_answer_has_sentences_before_code():
                                     "import sys", "print(sys.argv)", "Danach geht es."]
     from cockpit.ai import prompt_files
     assert "Antworte nie nur mit Code." in prompt_files.load("exe_chat_system")
+
+
+# -- Fehler unterwegs (Wunsch des Nutzers vom 04.10.2026) ------------------------------------------
+def test_problem_window_shows_the_output_and_copies_it(qtbot, make_services):
+    from pathlib import Path
+    from PySide6.QtGui import QGuiApplication
+    from cockpit.core.projects import Project
+    project = Project(1, "Tagebuch", Path("x"), Path("x/Code"), None)
+    dialog = exe_wizard.ProblemDialog(project, 3, "Die Änderungen ergeben fehlerhaften Code.",
+                                      "gui.py, Zeile 3: NameError", make_services([]))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    assert dialog.windowTitle().endswith("Schritt 3: Fehler")
+    assert dialog.output.isReadOnly() and "Zeile 3: NameError" in dialog.output.toPlainText()
+    assert QGuiApplication.clipboard().text() == dialog.text
+    assert dialog.next_button.text() == exe_wizard.FIX_TEXT and dialog.next_button.isVisible()
+    assert dialog.chat_button.text() == "Mit KI &chatten" and not dialog.chat.isVisible()
+    dialog.chat_button.click()
+    assert dialog.chat.isVisible()
+    order = [dialog.button_layout.itemAt(i).widget() for i in range(dialog.button_layout.count())]
+    assert [w for w in order if w is not None][-1] is dialog.cancel_button   # Abbrechen zuletzt
+    without = exe_wizard.ProblemDialog(project, 3, "Fehler.", "", None)
+    qtbot.addWidget(without)
+    assert without.chat_button is None and not without.next_button.isVisibleTo(without)
+
+
+def test_fix_after_a_problem_hands_error_and_chat_to_the_ai(qtbot, tmp_path, projects_root,
+                                                            make_services, monkeypatch):
+    from cockpit.features.exe_build.ai_fix import Proposal
+    from cockpit.ui import exe_ai
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    settings = exe.BuildSettings("main.py", "Tagebuch")
+    Recorder(monkeypatch, settings, summary=[exe_wizard.NEXT, exe_wizard.CANCEL])
+    monkeypatch.setattr(exe_wizard, "confirm", lambda *a, **k: True)
+    whats = []
+
+    class Work:
+        def __init__(self, project_, work, with_ai, parent=None, what="", title=""):
+            whats.append(what)
+            self.result_value = (project.code_dir, Proposal(), [])
+            self.failure, self.back_requested = None, False
+
+        def exec(self):
+            return 1
+
+    class Problem:
+        def __init__(self, project_, number, message, details, services_=None, parent=None):
+            self.choice, self.hints, self.text = exe_wizard.FIX, "Hinweis aus dem Chat", message
+
+        def exec(self):
+            return 1
+
+    monkeypatch.setattr(exe_ai, "WorkDialog", Work)
+    monkeypatch.setattr(exe_wizard, "ProblemDialog", Problem)
+    failures = [("Fehlerhafter Code.", "Zeile 3")]
+    monkeypatch.setattr(exe_wizard.ExeWizard, "apply_proposal",
+                        lambda self: failures.pop(0) if failures else None)
+    monkeypatch.setattr(services, "ai_problem", lambda tool_id=None: "")
+    win = window(qtbot, services)
+    wizard = exe_wizard.ExeWizard(win.controller.exe, project)
+    wizard.ai = object()
+    monkeypatch.setattr(exe_wizard.ExeWizard, "step_mode", lambda self: "setup")
+    wizard.run()
+    assert whats[0] == "Die KI liest den Code"
+    assert whats[1] == ("Die KI versucht, das Problem zu lösen. Fehler und Chat wurden an die "
+                        "KI übergeben")
+    assert wizard.error == "Fehlerhafter Code."

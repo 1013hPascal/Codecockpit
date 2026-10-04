@@ -25,7 +25,7 @@ Das Cockpit führt Sie Schritt für Schritt. Jeder Schritt hat „Zurück“ und
 1. Dateien neben der Exe: Sie wählen, welche Ordner und Dateien neben der Exe liegen sollen. Was der Code unbedingt braucht, ist angehakt. README und Lizenz kommen immer mit.
 2. Mit oder ohne KI: Das kommt nur, wenn eine Text-KI eingerichtet ist. Empfohlen ist mit KI, weil die KI versuchen kann, Probleme zu lösen.
 3. Einrichtung: Das Cockpit legt den Branch „Cockpit-exe-bauen“ an und speichert dort die Einstellungen. Main bleibt unverändert. Mit KI liest die KI den Code und schlägt Änderungen vor.
-4. Zusammenfassung: Hier steht, was passiert. Mit „Mit KI schreiben“ öffnen Sie ein Feld für Fragen an die KI. Die KI antwortet erst in Sätzen und zeigt danach Code, wenn er hilft. „Exe erstellen“ startet den Bau.
+4. Zusammenfassung: Hier steht, was passiert. Mit „Mit KI chatten“ öffnen Sie ein Feld für Fragen an die KI. Die KI antwortet erst in Sätzen und zeigt danach Code, wenn er hilft. „Exe erstellen“ startet den Bau.
 5. Der Bau: Die Ausgabe steht Zeile für Zeile im Fenster.
 6. Ergebnis: Klappt etwas nicht, wählen Sie „Problem mit KI lösen“ (nur mit KI), „Neuer Versuch, Exe zu bauen“, „Zurück“ oder „Abbrechen“. Klappt alles, wählen Sie „Erst testen, später in main überführen und Release veröffentlichen“, „Jetzt in main überführen und Release veröffentlichen“ oder „Jetzt in main überführen, später veröffentlichen“.
 
