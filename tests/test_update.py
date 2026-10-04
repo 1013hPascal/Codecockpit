@@ -41,7 +41,9 @@ def transport(data: dict | None, content: bytes = NEW_BYTES, status: int = 200):
 
 
 @pytest.fixture
-def own(tmp_path):
+def own(tmp_path, monkeypatch):
+    import cockpit
+    monkeypatch.setattr(cockpit, "__version__", "1.0.0")       # laufende Exe: Version 1.0.0
     folder = tmp_path / "Exe"
     folder.mkdir()
     path = folder / "CodeCockpit.exe"
@@ -63,9 +65,20 @@ def test_same_file_is_no_update(own):
 
 
 def test_own_newer_exe_is_not_replaced(own):
-    """Selbst gebaute Exe, jünger als das Release: kein Update."""
-    old = release(published="2028-01-01T10:00:00Z")
+    """Selbst gebaute Exe, jünger als das Release: kein Update. Seit dem 04.10.2026 zählt die
+    Versionsnummer, die Zeit nur noch ohne lesbare Nummer."""
+    old = release(published="2028-01-01T10:00:00Z", tag="eigener-stand")
     assert update.check(own, transport=transport(old)) is None
+
+
+def test_version_decides(own):
+    """Wunsch des Nutzers (04.10.2026): Nach dem Veröffentlichen kennt die Exe ihre Version
+    (version.txt) und bietet dieselbe Version nicht mehr als Update an."""
+    (own.parent / exe.VERSION_FILE).write_text("1.1.0\n", encoding="utf-8")
+    assert update.own_version(own) == (1, 1, 0)
+    assert update.check(own, transport=transport(release(tag="v1.1.0"))) is None
+    assert update.check(own, transport=transport(release(tag="v1.0.9"))) is None
+    assert update.check(own, transport=transport(release(tag="v1.1.1"))) is not None
 
 
 def test_skipped_version(own):
@@ -238,7 +251,8 @@ def zipped(files: dict[str, bytes]) -> bytes:
     return buffer.getvalue()
 
 
-ZIP = zipped({"CodeCockpit/CodeCockpit.exe": NEW_BYTES, "CodeCockpit/LICENSE": b"MIT"})
+ZIP = zipped({"CodeCockpit/CodeCockpit.exe": NEW_BYTES, "CodeCockpit/LICENSE": b"MIT",
+              "CodeCockpit/version.txt": b"1.1.0\n"})
 
 
 def test_zip_release_is_found(own):
@@ -261,8 +275,8 @@ def test_zip_download_extracts_the_exe(own):
     assert target == own.parent / exe.PENDING / "CodeCockpit.exe"
     assert target.read_bytes() == NEW_BYTES
     # README und Lizenz kommen mit (Wunsch des Nutzers vom 03.10.2026), sonst nichts
-    assert sorted(p.name for p in (own.parent / exe.PENDING).iterdir()) == ["CodeCockpit.exe",
-                                                                           "LICENSE"]
+    assert sorted(p.name for p in (own.parent / exe.PENDING).iterdir()) == [
+        "CodeCockpit.exe", "LICENSE", "version.txt"]
     assert update.is_waiting(own)
     (own.parent / "LICENSE").write_text("alt", encoding="utf-8")
     script = update.swap(own, found.version, start=False).read_text(encoding="utf-8")

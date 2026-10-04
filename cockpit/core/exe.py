@@ -10,6 +10,9 @@ Grundsätze:
   Beispiel Exe\\VokabelApp und Exe\\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe,
   README, Lizenz und die Ordner neben der Exe.
 - README und Lizenz liegen immer neben der Exe und sind immer die aktuellen aus dem Code.
+- Nach dem Veröffentlichen heißt der Ordner mit Version, zum Beispiel Exe\\VokabelApp-v1.2.0, und
+  darin steht version.txt. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen
+  (Wunsch des Nutzers vom 04.10.2026). Neu gebaut wird in Exe\\VokabelApp.
 - Eine bisherige Exe kommt immer erst in eine Sicherheitskopie, bevor eine neue sie ersetzt.
 - Eine neu gebaute Exe ersetzt die alte erst, wenn sie den Test bestanden hat.
 - Das Cockpit selbst kann seine laufende Exe nicht ersetzen. Die neue Exe wartet dann in Exe\\_neu
@@ -97,6 +100,13 @@ class BuildSettings:
 
 
 RECORD_FILE = "codecockpit-exe.toml"
+VERSION_FILE = "version.txt"            # neben der Exe: veröffentlichte Version (04.10.2026)
+_VERSION_HOME = re.compile(r"-v\d+\.\d+\.\d+$")
+
+
+def is_version_home(path: Path) -> bool:
+    """Ordner einer veröffentlichten Version, zum Beispiel VokabelApp-v1.2.0."""
+    return path.is_dir() and bool(_VERSION_HOME.search(path.name))
 RECORD_KEYS = ("source", "date", "commit", "version", "pending", "tested")
 
 
@@ -275,6 +285,7 @@ def backup_current(project: Project, reason: str, keep: tuple[str, ...] = ()) ->
     keep: Ordner neben der Exe, die bleiben, wo sie sind (Phase 10g)."""
     items = [p for p in project.exe_dir.iterdir()
              if p.name != PENDING and not is_branch_exe(p)       # Branch-Exen bleiben (10f)
+             and not is_version_home(p)                          # Versionen bleiben (04.10.2026)
              and p.name not in keep]
     if not items:
         return None
@@ -327,9 +338,19 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
         target = _into_home(source, home, move)
     except OSError as exc:
         raise CockpitError("Die Exe ließ sich nicht übernehmen.", str(exc)) from None
-    place_beside(project, names, home, backup, old_home)
+    place_beside(project, names, home, _previous(project, backup, old_home), old_home)
     write_record(project.code_dir, ExeRecord(kind, now(), "", version))
     return target
+
+
+def _previous(project: Project, backup: Path | None, old_home: Path | None) -> Path | None:
+    """Wo die Daten der bisherigen Exe jetzt liegen: in der Sicherheitskopie, oder noch im
+    Ordner Exe, wenn es ein Ordner einer veröffentlichten Version ist (der bleibt liegen)."""
+    if old_home is None:
+        return backup
+    if backup is not None and (backup / old_home).exists():
+        return backup
+    return project.exe_dir
 
 
 def home_name(project: Project, source: Path | None = None) -> str:
@@ -844,7 +865,7 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben. Die "
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
-    placed = place_beside(project, names, home, backup, old_home)
+    placed = place_beside(project, names, home, _previous(project, backup, old_home), old_home)
     write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
     return BuildResult(target, backup=backup, placed=placed)
 
@@ -1091,13 +1112,14 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
     names = [n for n in beside_names(project) if (project.code_dir / n).exists()]
     one_file = folder.resolve() == project.exe_dir.resolve()      # alte Ablage ohne eigenen Ordner
     name = home_name(project, exe)
-    staging = work / f"{name}-{version}"
+    staging = work / f"{name}-v{version}"               # mit v (Wunsch vom 04.10.2026)
     if one_file:
         staging.mkdir(parents=True)
         shutil.copy2(exe, staging / exe.name)
     else:
         shutil.copytree(folder, staging, ignore=lambda _d, items: [
             i for i in items if _d == str(folder) and i in names])
+    (staging / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
     for item in names:
         source = project.code_dir / item
         if source.is_dir():
@@ -1106,6 +1128,27 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
             shutil.copy2(source, staging / item)
     archive = shutil.make_archive(str(work / name), "zip", work, staging.name)
     return Path(archive)
+
+
+def mark_published(project: Project, exe: Path, version: str) -> Path:
+    """Nach dem Veröffentlichen: version.txt neben die Exe legen und ihren Ordner mit der
+    Version benennen, zum Beispiel Exe\\VokabelApp-v1.2.0. So merkt die Exe, welche Version
+    sie ist, und ältere Versionen bleiben nebeneinander liegen (Wunsch des Nutzers vom
+    04.10.2026). Läuft die Exe gerade, bleibt der Name, bis sie das nächste Mal veröffentlicht
+    oder neu gebaut wird. Gibt die Exe an ihrem neuen Ort zurück."""
+    home = exe.parent
+    if home.resolve() == project.exe_dir.resolve():
+        return exe                                  # alte Ablage ohne eigenen Ordner
+    (home / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
+    target = project.exe_dir / f"{home_name(project, exe)}-v{version}"
+    if target.exists() or target == home or running_from(home):
+        return exe
+    try:
+        os.rename(home, target)
+    except OSError as exc:
+        log.warning("Ordner der Exe nicht umbenannt: %s (%s)", home, exc)
+        return exe
+    return target / exe.name
 
 
 def pick_asset(assets) -> object | None:

@@ -64,7 +64,13 @@ In die Exe kommt nur, was Ihre Startdatei wirklich importiert, dazu Dateien, die
 
 „Exe veröffentlichen …“ legt auf GitHub ein Release an, zum Beispiel Version 1.0.1. Das Cockpit schlägt die nächste Nummer vor. Die Versionshinweise schreiben Sie selbst oder mit „Vorschlag der KI“.
 
-Hochgeladen wird der ganze Ordner der Exe als ZIP-Datei mit festem Namen, zum Beispiel VokabelApp.zip. Darin liegt der Ordner mit der Versionsnummer, zum Beispiel VokabelApp-1.0.1. So überschreibt beim Auspacken keine Version eine andere, und der Link auf die neueste Version bleibt immer gleich. README und Lizenz hängen zusätzlich einzeln am Release.
+Hochgeladen wird der ganze Ordner der Exe als ZIP-Datei mit festem Namen, zum Beispiel VokabelApp.zip. Darin liegt der Ordner mit der Versionsnummer, zum Beispiel VokabelApp-v1.0.1, mit der Datei version.txt. So überschreibt beim Auspacken keine Version eine andere, und der Link auf die neueste Version bleibt immer gleich. README und Lizenz hängen zusätzlich einzeln am Release.
+
+Auch bei Ihnen bekommt der Ordner der Exe danach die Version im Namen, zum Beispiel Exe\VokabelApp-v1.0.1. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen. Eine neue Exe baut das Cockpit in Exe\VokabelApp. Läuft die Exe gerade, behält ihr Ordner den Namen.
+
+Während das Release hochgeladen wird, steht bei „Exe veröffentlichen …“ „wird gerade hochgeladen“.
+
+Die Exe weiß ihre Version aus version.txt. Die Suche nach Updates vergleicht damit die Versionsnummer des neuesten Releases. Nur eine höhere Nummer ist ein Update. Sie müssen dafür nichts im Code ändern.
 
 „Links der Exe …“ zeigt danach den Link zum Release und den Link zum Herunterladen der Exe. Enter kopiert den markierten Link.
 

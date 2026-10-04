@@ -14,6 +14,10 @@ CodeCockpit.zip. Dann wird die ZIP-Datei geladen und geprüft, und die Exe kommt
 README und Lizenz aus der ZIP-Datei ersetzen die neben der Exe (Wunsch des Nutzers vom
 03.10.2026). Andere Dateien neben der Exe bleiben, wie sie sind, weil die Nutzer darin eigene Daten
 haben können.
+Seit dem 04.10.2026 vergleicht die Suche Versionsnummern (Wunsch des Nutzers: nach dem
+Veröffentlichen bot das Cockpit die eigene, gerade veröffentlichte Version als Update an). Die
+eigene Version steht in version.txt neben der Exe, sonst gilt __version__ aus dem Code. Nur ein
+Release mit höherer Nummer ist ein Update. Ohne lesbare Nummer gilt der Vergleich wie bisher.
 Einstellungen, Konten und Tresor liegen in %APPDATA% und bleiben unberührt.
 """
 from __future__ import annotations
@@ -113,10 +117,37 @@ def latest(transport: httpx.BaseTransport | None = None) -> Update | None:
     return None
 
 
+def _parse(text: str) -> tuple[int, int, int] | None:
+    import re
+    match = re.match(r"^v?(\d+)\.(\d+)\.(\d+)$", text.strip())
+    return tuple(int(x) for x in match.groups()) if match else None
+
+
+def own_version(exe_path: Path) -> tuple[int, int, int] | None:
+    """Version der laufenden Exe: die höhere aus version.txt daneben und __version__."""
+    from cockpit import __version__
+    found = [v for v in (_parse(__version__),) if v]
+    try:
+        found += [v for v in (_parse((exe_path.parent / exe.VERSION_FILE).read_text(
+            encoding="utf-8")),) if v]
+    except OSError:
+        pass
+    return max(found) if found else None
+
+
+def _beside(name: str) -> bool:
+    """Was aus der ZIP-Datei neben die Exe kommt: README, Lizenz und version.txt."""
+    return exe.is_doc(name) or name.lower() == exe.VERSION_FILE
+
+
 def is_newer(update: Update, exe_path: Path) -> bool:
-    """Andere Datei als die laufende Exe und jünger als sie."""
+    """Dieselbe Datei ist nie ein Update. Sonst zählt die höhere Versionsnummer. Ohne lesbare
+    Nummern: andere Datei als die laufende Exe und jünger als sie."""
     if sha256(exe_path) == update.digest:
         return False
+    mine, theirs = own_version(exe_path), _parse(update.tag)
+    if mine is not None and theirs is not None:
+        return theirs > mine
     built = datetime.fromtimestamp(exe_path.stat().st_mtime, timezone.utc)
     return update.published > built
 
@@ -192,7 +223,7 @@ def _exe_from_zip(archive: Path, target: Path) -> Path:
             folder = Path(chosen[0].filename.replace("\\", "/")).parent
             for member in bundle.infolist():          # README und Lizenz aus demselben Ordner
                 path = Path(member.filename.replace("\\", "/"))
-                if member.is_dir() or path.parent != folder or not exe.is_doc(path.name):
+                if member.is_dir() or path.parent != folder or not _beside(path.name):
                     continue
                 with bundle.open(member) as source, open(target.parent / path.name, "wb") as file:
                     shutil.copyfileobj(source, file)
@@ -214,7 +245,7 @@ def swap(exe_path: Path, version: str, start: bool) -> Path:
         raise CockpitError("Es wartet keine neue Version.")
     folder = backups.new_backup_dir("CodeCockpit", f"Exe vor dem Update auf {version} ersetzt",
                                     exe_path.parent)
-    docs = sorted(p for p in new.parent.iterdir() if p.is_file() and exe.is_doc(p.name))
+    docs = sorted(p for p in new.parent.iterdir() if p.is_file() and _beside(p.name))
     old = [exe_path] + [exe_path.parent / d.name for d in docs
                         if (exe_path.parent / d.name).is_file()]
     return exe.swap_script(exe_path.parent, old, [new] + docs, folder,

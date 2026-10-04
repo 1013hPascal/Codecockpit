@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import webbrowser
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from cockpit.core import branches, git, sync, venv_repair, worktrees
 from cockpit.core.actions import Action, ActionContext, Target
@@ -182,10 +182,15 @@ class WorktreeActions:
 
     # -- Einrichten ---------------------------------------------------------------------------
     def setup(self, context: ActionContext) -> None:
-        project = context.project
-        state = context.status.repo
+        self.convert(context.project)
+
+    def convert(self, project: Project, intro: str = "",
+                after: Callable[[Project], None] | None = None) -> None:
+        """Ordner für Branches einrichten, nach Rückfrage. intro steht vor der Erklärung, after
+        bekommt danach das umgestellte Projekt (Projekt vom Rechner hinzufügen, 04.10.2026)."""
+        state = git.status(project.code_dir)
         folder = worktrees.folder_name(state.branch or state.default_branch)
-        text = (f"Der Inhalt des Ordners Code wandert nach Code\\{folder}. Danach bekommt jeder "
+        text = intro + (f"Der Inhalt des Ordners Code wandert nach Code\\{folder}. Danach bekommt jeder "
                 "Branch einen eigenen Ordner neben diesem. Ihre Dateien und Änderungen bleiben "
                 "erhalten. Vorher kommt eine Sicherheitskopie in den Ordner backups.")
         if venv_repair.check(project.code_dir).exists:
@@ -215,6 +220,8 @@ class WorktreeActions:
                                        .select(Target.CODE, moved.id))
             announce(f"Ordner für Branches eingerichtet. Der Code liegt jetzt in "
                      f"Code\\{moved.code_dir.name}.")
+            if after is not None:
+                after(moved)
 
         announce("Ordner für Branches werden eingerichtet.")
         self.controller.run_task(f"project:{project.id}", work, done,

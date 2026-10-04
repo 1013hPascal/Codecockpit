@@ -239,11 +239,11 @@ def test_assets_and_unpack(make_services, projects_root, tmp_path):
     archive = exe.asset_for_upload(project, single, tmp_path / "eins", "1.0.0")
     assert archive.name == "Rechner.zip"
     assert sorted(n for n in zipfile.ZipFile(archive).namelist() if not n.endswith("/")) == [
-        "Rechner-1.0.0/LICENSE", "Rechner-1.0.0/Rechner.exe"]
+        "Rechner-v1.0.0/LICENSE", "Rechner-v1.0.0/Rechner.exe", "Rechner-v1.0.0/version.txt"]
     folder_exe = fake_exe(project.exe_dir / "Programm", "Programm.exe")
     archive = exe.asset_for_upload(project, folder_exe, tmp_path / "zwei", "1.2.0")
     assert archive.name == "Programm.zip"
-    assert "Programm-1.2.0/Programm.exe" in zipfile.ZipFile(archive).namelist()
+    assert "Programm-v1.2.0/Programm.exe" in zipfile.ZipFile(archive).namelist()
     unpacked = exe.unpack(archive, tmp_path / "raus")
     assert (unpacked / "Programm.exe").is_file()
     assert exe.release_docs(project) == [project.code_dir / "LICENSE"]
