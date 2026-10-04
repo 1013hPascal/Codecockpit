@@ -20,7 +20,7 @@ Reihenfolge der Aktionen nach dem Wunsch des Nutzers (30.09.2026):
 - Main-Branch: Projekt neu einlesen, Terminal, Änderungen hochladen, Änderungen holen, Pull
   Requests, Verlauf, Änderungen verwerfen, Änderungen beiseitelegen, Git-Identität, Code-Ordner.
 - Branch: wie Main-Branch, aber "Pull Request erstellen" und "Pull-Requests-Übersicht".
-- Projekt: Projekt neu einlesen, Terminal, Projekt verwalten, Links, README, Features dieses
+- Projekt: Projekt neu einlesen, Terminal, Projekt verwalten, Links, README, Lizenz, Features dieses
   Projekts, Aus der Liste entfernen, Projektordner öffnen.
 - Die Branches selbst verwaltet die Zeile "Branches verwalten" unter dem Haupt-Branch.
 Aktionen, die nur manchmal passen (Konflikte lösen, Neuen Ort angeben ...), erscheinen nur dann.
@@ -72,6 +72,8 @@ class ProjectController:
         self.worktrees = WorktreeActions(self)     # Phase 10f
         from cockpit.ui.readme_flow import ReadmeActions
         self.readme = ReadmeActions(self)          # Phase 9
+        from cockpit.ui.license_flow import LicenseActions
+        self.licenses = LicenseActions(self)       # Wunsch vom 03.10.2026
         from cockpit.ui.releases_flow import ReleasesActions
         self.releases = ReleasesActions(self)      # Phase 14
         from cockpit.ui.collections_flow import CollectionActions
@@ -170,7 +172,7 @@ class ProjectController:
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
         ] + self.exe.actions() + self.worktrees.actions() + self.readme.actions() \
-            + self.releases.actions() + self.collections.actions()
+            + self.licenses.actions() + self.releases.actions() + self.collections.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],

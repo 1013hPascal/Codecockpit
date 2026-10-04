@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 FIRST_CHECK_MS = 10_000                  # nach dem Start, damit das Fenster erst in Ruhe aufbaut
-TIMER_MS = 60 * 60 * 1000                # stündlich nachsehen, ob die tägliche Prüfung fällig ist
+TIMER_MS = 60 * 60 * 1000                # früher: stündlich nachsehen (bis 03.10.2026)
 RETRY_MS = 60_000                        # Rückfrage verschieben, solange ein Dialog offen ist
 TITLE = "Update"
 

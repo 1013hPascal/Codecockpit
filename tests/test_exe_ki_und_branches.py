@@ -30,7 +30,7 @@ from tests.test_phase10f import structured, window
 from tests.test_phase5a import account, sh  # noqa: F401
 from tests.test_phase8b import quiet_machine  # noqa: F401 (Fixture)
 from tests.test_projektuebersichten import (FakeTextAI, entries, exe_code,  # noqa: F401
-                                            exe_window, texts)
+                                            texts)
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -59,81 +59,6 @@ def build_dialog(qtbot, monkeypatch, tmp_path, fail=True):
     return dialog
 
 
-def test_failed_build_offers_the_ai(qtbot, monkeypatch, tmp_path):
-    dialog = build_dialog(qtbot, monkeypatch, tmp_path)
-    assert dialog.fix_button.isVisible()
-    assert dialog.fix_button.text() == "Problem mit &KI lösen"
-    assert dialog.fix_button.isDefault()
-    assert "ModuleNotFoundError: No module named 'vokabeln'" in dialog.error_text
-    assert dialog.error_text.startswith("Der Start-Test ist fehlgeschlagen.")
-    dialog.fix_button.click()
-    assert dialog.fix_requested and not dialog.isVisible()
-
-
-def test_successful_build_has_no_ai_button(qtbot, monkeypatch, tmp_path):
-    dialog = build_dialog(qtbot, monkeypatch, tmp_path, fail=False)
-    assert not dialog.fix_button.isVisible()
-
-
-def test_build_hands_the_error_to_the_ai(exe_window, monkeypatch):
-    win, project, _built, _shown = exe_window
-    monkeypatch.undo()                                       # das echte build()
-    from cockpit.core import exe
-
-    class FailedBuild:
-        def __init__(self, *args, **kwargs):
-            self.result, self.fix_requested, self.error_text = None, True, "Fehlertext"
-
-        def exec(self):
-            return False
-
-    monkeypatch.setattr(exe_flow, "BuildDialog", FailedBuild)
-    monkeypatch.setattr(exe_flow, "confirm", lambda *a, **k: True)
-    monkeypatch.setattr(exe, "find_python", lambda: ["py"])
-    monkeypatch.setattr(exe, "read_settings", lambda folder: exe.BuildSettings("main.py", "R"))
-    fixes = []
-    monkeypatch.setattr(exe_flow.ExeActions, "fix_with_ai",
-                        lambda self, p, error: fixes.append(error))
-    win.controller.exe.build(ActionContext(win.services, project, Target.EXE))
-    assert fixes == ["Fehlertext"]
-
-
-def test_fix_with_ai_starts_without_a_wish(exe_window, monkeypatch):
-    from cockpit.ui import exe_ai
-    win, project, _built, _shown = exe_window
-    started = []
-    monkeypatch.setattr(exe_ai.ExeAIFlow, "start_fix", lambda self, error: started.append(error))
-    win.controller.exe.fix_with_ai(project, "Fehlertext")
-    assert started == ["Fehlertext"]
-
-
-def test_start_fix_shows_progress_and_sends_the_error(exe_window, monkeypatch):
-    from cockpit.ui import exe_ai
-    win, project, _built, _shown = exe_window
-    asked, shown = [], []
-
-    class AI(FakeTextAI):
-        def ask(self, prompt, system="", cancel=None):
-            asked.append(prompt)
-            return "ZUSAMMENFASSUNG: Keine Änderung am Code nötig."
-
-    monkeypatch.setattr(exe_ai.ExeAIFlow, "_ai", lambda self, purpose: AI())
-
-    class Work(exe_ai.WorkDialog):
-        def exec(self):
-            shown.append(self.what)
-            return super().exec()
-
-    monkeypatch.setattr(exe_ai, "WorkDialog", Work)
-    finished = []
-    flow = exe_ai.ExeAIFlow(win.controller.exe, project,
-                            on_finished=lambda lines, folder=None: finished.append(lines))
-    flow.start_fix("Traceback: ModuleNotFoundError: No module named 'vokabeln'")
-    assert shown == ["Die KI versucht, das Problem zu lösen"]
-    assert "No module named 'vokabeln'" in asked[0]
-    assert finished and finished[0][0].startswith("Es gibt keine Änderung")
-
-
 def test_error_excerpts_find_the_lines(projects_root):
     from cockpit.features.exe_build import ai_fix
     code, _settings = exe_code(projects_root)
@@ -156,22 +81,6 @@ def test_prompt_contains_the_error():
     plain, _ = ai_fix.build_prompt("Rechner", exe.BuildSettings("main.py", "Rechner"), [], "",
                                    "code")
     assert "Fehler beim letzten Bau oder Test der Exe:\nkeiner" in plain
-
-
-def test_second_round_reads_the_branch(tmp_path, projects_root, make_services, qtbot):
-    """Mehrere Durchgänge: Gibt es Cockpit-exe-bauen schon, liest die KI dort weiter."""
-    from cockpit.features.exe_build import exe_branch
-    from cockpit.ui import exe_ai
-    services, project, _other = structured(tmp_path, projects_root, make_services)
-    win = window(qtbot, services)
-    assert exe_ai.ExeAIFlow(win.controller.exe, project).source_dir == project.code_dir
-    folder = exe_branch.prepare(project)
-    finished = []
-    flow = exe_ai.ExeAIFlow(win.controller.exe, project,
-                            on_finished=lambda lines, folder=None: finished.append(folder))
-    assert flow.source_dir == folder
-    flow._finish(["Nichts geändert."])
-    assert finished == [folder]                     # gebaut wird wieder aus dem Branch
 
 
 # -- 2. Stand hinter den Aktionen -------------------------------------------------------------

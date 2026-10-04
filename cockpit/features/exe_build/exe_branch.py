@@ -1,6 +1,9 @@
 """Branch für die Änderungen der KI an der Exe-Einrichtung (Wunsch des Nutzers, 01.10.2026).
 
-Die KI ändert nie direkt main. Ihre Änderungen kommen in den Branch Cockpit-exe-bauen:
+Die KI ändert nie direkt main. Ihre Änderungen kommen in den Branch Cockpit-exe-bauen. Seit dem
+03.10.2026 gilt das für jeden Bau aus "Exe aus dem Code erstellen …", auch ohne KI, und auch die
+Exe-Einstellungen kommen nur in den Branch. Main bleibt unverändert, bis der Nutzer den Branch in
+main überführt (Wunsch des Nutzers: vorher blieb cockpit.toml geändert in main liegen).
 - Mit Branch-Ordnern bekommt er einen eigenen Ordner und beginnt beim Stand von main
   auf diesem Rechner.
 - Ohne Branch-Ordner legt das Cockpit ihn vom Stand von main an und wechselt im Ordner Code
@@ -36,6 +39,10 @@ def _local(code_dir: Path, name: str) -> bool:
                    check=False).returncode == 0
 
 
+def exists(project: Project) -> bool:
+    return project.folder_found and git.is_repo(project.code_dir) and         _local(project.code_dir, BRANCH)
+
+
 def current_folder(project: Project) -> Path | None:
     """Ordner, in dem der Branch schon ausgecheckt ist, sonst None. Die KI liest dann dort,
     damit ein zweiter Versuch auf dem ersten aufbaut."""
@@ -69,7 +76,7 @@ def prepare(project: Project) -> Path:
     return code_dir
 
 
-def commit(code_dir: Path, files: list[str]) -> bool:
+def commit(code_dir: Path, files: list[str], message: str = COMMIT_MESSAGE) -> bool:
     """Nur die geänderten Dateien committen, keine anderen Änderungen. False: nichts zu tun."""
     existing = [f for f in dict.fromkeys(files) if (code_dir / f).exists()]
     if not existing:
@@ -77,7 +84,7 @@ def commit(code_dir: Path, files: list[str]) -> bool:
     git.run(["add", "--", *existing], code_dir, action="Dateien vormerken")
     if git.run(["diff", "--cached", "--quiet"], code_dir, check=False).returncode == 0:
         return False
-    git.run(["commit", "-q", "-m", COMMIT_MESSAGE], code_dir, action="Commit")
+    git.run(["commit", "-q", "-m", message], code_dir, action="Commit")
     return True
 
 
@@ -102,3 +109,13 @@ def delete(project: Project) -> None:
         branches.delete_local(project.code_dir, BRANCH)
     else:
         raise CockpitError(f"Den Branch {BRANCH} gibt es nicht mehr.")
+
+
+def abandon(project: Project) -> None:
+    """Exe-Bau abbrechen: den Branch löschen, main bleibt, wie es war. Ohne Branch-Ordner wechselt
+    das Cockpit vorher zurück zu main. Änderungen ohne Commit, die von main mitkamen, gehen dabei
+    wieder mit zurück."""
+    code_dir = project.code_dir
+    if not project.has_branch_folders and git.status(code_dir).branch == BRANCH:
+        branches.switch(code_dir, git.status(code_dir).default_branch or "main")
+    delete(project)

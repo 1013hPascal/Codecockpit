@@ -149,27 +149,6 @@ def test_exe_menu(qtbot, make_services, projects_root):
 
 
 # -- Exe aus dem Code erstellen -------------------------------------------------------------
-@pytest.fixture
-def exe_window(qtbot, make_services, projects_root, monkeypatch):
-    services, project = exe_services(make_services, projects_root)
-    win = window(qtbot, services)
-    built, shown = [], []
-    monkeypatch.setattr(exe_flow.ExeActions, "build", lambda self, c: built.append(c.project.name))
-
-    class FakeReady:
-        def __init__(self, project_, lines, parent=None, services=None):
-            shown.append(lines)
-            self.repeat_hints = ""
-
-        def exec(self):
-            return True
-
-    monkeypatch.setattr(exe_flow, "ReadyDialog", FakeReady)
-    # Erster Schritt seit dem 02.10.2026: Exe-Einstellungen, geprüft in test_exe_ordner_und_fragen
-    monkeypatch.setattr(exe_flow.ExeActions, "settings_step", lambda self, p: True)
-    return win, project, built, shown
-
-
 def choose(monkeypatch, pick: str, asked: list):
     def fake(parent, title, name, items):
         asked.append(list(items))
@@ -177,79 +156,10 @@ def choose(monkeypatch, pick: str, asked: list):
     monkeypatch.setattr(exe_flow, "choose_from_list", fake)
 
 
-def test_build_without_ai_checks_then_offers_build(exe_window, monkeypatch, qtbot):
-    win, project, built, shown = exe_window
-    monkeypatch.setattr(win.services, "ai_problem", lambda tool_id=None: "Keine KI.")
-    asked = []
-    choose(monkeypatch, exe_flow.WITHOUT_AI, asked)
-    context = ActionContext(win.services, project, Target.EXE)
-    win.controller.exe.build_menu(context)
-    assert asked == [[exe_flow.WITHOUT_AI, exe_flow.WITH_AI]]     # ohne KI oben
-    qtbot.waitUntil(lambda: built == ["Rechner"], timeout=10000)
-    assert shown and shown[0]                                     # Ergebnis der Prüfung
-
-
-def test_build_with_ai_is_first_when_ai_is_there(exe_window, monkeypatch):
-    win, project, built, shown = exe_window
-    monkeypatch.setattr(win.services, "ai_problem", lambda tool_id=None: "")
-    asked, started = [], []
-    choose(monkeypatch, exe_flow.WITH_AI, asked)
-
-    class FakeFlow:
-        def __init__(self, actions, project_, on_finished=None):
-            self.on_finished = on_finished
-
-        def start(self):
-            started.append(True)
-            self.on_finished(["Änderungen übernommen."])
-
-    from cockpit.ui import exe_ai
-    monkeypatch.setattr(exe_ai, "ExeAIFlow", FakeFlow)
-    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
-    assert asked == [[exe_flow.WITH_AI, exe_flow.WITHOUT_AI]]     # mit KI oben
-    assert started == [True]
-    # Seit dem 02.10.2026 nennt die letzte Zeile die Ordner neben der Exe
-    assert shown[0][0] == "Änderungen übernommen." and built == ["Rechner"]
-    assert shown[0][-1].startswith("Neben die Exe kommt")
-
-
-def test_cancelled_choice_builds_nothing(exe_window, monkeypatch):
-    win, project, built, shown = exe_window
-    choose(monkeypatch, "nichts", [])
-    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
-    assert built == [] and shown == []
-
-
-def test_ready_dialog(qtbot):
-    from cockpit.core.projects import Project
-    from pathlib import Path
-    project = Project(1, "Rechner", Path("x"), Path("x/Code"), None)
-    dialog = exe_flow.ReadyDialog(project, ["Startdatei: main.py gefunden."])
-    qtbot.addWidget(dialog)
-    assert dialog.windowTitle() == "Exe aus dem Code erstellen: Rechner"
-    assert dialog.list.accessibleName() == "Ergebnis der Einrichtung"
-    assert dialog.list.item(0).text() == "Startdatei: main.py gefunden."
-    assert dialog.build_button.text() == "Exe e&rstellen" and dialog.build_button.isDefault()
-
-
-def test_ai_flow_reports_an_empty_proposal(monkeypatch):
-    from cockpit.features.exe_build.ai_fix import Proposal
-    from cockpit.ui import exe_ai
-    got = []
-    monkeypatch.setattr(exe_ai, "show_info", lambda *a, **k: got.append("Meldung"))
-
-    class Actions:
-        window = services = None
-
-    flow = exe_ai.ExeAIFlow(Actions(), None, on_finished=got.append)
-    flow.review(Proposal(summary="Alles passt."))
-    assert got == [["Es gibt keine Änderung, die das Cockpit übernehmen kann. Die KI sagt: "
-                    "Alles passt."]]
-
-
 # -- Exe einlesen und Links -----------------------------------------------------------------
-def test_import_exe_offers_file_or_release(exe_window, monkeypatch):
-    win, project, _built, _shown = exe_window
+def test_import_exe_offers_file_or_release(qtbot, make_services, projects_root, monkeypatch):
+    services, project = exe_services(make_services, projects_root)
+    win = window(qtbot, services)
     called = []
     monkeypatch.setattr(exe_flow.ExeActions, "choose", lambda self, c: called.append("Datei"))
     monkeypatch.setattr(exe_flow.ExeActions, "fetch", lambda self, c: called.append("Release"))
@@ -431,7 +341,7 @@ def test_work_dialog_shows_progress_and_closes_with_the_result(qtbot):
         return "Vorschlag"
 
     dialog = work_dialog(qtbot, work)
-    assert dialog.windowTitle() == "Exe mit KI einrichten: Rechner, läuft"
+    assert dialog.windowTitle() == "Exe aus dem Code erstellen: Rechner, läuft"
     assert dialog.list.accessibleName() == "Fortschritt"
     assert dialog.exec()
     assert dialog.result_value == "Vorschlag"
@@ -534,71 +444,6 @@ def test_where_text_names_the_branch(tmp_path, projects_root, make_services):
     assert "eigenen Ordner" in text
 
 
-def test_review_asks_with_branch_text(qtbot, tmp_path, projects_root, make_services,
-                                      monkeypatch):
-    from cockpit.features.exe_build.ai_fix import Change, Proposal
-    from cockpit.ui import exe_ai
-    services, project, _other = structured(tmp_path, projects_root, make_services)
-    win = window(qtbot, services)
-    asked, applied = [], []
-    monkeypatch.setattr(exe_ai, "confirm", lambda parent, title, text, **k: asked.append(text)
-                        or True)
-    monkeypatch.setattr(exe_ai.ProposalDialog, "exec", lambda self: True)
-    monkeypatch.setattr(exe_ai.ExeAIFlow, "apply_in_branch",
-                        lambda self, proposal: applied.append(proposal))
-    flow = exe_ai.ExeAIFlow(win.controller.exe, project, on_finished=lambda *a: None)
-    flow.review(Proposal(changes=[Change("main.py", "Grund", "", "x\n")]))
-    assert "Cockpit-exe-bauen, nicht in main" in asked[0]
-    assert "Erst dann entscheiden Sie" in asked[0]
-    assert len(applied) == 1
-
-
-def test_apply_in_branch_changes_only_the_branch(qtbot, tmp_path, projects_root, make_services):
-    from cockpit.features.exe_build.ai_fix import Change, Proposal
-    from cockpit.ui import exe_ai
-    services, project, _other = structured(tmp_path, projects_root, make_services)
-    win = window(qtbot, services)
-    got = []
-    flow = exe_ai.ExeAIFlow(win.controller.exe, project,
-                            on_finished=lambda lines, folder=None: got.append((lines, folder)))
-    flow.apply_in_branch(Proposal(changes=[Change("exe_fix.txt", "Grund", "", "neu\n")]))
-    qtbot.waitUntil(lambda: bool(got), timeout=10000)
-    lines, folder = got[0]
-    assert folder.name == "Cockpit-exe-bauen" and (folder / "exe_fix.txt").is_file()
-    assert not (project.code_dir / "exe_fix.txt").exists()
-    assert lines[0].startswith("Änderungen im Branch Cockpit-exe-bauen übernommen")
-    assert git.run(["status", "--porcelain"], folder).stdout.strip() == ""   # committet
-
-
-def test_ready_with_branch_builds_from_the_branch(exe_window, monkeypatch, tmp_path):
-    win, project, built, shown = exe_window
-    branch_builds = []
-    monkeypatch.setattr(exe_flow.ExeActions, "build_ai_branch",
-                        lambda self, p, folder: branch_builds.append(folder))
-    context = ActionContext(win.services, project, Target.EXE)
-    win.controller.exe.offer_build(context, ["Änderungen im Branch …"], tmp_path)
-    assert branch_builds == [tmp_path] and built == []
-
-
-@pytest.mark.parametrize("choice, merged, delete", [(0, False, None), (1, True, False),
-                                                    (2, True, True)])
-def test_after_test_offers_three_ways(exe_window, monkeypatch, choice, merged, delete):
-    win, project, _built, _shown = exe_window
-    asked, merges = [], []
-
-    def fake_ask(parent, title, text, buttons, default, escape):
-        asked.append((buttons, default, escape))
-        return choice
-
-    monkeypatch.setattr(exe_flow, "ask_buttons", fake_ask)
-    monkeypatch.setattr(exe_flow.ExeActions, "merge_ai_branch",
-                        lambda self, p, delete: merges.append(delete))
-    win.controller.exe.after_branch_test(project, "Rechner_branch_Cockpit-exe-bauen.exe")
-    assert asked == [([exe_flow.AFTER_TEST_LATER, exe_flow.AFTER_TEST_KEEP,
-                       exe_flow.AFTER_TEST_DELETE], 0, 0)]       # sicher: später
-    assert merges == ([delete] if merged else [])
-
-
 def test_merge_ai_branch_from_the_window(qtbot, tmp_path, projects_root, make_services):
     from cockpit.features.exe_build import exe_branch
     services, project, _other = structured(tmp_path, projects_root, make_services)
@@ -606,10 +451,9 @@ def test_merge_ai_branch_from_the_window(qtbot, tmp_path, projects_root, make_se
     change_in(folder)
     exe_branch.commit(folder, ["exe_fix.txt"])
     win = window(qtbot, services)
-    win.controller.exe.merge_ai_branch(project, delete=True)
-    assert (project.code_dir / "exe_fix.txt").is_file() and not folder.exists()
-    assert said("Cockpit-exe-bauen ist in main übernommen. Main ist noch nicht hochgeladen. "
-                "Der Branch Cockpit-exe-bauen ist gelöscht.")
+    win.controller.exe.merge_branch(project, publish=False)
+    assert (project.code_dir / "exe_fix.txt").is_file()
+    assert said("Cockpit-exe-bauen ist in main überführt. Main ist noch nicht hochgeladen.")
 
 
 # -- Kurzer Ort für die Umgebung zum Bauen und lange Pfade (Wunsch vom 01.10.2026) ------------
@@ -727,61 +571,6 @@ def test_setup_check_warns_about_long_paths(projects_root, monkeypatch):
                for line in lines)
     monkeypatch.setattr(long_paths, "enabled", lambda: True)
     assert not any("Lange Pfade" in line for line in setup_check.check_for(code, settings))
-
-
-def test_build_dialog_continues_after_success(qtbot, monkeypatch, tmp_path):
-    """Rückmeldung vom 01.10.2026: Nach dem Bau aus Cockpit-exe-bauen blieb das Fenster offen,
-    die Frage danach kam nicht."""
-    from cockpit.core import exe
-    from cockpit.core.projects import Project
-    built = tmp_path / "Exe" / "VokabelApp_branch_Cockpit-exe-bauen" / "VokabelApp.exe"
-
-    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None,
-                   branch_name=""):
-        on_status("Schritt 4 von 4: Exe wird übernommen")
-        return exe.BuildResult(built, branch=branch_name)
-
-    monkeypatch.setattr(exe, "build", fake_build)
-    project = Project(1, "VokabelApp", tmp_path, tmp_path / "Code", None)
-    settings = exe.BuildSettings("gui.py", "VokabelApp")
-    dialog = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code",
-                                  branch_name="Cockpit-exe-bauen", continue_after=True)
-    qtbot.addWidget(dialog)
-    assert dialog.close_button.text() == "&Weiter"
-    assert dialog.exec()                                        # schließt sich selbst
-    assert dialog.result.exe == built
-    stays = exe_flow.BuildDialog(None, project, settings, branch_dir=tmp_path / "Code")
-    qtbot.addWidget(stays)
-    stays.show()
-    qtbot.waitUntil(lambda: not stays.running, timeout=5000)
-    qtbot.wait(100)
-    assert stays.isVisible() and stays.result is not None        # sonst bleibt es offen
-
-
-def test_branch_question_names_the_subfolder(exe_window, monkeypatch, tmp_path):
-    from cockpit.core import exe
-    win, project, _built, _shown = exe_window
-    branch_dir = tmp_path / "Branch"
-    branch_dir.mkdir()
-    built = project.exe_dir / "Rechner_branch_Cockpit-exe-bauen" / "Rechner.exe"
-
-    class FakeBuild:
-        def __init__(self, *args, **kwargs):
-            assert kwargs["continue_after"] is True
-            self.result = exe.BuildResult(built, branch="Cockpit-exe-bauen")
-            self.fix_requested = False
-
-        def exec(self):
-            return True
-
-    monkeypatch.setattr(exe_flow, "BuildDialog", FakeBuild)
-    monkeypatch.setattr(exe, "read_settings", lambda folder: exe.BuildSettings("main.py",
-                                                                                "Rechner"))
-    named = []
-    monkeypatch.setattr(exe_flow.ExeActions, "after_branch_test",
-                        lambda self, p, name, exe_path=None: named.append(name))
-    win.controller.exe.build_ai_branch(project, branch_dir)
-    assert named == [r"Rechner_branch_Cockpit-exe-bauen\Rechner.exe"]
 
 
 # -- Rückmeldung vom 01.10.2026: Branch-Ordner nach gelöschtem Ordner -------------------------

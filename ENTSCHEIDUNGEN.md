@@ -924,3 +924,41 @@ Rückmeldung des Nutzers: Die Suche nach Updates fand keine neue Version mehr. U
 - Die Suche nimmt eine Exe am Release, wenn es eine gibt, sonst CodeCockpit.zip. Andere ZIP-Dateien zählen nicht.
 - Die ZIP-Datei wird geladen und gegen die Prüfsumme von GitHub geprüft. Dann holt das Cockpit nur die Exe heraus, an einen festen Ort in Exe\_neu, und tauscht sie wie bisher aus. Die übrigen Dateien der ZIP, etwa LICENSE, bleiben, wie sie sind.
 - Enthält die ZIP keine passende Exe oder einen Programmordner mit _internal, bricht das Cockpit ab und erklärt es. Die bisherige Version bleibt.
+
+
+## 03.10.2026: Exe bauen in Schritten, Ordner je Exe, Lizenz, Update, Branch löschen
+
+Wunsch des Nutzers: „Exe aus dem Code erstellen …“ war durcheinander. Dazu Wünsche zu Release, Lizenz, Update und Branches. Gebaut im Branch exe-bau-ueberarbeiten, Checkliste in checklisten\exe-bau-ueberarbeiten.md. Antworten des Nutzers auf vier Fragen stehen jeweils dabei.
+
+Exe bauen in Schritten (ersetzt die Abschnitte vom 30.09. und 02.10.2026 zu ReadyDialog, „Exe mit KI einrichten …“ und „Exe selbst testen“):
+- Schritt 1: Dateien und Ordner neben der Exe. Was der Code braucht, ist angehakt und heißt „unbedingt nötig“. README und Lizenz stehen ohne Kästchen mit „kommt immer mit“ in der Liste.
+- Schritt 2, nur mit eingerichteter Text-KI: „Mit KI-Unterstützung die Exe bauen“ (empfohlen, oben) oder „Ohne KI die Exe bauen“.
+- Gebaut wird immer im Branch Cockpit-exe-bauen, auch ohne KI (Antwort des Nutzers). Auch die Exe-Einstellungen kommen nur dorthin, als eigener Commit. Grund: Vorher blieb cockpit.toml geändert in main liegen. Das sah nach dem Löschen eines Branches so aus, als wären dessen Änderungen in main gelandet.
+- Schritt 3: Einrichtung. Der Branch wird ohne Rückfrage angelegt.
+- Schritt 4: Zusammenfassung. „Mit KI schreiben“ klappt erst auf Wunsch Frage und Gespräch auf, dazu „Mit den Hinweisen wiederholen“. Der Wunsch an die KI vorab („Was soll die Exe können?“) entfällt, das Gespräch ersetzt ihn. Die Änderungen der KI kommen mit „Exe erstellen“ ohne eigene Rückfrage in den Branch, vorher in die Sicherheitskopien.
+- Schritte 5 und 6 im selben Fenster: Bau, dann Ergebnis. Bei Fehler: „Problem mit KI lösen“ (nur mit KI, führt zurück zu Schritt 3 mit der Fehlermeldung), „Neuer Versuch, Exe zu bauen“, „Zurück“, „Abbrechen“. Bei Erfolg: „Erst testen, später in main überführen und Release veröffentlichen“ (öffnet den Ordner der neuen Exe im Explorer, Vorgabe und Escape), „Jetzt in main überführen und Release veröffentlichen“ (danach öffnet sich „Exe veröffentlichen“), „Jetzt in main überführen, später veröffentlichen“.
+- Jeder Schritt hat „Zurück“ und „Abbrechen“. Abbrechen löscht nach Rückfrage den Branch, wenn dieser Durchgang ihn angelegt hat. Die sichere Antwort ist „Zurück“.
+- Beim Überführen wird die getestete Exe aus dem Branch zur normalen Exe. Die Ordner der Nutzer neben der Exe kommen von der bisherigen Exe, README und Lizenz aus dem Code. Danach wird der Branch gelöscht.
+- Neu bei Exe: „Exe-Bau abschließen …“, solange es den Branch gibt: überführen mit oder ohne Release, Ordner der neuen Exe öffnen, Exe-Bau verwerfen.
+- Antworten der KI im Gespräch: zuerst verständliche Sätze, danach Code, wenn er hilft. In der Liste stehen die Sätze einzeln, der Code nach einer Zeile „Code:“ Zeile für Zeile.
+- „Exe-Einstellungen …“ fragt nach dem Speichern nicht mehr, ob gleich gebaut werden soll. Gebaut wird über „Exe aus dem Code erstellen …“.
+
+Ordner je Exe (Antwort des Nutzers: nach dem Namen):
+- Jede Exe hat im Ordner Exe einen eigenen Ordner, Exe\VokabelApp und Exe\VokabelApp_branch_Cockpit-exe-bauen. Eine Exe in der alten Ablage kommt beim nächsten Bau in die Sicherheitskopien, Daten neben ihr wandern mit.
+- README und Lizenz liegen immer neben der Exe und sind immer die aktuellen aus dem Code.
+
+Veröffentlichen (Antwort des Nutzers: fester Name, Ordner mit Version):
+- Hochgeladen wird immer der ganze Ordner als Name.zip, darin der Ordner Name-Version. So bleibt der Link auf die neueste Version gleich, und beim Auspacken überschreibt keine Version eine andere. README und Lizenz hängen zusätzlich einzeln am Release. Die README verlinkt immer Name.zip.
+
+README und Lizenz:
+- Neu auf der Projektzeile neben „README …“: „Lizenz …“, mit der Lizenz im Eintrag, zum Beispiel „Lizenz …, MIT“ oder „noch keine Lizenz“. Ohne Lizenz: „Lizenz auswählen …“ (Vorlage von GitHub mit Name und Jahr) und „Lizenz aus Ordner hochladen …“. Mit Lizenz: „Lizenz ansehen“ und „Lizenz ändern …“ (Antwort des Nutzers). Die Datei heißt LICENSE, die bisherige kommt in die Sicherheitskopien.
+- Vor dem Bauen und Veröffentlichen warnt das Cockpit, wenn README oder Lizenz fehlen: „Jetzt hinzufügen“ (Vorgabe) springt beim Projekt zur Aktion „README …“ bzw. „Lizenz …“, „Ignorieren und weiter“, „Abbrechen“ (Escape).
+- Die Prüfung der Einrichtung warnt nicht mehr, wenn der Code README oder Lizenz nur mit Namen öffnet. Sie liegen ja immer neben der Exe.
+
+Update:
+- Die Suche läuft bei jedem Start einmal, nicht mehr nur einmal am Tag.
+- Hängt am Release eine ZIP-Datei, kommen README und Lizenz daraus mit und ersetzen die neben der Exe. Andere Dateien neben der Exe bleiben, wie sie sind, weil darin eigene Daten liegen können.
+
+Branches:
+- „Branch-Ordner entfernen …“ entfällt, weil „Löschen …“ fragt, ob nur hier, nur auf GitHub oder beides.
+- Löschen verwirft die Änderungen ohne Commit. Nichts davon kommt nach main. Der aktuelle Branch lässt sich ohne Branch-Ordner jetzt auch löschen: Das Cockpit sichert die Änderungen, wechselt zu main und löscht ihn.

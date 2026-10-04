@@ -295,7 +295,7 @@ def test_actions_follow_the_tree_selection(window):
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
     assert win.actions_list.texts() == [
-        "Projekt neu einlesen", "Terminal …",
+        "Projekt neu einlesen", "Terminal …", "Lizenz …, noch keine Lizenz",
         "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
         "geht im Menü Features.",
         "Aus der Liste entfernen …", "Projektordner öffnen"]
@@ -321,9 +321,9 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     win = window()
     select_project(win, "PDF-Chat")
     win.focus_actions()
-    # Reihenfolge vom 30.09.2026: Projekt neu einlesen, Terminal, Features, Aus der Liste
-    # entfernen, Projektordner öffnen
-    for _ in range(4):
+    # Reihenfolge vom 30.09.2026: Projekt neu einlesen, Terminal, Lizenz (seit 03.10.2026),
+    # Features, Aus der Liste entfernen, Projektordner öffnen
+    for _ in range(5):
         press(qtbot, win.actions_list, Qt.Key.Key_Down)
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)

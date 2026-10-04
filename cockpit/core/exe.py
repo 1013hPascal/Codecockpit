@@ -748,7 +748,8 @@ def exe_in(built: Path) -> Path:
 
 QUICK_EXIT = ("Die neue Exe hat sich gleich nach dem Start ohne Fenster beendet. Bei einem "
               "Programm mit Fenster ist das ein Fehler, meistens eine falsche Startdatei oder "
-              "eine fehlende Bibliothek. „Exe aus dem Code erstellen …“ mit „Exe ohne KI einrichten …“ nennt mögliche Gründe. Die "
+              "eine fehlende Bibliothek. „Exe aus dem Code erstellen …“ nennt in der Zusammenfassung "
+              "mögliche Gründe. Die "
               "bisherige Exe bleibt.")
 
 
