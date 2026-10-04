@@ -506,6 +506,12 @@ MERGE_PUBLISH = "Jetzt in main überführen und Release veröffentlichen"
 MERGE_ONLY = "Jetzt in main überführen, später veröffentlichen"
 OPEN_TEST = "Ordner der neuen Exe im Explorer öffnen"
 DISCARD = "Exe-Bau verwerfen …"
+# Der Branch ist schon in main und gelöscht, die Exe aus ihm liegt noch da (04.10.2026)
+ADOPT_PUBLISH = "Exe als normale Exe übernehmen und Release veröffentlichen"
+ADOPT_ONLY = "Exe als normale Exe übernehmen, später veröffentlichen"
+DISCARD_EXE = "Exe aus dem Branch verwerfen …"
+PICK_BRANCH = "Exe aus dem Branch Cockpit-exe-bauen, die neuere"
+PICK_NORMAL = "Normale Exe"
 
 
 def download_links(release, asset) -> list[tuple[str, str]]:
@@ -557,15 +563,31 @@ class ExeActions:
             return False
 
     def _branch_open(self, context: ActionContext) -> bool:
-        """Es gibt den Branch Cockpit-exe-bauen: "Exe-Bau abschließen …" anbieten."""
+        """Es gibt den Branch Cockpit-exe-bauen oder noch seine Exe: "Exe-Bau abschließen …"
+        anbieten (Rückmeldung des Nutzers vom 04.10.2026: der Branch war schon in main und
+        gelöscht, die Exe lag noch da, und der Eintrag fehlte)."""
         from cockpit.features.exe_build import exe_branch
         try:
-            return self._building(context) and exe_branch.exists(context.project)
+            return self._building(context) and (
+                exe_branch.exists(context.project)
+                or exe.branch_home(context.project, exe_branch.BRANCH) is not None)
         except CockpitError:
             return False
 
+    @staticmethod
+    def _publishable(project: Project) -> list[Path]:
+        """Exen, die sich veröffentlichen lassen: die normale und die aus dem Branch
+        Cockpit-exe-bauen. Release und Repository sind getrennt, die Exe muss dafür nicht in
+        main sein (Wunsch des Nutzers vom 04.10.2026)."""
+        from cockpit.features.exe_build import exe_branch
+        found = [p for p in (exe.current_exe(project),) if p is not None]
+        home = exe.branch_home(project, exe_branch.BRANCH) if project.has_exe_dir else None
+        if home is not None:
+            found.append(exe.exe_in(home))
+        return found
+
     def actions(self) -> list[Action]:
-        has_exe = lambda c: exe.current_exe(c.project) is not None     # noqa: E731
+        has_exe = lambda c: bool(self._publishable(c.project))         # noqa: E731
         return [
             Action("add_exe", "Exe hinzufügen …", Target.PROJECT, self.add_exe,
                    visible=lambda c: c.project is not None and c.project.folder_found
@@ -722,10 +744,11 @@ class ExeActions:
         """Für später, nach "Erst testen": überführen, mit oder ohne Release, oder verwerfen."""
         from cockpit.features.exe_build import exe_branch
         project = context.project
-        options = [MERGE_PUBLISH, MERGE_ONLY]
+        merged = not exe_branch.exists(project)        # Branch schon in main und gelöscht
+        options = [ADOPT_PUBLISH, ADOPT_ONLY] if merged else [MERGE_PUBLISH, MERGE_ONLY]
         if exe.branch_home(project, exe_branch.BRANCH) is not None:
             options.append(OPEN_TEST)
-        options.append(DISCARD)
+        options.append(DISCARD_EXE if merged else DISCARD)
         chosen = choose_from_list(self.window, "Exe-Bau abschließen", "Wie geht es weiter?",
                                   options)
         if chosen is None:
@@ -737,8 +760,14 @@ class ExeActions:
                        "gelöscht, seine Exe kommt in die Sicherheitskopien. Main bleibt, wie es "
                        "ist. Verwerfen?", yes="Verwerfen", no="Abbrechen"):
                 self.discard_branch(project)
+        elif options[chosen] == DISCARD_EXE:
+            if confirm(self.window, "Exe aus dem Branch verwerfen", "Die Exe aus dem Branch "
+                       f"{exe_branch.BRANCH} kommt in die Sicherheitskopien. Verwerfen?",
+                       yes="Verwerfen", no="Abbrechen"):
+                self.discard_branch(project)
         else:
-            self.merge_branch(project, publish=options[chosen] == MERGE_PUBLISH)
+            self.merge_branch(project, publish=options[chosen] in (MERGE_PUBLISH,
+                                                                   ADOPT_PUBLISH))
 
     def open_branch_exe(self, project: Project) -> None:
         from cockpit.core import core_actions
@@ -758,15 +787,19 @@ class ExeActions:
         from cockpit.core.sync import ConflictKind
         from cockpit.features.exe_build import exe_branch
         branch = exe_branch.BRANCH
-        try:
-            outcome = exe_branch.merge_into_main(project)
-        except CockpitError as exc:
-            show_error(self.window, "In main überführen", exc.message, exc.details)
-            return
-        if outcome.kind is not ConflictKind.NONE and not self._resolve(project, outcome.kind):
-            self.window.refresh_status([project.id])
-            return
-        text = f"{branch} ist in main überführt. Main ist noch nicht hochgeladen."
+        if exe_branch.exists(project):
+            try:
+                outcome = exe_branch.merge_into_main(project)
+            except CockpitError as exc:
+                show_error(self.window, "In main überführen", exc.message, exc.details)
+                return
+            if outcome.kind is not ConflictKind.NONE and \
+                    not self._resolve(project, outcome.kind):
+                self.window.refresh_status([project.id])
+                return
+            text = f"{branch} ist in main überführt. Main ist noch nicht hochgeladen."
+        else:
+            text = f"{branch} ist schon in main."          # nur noch die Exe übernehmen
         result = None
         if exe.branch_home(project, branch) is not None:
             try:
@@ -778,11 +811,12 @@ class ExeActions:
         if result is not None:
             text += (" Die neue Exe wird beim nächsten Start übernommen." if result.pending
                      else " Die Exe aus dem Branch ist jetzt die normale Exe.")
-            try:
-                exe_branch.delete(project)
-                text += f" Der Branch {branch} ist gelöscht."
-            except CockpitError as exc:
-                log.warning("Branch %s nicht gelöscht: %s", branch, exc.message)
+            if exe_branch.exists(project):
+                try:
+                    exe_branch.delete(project)
+                    text += f" Der Branch {branch} ist gelöscht."
+                except CockpitError as exc:
+                    log.warning("Branch %s nicht gelöscht: %s", branch, exc.message)
         self._after(project, text)
         if result is not None and result.pending:
             self.offer_restart(project)
@@ -917,7 +951,22 @@ class ExeActions:
         if platform is None:
             return
         ref = repo_admin.repo_ref(project)
-        current = exe.current_exe(project)
+        found = self._publishable(project)
+        if not found:
+            show_info(self.window, "Exe veröffentlichen", "Es gibt noch keine Exe.")
+            return
+        current = found[0]
+        if len(found) > 1:
+            # Ist die Exe aus dem Branch neuer, steht sie oben (Vorgabe)
+            newer = found[1].stat().st_mtime > found[0].stat().st_mtime
+            options = [(PICK_BRANCH, found[1]), (PICK_NORMAL, found[0])] if newer \
+                else [(PICK_NORMAL, found[0]), (PICK_BRANCH.replace(", die neuere", ""),
+                                                found[1])]
+            chosen = choose_from_list(self.window, "Exe veröffentlichen", "Welche Exe?",
+                                      [o[0] for o in options])
+            if chosen is None:
+                return
+            current = options[chosen][1]
 
         def work(task: Task):
             return [r.tag for r in platform.releases(ref)]

@@ -1025,3 +1025,11 @@ Rückmeldung des Nutzers: Nach „Exe erstellen“ kam ein Fehler beim Übernehm
 - Knöpfe: „Problem mit KI lösen“ gibt den Fehler an die KI und wiederholt die Einrichtung. „Mit KI chatten“ klappt das Gespräch auf, seine Hinweise gehen dann mit. Dazu „Zurück“ und als letztes „Abbrechen“. Ohne KI nur „Zurück“ und „Abbrechen“.
 - Beim Wiederholen steht im Fortschritt und in der Ansage „Fehler wurde an die KI übergeben“ oder „Fehler und Chat wurden an die KI übergeben“ (Wunsch des Nutzers).
 - Ursache für die leeren Details: Es wurde die Meldung statt der Details weitergegeben. Jetzt stehen die Details der KI-Prüfung im Feld.
+
+
+## 04.10.2026: Exe aus dem Branch übernehmen und veröffentlichen, auch wenn der Branch schon weg ist
+
+Rückmeldung des Nutzers: Bei Chatbot für Text war der Branch Cockpit-exe-bauen schon in main und gelöscht. Die getestete Exe lag noch in Exe\Chatbot-für-Text_branch_Cockpit-exe-bauen. „Exe-Bau abschließen …“ fehlte, und „Exe veröffentlichen …“ fand keine Exe.
+
+- „Exe-Bau abschließen …“ steht da, solange es den Branch oder noch seine Exe gibt. Ist der Branch schon weg: „Exe als normale Exe übernehmen und Release veröffentlichen“, „Exe als normale Exe übernehmen, später veröffentlichen“, „Ordner der neuen Exe im Explorer öffnen“, „Exe aus dem Branch verwerfen …“.
+- Release und Repository sind getrennt (Wunsch des Nutzers): „Exe veröffentlichen …“ geht auch mit der Exe aus dem Branch, ohne dass alles in main ist. Gibt es beide Exen, fragt das Cockpit, welche. Die neuere steht oben. Nach dem Veröffentlichen heißt ihr Ordner mit Version, zum Beispiel Exe\Chatbot-für-Text-v1.0.0, und sie gilt als normale Exe.
