@@ -499,3 +499,47 @@ def test_fix_after_a_problem_hands_error_and_chat_to_the_ai(qtbot, tmp_path, pro
     assert whats[1] == ("Die KI versucht, das Problem zu lösen. Fehler und Chat wurden an die "
                         "KI übergeben")
     assert wizard.error == "Fehlerhafter Code."
+
+
+def test_real_fix_button_goes_to_step_three_with_error_and_chat(qtbot, tmp_path, projects_root,
+                                                                make_services, monkeypatch):
+    """Rückmeldung des Nutzers (04.10.2026): "Problem mit KI lösen" fragte nach dem Abbrechen,
+    statt mit Fehler und Chat zu Schritt 3 zu gehen. Hier mit dem echten Fenster und Knopf."""
+    from cockpit.features.exe_build.ai_fix import Proposal
+    from cockpit.ui import exe_ai
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    settings = exe.BuildSettings("main.py", "Tagebuch")
+    Recorder(monkeypatch, settings, summary=[exe_wizard.NEXT, exe_wizard.CANCEL])
+    asked = []
+    monkeypatch.setattr(exe_wizard, "confirm", lambda *a, **k: asked.append(a) or True)
+    whats = []
+
+    class Work:
+        def __init__(self, project_, work, with_ai, parent=None, what="", title=""):
+            whats.append(what)
+            self.result_value = (project.code_dir, Proposal(), [])
+            self.failure, self.back_requested = None, False
+
+        def exec(self):
+            return 1
+
+    def press_fix(dialog):
+        dialog.chat.history.append(("Warum?", "Es fehlt import sys."))     # gechattet
+        dialog.next_button.click()
+        return 1
+
+    monkeypatch.setattr(exe_ai, "WorkDialog", Work)
+    monkeypatch.setattr(exe_wizard.ProblemDialog, "exec", press_fix)
+    failures = [("Fehlerhafter Code.", "NameError: sys")]
+    monkeypatch.setattr(exe_wizard.ExeWizard, "apply_proposal",
+                        lambda self: failures.pop(0) if failures else None)
+    monkeypatch.setattr(services, "ai_problem", lambda tool_id=None: "")
+    monkeypatch.setattr(exe_wizard.ExeWizard, "step_mode", lambda self: "setup")
+    win = window(qtbot, services)
+    wizard = exe_wizard.ExeWizard(win.controller.exe, project)
+    wizard.ai = object()
+    wizard.run()
+    assert whats[1] == ("Die KI versucht, das Problem zu lösen. Fehler und Chat wurden an die "
+                        "KI übergeben")
+    assert "NameError: sys" in wizard.error and "import sys" in wizard.hints
+    assert asked == []                        # keine Frage nach dem Abbrechen

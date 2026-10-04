@@ -269,7 +269,9 @@ class ProblemDialog(StepDialog):
     def finish(self, choice: str) -> None:
         if self.chat is not None:
             self.hints = self.chat.hints()
-        super().finish(choice)
+        # Der Knopf zum nächsten Schritt ist hier "Problem mit KI lösen" (Rückmeldung vom
+        # 04.10.2026: vorher kam stattdessen die Frage nach dem Abbrechen)
+        super().finish(FIX if choice == NEXT else choice)
 
     def done(self, code: int) -> None:
         if self.chat is not None:
@@ -496,7 +498,7 @@ class ExeWizard:
         dialog = ProblemDialog(self.project, self._number("setup"), message, details,
                                self.services if with_ai else None, self.window)
         dialog.exec()
-        if dialog.choice == FIX:
+        if dialog.choice in (FIX, NEXT):
             self.error = dialog.text
             self.hints = dialog.hints
             self.proposal = None
