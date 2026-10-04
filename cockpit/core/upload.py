@@ -157,19 +157,37 @@ def _step_commit(context: FlowContext) -> StepResult:
     return StepResult(True)
 
 
+def repo_missing(platform, code_dir: Path) -> bool:
+    """Ist eine Adresse eingetragen, das Repository auf der Plattform aber nicht da? Rückmeldung
+    des Nutzers vom 04.10.2026: Bei Chatbot-fuer-Text stand die Adresse in Git, auf GitHub gab
+    es das Repository nicht, und das Cockpit bot das Anlegen nicht an."""
+    from cockpit.platforms.base import NotFound, RepoRef
+    address = git.parse_remote(git.config_get(code_dir, "remote.origin.url"))
+    if address is None:
+        return False
+    try:
+        platform.repo_info(RepoRef(address.owner, address.name))
+    except NotFound:
+        return True
+    return False
+
+
 def _step_create(context: FlowContext) -> StepResult:
     code_dir = context.project.code_dir
     spec: UploadSpec = context.data["spec"]
     platform = context.data["platform"]
     existing = git.config_get(code_dir, "remote.origin.url")
-    if existing:
+    if existing and not repo_missing(platform, code_dir):
         context.data["remote_url"] = existing
         return StepResult(True)
     from cockpit.platforms.base import NewRepo
     ref = platform.create_repo(NewRepo(spec.name, spec.description, spec.private,
                                        spec.organization, spec.license))
     url = platform.clone_url(ref)
-    git.run(["remote", "add", "origin", url], code_dir, action="Verbinden")
+    if existing:                     # Adresse war eingetragen, das Repository fehlte
+        git.run(["remote", "set-url", "origin", url], code_dir, action="Verbinden")
+    else:
+        git.run(["remote", "add", "origin", url], code_dir, action="Verbinden")
     context.data["remote_url"] = url
     context.data["repo"] = ref
     visibility = "privates" if spec.private else "öffentliches"

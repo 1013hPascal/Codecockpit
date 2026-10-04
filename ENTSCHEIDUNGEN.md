@@ -1002,3 +1002,14 @@ Update:
 
 Anzeige beim Hochladen:
 - Während das Release hochgeladen wird, steht bei „Exe veröffentlichen …“ „wird gerade hochgeladen“ statt „noch nicht veröffentlicht“.
+
+
+## 04.10.2026: Repository anlegen, wenn es fehlt, Adresse nach dem Löschen entfernen
+
+Rückmeldung des Nutzers: Bei Chatbot-fuer-Text stand in Git noch die Adresse eines Repositorys, das er vorher gelöscht hatte. Das Cockpit hielt das Projekt deshalb für „auf GitHub“ und bot weder das Anlegen noch das Hochladen an. Gebaut im Branch repo-anlegen, Checkliste in checklisten\repo-anlegen.md.
+
+- Das Cockpit prüft im Hintergrund, ob es das eingetragene Repository auf der Plattform gibt: bei „Projekt neu einlesen“, nach dem Hinzufügen und bei „Projekt verwalten …“. Fehlt es, fragt es „Jetzt anlegen und hochladen?“, Vorgabe „Später“.
+- Dann steht oben auf der Projektzeile „Repository auf GitHub anlegen und hochladen …“. Bei Code steht „Auf GitHub hochladen …“ statt „Änderungen auf GitHub hochladen …“. Dieselbe Aktion steht auch bei Projekten, die noch gar nicht auf GitHub sind.
+- Das erste Hochladen legt das Repository auch dann an, wenn schon eine Adresse eingetragen ist, das Repository aber fehlt. Die Adresse wird danach auf das neue Repository gesetzt. Vorgeschlagen wird der Name aus der Adresse.
+- „Projekt neu einlesen“ fragt bei einem Projekt ohne Repository auch, ob es hochgeladen werden soll (Wunsch des Nutzers).
+- Nach dem Löschen eines Repositorys entfernt das Cockpit die Verbindung origin immer, auch wenn das Projekt danach aus der Liste entfernt wird. Beim Löschen eines Repositorys, das nur auf GitHub steht, trennt es alle Projekte mit dieser Adresse, auch aus der Liste entfernte.

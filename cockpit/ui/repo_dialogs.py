@@ -353,10 +353,17 @@ class ManageRepoDialog(FocusDialog):
         name = self.ref.name
         announce(f"{name} ist auf {self.platform_name} gelöscht.")
         folder = self.project.code_dir
+        # Wunsch des Nutzers (04.10.2026): Die Adresse kommt in beiden Fällen weg
+        try:
+            repo_admin.disconnect(self.project.code_dir)
+            self.services.projects.set_remote(self.project, None, None)
+        except CockpitError as exc:
+            show_error(self, "Gelöscht", exc.message, exc.details)
         text = (f"{name} ist auf {self.platform_name} gelöscht. Der Ordner auf Ihrem Rechner ist "
-                f"unverändert: {folder}. Nur lokal behalten: Das Projekt bleibt in der Liste und "
-                f"heißt „noch nicht auf {self.platform_name}“. Aus der Liste entfernen: Das "
-                "Cockpit vergisst das Projekt, der Ordner bleibt trotzdem.")
+                f"unverändert: {folder}. Die Verbindung zum gelöschten Repository ist entfernt. "
+                f"Nur lokal behalten: Das Projekt bleibt in der Liste und heißt „noch nicht auf "
+                f"{self.platform_name}“. Aus der Liste entfernen: Das Cockpit vergisst das "
+                "Projekt, der Ordner bleibt trotzdem.")
         choice = ask_buttons(self, "Gelöscht", text, ["Nur lokal behalten",
                                                       "Aus der Liste entfernen"],
                              default=0, escape=0)
@@ -364,9 +371,6 @@ class ManageRepoDialog(FocusDialog):
             if choice == 1:
                 self.services.projects.remove(self.project.id)
                 self.removed = True
-            else:
-                repo_admin.disconnect(self.project.code_dir)
-                self.services.projects.set_remote(self.project, None, None)
         except CockpitError as exc:
             show_error(self, "Gelöscht", exc.message, exc.details)
         self.accept()

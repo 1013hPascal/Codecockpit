@@ -97,8 +97,11 @@ class UploadRunner:
         offered = [(m.id, m.name) for m in features.visible_features()]
         from cockpit.ui import ai_suggest
         source = ai_suggest.for_description(self.services, self.project)
+        # Ist schon eine Adresse eingetragen (Repository fehlt auf der Plattform), deren Namen
+        name = self.project.remote.name if self.project.remote is not None else \
+            upload.suggest_name(self.project.name)
         dialog = upload_dialogs.UploadDialog(
-            self.title, upload.suggest_name(self.project.name), self.window.project_list.platform_name,
+            self.title, name, self.window.project_list.platform_name,
             user, organizations, settings.default_private, settings.default_license,
             self.window, offered, features.project_features(self.project), source=source)
         if not dialog.exec() or dialog.spec is None:
