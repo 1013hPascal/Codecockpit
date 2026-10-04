@@ -260,8 +260,14 @@ def test_zip_download_extracts_the_exe(own):
     target = update.download(found, own, transport=transport(data, ZIP))
     assert target == own.parent / exe.PENDING / "CodeCockpit.exe"
     assert target.read_bytes() == NEW_BYTES
-    assert [p.name for p in (own.parent / exe.PENDING).iterdir()] == ["CodeCockpit.exe"]
+    # README und Lizenz kommen mit (Wunsch des Nutzers vom 03.10.2026), sonst nichts
+    assert sorted(p.name for p in (own.parent / exe.PENDING).iterdir()) == ["CodeCockpit.exe",
+                                                                           "LICENSE"]
     assert update.is_waiting(own)
+    (own.parent / "LICENSE").write_text("alt", encoding="utf-8")
+    script = update.swap(own, found.version, start=False).read_text(encoding="utf-8")
+    assert f'"{own.parent / exe.PENDING / "LICENSE"}" "{own.parent / "LICENSE"}"' in script
+    assert f'"{own.parent / "LICENSE"}"' in script
 
 
 def test_zip_without_exe_or_folder_build_is_refused(own):

@@ -85,7 +85,8 @@ def test_adopt_file_with_backup(make_services, projects_root, tmp_path):
     fake_exe(project.exe_dir, "Alt.exe", "alt")
     source = fake_exe(tmp_path / "woanders", "Neu.exe", "neu")
     target = exe.adopt(project, source)
-    assert target == project.exe_dir / "Neu.exe" and source.is_file()     # kopiert
+    # Eigener Ordner für die Exe (Wunsch des Nutzers vom 03.10.2026)
+    assert target == project.exe_dir / "Neu" / "Neu.exe" and source.is_file()     # kopiert
     assert not (project.exe_dir / "Alt.exe").exists()
     saved = [b for b in backups.all_backups() if (b.path / "Alt.exe").is_file()]
     assert saved and (saved[0].path / "Alt.exe").read_text() == "alt"
@@ -97,7 +98,7 @@ def test_adopt_folder_and_errors(make_services, projects_root, tmp_path):
     folder = tmp_path / "Programm"
     fake_exe(folder, "Programm.exe")
     (folder / "daten.bin").write_text("d")
-    assert exe.adopt(project, folder).is_dir()
+    assert exe.adopt(project, folder) == project.exe_dir / "Programm" / "Programm.exe"
     assert exe.current_exe(project) == project.exe_dir / "Programm" / "Programm.exe"
     with pytest.raises(CockpitError, match="Exe-Datei wählen"):
         exe.adopt(project, fake_exe(tmp_path, "notiz.txt"))
@@ -187,7 +188,8 @@ def test_build_replaces_only_after_the_test(make_services, projects_root, tmp_pa
     monkeypatch.setattr(exe, "start_test", lambda path, seconds, self_test, cancel, windowed=False:
                         "Start-Test bestanden.")
     result = exe.build(project, settings, steps.append, steps.append)
-    assert (project.exe_dir / "Rechner.exe").read_text() == "neu"
+    assert (project.exe_dir / "Rechner" / "Rechner.exe").read_text() == "neu"
+    assert not (project.exe_dir / "Rechner.exe").exists()                # alte Ablage aufgeräumt
     assert result.backup is not None and (result.backup / "Rechner.exe").read_text() == "alt"
     assert "Schritt 3 von 4: Exe wird getestet" in steps and "Start-Test bestanden." in steps
     assert exe.read_record(project.code_dir).source == "cockpit"
@@ -202,14 +204,14 @@ def test_own_exe_waits_for_restart(make_services, projects_root, tmp_path, monke
     built = fake_exe(tmp_path / "dist", "Rechner.exe", "neu")
     result = exe.install(project, built, "abc")
     assert result.pending
-    assert (project.exe_dir / exe.PENDING / "Rechner.exe").read_text() == "neu"
+    assert (project.exe_dir / exe.PENDING / "Rechner" / "Rechner.exe").read_text() == "neu"
     assert (project.exe_dir / "Rechner.exe").read_text() == "alt"
     assert exe.current_exe(project) == project.exe_dir / "Rechner.exe"
     assert exe.status_line(project, head="abc").endswith("wartet auf den Neustart")
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     script = exe.restart_script(project).read_text(encoding="utf-8")
     assert "tasklist" in script and f'"{project.exe_dir / "Rechner.exe"}"' in script
-    assert f'start "" "{project.exe_dir / "Rechner.exe"}"' in script
+    assert f'start "" "{project.exe_dir / "Rechner" / "Rechner.exe"}"' in script
     assert not exe.read_record(project.code_dir).pending
 
 
@@ -231,13 +233,20 @@ def test_versions():
 def test_assets_and_unpack(make_services, projects_root, tmp_path):
     from cockpit.platforms.base import ReleaseAsset
     services, project = project_with(make_services, projects_root)
+    # Immer der ganze Ordner als ZIP mit festem Namen, darin ein Ordner mit der Version
+    (project.code_dir / "LICENSE").write_text("MIT License\n", encoding="utf-8")
     single = fake_exe(project.exe_dir)
-    assert exe.asset_for_upload(project, single, tmp_path) == single
+    archive = exe.asset_for_upload(project, single, tmp_path / "eins", "1.0.0")
+    assert archive.name == "Rechner.zip"
+    assert sorted(n for n in zipfile.ZipFile(archive).namelist() if not n.endswith("/")) == [
+        "Rechner-1.0.0/LICENSE", "Rechner-1.0.0/Rechner.exe"]
     folder_exe = fake_exe(project.exe_dir / "Programm", "Programm.exe")
-    archive = exe.asset_for_upload(project, folder_exe, tmp_path)
-    assert archive.suffix == ".zip" and "Programm/Programm.exe" in zipfile.ZipFile(archive).namelist()
+    archive = exe.asset_for_upload(project, folder_exe, tmp_path / "zwei", "1.2.0")
+    assert archive.name == "Programm.zip"
+    assert "Programm-1.2.0/Programm.exe" in zipfile.ZipFile(archive).namelist()
     unpacked = exe.unpack(archive, tmp_path / "raus")
     assert (unpacked / "Programm.exe").is_file()
+    assert exe.release_docs(project) == [project.code_dir / "LICENSE"]
     assets = [ReleaseAsset(1, "quelle.tar.gz", 1), ReleaseAsset(2, "App.zip", 1),
               ReleaseAsset(3, "App.exe", 1)]
     assert exe.pick_asset(assets).id == 3 and exe.pick_asset(assets[:2]).id == 2
@@ -523,7 +532,7 @@ def test_build_dialog_asks_when_blocked(qtbot, make_services, projects_root, tmp
     last = dialog.output.item(dialog.output.count() - 1).text()
     if answer:
         assert last.startswith("Exe erstellt, nicht geprüft und übernommen")
-        assert (project.exe_dir / "Rechner.exe").read_text() == "neu"
+        assert (project.exe_dir / "Rechner" / "Rechner.exe").read_text() == "neu"
     else:
         assert last == "Die neue Exe wurde verworfen. Die bisherige bleibt."
         assert (project.exe_dir / "Rechner.exe").read_text() == "alt"

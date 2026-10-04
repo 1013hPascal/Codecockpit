@@ -20,7 +20,7 @@ from cockpit.ui import exe_ai, exe_flow
 from cockpit.ui.exe_chat import ExeChat
 from tests.conftest import said
 from tests.test_phase8b import quiet_machine  # noqa: F401 (Fixture)
-from tests.test_projektuebersichten import FakeTextAI, exe_window  # noqa: F401
+from tests.test_projektuebersichten import FakeTextAI  # noqa: F401
 
 
 def vokabel_project(tmp_path) -> Project:
@@ -100,14 +100,6 @@ def test_settings_dialog_keeps_saved_folders(qtbot, tmp_path):
     assert dialog.chosen_beside() == ["Meine-Vokabeln", "Extra"]
 
 
-def test_ready_lines_name_the_folders(tmp_path):
-    project = vokabel_project(tmp_path)
-    assert exe_flow.beside_line(project).startswith("Neben die Exe kommt kein Ordner.")
-    exe.write_settings(project.code_dir, exe.BuildSettings("gui.py", "VokabelApp",
-                                                           beside=["Meine-Vokabeln"]))
-    assert exe_flow.beside_line(project) == "Neben die Exe kommen: Meine-Vokabeln."
-
-
 def test_prompt_explains_the_folders():
     _prompt, system = ai_fix.build_prompt("V", exe.BuildSettings("gui.py", "V"), [], "", "")
     assert "Ordner neben der Exe" in system and "exist_ok=True" in system
@@ -170,173 +162,6 @@ def proposal():
                            changes=[ai_fix.Change("gui.py", "Grund", "alt", "neu")])
 
 
-def test_proposal_dialog_repeats_only_with_hints(qtbot, make_services):
-    project = Project(1, "VokabelApp", Path("x"), Path("x/Code"), None)
-    dialog = exe_ai.ProposalDialog(project, proposal(), services=make_services())
-    qtbot.addWidget(dialog)
-    dialog.show()
-    assert dialog.chat is not None
-    assert "Bisher:" in dialog.lines() and "neu" in dialog.lines()
-    dialog.repeat()
-    assert dialog.isVisible() and dialog.repeat_hints == ""       # erst fragen
-    dialog.chat.history.append(("Frage?", "Antwort."))
-    dialog.repeat()
-    assert not dialog.isVisible() and dialog.repeat_hints.startswith("Frage: Frage?")
-
-
-def test_proposal_dialog_without_ai_has_no_chat(qtbot):
-    project = Project(1, "VokabelApp", Path("x"), Path("x/Code"), None)
-    dialog = exe_ai.ProposalDialog(project, proposal())
-    qtbot.addWidget(dialog)
-    assert dialog.chat is None
-
-
-def test_review_repeats_with_the_hints(exe_window, monkeypatch):
-    win, project, _built, _shown = exe_window
-    runs = []
-    flow = exe_ai.ExeAIFlow(win.controller.exe, project, on_finished=lambda *a: None)
-    flow.ai, flow.wish, flow.error = ChatAI(), "Ordner mitnehmen", ""
-    monkeypatch.setattr(exe_ai.ExeAIFlow, "run",
-                        lambda self, ai, wish, error="": runs.append(wish))
-
-    class Repeating:
-        def __init__(self, *args, **kwargs):
-            self.repeat_hints = "Frage: x\nAntwort der KI: y"
-
-        def exec(self):
-            return False
-
-    monkeypatch.setattr(exe_ai, "ProposalDialog", Repeating)
-    flow.review(proposal())
-    assert runs == ["Ordner mitnehmen\n\nHinweise aus dem Gespräch mit dem Nutzer:\nFrage: x\n"
-                    "Antwort der KI: y"]
-    assert said("Der letzte Schritt wird mit den Hinweisen wiederholt.")
-
-
-def test_ready_dialog_repeats_the_last_step(exe_window, monkeypatch, tmp_path):
-    win, project, built, _shown = exe_window
-    monkeypatch.undo()
-    repeated = []
-
-    class Flow:
-        ai = object()
-
-        def repeat(self, hints):
-            repeated.append(hints)
-
-    class Repeating:
-        def __init__(self, project_, lines, parent=None, services=None):
-            assert services is not None                    # mit KI: Fragefeld da
-            self.repeat_hints = "Frage: x\nAntwort der KI: y"
-
-        def exec(self):
-            return False
-
-    monkeypatch.setattr(exe_flow, "ReadyDialog", Repeating)
-    win.controller.exe.offer_build(ActionContext(win.services, project, Target.EXE), ["x"],
-                                   tmp_path, Flow())
-    assert repeated == ["Frage: x\nAntwort der KI: y"]
-
-
-def test_ready_dialog_buttons(qtbot, make_services):
-    project = Project(1, "VokabelApp", Path("x"), Path("x/Code"), None)
-    dialog = exe_flow.ReadyDialog(project, ["Änderungen übernommen."], services=make_services())
-    qtbot.addWidget(dialog)
-    dialog.show()
-    assert dialog.chat is not None
-    assert dialog.build_button.text() == "Exe e&rstellen"
-    dialog.repeat()
-    assert dialog.isVisible()                                     # ohne Frage kein Wiederholen
-    plain = exe_flow.ReadyDialog(project, ["x"])
-    qtbot.addWidget(plain)
-    assert plain.chat is None
-
-
-# -- 3. Einstellungen als erster Schritt (Wunsch vom 02.10.2026) -------------------------------
-def test_flow_dialog_starts_with_the_folders(qtbot, tmp_path):
-    project = vokabel_project(tmp_path)
-    dialog = exe_flow.BuildSettingsDialog(project, in_flow=True)
-    qtbot.addWidget(dialog)
-    assert dialog.windowTitle() == "Exe aus dem Code erstellen: VokabelApp, Einstellungen"
-    assert dialog.initial_focus_widget is dialog.beside
-
-
-def settings_window(exe_window, monkeypatch, answer):
-    """answer(dialog) wählt im Einstellungs-Fenster und gibt True für Weiter zurück."""
-    win, project, _built, _shown = exe_window
-    monkeypatch.undo()
-    shown = []
-
-    def fake_exec(dialog):
-        shown.append(dialog.chosen_beside())
-        if not answer(dialog):
-            return False
-        dialog.form.fields["start_file"].set("main.py")
-        dialog.check()
-        return dialog.settings is not None
-
-    monkeypatch.setattr(exe_flow.BuildSettingsDialog, "exec", fake_exec)
-    return win, project, shown
-
-
-def test_settings_step_saves_the_choice(exe_window, monkeypatch):
-    def choose(dialog):
-        dialog.new_name.setText("Meine-Vokabeln")
-        dialog.add_new()
-        return True
-
-    win, project, shown = settings_window(exe_window, monkeypatch, choose)
-    assert win.controller.exe.settings_step(project)
-    assert exe.read_settings(project.code_dir).beside == ["Meine-Vokabeln"]
-    assert (project.code_dir / exe.read_settings(project.code_dir).spec_name).is_file()
-    assert said("Exe-Einstellungen gespeichert.")
-    assert win.controller.exe.settings_step(project)                # gespeicherte Auswahl
-    assert shown[-1] == ["Meine-Vokabeln"]
-
-
-def test_cancelled_settings_stop_the_flow(exe_window, monkeypatch):
-    win, project, shown = settings_window(exe_window, monkeypatch, lambda dialog: False)
-    asked = []
-    monkeypatch.setattr(exe_flow, "choose_from_list", lambda *a: asked.append(a) or None)
-    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
-    assert shown and asked == []                                  # keine Frage mit oder ohne KI
-    assert exe.read_settings(project.code_dir) is None
-
-
-def test_settings_come_before_the_ai_choice(exe_window, monkeypatch):
-    win, project, _built, _shown = exe_window
-    order = []
-    monkeypatch.setattr(exe_flow.ExeActions, "settings_step",
-                        lambda self, p: order.append("Einstellungen") or True)
-    monkeypatch.setattr(exe_flow, "choose_from_list",
-                        lambda *a: order.append("mit oder ohne KI") or None)
-    win.controller.exe.build_menu(ActionContext(win.services, project, Target.EXE))
-    assert order == ["Einstellungen", "mit oder ohne KI"]
-
-
-def test_branch_build_uses_the_new_folders(exe_window, monkeypatch, tmp_path):
-    win, project, _built, _shown = exe_window
-    branch = tmp_path / "Branch"
-    branch.mkdir()
-    exe.write_settings(project.code_dir, exe.BuildSettings("main.py", "Rechner",
-                                                           beside=["Meine-Vokabeln"]))
-    exe.write_settings(branch, exe.BuildSettings("main.py", "Rechner", beside=["Daten"]))
-    used = []
-
-    class FakeBuild:
-        def __init__(self, services, project_, settings, *args, **kwargs):
-            used.append(settings.beside)
-            self.result, self.fix_requested = None, False
-
-        def exec(self):
-            return False
-
-    monkeypatch.setattr(exe_flow, "BuildDialog", FakeBuild)
-    monkeypatch.setattr(exe, "find_python", lambda: ["py"])
-    win.controller.exe.build_ai_branch(project, branch)
-    assert used == [["Meine-Vokabeln", "Daten"]]
-
-
 # -- 4. Fehlerfenster beim Start und selbst testen (Rückmeldung vom 02.10.2026) ----------------
 def test_start_test_fails_on_an_error_window(tmp_path, monkeypatch):
     """Bei einer Exe mit Fenster lief das Programm mit Fehlerfenster weiter, der Test bestand."""
@@ -397,64 +222,6 @@ def self_test_dialog(qtbot, tmp_path):
     return dialog
 
 
-def test_self_test_needs_a_message_for_the_ai(qtbot, tmp_path):
-    dialog = self_test_dialog(qtbot, tmp_path)
-    assert dialog.windowTitle() == "Exe selbst testen: VokabelApp"
-    assert dialog.edit.accessibleName() == "Fehlermeldung oder Beschreibung"
-    dialog.request_fix()
-    assert dialog.isVisible() and dialog.choice == ""
-    assert said("Bitte fügen Sie zuerst die Fehlermeldung ein")
-    dialog.edit.setPlainText("NameError: name 'sys' is not defined")
-    dialog.request_fix()
-    assert dialog.choice == exe_flow.SelfTestDialog.FIX
-    assert dialog.error_text == "NameError: name 'sys' is not defined"
-
-
-def test_self_test_starts_the_exe(qtbot, tmp_path, monkeypatch):
-    from cockpit.core import core_actions
-    started = []
-    monkeypatch.setattr(core_actions, "start_program", started.append)
-    dialog = self_test_dialog(qtbot, tmp_path)
-    dialog.start_exe()
-    assert started == [dialog.exe_path]
-
-
-def test_choose_self_test_opens_the_window(exe_window, monkeypatch, tmp_path):
-    win, project, _built, _shown = exe_window
-    monkeypatch.setattr(exe_flow, "ask_buttons", lambda *a, **k: 0)   # selbst testen
-    tested = []
-    monkeypatch.setattr(exe_flow.ExeActions, "self_test",
-                        lambda self, p, path: tested.append(path))
-    win.controller.exe.after_branch_test(project, "x.exe", tmp_path / "x.exe")
-    assert tested == [tmp_path / "x.exe"]
-
-
-def test_pasted_error_goes_to_the_ai(exe_window, monkeypatch, tmp_path):
-    win, project, _built, _shown = exe_window
-    fixes, merges = [], []
-
-    class Dialog:
-        FIX, MERGE = "fix", "merge"
-
-        def __init__(self, *args):
-            self.choice, self.error_text = "fix", "NameError: name 'sys' is not defined"
-
-        def exec(self):
-            return True
-
-    monkeypatch.setattr(exe_flow, "SelfTestDialog", Dialog)
-    monkeypatch.setattr(exe_flow.ExeActions, "fix_with_ai",
-                        lambda self, p, error: fixes.append(error))
-    monkeypatch.setattr(exe_flow.ExeActions, "merge_ai_branch",
-                        lambda self, p, delete: merges.append(delete))
-    win.controller.exe.self_test(project, tmp_path / "x.exe")
-    assert fixes == ["NameError: name 'sys' is not defined"]
-    Dialog.__init__ = lambda self, *a: setattr(self, "choice", "merge")
-    monkeypatch.setattr(exe_flow, "ask_buttons", lambda *a, **k: 1)       # Branch löschen
-    win.controller.exe.self_test(project, tmp_path / "x.exe")
-    assert merges == [True]
-
-
 # -- 5. Leerer Ordner neben der Exe wird gefüllt (Rückmeldung vom 02.10.2026) ------------------
 def test_empty_folder_from_the_start_test_gets_the_files(tmp_path):
     """Die Exe legte Meine-Vokabeln beim Start-Test leer an. Die Vokabeln fehlten danach."""
@@ -490,7 +257,9 @@ def test_files_like_the_readme_can_be_chosen(tmp_path):
     (project.code_dir / "readme.md").write_text("# Vokabeln\n", encoding="utf-8")
     (project.code_dir / "start.bat").write_text("@echo off\n", encoding="utf-8")
     names = exe_flow.beside_candidates(project.code_dir)
-    assert "readme.md" in names and "start.bat" in names and "gui.py" not in names
+    # Seit dem 03.10.2026 kommt die README immer mit und steht nicht mehr zur Wahl
+    assert "readme.md" not in names and "start.bat" in names and "gui.py" not in names
+    assert "readme.md" in exe.beside_names(project)
     home = tmp_path / "home"
     home.mkdir()
     exe.place_beside(project, ["readme.md"], home, None, None)

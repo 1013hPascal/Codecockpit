@@ -208,6 +208,39 @@ def switch(code_dir: Path, name: str) -> None:
         raise git.explain(result, "Branch wechseln")
 
 
+def leave_discarding(code_dir: Path, project_name: str, target: str) -> Path | None:
+    """Zu target wechseln und die Änderungen ohne Commit verwerfen, zum Beispiel vor dem Löschen
+    des aktuellen Branches (Wunsch des Nutzers vom 03.10.2026: was im gelöschten Branch war, soll
+    nicht in main landen). Die geänderten und neuen Dateien kommen vorher in die
+    Sicherheitskopien. Gibt deren Ordner zurück, None wenn es nichts zu sichern gab."""
+    import shutil
+    entries = git.run(["status", "--porcelain", "-z", "--untracked-files=all"], code_dir,
+                      action="Stand lesen").stdout.split("\0")
+    files: list[str] = []
+    skip = False
+    for entry in entries:
+        if skip:
+            skip = False
+            continue
+        if len(entry) < 4:
+            continue
+        if entry[0] in "RC":
+            skip = True                       # danach folgt der alte Name
+        files.append(entry[3:])
+    backup = None
+    existing = [f for f in files if (code_dir / f).is_file()]
+    if existing:
+        backup = backups.new_backup_dir(project_name, "Änderungen vor dem Löschen des Branches",
+                                        code_dir)
+        for name in existing:
+            target_file = backup / name
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(code_dir / name, target_file)
+    git.run(["switch", "-q", "--discard-changes", target], code_dir, action="Branch wechseln")
+    git.run(["clean", "-q", "-f", "-d"], code_dir, action="Neue Dateien entfernen")
+    return backup
+
+
 def rename_local(code_dir: Path, old: str, new: str) -> None:
     problem = name_problem(code_dir, new)
     if problem:

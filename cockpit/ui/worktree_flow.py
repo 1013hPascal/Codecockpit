@@ -2,8 +2,8 @@
 
 Aktionen:
 - Code: "Ordner für Branches einrichten …" (alte Struktur) und "Neuer Branch …" (neue Struktur).
-- Branch-Ordner: die Aktionen von Code. "Branch-Ordner entfernen …" steht seit dem 30.09.2026
-  in "Branches verwalten".
+- Branch-Ordner: die Aktionen von Code. "Branch-Ordner entfernen …" gibt es seit dem 03.10.2026
+  nicht mehr, "Löschen …" in "Branches verwalten" erledigt das (Wunsch des Nutzers).
 - "Branches auf GitHub": Enter zeigt die Branches anderer zur Auswahl. Der gewählte steht danach
   vorübergehend in der Liste.
 - Ein solcher Branch: "In Liste anpinnen" legt seinen Ordner an, "Aus der Liste entfernen",
@@ -103,9 +103,7 @@ class WorktreeActions:
             dialog = BranchesDialog(project, items, env, self.platform_name, self.window,
                                     {tree.branch: tree.folder}, single=True)
             dialog.exec()
-            if dialog.remove_request:
-                self.remove(context)
-            elif dialog.delete_request:
+            if dialog.delete_request:
                 self.delete(project, tree, env)
             else:
                 self.window.refresh_status([project.id])
@@ -122,9 +120,10 @@ class WorktreeActions:
                          project.code_dir, check=False).returncode == 0
         buttons = ["Nur auf diesem Rechner"] + ([f"Hier und auf {self.platform_name}"]
                                                 if remote else []) + ["Abbrechen"]
-        text = (f"{name} wird gelöscht, mit dem Ordner Code\\{tree.folder}. Liegt darin etwas, "
-                "das noch nicht hochgeladen ist, kommt der Ordner vorher in die "
-                "Sicherheitskopien.")
+        # Wunsch des Nutzers (03.10.2026): Löschen verwirft alles, nichts kommt nach main
+        text = (f"{name} wird gelöscht, mit dem Ordner Code\\{tree.folder}. Änderungen darin "
+                "werden verworfen und kommen nicht nach main. Liegt darin etwas, das noch nicht "
+                "hochgeladen ist, kommt der Ordner vorher in die Sicherheitskopien.")
         choice = ask_buttons(self.window, "Branch löschen", text, buttons,
                              default=len(buttons) - 1, escape=len(buttons) - 1)
         if choice == len(buttons) - 1:
@@ -246,35 +245,6 @@ class WorktreeActions:
             f"project:{project.id}", work,
             lambda tree: self.after_created(project, tree, f"Branch {name} angelegt, im Ordner "
                                             f"Code\\{tree.folder}."), "Neuer Branch")
-
-    # -- Entfernen ----------------------------------------------------------------------------
-    def remove(self, context: ActionContext) -> None:
-        self.remove_tree(context.main_project, context.worktree)
-
-    def remove_tree(self, project: Project, tree: Worktree) -> None:
-        try:
-            backup = worktrees.needs_backup(tree)
-        except CockpitError as exc:
-            log.warning("Stand von %s: %s", tree.folder, exc.message)
-            backup = True
-        text = f"Der Ordner Code\\{tree.folder} wird gelöscht. Der Branch {tree.branch} bleibt."
-        if backup:
-            text += (" Im Ordner gibt es Änderungen, die noch nicht hochgeladen sind. Er kommt "
-                     "vorher als Sicherheitskopie in den Ordner backups.")
-        if not confirm(self.window, "Branch-Ordner entfernen", text + " Entfernen?",
-                       yes="Entfernen", no="Behalten"):
-            return
-
-        def work(task: Task):
-            return worktrees.remove(project, tree)
-
-        def done(saved) -> None:
-            self.window.refresh_status([project.id], on_done=lambda: self.window.project_list
-                                       .select(Target.CODE, project.id))
-            announce(f"Ordner {tree.folder} entfernt." + (" Sicherheitskopie angelegt."
-                                                          if saved else ""))
-
-        self.controller.run_task(f"project:{project.id}", work, done, "Branch-Ordner entfernen")
 
     # -- Branches anderer ---------------------------------------------------------------------
     def pick_remote(self, context: ActionContext) -> None:

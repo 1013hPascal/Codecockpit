@@ -1,13 +1,13 @@
 """Die Exe in der Oberfläche (Konzept 10.4, Phase 10).
 
 Aktionen: "Exe hinzufügen …" auf der Projektzeile. Bei "Exe" (zusammengefasst nach dem Wunsch des
-Nutzers, 30.09.2026): Exe aus dem Code erstellen, Exe veröffentlichen, Exe einlesen,
-Exe-Einstellungen, Links der Exe, Wie funktioniert die Exe?. Exe starten und Exe-Ordner öffnen
-stehen im Kern.
+Nutzers, 30.09.2026): Exe aus dem Code erstellen, Exe-Bau abschließen, Exe veröffentlichen, Exe
+einlesen, Exe-Einstellungen, Links der Exe, Wie funktioniert die Exe?. Exe starten und
+Exe-Ordner öffnen stehen im Kern.
 
-"Exe aus dem Code erstellen …" fragt zuerst: Exe mit KI einrichten oder Exe ohne KI einrichten.
-Mit eingerichteter Text-KI steht "mit KI" oben. Danach zeigt ReadyDialog das Ergebnis mit "Exe
-erstellen" und "Abbrechen". "Exe erstellen" startet den Bau in vier Schritten.
+"Exe aus dem Code erstellen …" führt seit dem 03.10.2026 Schritt für Schritt durch den Bau, immer
+im Branch Cockpit-exe-bauen (exe_wizard.py). "Exe-Bau abschließen …" steht da, solange es diesen
+Branch gibt: in main überführen, mit oder ohne Release, oder verwerfen.
 "Exe einlesen …" fragt: Exe-Datei wählen oder Exe aus einem Release wählen.
 
 BuildDialog: Ausgabe von PyInstaller als Liste, eine Zeile pro Zeile. Die Schritte sagt NVDA an
@@ -23,7 +23,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QItemSelectionModel, Qt, QTimer
+from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QFileDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton, QVBoxLayout, QWidget)
@@ -61,12 +61,13 @@ def _size(path: Path) -> str:
 # -- Fenster ----------------------------------------------------------------------------------------
 NOT_BESIDE = {"cockpit.toml", "requirements.txt", ".gitignore"}
 BESIDE_ROLE = Qt.ItemDataRole.UserRole + 1
+ALWAYS = ", kommt immer mit"
 
 
 def beside_candidates(code_dir: Path) -> list[str]:
-    """Was neben die Exe kommen kann: Ordner und Dateien im Ordner Code, zum Beispiel auch die
-    README (Wunsch des Nutzers, 02.10.2026). Ohne Python-Code, .spec-Datei, Pakete, versteckte
-    und Build-Ordner."""
+    """Was neben die Exe kommen kann: Ordner und Dateien im Ordner Code. Ohne Python-Code,
+    .spec-Datei, Pakete, versteckte und Build-Ordner. README und Lizenz stehen nicht hier, sie
+    kommen immer mit (Wunsch des Nutzers vom 03.10.2026)."""
     from cockpit.features.exe_build.setup_check import SKIP_DIRS, _packages
     packages = _packages(code_dir)
     names = []
@@ -74,40 +75,43 @@ def beside_candidates(code_dir: Path) -> list[str]:
         name = path.name
         if name.startswith(".") or name in SKIP_DIRS or name in packages or name in NOT_BESIDE:
             continue
-        if path.is_file() and path.suffix.lower() in (".py", ".pyw", ".pyc", ".spec", ".exe"):
+        if path.is_file() and (path.suffix.lower() in (".py", ".pyw", ".pyc", ".spec", ".exe")
+                               or exe.is_doc(name)):
             continue
         names.append(name)
     return names
 
 
 class BuildSettingsDialog(FocusDialog):
-    """Erster Bau: Startdatei, Name, Bauart, Konsolenfenster, Symbol. Darunter die Liste "Ordner
-    und Dateien neben der Exe" mit Kontrollkästchen (Wunsch des Nutzers, 02.10.2026): vom Code
-    benutzte Ordner sind vorgeschlagen und so benannt. Mit "Neuer Ordner" kommt ein Name dazu,
-    den es im Ordner Code noch nicht gibt. Er wird neben der Exe leer angelegt.
-    Wunsch des Nutzers (03.10.2026): Was der Code unbedingt braucht, heißt "…, unbedingt nötig"
-    und ist immer vorab angehakt. Wer es abhakt, wird beim Weiter gewarnt.
+    """Startdatei, Name, Bauart, Konsolenfenster, Symbol. Darunter die Liste "Ordner und Dateien
+    neben der Exe" mit Kontrollkästchen (Wunsch des Nutzers, 02.10.2026): Was der Code unbedingt
+    braucht, heißt "…, unbedingt nötig, vom Code benutzt" und ist immer vorab angehakt. Wer es
+    abhakt, wird beim Weiter gewarnt. README und Lizenz stehen ohne Kästchen in der Liste, mit
+    "kommt immer mit" (Wunsch des Nutzers vom 03.10.2026).
     Bei einer von Hand geschriebenen .spec-Datei stehen Startdatei, Name und Bauart dort. Das
     Formular dafür ist dann ausgeblendet, das Fenster sagt das, und gespeichert wird nur die
     Liste."""
 
     def __init__(self, project: Project, parent: QWidget | None = None,
-                 current: exe.BuildSettings | None = None, in_flow: bool = False) -> None:
+                 current: exe.BuildSettings | None = None, in_flow: bool = False,
+                 code_dir: Path | None = None) -> None:
         from cockpit.features.exe_build.setup_check import guess_start_file, required_beside
         super().__init__(parent)
-        # in_flow: erster Schritt von "Exe aus dem Code erstellen" (Wunsch des Nutzers,
-        # 02.10.2026). Mit Weiter wird gespeichert wie unter "Exe-Einstellungen …".
+        code_dir = code_dir or project.code_dir
+        # in_flow: Schritt 1 von "Exe aus dem Code erstellen". Gespeichert wird dort erst im
+        # Branch, nie in main (Wunsch des Nutzers vom 03.10.2026).
         if in_flow:
-            self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}, Einstellungen")
+            self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}, Schritt 1: "
+                                "Dateien neben der Exe")
         else:
             self.setWindowTitle(f"Exe-Einstellungen: {project.name}" if current
                                 else f"Exe einrichten: {project.name}")
         self.current = current
         self.settings: exe.BuildSettings | None = None
         if current is None:
-            current = exe.BuildSettings(guess_start_file(project.code_dir),
+            current = exe.BuildSettings(guess_start_file(code_dir),
                                         project.name.replace(" ", "-"),
-                                        beside=required_beside(project.code_dir))
+                                        beside=required_beside(code_dir))
         fields = [sf.Text("start_file", "Startdatei", current.start_file, required=True),
                   sf.Text("name", "Name der Exe", current.name, required=True,
                           pattern=r"[\w\-. ]+", pattern_hint="Bitte nur Buchstaben, Ziffern, "
@@ -120,17 +124,21 @@ class BuildSettingsDialog(FocusDialog):
                           current.icon)]
         self.form = SettingsForm(fields)
         self.handmade = self.current is not None and \
-            not exe.own_spec(project.code_dir / self.current.spec_name)
-        self.required = required_beside(project.code_dir, self.current)
+            not exe.own_spec(code_dir / self.current.spec_name)
+        self.required = [n for n in required_beside(code_dir, self.current) if not exe.is_doc(n)]
         self.beside = QListWidget()
         beside_label = label_for(self.beside, "&Ordner und Dateien neben der Exe:")
         names = list(self.required)
-        names += [n for n in beside_candidates(project.code_dir) if n not in names]
-        names += [n for n in current.beside if n not in names]
+        names += [n for n in beside_candidates(code_dir) if n not in names]
+        names += [n for n in current.beside if n not in names and not exe.is_doc(n)]
         for name in names:
             needed = name in self.required
             self._add_beside(name, needed or name in current.beside, needed,
-                             not (project.code_dir / name).exists())
+                             not (code_dir / name).exists())
+        for name in exe.doc_files(code_dir):
+            item = QListWidgetItem(name + ALWAYS)
+            item.setData(BESIDE_ROLE, name)
+            self.beside.addItem(item)
         self.beside.setCurrentRow(0)
         self.new_name = QLineEdit()
         new_label = label_for(self.new_name, "&Neuer Ordner neben der Exe:")
@@ -141,12 +149,12 @@ class BuildSettingsDialog(FocusDialog):
         ok.clicked.connect(self.check)
         cancel = QPushButton("Abbrechen")
         cancel.clicked.connect(self.reject)
-        self.code_dir = project.code_dir
+        self.code_dir = code_dir
         layout = QVBoxLayout(self)
         if in_flow:
-            hint = QLabel("Prüfen Sie zuerst die Einstellungen, vor allem die Ordner neben der "
-                          "Exe. Mit Weiter werden sie gespeichert, wie unter Exe-Einstellungen. "
-                          "Danach richten Sie die Exe mit oder ohne KI ein.")
+            hint = QLabel("Wählen Sie in diesem Schritt, welche Dateien und Ordner neben der Exe "
+                          "liegen sollen. Was der Code unbedingt braucht, ist angehakt. README "
+                          "und Lizenz kommen immer mit.")
             hint.setWordWrap(True)
             layout.addWidget(hint)
         if self.handmade:
@@ -228,8 +236,10 @@ class BuildSettingsDialog(FocusDialog):
         self.beside.addItem(item)
 
     def chosen_beside(self) -> list[str]:
+        """Die angehakten Einträge. README und Lizenz zählen nicht, sie kommen immer mit."""
         return [self.beside.item(r).data(BESIDE_ROLE) for r in range(self.beside.count())
-                if self.beside.item(r).checkState() == Qt.CheckState.Checked]
+                if self.beside.item(r).flags() & Qt.ItemFlag.ItemIsUserCheckable
+                and self.beside.item(r).checkState() == Qt.CheckState.Checked]
 
     def add_new(self) -> None:
         name = self.new_name.text().strip().strip("\\/")
@@ -280,15 +290,13 @@ class BuildDialog(FocusDialog):
 
     def __init__(self, services, project: Project, settings: exe.BuildSettings,
                  parent: QWidget | None = None, branch_dir: Path | None = None,
-                 branch_name: str = "", continue_after: bool = False) -> None:
+                 branch_name: str = "") -> None:
         super().__init__(parent)
-        # continue_after: nach Erfolg selbst schließen, damit der Ablauf weitergeht (Wunsch
-        # des Nutzers, 01.10.2026: beim Bau aus Cockpit-exe-bauen kommt danach die Frage)
-        self.continue_after = continue_after
         self.services = services
         self.project = project
         self.branch_dir = branch_dir                 # Exe aus einem Branch-Ordner (10f)
         self.result: exe.BuildResult | None = None
+        self.failed_build = False
         shown = branch_name or (branch_dir.name if branch_dir else "")
         self.setWindowTitle(f"Exe erstellen: {project.name}" + (f", Branch {shown}"
                                                                  if shown else ""))
@@ -297,20 +305,16 @@ class BuildDialog(FocusDialog):
         make_copyable(self.output)
         self.stop_button = QPushButton("&Abbrechen")
         self.stop_button.clicked.connect(self.stop)
-        self.close_button = QPushButton("&Weiter" if continue_after else "&Schließen")
+        self.close_button = QPushButton("&Schließen")
         self.close_button.clicked.connect(self.reject)
-        # Wunsch des Nutzers (02.10.2026): nach einem Fehler die KI das Problem lösen lassen
-        self.fix_button = QPushButton("Problem mit &KI lösen")
-        self.fix_button.clicked.connect(self.request_fix)
-        self.fix_button.setVisible(False)
-        self.fix_requested = False
         self.error_text = ""
-        for button in (self.stop_button, self.fix_button, self.close_button):
+        for button in (self.stop_button, self.close_button):
             button.setAutoDefault(False)
-        layout = QVBoxLayout(self)
-        layout.addWidget(label_for(self.output, "&Ausgabe:"))
-        layout.addWidget(self.output, 1)
-        layout.addLayout(button_row(None, self.stop_button, self.fix_button, self.close_button))
+        self.layout_ = QVBoxLayout(self)
+        self.layout_.addWidget(label_for(self.output, "&Ausgabe:"))
+        self.layout_.addWidget(self.output, 1)
+        self.buttons = button_row(None, self.stop_button, self.close_button)
+        self.layout_.addLayout(self.buttons)
         self.resize(820, 560)
         self.initial_focus_widget = self.output
 
@@ -322,7 +326,7 @@ class BuildDialog(FocusDialog):
         self.task.status.connect(self.add_line)
         self.task.result.connect(self.finished_ok)
         self.task.error.connect(self.failed)
-        self.task.cancelled.connect(lambda: self.ended("Abgebrochen. Die bisherige Exe bleibt."))
+        self.task.cancelled.connect(self.cancelled)
         self.task.finished.connect(self._done)
         self.add_line("Der Bau läuft. Beim ersten Mal dauert er einige Minuten.")
         self.task.start()
@@ -346,7 +350,7 @@ class BuildDialog(FocusDialog):
                 return
         self.result = result
         if result.branch:
-            text = f"Exe aus dem Branch erstellt und abgelegt: {result.exe.name}."
+            text = f"Exe aus dem Branch erstellt und getestet: Ordner Exe\\{result.exe.parent.name}."
             if result.backup is not None:
                 text += " Die vorherige Exe dieses Branches steht in den Sicherheitskopien."
             if result.placed:
@@ -374,33 +378,30 @@ class BuildDialog(FocusDialog):
                 "sie. Beim nächsten Bau versucht das Cockpit den Test wieder.")
         if not confirm(self, "Exe nicht geprüft", text, yes="Übernehmen", no="Verwerfen"):
             exe.discard(result)
+            self.failed_build = True
             self.ended("Die neue Exe wurde verworfen. Die bisherige bleibt.")
             return None
         try:
             return exe.install_untested(self.project, result)
         except CockpitError as exc:
+            self.failed_build = True
             self.ended(f"Fehler: {exc.message}", urgent=True)
             return None
 
     def failed(self, message: str, details: str) -> None:
+        self.failed_build = True
         if details:
             self.output.addItem(details)
         self.ended(f"Fehler: {message}", urgent=True)
         if message == exe.LONG_PATHS:
             offer_long_paths(self)
-            return
         # Für die KI: Meldung, Details und das Ende der Ausgabe, dort steht meist der Grund
         output = [self.output.item(r).text() for r in range(self.output.count())]
         self.error_text = "\n".join([message, details] + output[-60:])
-        self.fix_button.setVisible(True)
-        self.fix_button.setDefault(True)
-        self.fix_button.setFocus()
 
-    def request_fix(self) -> None:
-        if self.running:
-            return
-        self.fix_requested = True
-        self.accept()
+    def cancelled(self) -> None:
+        self.failed_build = True
+        self.ended("Abgebrochen. Die bisherige Exe bleibt.")
 
     def ended(self, text: str, urgent: bool = False) -> None:
         self.output.addItem(text)
@@ -414,8 +415,10 @@ class BuildDialog(FocusDialog):
         if task is not None:
             task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
             task.deleteLater()
-        if self.continue_after and self.result is not None:
-            QTimer.singleShot(0, self.accept)    # erst wenn der Thread ganz fertig ist
+        self.after_build()
+
+    def after_build(self) -> None:
+        """Nach dem Ende des Baus, für Unterklassen (exe_wizard.py)."""
 
     @property
     def running(self) -> bool:
@@ -496,13 +499,13 @@ class PublishDialog(FocusDialog):
         super().done(code)
 
 
-AFTER_TEST_LATER = "Selbst testen, später in main übernehmen"
-AFTER_TEST_KEEP = "Jetzt in main übernehmen, Branch behalten"
-AFTER_TEST_DELETE = "Jetzt in main übernehmen und Branch löschen"
-WITH_AI = "Exe mit KI einrichten …"
-WITHOUT_AI = "Exe ohne KI einrichten …"
 FROM_FILE = "Exe-Datei wählen …"
 FROM_RELEASE = "Exe aus einem Release wählen …"
+ADD_NOW, IGNORE = "Jetzt hinzufügen", "Ignorieren und weiter"
+MERGE_PUBLISH = "Jetzt in main überführen und Release veröffentlichen"
+MERGE_ONLY = "Jetzt in main überführen, später veröffentlichen"
+OPEN_TEST = "Ordner der neuen Exe im Explorer öffnen"
+DISCARD = "Exe-Bau verwerfen …"
 
 
 def download_links(release, asset) -> list[tuple[str, str]]:
@@ -519,139 +522,13 @@ def download_links(release, asset) -> list[tuple[str, str]]:
     return links
 
 
-class SelfTestDialog(FocusDialog):
-    """Selbst testen: die Exe starten, ausprobieren und bei einem Problem die Fehlermeldung
-    einfügen. "Problem mit KI lösen" gibt sie an die KI (Wunsch des Nutzers, 02.10.2026)."""
-    FIX, MERGE = "fix", "merge"
-
-    def __init__(self, project: Project, exe_path: Path, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.exe_path = exe_path
-        self.choice = ""
-        self.error_text = ""
-        self.setWindowTitle(f"Exe selbst testen: {project.name}")
-        self.info = QListWidget()
-        info_label = label_for(self.info, "&Hinweise:")
-        self.info.setWordWrap(True)
-        self.info.addItems([
-            f"Starten Sie die Exe mit „Exe starten“ und probieren Sie sie aus. Sie liegt hier: "
-            f"{exe_path}.",
-            "Klappt etwas nicht, fügen Sie die Fehlermeldung unten ein oder beschreiben Sie, "
-            "was passiert. Dann wählen Sie „Problem mit KI lösen“.",
-            "Klappt alles, wählen Sie „Funktioniert, in main übernehmen …“.",
-            "„Später“ lässt den Branch, wie er ist.",
-        ])
-        self.info.setCurrentRow(0)
-        self.edit = PlainEdit()
-        edit_label = label_for(self.edit, "&Fehlermeldung oder Beschreibung:")
-        start = QPushButton("Exe &starten")
-        start.clicked.connect(self.start_exe)
-        fix = QPushButton("Problem mit &KI lösen")
-        fix.clicked.connect(self.request_fix)
-        merge = QPushButton("Funktioniert, in &main übernehmen …")
-        merge.clicked.connect(self.request_merge)
-        later = QPushButton("S&päter")
-        later.clicked.connect(self.reject)
-        for button in (start, fix, merge, later):
-            button.setAutoDefault(False)
-        layout = QVBoxLayout(self)
-        layout.addWidget(info_label)
-        layout.addWidget(self.info, 1)
-        layout.addWidget(edit_label)
-        layout.addWidget(self.edit, 2)
-        layout.addLayout(button_row(start, fix, merge, None, later))
-        self.resize(720, 480)
-        self.initial_focus_widget = self.info
-
-    def keyPressEvent(self, event) -> None:
-        if not click_focused_button(self, event):
-            super().keyPressEvent(event)
-
-    def start_exe(self) -> None:
-        from cockpit.core import core_actions
-        try:
-            core_actions.start_program(self.exe_path)
-        except OSError as exc:
-            show_error(self, self.windowTitle(), "Die Exe ließ sich nicht starten.", repr(exc))
-            return
-        announce(f"{self.exe_path.name} wird gestartet.")
-
-    def request_fix(self) -> None:
-        text = self.edit.toPlainText().strip()
-        if not text:
-            announce("Bitte fügen Sie zuerst die Fehlermeldung ein oder beschreiben Sie, was "
-                     "passiert.")
-            self.edit.setFocus()
-            return
-        self.choice, self.error_text = self.FIX, text
-        self.accept()
-
-    def request_merge(self) -> None:
-        self.choice = self.MERGE
-        self.accept()
-
-
 def beside_line(project: Project, code_dir: Path | None = None) -> str:
-    """Welche Ordner neben die Exe kommen (Rückmeldung des Nutzers vom 02.10.2026)."""
-    settings = exe.read_settings(code_dir or project.code_dir) or         exe.read_settings(project.code_dir)
-    names = list(settings.beside) if settings is not None else []
+    """Was neben die Exe kommt (Rückmeldung des Nutzers vom 02.10.2026)."""
+    names = exe.beside_names(project, code_dir) if code_dir is not None else \
+        exe.beside_names(project)
     if names:
         return f"Neben die Exe kommen: {', '.join(names)}."
-    return "Neben die Exe kommt kein Ordner. Das ändern Sie unter „Exe-Einstellungen …“."
-
-
-class ReadyDialog(FocusDialog):
-    """Nach dem Einrichten: Ergebnis lesen, dann "Exe erstellen" oder "Abbrechen"."""
-
-    def __init__(self, project: Project, lines: list[str], parent: QWidget | None = None,
-                 services=None) -> None:
-        super().__init__(parent)
-        self.repeat_hints = ""            # gesetzt: letzten Schritt mit Hinweisen wiederholen
-        self.setWindowTitle(f"Exe aus dem Code erstellen: {project.name}")
-        self.list = QListWidget()
-        label = label_for(self.list, "&Ergebnis der Einrichtung:")
-        self.list.setWordWrap(True)
-        self.list.addItems(lines or ["Die Einrichtung ist abgeschlossen."])
-        self.list.setCurrentRow(0)
-        make_copyable(self.list)
-        self.build_button = QPushButton("Exe e&rstellen")
-        self.build_button.setDefault(True)
-        self.build_button.clicked.connect(self.accept)
-        cancel = QPushButton("Abbrechen")
-        cancel.clicked.connect(self.reject)
-        layout = QVBoxLayout(self)
-        layout.addWidget(label)
-        layout.addWidget(self.list, 1)
-        self.chat = None
-        buttons = [self.build_button]
-        if services is not None:          # Fragen an die KI (Wunsch des Nutzers, 02.10.2026)
-            from cockpit.ui.exe_chat import REPEAT_TEXT, ExeChat
-            self.chat = ExeChat(services, project.name, "Die Änderungen der KI sind im Branch "
-                                "Cockpit-exe-bauen übernommen, die Exe ist noch nicht gebaut.",
-                                lambda: [self.list.item(r).text()
-                                         for r in range(self.list.count())], self)
-            layout.addWidget(self.chat, 1)
-            repeat = QPushButton(REPEAT_TEXT)
-            repeat.setAutoDefault(False)
-            repeat.clicked.connect(self.repeat)
-            buttons.append(repeat)
-        layout.addLayout(button_row(*buttons, cancel, None))
-        self.resize(700, 560 if services is not None else 380)
-        self.initial_focus_widget = self.list
-
-    def repeat(self) -> None:
-        from cockpit.ui.exe_chat import NO_HINTS
-        if not self.chat.history:
-            announce(NO_HINTS)
-            self.chat.question.setFocus()
-            return
-        self.repeat_hints = self.chat.hints()
-        self.reject()
-
-    def done(self, code: int) -> None:
-        if self.chat is not None:
-            self.chat.stop()
-        super().done(code)
+    return "Neben die Exe kommt nichts. Das ändern Sie im ersten Schritt."
 
 
 # -- Aktionen ---------------------------------------------------------------------------------------
@@ -671,6 +548,14 @@ class ExeActions:
         except CockpitError:
             return False
 
+    def _branch_open(self, context: ActionContext) -> bool:
+        """Es gibt den Branch Cockpit-exe-bauen: "Exe-Bau abschließen …" anbieten."""
+        from cockpit.features.exe_build import exe_branch
+        try:
+            return self._building(context) and exe_branch.exists(context.project)
+        except CockpitError:
+            return False
+
     def actions(self) -> list[Action]:
         has_exe = lambda c: exe.current_exe(c.project) is not None     # noqa: E731
         return [
@@ -680,6 +565,8 @@ class ExeActions:
             Action("build_exe", "Exe aus dem Code erstellen …", Target.EXE, self.build_menu,
                    visible=self._building, order=20,
                    detail=lambda c: exe.build_state(c.project)),
+            Action("finish_exe", "Exe-Bau abschließen …", Target.EXE, self.finish_menu,
+                   visible=self._branch_open, order=30),
             Action("publish_exe", "Exe veröffentlichen …", Target.EXE, self.publish,
                    availability=self.controller._account_availability,
                    detail=lambda c: exe.publish_state(c.project),
@@ -712,10 +599,9 @@ class ExeActions:
     def build_branch(self, context: ActionContext) -> None:
         project, tree = context.main_project, context.worktree
         settings = exe.read_settings(project.code_dir)
-        name = exe.branch_exe_name(settings, tree.folder, Path("x.exe") if settings.one_file
-                                   else Path("."))
+        name = exe.branch_exe_name(settings.name, tree.folder)
         text = (f"Das Cockpit baut die Exe aus dem Ordner Code\\{tree.folder} und testet sie. "
-                f"Sie kommt als {name} in den Ordner Exe. Die normale Exe aus "
+                f"Sie kommt in den Ordner Exe\\{name}. Die normale Exe aus "
                 f"{project.code_dir.name} bleibt unverändert. Starten?")
         if not confirm(self.window, "Exe aus dem Branch erstellen", text, yes="Starten",
                        no="Abbrechen"):
@@ -728,6 +614,27 @@ class ExeActions:
         self.window.project_list.select(Target.EXE, project.id)
         self.window.refresh_status([project.id])
         announce(text)
+
+    # -- README und Lizenz (Wunsch des Nutzers vom 03.10.2026) --------------------------------
+    def docs_ok(self, project: Project, title: str) -> bool:
+        """Vor dem Bauen und Veröffentlichen: Fehlen README oder Lizenz, warnen. "Jetzt
+        hinzufügen" schließt alles und springt beim Projekt zur passenden Aktion."""
+        missing = exe.missing_docs(project.code_dir)
+        if not missing:
+            return True
+        names = " und ".join(missing)
+        verb = "fehlen" if len(missing) > 1 else "fehlt"
+        choice = ask_buttons(self.window, title, f"Bei {project.name} {verb} {names}. README und "
+                             "Lizenz gehören neben die Exe und ins Repository.",
+                             [ADD_NOW, IGNORE, "Abbrechen"], default=0, escape=2)
+        if choice == 1:
+            return True
+        if choice == 0:
+            wanted = ["readme", "license"] if "README" in missing else ["license"]
+            if not any(self.window.focus_action(project.id, w) for w in wanted):
+                announce("Die Aktion gibt es hier nicht. Schalten Sie bei Features die "
+                         "README-Pflege ein.")
+        return False
 
     # -- Exe hinzufügen ---------------------------------------------------------------------
     def add_exe(self, context: ActionContext) -> None:
@@ -764,7 +671,7 @@ class ExeActions:
             source = pick_folder(self.window, "Programmordner wählen", str(project.project_dir))
         if source is None:
             return
-        text = f"{source.name} wird in den Ordner Exe kopiert."
+        text = f"{source.name} wird in einen eigenen Ordner im Ordner Exe kopiert."
         if exe.current_exe(project) is not None:
             text += " Die bisherige Exe kommt vorher in die Sicherheitskopien."
         if not confirm(self.window, "Exe-Datei wählen", text + " Übernehmen?", yes="Übernehmen",
@@ -776,7 +683,8 @@ class ExeActions:
                                  "Exe-Datei wählen")
 
     # -- Bauen ------------------------------------------------------------------------------
-    def build(self, context: ActionContext) -> None:
+    def build_menu(self, context: ActionContext) -> None:
+        """Schritt für Schritt (Wunsch des Nutzers vom 03.10.2026), siehe exe_wizard.py."""
         project = context.project
         if exe.find_python() is None and not exe.python_in(exe.build_venv(project)).is_file():
             if confirm(self.window, "Exe erstellen", "Python wurde nicht gefunden. Zum Erstellen "
@@ -784,51 +692,10 @@ class ExeActions:
                        yes="Anleitung", no="Schließen", default_yes=True):
                 self.window.show_guide(exe.PYTHON_GUIDE, "Python installieren")
             return
-        settings = exe.read_settings(project.code_dir)
-        first = settings is None
-        if first:
-            dialog = BuildSettingsDialog(project, self.window)
-            if not dialog.exec() or dialog.settings is None:
-                return
-            settings = dialog.settings
-        settings.test_seconds = int(self.services.features.setting(FEATURE_ID, "test_seconds"))
-        current = exe.current_exe(project)
-        parts = []
-        if first:
-            parts.append(f"Im Ordner Code entsteht die Datei {settings.spec_name} mit den "
-                         "Einstellungen. Sie wird mit hochgeladen.")
-        parts.append("Das Cockpit bereitet eine virtuelle Umgebung mit Ihren Bibliotheken "
-                     "und PyInstaller vor, baut die Exe in einem temporären Ordner und startet "
-                     "sie zum Test.")
-        if current is not None:
-            parts.append("Nur wenn der Test klappt, kommt die bisherige Exe in die "
-                         "Sicherheitskopien, und die neue ersetzt sie.")
-        if not confirm(self.window, "Exe erstellen", " ".join(parts) + " Starten?",
-                       yes="Starten", no="Abbrechen"):
+        if not self.docs_ok(project, "Exe aus dem Code erstellen"):
             return
-        if first:
-            exe.write_settings(project.code_dir, settings)
-        dialog = BuildDialog(self.services, project, settings, self.window)
-        dialog.exec()
-        self.window.reload_projects(refresh=False)
-        self.window.project_list.select(Target.EXE, project.id)
-        self.window.refresh_status([project.id])
-        if dialog.fix_requested:
-            self.fix_with_ai(project, dialog.error_text)
-            return
-        if dialog.result is not None and dialog.result.pending:
-            self.offer_restart(project)
-
-    def fix_with_ai(self, project: Project, error: str) -> None:
-        """Die KI bekommt die Fehlermeldung, schlägt eine Lösung vor, und die kommt in den Branch
-        Cockpit-exe-bauen. Danach "Exe erstellen" aus dem Branch. Scheitert der Bau wieder, gibt
-        es wieder "Problem mit KI lösen". So sind mehrere Durchgänge möglich."""
-        from cockpit.ui.exe_ai import ExeAIFlow
-        context = ActionContext(self.services, project, Target.EXE)
-        flow = ExeAIFlow(self, project)
-        flow.on_finished = lambda lines, folder=None: self.offer_build(context, lines, folder,
-                                                                      flow)
-        flow.start_fix(error)
+        from cockpit.ui.exe_wizard import ExeWizard
+        ExeWizard(self, project).run()
 
     def offer_restart(self, project: Project) -> None:
         if not confirm(self.window, "Neue Version", "Die neue Version wird beim nächsten Start "
@@ -842,183 +709,100 @@ class ExeActions:
         exe.launch_restart(script)
         self.window.close()
 
-    # -- Ein Knopf für Einrichten und Bauen (30.09.2026) ----------------------------------------
-    def build_menu(self, context: ActionContext) -> None:
-        """In einem Rutsch (Wunsch des Nutzers, 02.10.2026): zuerst die Exe-Einstellungen mit
-        den Ordnern neben der Exe, dann einrichten mit oder ohne KI, dann bauen. Mit Text-KI
-        steht "mit KI" oben."""
-        if not self.settings_step(context.project):
-            return
-        with_ai_first = not self.services.ai_problem()
-        options = [WITH_AI, WITHOUT_AI] if with_ai_first else [WITHOUT_AI, WITH_AI]
-        chosen = choose_from_list(self.window, "Exe aus dem Code erstellen", "Einrichtung",
+    # -- Exe-Bau abschließen ------------------------------------------------------------------
+    def finish_menu(self, context: ActionContext) -> None:
+        """Für später, nach "Erst testen": überführen, mit oder ohne Release, oder verwerfen."""
+        from cockpit.features.exe_build import exe_branch
+        project = context.project
+        options = [MERGE_PUBLISH, MERGE_ONLY]
+        if exe.branch_home(project, exe_branch.BRANCH) is not None:
+            options.append(OPEN_TEST)
+        options.append(DISCARD)
+        chosen = choose_from_list(self.window, "Exe-Bau abschließen", "Wie geht es weiter?",
                                   options)
         if chosen is None:
             return
-        project = context.project
-        if options[chosen] == WITH_AI:
-            from cockpit.ui.exe_ai import ExeAIFlow
-            flow = ExeAIFlow(self, project)
-            flow.on_finished = lambda lines, folder=None: self.offer_build(context, lines,
-                                                                          folder, flow)
-            flow.start()
-            return
-        from cockpit.features.exe_build.setup_check import check
-        self.controller.run_task(f"exe:{project.id}", lambda task: check(project),
-                                 lambda lines: self.offer_build(context, lines),
-                                 "Exe einrichten")
+        if options[chosen] == OPEN_TEST:
+            self.open_branch_exe(project)
+        elif options[chosen] == DISCARD:
+            if confirm(self.window, "Exe-Bau verwerfen", f"Der Branch {exe_branch.BRANCH} wird "
+                       "gelöscht, seine Exe kommt in die Sicherheitskopien. Main bleibt, wie es "
+                       "ist. Verwerfen?", yes="Verwerfen", no="Abbrechen"):
+                self.discard_branch(project)
+        else:
+            self.merge_branch(project, publish=options[chosen] == MERGE_PUBLISH)
 
-    def settings_step(self, project: Project) -> bool:
-        """Exe-Einstellungen zeigen, mit dem gespeicherten Stand. Weiter speichert sie in
-        cockpit.toml und die .spec-Datei, die bisherige .spec kommt vorher in die
-        Sicherheitskopien. False: abgebrochen."""
-        current = exe.read_settings(project.code_dir)
-        dialog = BuildSettingsDialog(project, self.window, current, in_flow=True)
-        if not dialog.exec() or dialog.settings is None:
-            return False
-        settings = dialog.settings
-        if current is not None and settings == current:
-            return True
+    def open_branch_exe(self, project: Project) -> None:
+        from cockpit.core import core_actions
+        from cockpit.features.exe_build import exe_branch
+        home = exe.branch_home(project, exe_branch.BRANCH)
+        if home is None:
+            announce("Die Exe aus dem Branch gibt es nicht mehr.")
+            return
         try:
-            exe.change_settings(project.code_dir, project.name, settings)
-        except (CockpitError, OSError) as exc:
-            show_error(self.window, "Exe-Einstellungen", getattr(exc, "message", str(exc)))
-            return False
-        announce("Exe-Einstellungen gespeichert.")
-        return True
+            core_actions.open_path(home)
+        except OSError as exc:
+            show_error(self.window, "Explorer", "Der Ordner ließ sich nicht öffnen.", str(exc))
 
-    def offer_build(self, context: ActionContext, lines: list[str],
-                    branch_dir: Path | None = None, flow=None) -> None:
-        """Ergebnis zeigen. "Exe erstellen" startet den Bau wie bisher in vier Schritten. Hat die
-        KI etwas geändert, liegt das im Branch Cockpit-exe-bauen (branch_dir), und gebaut wird
-        aus dem Branch."""
-        if lines:
-            announce(lines[0])
-        lines = list(lines) + [beside_line(context.project, branch_dir)]
-        with_ai = flow is not None and getattr(flow, "ai", None) is not None
-        dialog = ReadyDialog(context.project, lines, self.window,
-                             self.services if with_ai else None)
-        accepted = dialog.exec()
-        if dialog.repeat_hints:
-            flow.repeat(dialog.repeat_hints)
-            return
-        if not accepted:
-            return
-        if branch_dir is None:
-            self.build(context)
-        else:
-            self.build_ai_branch(context.project, branch_dir)
-
-    # -- Exe aus dem Branch Cockpit-exe-bauen (01.10.2026) -----------------------------------------
-    def build_ai_branch(self, project: Project, branch_dir: Path) -> None:
-        from cockpit.features.exe_build import exe_branch
-        if exe.find_python() is None and \
-                not exe.python_in(exe.build_venv(project, branch_dir)).is_file():
-            show_error(self.window, "Exe erstellen", "Python wurde nicht gefunden. Zum Erstellen "
-                       "einer Exe braucht das Cockpit Python.")
-            return
-        settings = exe.read_settings(branch_dir) or exe.read_settings(project.code_dir)
-        main = exe.read_settings(project.code_dir)
-        if settings is not None and main is not None:
-            # Die Ordner aus dem ersten Schritt gelten auch für den Branch, dazu was die KI dort
-            # ergänzt hat. Ein älterer Branch kennt die neue Auswahl sonst nicht.
-            settings.beside = list(dict.fromkeys(main.beside + settings.beside))
-        if settings is None:
-            dialog = BuildSettingsDialog(project, self.window)
-            if not dialog.exec() or dialog.settings is None:
-                return
-            settings = dialog.settings
-        settings.test_seconds = int(self.services.features.setting(FEATURE_ID, "test_seconds"))
-        dialog = BuildDialog(self.services, project, settings, self.window,
-                             branch_dir=branch_dir, branch_name=exe_branch.BRANCH,
-                             continue_after=True)
-        dialog.exec()
-        self.window.refresh_status([project.id])
-        if dialog.fix_requested:
-            self.fix_with_ai(project, dialog.error_text)
-            return
-        if dialog.result is not None and not dialog.result.untested:
-            built = dialog.result.exe
-            try:                             # Programmordner: Unterordner mit nennen
-                shown = str(built.relative_to(project.exe_dir))
-            except (ValueError, TypeError):
-                shown = built.name
-            self.after_branch_test(project, shown, built)
-
-    def after_branch_test(self, project: Project, exe_name: str,
-                          exe_path: Path | None = None) -> None:
-        """Wunsch des Nutzers: Die Exe aus dem Branch funktioniert. Wie geht es weiter?"""
-        from cockpit.features.exe_build import exe_branch
-        branch = exe_branch.BRANCH
-        choice = ask_buttons(
-            self.window, f"Exe aus {branch}",
-            f"Die Exe aus dem Branch {branch} ist fertig gebaut und getestet. Sie liegt als "
-            f"{exe_name} im Ordner Exe, die normale Exe bleibt. Wie geht es weiter?",
-            [AFTER_TEST_LATER, AFTER_TEST_KEEP, AFTER_TEST_DELETE], default=0, escape=0)
-        if choice == 0:
-            if exe_path is not None:
-                self.self_test(project, exe_path)
-                return
-            self.keep_branch_later(project)
-            return
-        self.merge_ai_branch(project, delete=choice == 2)
-
-    def keep_branch_later(self, project: Project) -> None:
-        from cockpit.features.exe_build import exe_branch
-        branch = exe_branch.BRANCH
-        where = "" if project.has_branch_folders else (
-            f" Der Ordner Code steht noch auf {branch}. Zurück zu main geht es über "
-            "„Branches verwalten“.")
-        announce(f"Der Branch {branch} bleibt. Übernehmen geht später über „Branches "
-                 f"verwalten“, „In main übernehmen …“.{where}")
-
-    def self_test(self, project: Project, exe_path: Path) -> None:
-        """Selbst testen (Wunsch des Nutzers, 02.10.2026): Klappt etwas nicht, fügt man die
-        Fehlermeldung ein, und die KI versucht, das Problem zu lösen."""
-        dialog = SelfTestDialog(project, exe_path, self.window)
-        dialog.exec()
-        if dialog.choice == SelfTestDialog.FIX:
-            self.fix_with_ai(project, dialog.error_text)
-        elif dialog.choice == SelfTestDialog.MERGE:
-            answer = ask_buttons(self.window, "In main übernehmen",
-                                 "Die Exe funktioniert. Soll der Branch nach dem Übernehmen "
-                                 "bleiben?", ["Branch behalten", "Branch löschen", "Abbrechen"],
-                                 default=2, escape=2)
-            if answer == 2:
-                self.keep_branch_later(project)
-                return
-            self.merge_ai_branch(project, delete=answer == 1)
-        else:
-            self.keep_branch_later(project)
-
-    def merge_ai_branch(self, project: Project, delete: bool) -> None:
+    def merge_branch(self, project: Project, publish: bool) -> None:
+        """Den Branch in main überführen. Die getestete Exe aus dem Branch wird die normale Exe,
+        der Branch wird danach gelöscht. publish: danach gleich "Exe veröffentlichen"."""
         from cockpit.core.sync import ConflictKind
         from cockpit.features.exe_build import exe_branch
         branch = exe_branch.BRANCH
         try:
             outcome = exe_branch.merge_into_main(project)
         except CockpitError as exc:
-            show_error(self.window, "In main übernehmen", exc.message, exc.details)
+            show_error(self.window, "In main überführen", exc.message, exc.details)
             return
         if outcome.kind is not ConflictKind.NONE and not self._resolve(project, outcome.kind):
             self.window.refresh_status([project.id])
             return
-        text = f"{branch} ist in main übernommen. Main ist noch nicht hochgeladen."
-        if delete:
+        text = f"{branch} ist in main überführt. Main ist noch nicht hochgeladen."
+        result = None
+        if exe.branch_home(project, branch) is not None:
+            try:
+                result = exe.promote_branch(project, branch, exe.head_commit(project.code_dir))
+            except CockpitError as exc:
+                show_error(self.window, "In main überführen", "Die Änderungen sind in main. Die "
+                           f"Exe aus dem Branch ließ sich nicht übernehmen. {exc.message}",
+                           exc.details)
+        if result is not None:
+            text += (" Die neue Exe wird beim nächsten Start übernommen." if result.pending
+                     else " Die Exe aus dem Branch ist jetzt die normale Exe.")
             try:
                 exe_branch.delete(project)
                 text += f" Der Branch {branch} ist gelöscht."
             except CockpitError as exc:
-                show_error(self.window, "Branch löschen", exc.message, exc.details)
-        self.window.reload_projects(refresh=False)
-        self.window.refresh_status([project.id])
-        announce(text)
+                log.warning("Branch %s nicht gelöscht: %s", branch, exc.message)
+        self._after(project, text)
+        if result is not None and result.pending:
+            self.offer_restart(project)
+            return
+        if publish and exe.current_exe(project) is not None:
+            self.publish(ActionContext(self.services, project, Target.EXE))
+
+    def discard_branch(self, project: Project) -> None:
+        """Exe-Bau abbrechen: Branch löschen, seine Exe in die Sicherheitskopien. Main bleibt."""
+        from cockpit.core import backups
+        from cockpit.features.exe_build import exe_branch
+        try:
+            home = exe.branch_home(project, exe_branch.BRANCH)
+            if home is not None:
+                backups.move_into_backup(home, project.name, "Exe-Bau verworfen")
+            if exe_branch.exists(project):
+                exe_branch.abandon(project)
+        except (CockpitError, OSError) as exc:
+            show_error(self.window, "Exe-Bau verwerfen", getattr(exc, "message", str(exc)),
+                       getattr(exc, "details", ""))
+            return
+        self._after(project, f"Exe-Bau verworfen. Main ist, wie es war.")
 
     def _resolve(self, project: Project, kind) -> bool:
         from cockpit.core import sync
         from cockpit.features.exe_build import exe_branch
         from cockpit.ui import sync_dialogs
-        announce(f"Konflikte beim Übernehmen von {exe_branch.BRANCH}.")
+        announce(f"Konflikte beim Überführen von {exe_branch.BRANCH}.")
         dialog = sync_dialogs.ConflictDialog(project.code_dir, kind,
                                              f"Branch {exe_branch.BRANCH}", self.window)
         try:
@@ -1026,9 +810,9 @@ class ExeActions:
                 sync.finish(project.code_dir, kind)
                 return True
             sync.abort(project.code_dir, kind)
-            announce("Übernehmen abgebrochen. Main ist wie vorher.")
+            announce("Überführen abgebrochen. Main ist wie vorher.")
         except CockpitError as exc:
-            show_error(self.window, "Übernehmen", exc.message, exc.details)
+            show_error(self.window, "Überführen", exc.message, exc.details)
         return False
 
     # -- Exe einlesen (30.09.2026) --------------------------------------------------------------
@@ -1088,14 +872,6 @@ class ExeActions:
             show_error(self.window, "Exe-Einstellungen", getattr(exc, "message", str(exc)))
             return
         announce("Exe-Einstellungen gespeichert.")
-        if confirm(self.window, "Exe-Einstellungen", "Soll die Exe jetzt mit den neuen "
-                   "Einstellungen gebaut werden?", yes="Jetzt bauen", no="Später"):
-            self.build(context)
-
-    # -- Mit KI einrichten (Phase 10g) --------------------------------------------------------
-    def ai_fix(self, context: ActionContext) -> None:
-        from cockpit.ui.exe_ai import ExeAIFlow
-        ExeAIFlow(self, context.project).start()
 
     # -- Einrichtung prüfen -----------------------------------------------------------------
     def check_setup(self, context: ActionContext) -> None:
@@ -1127,6 +903,8 @@ class ExeActions:
 
     def publish(self, context: ActionContext) -> None:
         project = context.project
+        if not self.docs_ok(project, "Exe veröffentlichen"):
+            return
         platform = self._platform(project)
         if platform is None:
             return
@@ -1141,21 +919,35 @@ class ExeActions:
                                                                 tags), "Exe veröffentlichen")
 
     def _ask_publish(self, project, platform, ref, current: Path, tags: list[str]) -> None:
+        """Wunsch des Nutzers (03.10.2026): Hochgeladen wird der ganze Ordner der Exe als
+        Name.zip, darin der Ordner Name-Version. README und Lizenz hängen zusätzlich einzeln am
+        Release."""
         from cockpit.ui import ai_suggest
-        work_dir = Path(tempfile.mkdtemp(prefix="codecockpit-release-", dir=paths.cache_dir()))
-        asset = exe.asset_for_upload(project, current, work_dir)
+        name = exe.asset_name(project, current)
         source = ai_suggest.for_release_notes(self.services, project, tags)
-        dialog = PublishDialog(project, self._suggested_version(project, tags), tags, asset.name,
+        dialog = PublishDialog(project, self._suggested_version(project, tags), tags, name,
                                self.window, source=source)
         if not dialog.exec():
-            shutil.rmtree(work_dir, ignore_errors=True)
             return
+        version, notes = dialog.version, dialog.notes
+        work_dir = Path(tempfile.mkdtemp(prefix="codecockpit-release-", dir=paths.cache_dir()))
+        try:
+            asset = exe.asset_for_upload(project, current, work_dir, version)
+        except (CockpitError, OSError) as exc:
+            shutil.rmtree(work_dir, ignore_errors=True)
+            show_error(self.window, "Exe veröffentlichen", "Die ZIP-Datei ließ sich nicht "
+                       "anlegen.", str(exc))
+            return
+        docs = exe.release_docs(project)
         record = exe.read_record(project.code_dir)
         target = self._release_target(project, record)
-        text = (f"Auf {self.window.project_list.platform_name} wird das Release v{dialog.version} "
-                f"angelegt, mit dem Tag v{dialog.version} auf dem Stand {target[:12]}. Die Exe "
-                f"{asset.name} ({_size(asset)}) wird angehängt. Jeder mit Zugriff auf das "
-                "Repository kann sie herunterladen.")
+        text = (f"Auf {self.window.project_list.platform_name} wird das Release v{version} "
+                f"angelegt, mit dem Tag v{version} auf dem Stand {target[:12]}. Angehängt wird "
+                f"{asset.name} ({_size(asset)}) mit dem ganzen Ordner der Exe, darin der Ordner "
+                f"{exe.home_name(project, current)}-{version}.")
+        if docs:
+            text += f" Dazu einzeln: {', '.join(d.name for d in docs)}."
+        text += " Jeder mit Zugriff auf das Repository kann sie herunterladen."
         if record is not None and record.source == "cockpit" and \
                 exe.status_line(project).endswith("älter als der Code"):
             text += " Achtung: Die Exe ist älter als der Code."
@@ -1163,13 +955,14 @@ class ExeActions:
                        yes="Veröffentlichen", no="Abbrechen"):
             shutil.rmtree(work_dir, ignore_errors=True)
             return
-        version, notes = dialog.version, dialog.notes
 
         def work(task: Task):
             try:
                 release = platform.create_release(ref, f"v{version}", f"Version {version}",
                                                   notes, target)
                 platform.upload_asset(ref, release, asset)
+                for doc in docs:
+                    platform.upload_asset(ref, release, doc)
             finally:
                 shutil.rmtree(work_dir, ignore_errors=True)
             return release

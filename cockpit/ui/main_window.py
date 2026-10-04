@@ -556,6 +556,21 @@ class MainWindow(QMainWindow):
     def focus_actions(self) -> None:
         self.actions_list.setFocus()
 
+    def focus_action(self, project_id: int, action_id: str) -> bool:
+        """Projektzeile markieren und in der Aktionsliste auf eine Aktion springen, zum Beispiel
+        "Lizenz …" (Wunsch des Nutzers vom 03.10.2026: "Jetzt hinzufügen" beim Bauen). False,
+        wenn es die Aktion dort nicht gibt."""
+        self.project_list.select(Target.PROJECT, project_id)
+        self.refresh_actions()
+        entries = self.actions_list.entries
+        row = next((i for i, e in enumerate(entries) if e.action.id == action_id), None)
+        if row is None:
+            self.project_list.setFocus()
+            return False
+        self.actions_list.setCurrentRow(row)
+        self.actions_list.setFocus()
+        return True
+
     def cycle_area(self, step: int) -> None:
         focused = QApplication.focusWidget()
         index = self.areas.index(focused) if focused in self.areas else -1

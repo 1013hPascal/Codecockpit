@@ -6,7 +6,10 @@ erstellt, "extern": extern erstellt und von Hand gewählt, "release": aus einem 
 welchem Commit und mit welcher Version. Die Einstellungen zum Bauen stehen unter [exe.build].
 
 Grundsätze:
-- Im Ordner Exe liegt nur die aktuelle Exe (eine Datei oder ein Programmordner).
+- Jede Exe hat im Ordner Exe einen eigenen Ordner (Wunsch des Nutzers vom 03.10.2026), zum
+  Beispiel Exe\\VokabelApp und Exe\\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe,
+  README, Lizenz und die Ordner neben der Exe.
+- README und Lizenz liegen immer neben der Exe und sind immer die aktuellen aus dem Code.
 - Eine bisherige Exe kommt immer erst in eine Sicherheitskopie, bevor eine neue sie ersetzt.
 - Eine neu gebaute Exe ersetzt die alte erst, wenn sie den Test bestanden hat.
 - Das Cockpit selbst kann seine laufende Exe nicht ersetzen. Die neue Exe wartet dann in Exe\\_neu
@@ -318,20 +321,65 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
         raise CockpitError("Diese Exe liegt schon im Ordner Exe.")
     names = beside_names(project)
     old_home = _home_of(project)
-    backup = backup_current(project, "Exe ersetzt", tuple(names))
+    home = exe_dir / home_name(project, source)
+    backup = backup_current(project, "Exe ersetzt")
     try:
-        target = _put(source, exe_dir, move)
+        target = _into_home(source, home, move)
     except OSError as exc:
         raise CockpitError("Die Exe ließ sich nicht übernehmen.", str(exc)) from None
-    place_beside(project, names, exe_in(target).parent, backup, old_home)
+    place_beside(project, names, home, backup, old_home)
     write_record(project.code_dir, ExeRecord(kind, now(), "", version))
     return target
 
 
-# -- Ordner neben der Exe (Phase 10g) ------------------------------------------------------------
-def beside_names(project: Project) -> list[str]:
+def home_name(project: Project, source: Path | None = None) -> str:
+    """Name des eigenen Ordners der Exe: der Name aus den Exe-Einstellungen, sonst der Name der
+    gewählten Exe ohne Versionsnummer (VokabelApp-1.2.0 wird VokabelApp)."""
     settings = read_settings(project.code_dir) if project.folder_found else None
-    return list(settings.beside) if settings is not None else []
+    if settings is not None and settings.name:
+        return settings.name
+    if source is not None:
+        name = source.stem if source.is_file() else source.name
+        return re.sub(r"-v?\d+\.\d+\.\d+$", "", name) or name
+    return project.name.replace(" ", "-")
+
+
+def _into_home(built: Path, home: Path, move: bool = True) -> Path:
+    """Exe-Datei oder Programmordner als eigenen Ordner home ablegen. Gibt die Exe zurück."""
+    if built.is_file():
+        home.mkdir(parents=True)
+        _put(built, home, move)
+    elif move:
+        shutil.move(str(built), str(home))
+    else:
+        shutil.copytree(built, home)
+    return exe_in(home)
+
+
+# -- Ordner neben der Exe (Phase 10g) ------------------------------------------------------------
+def beside_names(project: Project, code_dir: Path | None = None) -> list[str]:
+    """Was neben die Exe kommt: die gewählten Ordner und Dateien, dazu immer README und Lizenz
+    (Wunsch des Nutzers vom 03.10.2026)."""
+    code_dir = code_dir or project.code_dir
+    settings = read_settings(code_dir) if code_dir.is_dir() else None
+    names = list(settings.beside) if settings is not None else []
+    return names + [n for n in doc_files(code_dir) if n not in names]
+
+
+def is_doc(name: str) -> bool:
+    """README oder Lizenz: README.md, readme.txt, README.de.md, LICENSE, LICENSE.md ..."""
+    lower = Path(name).name.lower()
+    return lower.startswith("readme") or lower.split(".")[0] in ("license", "licence", "copying")
+
+
+def doc_files(code_dir: Path) -> list[str]:
+    """README- und Lizenzdateien im Ordner Code."""
+    try:
+        return sorted(p.name for p in code_dir.iterdir()
+                      if p.is_file() and is_doc(p.name)
+                      and p.suffix.lower() in ("", ".md", ".txt", ".rst"))
+    except OSError:
+        return []
 
 
 def _home_of(project: Project) -> Path | None:
@@ -356,8 +404,9 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
     source_dir = source_dir or project.code_dir
     for name in names:
         target = home / name
-        if is_readme(name) and (source_dir / name).is_file():
-            # Wunsch des Nutzers (02.10.2026): Die README ist immer die aktuelle aus dem Code
+        if is_doc(name) and (source_dir / name).is_file():
+            # Wunsch des Nutzers (02.10.2026): Die README ist immer die aktuelle aus dem Code,
+            # seit dem 03.10.2026 auch die Lizenz
             if _refresh_file(project, source_dir / name, target):
                 placed.append(name)
             continue
@@ -395,6 +444,22 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
 def is_readme(name: str) -> bool:
     """README, README.md, readme.txt, README.de.md ..."""
     return Path(name).name.lower().startswith("readme")
+
+
+def release_docs(project: Project) -> list[Path]:
+    """README und Lizenz, die beim Veröffentlichen zusätzlich einzeln am Release hängen."""
+    return [project.code_dir / n for n in doc_files(project.code_dir)]
+
+
+def missing_docs(code_dir: Path) -> list[str]:
+    """Was vor dem Bauen und Veröffentlichen fehlt: "README", "Lizenz" oder beides."""
+    names = doc_files(code_dir)
+    missing = []
+    if not any(n.lower().startswith("readme") for n in names):
+        missing.append("README")
+    if not any(not n.lower().startswith("readme") for n in names):
+        missing.append("Lizenz")
+    return missing
 
 
 def _refresh_file(project: Project, source: Path, target: Path) -> bool:
@@ -683,7 +748,8 @@ def exe_in(built: Path) -> Path:
 
 QUICK_EXIT = ("Die neue Exe hat sich gleich nach dem Start ohne Fenster beendet. Bei einem "
               "Programm mit Fenster ist das ein Fehler, meistens eine falsche Startdatei oder "
-              "eine fehlende Bibliothek. „Exe aus dem Code erstellen …“ mit „Exe ohne KI einrichten …“ nennt mögliche Gründe. Die "
+              "eine fehlende Bibliothek. „Exe aus dem Code erstellen …“ nennt in der Zusammenfassung "
+              "mögliche Gründe. Die "
               "bisherige Exe bleibt.")
 
 
@@ -760,25 +826,62 @@ def running_from(folder: Path) -> bool:
 def install(project: Project, built: Path, commit: str, tested: bool = True) -> BuildResult:
     """Getestete Exe übernehmen. Die eigene laufende Exe des Cockpits wartet in Exe\\_neu."""
     exe_dir = add_exe_dir(project)
+    names = beside_names(project)
+    home = exe_dir / home_name(project)
     if is_cockpit(project) and running_from(exe_dir):
         pending = exe_dir / PENDING
         backups.remove_tree(pending)
         pending.mkdir()
-        target = _put(built, pending, move=True)
+        target = _into_home(built, pending / home.name)
+        place_beside(project, [n for n in names if is_doc(n)], pending / home.name, None, None)
         write_record(project.code_dir, ExeRecord("cockpit", now(), commit, pending=True,
                                                  tested=tested))
-        return BuildResult(exe_in(target), pending=True)
-    names = beside_names(project)
+        return BuildResult(target, pending=True)
     old_home = _home_of(project)
-    backup = backup_current(project, "Exe ersetzt", tuple(names))
+    backup = backup_current(project, "Exe ersetzt")
     try:
-        target = _put(built, exe_dir, move=True)
+        target = _into_home(built, home)
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben. Die "
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
-    placed = place_beside(project, names, exe_in(target).parent, backup, old_home)
+    placed = place_beside(project, names, home, backup, old_home)
     write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
-    return BuildResult(exe_in(target), backup=backup, placed=placed)
+    return BuildResult(target, backup=backup, placed=placed)
+
+
+def branch_home(project: Project, folder: str) -> Path | None:
+    """Ordner der Exe aus einem Branch, None wenn es sie nicht gibt."""
+    if not project.has_exe_dir:
+        return None
+    home = project.exe_dir / branch_exe_name(home_name(project), folder)
+    return home if home.is_dir() and any(home.glob("*.exe")) else None
+
+
+def promote_branch(project: Project, folder: str, commit: str) -> BuildResult:
+    """Nach dem Überführen in main: Die getestete Exe aus dem Branch wird die normale Exe. Die
+    bisherige kommt in die Sicherheitskopien. Ordner der Nutzer neben der Exe (zum Beispiel eigene
+    Vokabellisten) kommen von der bisherigen Exe, README und Lizenz aus dem Code."""
+    source = branch_home(project, folder)
+    if source is None:
+        raise CockpitError("Die Exe aus dem Branch gibt es nicht mehr. Bitte bauen Sie sie neu.")
+    work = Path(tempfile.mkdtemp(prefix="codecockpit-exe-", dir=paths.cache_dir()))
+    staged = work / source.name
+    try:
+        try:
+            shutil.move(str(source), str(staged))
+        except OSError as exc:
+            raise CockpitError(LOCKED, str(exc)) from None
+        for name in beside_names(project):
+            path = staged / name
+            if is_doc(name) or not path.exists():
+                continue
+            if path.is_dir():
+                backups.remove_tree(path)
+            else:
+                path.unlink()
+        return install(project, staged, commit)
+    finally:
+        backups.remove_tree(work)
 
 
 def install_untested(project: Project, result: BuildResult) -> BuildResult:
@@ -791,9 +894,10 @@ def install_untested(project: Project, result: BuildResult) -> BuildResult:
         discard(result)
 
 
-def branch_exe_name(settings: BuildSettings, folder: str, built: Path) -> str:
-    """Zum Beispiel "CodeCockpit_branch_neue-funktion.exe" (Wunsch aus den Fragen zu 10f)."""
-    return f"{settings.name}{BRANCH_MARK}{folder}" + (".exe" if built.is_file() else "")
+def branch_exe_name(name: str, folder: str) -> str:
+    """Ordner der Exe aus einem Branch, zum Beispiel "CodeCockpit_branch_neue-funktion" (Wunsch
+    aus den Fragen zu 10f, seit dem 03.10.2026 immer ein Ordner)."""
+    return f"{name}{BRANCH_MARK}{folder}"
 
 
 def is_branch_exe(path: Path) -> bool:
@@ -811,25 +915,24 @@ def install_branch(project: Project, built: Path, folder: str,
     settings = settings or read_settings(project.code_dir) or BuildSettings("main.py",
                                                                            project.name)
     exe_dir = add_exe_dir(project)
-    target = exe_dir / branch_exe_name(settings, folder, built)
+    home = exe_dir / branch_exe_name(settings.name or home_name(project), folder)
     backup = None
-    if target.exists():
+    if home.exists():
         try:
-            backup = backups.move_into_backup(target, project.name, f"Branch-Exe {folder} ersetzt")
+            backup = backups.move_into_backup(home, project.name, f"Branch-Exe {folder} ersetzt")
         except OSError as exc:
             raise CockpitError(LOCKED, str(exc)) from None
     try:
-        shutil.move(str(built), str(target))
+        target = _into_home(built, home)
     except OSError as exc:
         raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben.",
                            str(exc)) from None
-    # Programmordner: Die Sicherheitskopie ist der alte Ordner selbst, die Ordner der Nutzer
-    # liegen darin und kommen von dort zurück. Bei einer einzelnen Exe-Datei bleiben sie im
-    # Ordner Exe liegen.
+    # Die Sicherheitskopie ist der alte Ordner selbst, die Ordner der Nutzer kommen von dort
+    names = list(settings.beside)
+    names += [n for n in doc_files(source_dir or project.code_dir) if n not in names]
     old_home = Path(".") if backup is not None and backup.is_dir() else None
-    placed = place_beside(project, list(settings.beside), exe_in(target).parent, backup,
-                          old_home, source_dir)
-    return BuildResult(exe_in(target), backup=backup, branch=folder, placed=placed)
+    placed = place_beside(project, names, home, backup, old_home, source_dir)
+    return BuildResult(target, backup=backup, branch=folder, placed=placed)
 
 
 def discard(result: BuildResult) -> None:
@@ -887,7 +990,7 @@ def restart_script(project: Project) -> Path:
     if not new_items:
         raise CockpitError("Es wartet keine neue Version.")
     folder = backups.new_backup_dir(project.name, "Exe vor dem Neustart ersetzt", exe_dir)
-    old_items = [p for p in exe_dir.iterdir() if p.name != PENDING]
+    old_items = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)]
     new_exe = exe_in(new_items[0])
     script = swap_script(exe_dir, old_items, new_items, folder,
                          exe_dir / new_exe.relative_to(pending))
@@ -972,29 +1075,36 @@ def check_version(text: str, tags: list[str]) -> str:
     return version
 
 
-def asset_for_upload(project: Project, exe: Path, work: Path) -> Path:
-    """Einzelne Exe direkt, Programmordner als ZIP-Datei. Gibt es Ordner neben der Exe (10g),
-    kommen sie in die ZIP-Datei, und zwar so, wie sie im Ordner Code stehen, nicht mit den
-    eigenen Daten aus dem Ordner Exe."""
+def asset_name(project: Project, exe: Path | None = None) -> str:
+    """Fester Name der ZIP-Datei am Release, zum Beispiel VokabelApp.zip. So bleibt der Link
+    auf die neueste Version gleich (Antwort des Nutzers vom 03.10.2026)."""
+    return f"{home_name(project, exe)}.zip"
+
+
+def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> Path:
+    """Den ganzen Ordner der Exe als ZIP-Datei mit festem Namen. Darin liegt ein Ordner mit der
+    Versionsnummer, zum Beispiel VokabelApp-1.2.0, damit beim Auspacken keine Version eine andere
+    überschreibt (Wunsch des Nutzers vom 03.10.2026). Ordner neben der Exe kommen so in die ZIP,
+    wie sie im Ordner Code stehen, nicht mit den eigenen Daten aus dem Ordner Exe. README und
+    Lizenz kommen immer mit."""
     folder = exe.parent
     names = [n for n in beside_names(project) if (project.code_dir / n).exists()]
-    one_file = folder.resolve() == project.exe_dir.resolve()
-    if one_file and not names:
-        return exe
-    staging = work / (exe.stem if one_file else folder.name)
+    one_file = folder.resolve() == project.exe_dir.resolve()      # alte Ablage ohne eigenen Ordner
+    name = home_name(project, exe)
+    staging = work / f"{name}-{version}"
     if one_file:
         staging.mkdir(parents=True)
         shutil.copy2(exe, staging / exe.name)
     else:
         shutil.copytree(folder, staging, ignore=lambda _d, items: [
             i for i in items if _d == str(folder) and i in names])
-    for name in names:
-        source = project.code_dir / name
+    for item in names:
+        source = project.code_dir / item
         if source.is_dir():
-            shutil.copytree(source, staging / name)
+            shutil.copytree(source, staging / item)
         else:
-            shutil.copy2(source, staging / name)
-    archive = shutil.make_archive(str(staging), "zip", staging.parent, staging.name)
+            shutil.copy2(source, staging / item)
+    archive = shutil.make_archive(str(work / name), "zip", work, staging.name)
     return Path(archive)
 
 

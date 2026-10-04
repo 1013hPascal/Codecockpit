@@ -685,7 +685,7 @@ def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, proj
     assert visible() == (False, False, False)
     assert dialog.switch_button.text() == "Zu main &wechseln"      # Wunsch aus dem Test von 6a
     select(dialog, "suche")                                        # aktueller Branch
-    assert visible() == (True, True, False)
+    assert visible() == (True, True, True)       # löschen geht auch hier (03.10.2026)
     assert not dialog.switch_button.isVisible()
     select(dialog, "design")
     # Nur auf GitHub: Herunterladen, Umbenennen, Löschen, aber nicht übernehmen (02.10.2026)

@@ -164,8 +164,9 @@ def relative_data_paths(code_dir: Path, known: set[str] | None = None) -> list[t
     """(Datei, Name): Der Code öffnet einen Ordner oder eine Datei aus dem Ordner Code nur mit
     Namen und bestimmt den Ort nicht über die Exe. In der Exe sucht er dann im Startordner."""
     names = {p.name for p in code_dir.iterdir()
-             if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"} \
-        - _packages(code_dir) - (known or set())
+             if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"
+             and not exe.is_doc(p.name)} - _packages(code_dir) - (known or set())
+    # README und Lizenz liegen seit dem 03.10.2026 immer neben der Exe
     found: list[tuple[str, str]] = []
     for path in python_files(code_dir):
         text = _read(path)

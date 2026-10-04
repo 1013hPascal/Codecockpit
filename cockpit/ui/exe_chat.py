@@ -5,12 +5,17 @@ Enter oder "Frage senden" schickt die Frage. Die Antwort kommt in die Liste "Ges
 ein Satz pro Zeile. So kann man nachfragen und diskutieren. Die KI ändert dabei nichts.
 Danach wählt man im Fenster "Weiter" (zum Beispiel "Übernehmen" oder "Exe erstellen") oder "Mit den
 Hinweisen wiederholen". Dann läuft der letzte Schritt noch einmal, mit dem Gespräch als Hinweis.
+
+Wunsch des Nutzers vom 03.10.2026: Die KI antwortet zuerst in verständlichen Sätzen und zeigt erst
+danach Code. Sätze stehen einzeln in der Liste, Code Zeile für Zeile nach der Zeile "Code:".
 """
 from __future__ import annotations
 
 from typing import Callable
 
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
+
+import re
 
 from cockpit.core.text import one_sentence_per_line
 from cockpit.features.exe_build import ai_fix
@@ -23,6 +28,25 @@ from cockpit.ui.tasks import Task
 REPEAT_TEXT = "Mit den Hinweisen &wiederholen"
 NO_HINTS = ("Stellen Sie zuerst eine Frage an die KI. Das Gespräch ist dann der Hinweis für die "
             "Wiederholung.")
+
+
+_FENCE = re.compile(r"```[^\n]*\n(.*?)(?:```|$)", re.DOTALL)
+
+
+def answer_lines(answer: str) -> list[str]:
+    """Sätze einzeln, Code-Blöcke Zeile für Zeile, eingeleitet von "Code:"."""
+    lines: list[str] = []
+    position = 0
+    text = answer.replace("\r\n", "\n")
+    for match in _FENCE.finditer(text):
+        lines += [l for l in one_sentence_per_line(text[position:match.start()]).splitlines()
+                  if l.strip()]
+        code = [l.rstrip() for l in match.group(1).splitlines() if l.strip()]
+        if code:
+            lines += ["Code:"] + code
+        position = match.end()
+    lines += [l for l in one_sentence_per_line(text[position:]).splitlines() if l.strip()]
+    return lines
 
 
 class ExeChat(QWidget):
@@ -104,7 +128,7 @@ class ExeChat(QWidget):
         waiting = self.answers.count() - 1
         if waiting >= 0 and self.answers.item(waiting).text() == "Die KI antwortet …":
             self.answers.takeItem(waiting)
-        lines = [line for line in one_sentence_per_line(answer).splitlines() if line.strip()]
+        lines = answer_lines(answer)
         first = self.answers.count()
         for number, line in enumerate(lines or ["Die KI hat nichts geantwortet."]):
             self.answers.addItem(f"KI: {line}" if number == 0 else line)

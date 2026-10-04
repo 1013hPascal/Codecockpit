@@ -75,8 +75,7 @@ def gather_facts(services, project: Project) -> Facts:
         base = f"https://{project.remote.host}/{project.remote.owner}/{project.remote.name}"
         facts.clone_url = base + ".git"
         if settings is not None and _active(services, "exe_build", project):
-            asset = f"{settings.name}.exe" if settings.one_file and not settings.beside \
-                else f"{settings.name}.zip"
+            asset = f"{settings.name}.zip"            # immer der ganze Ordner (03.10.2026)
             facts.download_url = f"{base}/releases/latest/download/{asset}"
     if _active(services, "exe_build", project):
         facts.windows_note = True
