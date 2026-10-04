@@ -144,3 +144,20 @@ def test_deleting_the_repo_always_removes_the_address(qtbot, tmp_path, projects_
     dialog._deleted()
     assert git.config_get(code, "remote.origin.url") == ""
     assert said("Chatbot-fuer-Text ist auf GitHub gelöscht.")
+
+
+def test_create_action_disappears_once_the_repo_exists(qtbot, tmp_path, projects_root,
+                                                       make_services, monkeypatch):
+    """Rückmeldung des Nutzers (04.10.2026): Nach dem Anlegen stand der Eintrag noch da."""
+    from cockpit.ui import upload_flow
+    from tests.test_phase10f import window
+    services, project, code = chatbot(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    win.controller.missing_repos.add(project.id)
+    monkeypatch.setattr(upload_flow, "show_error", lambda *a, **k: None)
+    runner = upload_flow.UploadRunner(win.controller, project)
+    failed = SimpleNamespace(completed=False, results=[], text=lambda: "Hochladen gescheitert.")
+    runner.finished((failed, {}))                               # nichts angelegt: bleibt
+    assert project.id in win.controller.missing_repos
+    runner.finished((failed, {"repo": RepoRef("tester", "Chatbot-fuer-Text")}))
+    assert project.id not in win.controller.missing_repos       # angelegt: weg
