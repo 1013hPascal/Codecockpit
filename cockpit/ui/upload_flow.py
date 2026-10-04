@@ -186,6 +186,11 @@ class UploadRunner:
     def finished(self, outcome) -> None:
         summary, data = outcome
         project = self.project
+        if summary.completed or data.get("repo") is not None:
+            # Jetzt gibt es das Repository: "Repository … anlegen und hochladen …" verschwindet
+            # (Rückmeldung des Nutzers vom 04.10.2026)
+            self.controller.missing_repos.discard(project.id)
+            self.window.refresh_actions(keep_selection=True)
         self.window.refresh_status([project.id])
         if not summary.completed:
             failure = summary.results[-1][1] if summary.results else None

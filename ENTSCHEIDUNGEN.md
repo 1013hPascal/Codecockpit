@@ -1012,4 +1012,5 @@ Rückmeldung des Nutzers: Bei Chatbot-fuer-Text stand in Git noch die Adresse ei
 - Dann steht oben auf der Projektzeile „Repository auf GitHub anlegen und hochladen …“. Bei Code steht „Auf GitHub hochladen …“ statt „Änderungen auf GitHub hochladen …“. Dieselbe Aktion steht auch bei Projekten, die noch gar nicht auf GitHub sind.
 - Das erste Hochladen legt das Repository auch dann an, wenn schon eine Adresse eingetragen ist, das Repository aber fehlt. Die Adresse wird danach auf das neue Repository gesetzt. Vorgeschlagen wird der Name aus der Adresse.
 - „Projekt neu einlesen“ fragt bei einem Projekt ohne Repository auch, ob es hochgeladen werden soll (Wunsch des Nutzers).
+- Sobald das Repository angelegt ist, verschwindet der Eintrag zum Anlegen wieder, auch wenn danach nur das Hochladen scheitert (Rückmeldung des Nutzers).
 - Nach dem Löschen eines Repositorys entfernt das Cockpit die Verbindung origin immer, auch wenn das Projekt danach aus der Liste entfernt wird. Beim Löschen eines Repositorys, das nur auf GitHub steht, trennt es alle Projekte mit dieser Adresse, auch aus der Liste entfernte.
