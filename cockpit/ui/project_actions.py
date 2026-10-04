@@ -68,6 +68,7 @@ class ProjectController:
         self.tasks: list[Task] = []
         self.upload = None                        # laufendes Hochladen (UploadRunner)
         self.pull_runner = None                   # laufender Ablauf für Pull Requests
+        self.missing_repos: set[int] = set()      # Adresse da, Repository fehlt (04.10.2026)
         from cockpit.ui.exe_flow import ExeActions
         self.exe = ExeActions(self)                # Phase 10
         from cockpit.ui.worktree_flow import WorktreeActions
@@ -96,14 +97,18 @@ class ProjectController:
                    availability=self._upload_availability, is_default=True, order=10),
             Action("upload_existing", f"Auf {platform_name} hochladen …", Target.CODE,
                    self.upload_action, availability=self._upload_availability,
-                   visible=_not_on_platform, is_default=True, order=10),
+                   visible=self._needs_repo, is_default=True, order=10),
+            # Wunsch des Nutzers (04.10.2026): auch auf der Projektzeile, gut sichtbar oben
+            Action("create_repo", f"Repository auf {platform_name} anlegen und hochladen …",
+                   Target.PROJECT, self.upload_action, availability=self._upload_availability,
+                   visible=self._needs_repo, order=3),
             Action("resolve_conflicts", "Konflikte lösen …", Target.CODE, self.resolve_action,
                    visible=_unfinished_merge, is_default=True, order=2),
             Action("push_changes", f"Änderungen auf {platform_name} hochladen …", Target.CODE,
                    self.push_action, detail=_push_detail,
                    availability=_git_availability,
-                   visible=lambda c: _on_platform(c) and not _branch_unpublished(c),
-                   is_default=True, order=10),
+                   visible=lambda c: _on_platform(c) and not _branch_unpublished(c)
+                   and not self._repo_missing(c), is_default=True, order=10),
             # Wunsch aus dem Test von 10f: Ein Branch, den es auf der Plattform noch nicht gibt,
             # sagt das in der Aktion. Sie lädt ihn hoch, mit den Änderungen, falls es welche gibt.
             Action("publish_branch", f"Branch auf {platform_name} hochladen …", Target.CODE,
@@ -230,6 +235,7 @@ class ProjectController:
         name, project_id = context.project.name, context.project.id
         if not self.check_layout(context.project, lambda project: None):
             return
+        self.check_repo(context.project, ask=True)
         self.window.reload_projects(refresh=False)
         self.window.refresh_status([project_id],
                                    on_done=lambda: announce(f"{name} neu eingelesen."))
@@ -378,7 +384,10 @@ class ProjectController:
         Vorgabe ist "Später"."""
         on_platform = git.is_repo(project.code_dir) and bool(
             git.config_get(project.code_dir, "remote.origin.url"))
-        if on_platform or not self._upload_availability(None).available:
+        if on_platform:
+            self.check_repo(project, ask=True)        # Adresse da, aber gibt es das Repository?
+            return
+        if not self._upload_availability(None).available:
             return
         name = self.window.project_list.platform_name
         if confirm(self.window, f"Auf {name} hochladen",
@@ -427,6 +436,51 @@ class ProjectController:
             announce(f"Git-Identität von {project.name}: {name}, {email}.")
 
     # -- Hochladen (Konzept 9.1) -------------------------------------------------------------
+    # -- Repository fehlt auf der Plattform (Wunsch des Nutzers vom 04.10.2026) -------------
+    def _repo_missing(self, context: ActionContext) -> bool:
+        return context.project is not None and context.project.id in self.missing_repos
+
+    def _needs_repo(self, context: ActionContext) -> bool:
+        return _not_on_platform(context) or (self._repo_missing(context)
+                                             and context.project.folder_found)
+
+    def check_repo(self, project: Project, ask: bool) -> None:
+        """Im Hintergrund nachsehen, ob es das Repository auf der Plattform gibt. Fehlt es,
+        steht "Repository … anlegen und hochladen …" in den Aktionen. ask: dann auch fragen."""
+        if not (project.folder_found and git.is_repo(project.code_dir)
+                and git.config_get(project.code_dir, "remote.origin.url")):
+            if ask:
+                self.offer_upload(project)
+            return
+        if not self.services.platform_accounts() or \
+                not vault_ui.ensure_unlocked(self.services, self.window):
+            return
+        services = self.services
+
+        def done(missing: bool) -> None:
+            if missing:
+                self.missing_repos.add(project.id)
+            else:
+                self.missing_repos.discard(project.id)
+            self.window.refresh_actions(keep_selection=True)
+            if missing and ask:
+                self.offer_create(project)
+
+        self.run_task(f"repo-check:{project.id}",
+                      lambda task: repo_admin.repo_missing(services, project), done,
+                      "Repository prüfen")
+
+    def offer_create(self, project: Project) -> None:
+        name = self.window.project_list.platform_name
+        remote = project.remote
+        where = f"{remote.owner}/{remote.name}" if remote is not None else project.name
+        if confirm(self.window, f"Auf {name} hochladen",
+                   f"Das Repository {where} gibt es auf {name} noch nicht. Jetzt anlegen und "
+                   f"hochladen? Sie können das auch später mit der Aktion Repository auf {name} "
+                   "anlegen und hochladen machen.", yes="Jetzt anlegen …", no="Später"):
+            from cockpit.ui.upload_flow import UploadRunner
+            UploadRunner(self, project).start()
+
     def _upload_availability(self, context: ActionContext) -> Availability:
         if git.find_git() is None:
             return Availability.no("Git ist nicht installiert.")
@@ -749,13 +803,23 @@ class ProjectController:
         announce("Repository wird abgefragt.")
 
         def work(task: Task):
+            from cockpit.platforms.base import NotFound
             platform = services.platform_for(project)
             if platform is None:
                 raise CockpitError(repo_admin.NO_ACCOUNT)
-            return platform, platform.repo_info(repo_admin.repo_ref(project))
+            try:
+                return platform, platform.repo_info(repo_admin.repo_ref(project))
+            except NotFound:
+                return None                      # das Repository fehlt auf der Plattform
 
         def done(outcome) -> None:
             from cockpit.ui.repo_dialogs import ManageRepoDialog
+            if outcome is None:
+                self.missing_repos.add(project.id)
+                self.window.refresh_actions(keep_selection=True)
+                self.offer_create(project)
+                return
+            self.missing_repos.discard(project.id)
             platform, info = outcome
             dialog = ManageRepoDialog(services, project, platform, info, platform_name, window)
             dialog.exec()
@@ -814,8 +878,12 @@ class ProjectController:
 
         def deleted() -> None:
             self.services.remote_repos.forget(repo.address)
+            cut = repo_admin.forget_address(self.services, repo.address)
             self.window.reload_projects(refresh=False)
-            announce(f"{repo.name} ist auf {name} gelöscht.")
+            text = f"{repo.name} ist auf {name} gelöscht."
+            if cut:
+                text += f" Verbindung entfernt bei: {', '.join(cut)}."
+            announce(text)
 
         def archive() -> None:
             text = (f"{repo.name} wird schreibgeschützt. Niemand kann mehr hochladen, auch Sie "
