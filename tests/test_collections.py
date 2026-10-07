@@ -124,7 +124,7 @@ def test_arrows_move_through_collection_and_project(window, qtbot):
     press(qtbot, listing, Qt.Key.Key_Right)                   # Projekt ausklappen
     assert current_text(win) == "Webseite, ausgeklappt"
     press(qtbot, listing, Qt.Key.Key_Right)
-    assert current_text(win) == "Code"
+    assert current_text(win) == "Repository, Branches: main & die Sie lokal haben"
     press(qtbot, listing, Qt.Key.Key_Left)                    # zuklappen, zurück zum Projekt
     assert current_text(win) == "Webseite"
     press(qtbot, listing, Qt.Key.Key_Left)                    # zur Sammlung

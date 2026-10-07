@@ -379,9 +379,10 @@ def test_actions_follow_the_state(qtbot, make_services, projects_root):
     assert "Exe hinzufügen …" not in labels(win)
     win.project_list.select(Target.EXE, project.id)
     entries = [e.action.text for e in win.current_entries()]  # ohne den Stand dahinter
-    assert "Exe aus dem Code erstellen …, noch keine Exe" in labels(win)
+    # Seit dem 06.10.2026 "Exe aus main erstellen …" und "Release einlesen …"
+    assert "Exe aus main erstellen …, noch keine Exe" in labels(win)
     # Zusammengefasst am 30.09.2026: Erstellen mit Einrichten, Exe einlesen
-    assert "Exe aus dem Code erstellen …" in entries and "Exe einlesen …" in entries
+    assert "Exe aus dem Code erstellen …" in entries and "Release einlesen …" in entries
     assert "Wie funktioniert die Exe? …" in entries
     assert "Exe veröffentlichen …" not in entries             # kein Repository auf GitHub
     fake_exe(project.exe_dir)
@@ -403,8 +404,8 @@ def test_add_exe_action(qtbot, make_services, projects_root, monkeypatch):
     win.project_list.select(Target.PROJECT, project.id)
     entry = next(e for e in win.current_entries() if e.label == "Exe hinzufügen …")
     win.run_entry(entry)
-    assert questions[0].startswith("Im Projektordner wird der Ordner Exe angelegt")
-    assert project.exe_dir.is_dir() and said("Ordner Exe angelegt.")
+    assert questions[0].startswith("Im Projektordner wird der Ordner Release angelegt")
+    assert project.exe_dir.is_dir() and said("Ordner Release angelegt.")
     assert win.project_list.current_target() == (Target.EXE, project.id)
 
 

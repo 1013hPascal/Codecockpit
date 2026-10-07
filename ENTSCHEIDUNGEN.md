@@ -1033,3 +1033,28 @@ Rückmeldung des Nutzers: Bei Chatbot für Text war der Branch Cockpit-exe-bauen
 
 - „Exe-Bau abschließen …“ steht da, solange es den Branch oder noch seine Exe gibt. Ist der Branch schon weg: „Exe als normale Exe übernehmen und Release veröffentlichen“, „Exe als normale Exe übernehmen, später veröffentlichen“, „Ordner der neuen Exe im Explorer öffnen“, „Exe aus dem Branch verwerfen …“.
 - Release und Repository sind getrennt (Wunsch des Nutzers): „Exe veröffentlichen …“ geht auch mit der Exe aus dem Branch, ohne dass alles in main ist. Gibt es beide Exen, fragt das Cockpit, welche. Die neuere steht oben. Nach dem Veröffentlichen heißt ihr Ordner mit Version, zum Beispiel Exe\Chatbot-für-Text-v1.0.0, und sie gilt als normale Exe.
+
+
+## 06.10.2026: Neue Projektliste mit Repository, Branches und Releases
+
+Wunsch des Nutzers, gebaut im Branch projektliste-neu. Entwurf mit den Antworten des Nutzers in ENTWURF-PROJEKTLISTE.md, Checkliste in checklisten\projektliste-neu.md.
+
+- Unter einem aufgeklappten Projekt stehen von oben: Repository, Main-Branch, die Branches nach Auswahl, Releases, Exe-main und je Branch-Release eine Zeile wie Exe-neue-funktion.
+- Projektzeile: „Projekt verwalten …“ ist ein neues Fenster mit dem derzeitigen Namen, „Projekt umbenennen …“, „Aus der Liste entfernen …“ und „Projekt löschen …“. README, Lizenz, Links und Releases stehen nicht mehr hier.
+- Umbenennen ändert alles (Antwort des Nutzers): Name in der Liste, Projektordner und Repository auf GitHub. Danach repariert das Cockpit die Verweise der Branch-Ordner (git worktree repair) und die virtuellen Umgebungen. Lässt sich der Ordner nicht umbenennen, ändert es gar nichts.
+- Löschen verschiebt den lokalen Ordner in die Sicherheitskopien und löscht das Repository auf GitHub, mit denselben Rückfragen wie „Repository verwalten“.
+- Zeile Repository: Enter öffnet die Auswahl „Nur main“, „main & die Sie lokal haben“ (Vorgabe), „main & die nur auf GitHub sind“, „main & alle“. Die Auswahl gilt pro Projekt und bleibt gespeichert. Hier stehen jetzt Repository verwalten (das bisherige „Projekt verwalten“), Branches verwalten, Links, README, Lizenz, Repository-Identität, Auf GitHub öffnen, GitHub Actions und Repository-Ordner öffnen. Die Zeile „Branches verwalten“ in der Liste entfällt.
+- Branches verwalten: Auch main hat „Infos“ und „Umbenennen …“. „Löschen …“ ist bei main nicht verfügbar und nennt den Grund (Antwort des Nutzers). Umbenennen von main ändert den Branch hier und auf GitHub und den Ordner Code\main.
+- Branch-Zeilen: „Repository neu einlesen“ oben, „Branch-Ordner öffnen“ ganz unten.
+- Releases: Die Exe aus main heißt Exe-main, eine Exe aus einem Branch Exe-<Branch-Ordner>. Auf dem Rechner bleiben die Ordner, wie sie seit Phase 10f sind (Exe\Name und Exe\Name_branch_<Ordner>). Ein Release für einen Branch gibt es nur für lokale Branches. „Release-Ordner lokal anlegen“ legt den leeren Ordner an.
+- Ein Branch-Release wird mit dem Tag v<Version>-<Branch> auf dem Stand des Branches veröffentlicht. So kommt es nicht mit den Versionen von main durcheinander. Sein Ordner behält den Namen, nur version.txt kommt hinein. Ist der Branch noch nicht auf GitHub, sagt das Cockpit das vorher.
+- „Release entfernen“ fragt: nur lokal, nur auf GitHub oder beides. Vorgabe und Escape: Abbrechen. Lokal kommt der Ordner in die Sicherheitskopien. Auf GitHub wird das Release der zuletzt veröffentlichten Version gelöscht, das Tag bleibt (wie Frage 3 zu Phase 14).
+- Jede Zeile hat ein Terminal an ihrem Ort: Projektordner, Ordner Code (Antwort des Nutzers: von dort geht man selbst in die Branches), Branch-Ordner, Ordner Exe und der Ordner des Releases.
+- Aktionen können einen Namen haben, der von der Zeile abhängt, etwa „Exe aus neue-funktion erstellen …“ oder „Exe-main-Ordner öffnen“.
+- Die Ordner Code und Exe heißen jetzt Repository und Release (Antwort des Nutzers). Neue Projekte bekommen gleich die neuen Namen. Projekte mit den alten Namen funktionieren weiter.
+- Beim Start fragt das Cockpit einmal für alle Projekte mit den alten Namen: „Umbenennen“, „Später“ (Vorgabe und Escape, fragt beim nächsten Start wieder) oder „Nicht umbenennen“ (fragt nie mehr). Danach repariert es die Verweise der Branch-Ordner und legt die virtuellen Umgebungen neu an, weil sie feste Pfade enthalten.
+- Ohne Sicherheitskopie (Antwort des Nutzers vom 07.10.2026): Nur die Namen ändern sich, nicht der Inhalt. Eine volle Kopie hätte bei großen Exe-Ordnern viel Zeit und Platz gekostet. Dafür gibt es auf der Projektzeile „Ordnernamen zurücksetzen …“. Scheitert ein Ordner, weil er geöffnet ist, benennt das Cockpit den anderen zurück, und es ist nichts geändert.
+- Einzeln geht es auf der Projektzeile mit „Ordner in Repository und Release umbenennen …“.
+- Das Projekt, aus dem das Cockpit gerade läuft, benennt es nicht um. Seine Ordner sind in Benutzung.
+- Meldungen nennen den echten Ordnernamen, zum Beispiel „Repository\suche“ oder bei einem alten Projekt „Code\suche“. Feste Texte nennen die neuen Namen.
+- Nachtrag (Fehler beim Testen gefunden): „Neu einlesen“ bei einem Projekt mit dem Code direkt in Code bietet „Ordner für Branches einrichten“ an. Wer das abbrach, bekam gar kein Neu einlesen. Jetzt liest das Cockpit nach dem Abbrechen trotzdem neu ein.

@@ -1,7 +1,7 @@
 """Welches Feature wo aktiv ist (Konzept 3.2, 8.4 und 8.5).
 
 - Global an oder aus steht in der Datenbank. Standard ist an.
-- Pro Projekt steht die Liste der eingeschalteten Features in Code\\cockpit.toml. Fehlt sie, gilt
+- Pro Projekt steht die Liste der eingeschalteten Features in Repository\\cockpit.toml. Fehlt sie, gilt
   die Vorauswahl aus den Grundeinstellungen bzw. der Standard der Features.
 - Aktiv ist ein Feature in einem Projekt, wenn es global an, im Projekt eingeschaltet und
   verfügbar ist. Verfügbar heißt: benötigte Dienste eingerichtet, benötigte Features verfügbar und

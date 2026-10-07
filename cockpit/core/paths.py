@@ -65,7 +65,7 @@ def default_projects_root() -> Path:
     Hauptordner. Sonst Dokumente\\GitHub."""
     here = program_dir()
     if here.parent.name.lower() == "code" and here.parent.parent.parent != here.parent.parent:
-        return here.parent.parent.parent          # Code\main oder ein Branch-Ordner (10f)
+        return here.parent.parent.parent          # Repository\main oder ein Branch-Ordner (10f)
     if here.name.lower() in ("code", "exe") and here.parent.parent != here.parent:
         return here.parent.parent
     return Path.home() / "Documents" / "GitHub"

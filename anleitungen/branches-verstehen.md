@@ -85,7 +85,7 @@ Den Ort wählen Sie nicht in einem Auswahlfeld. Er ergibt sich aus dem, was Sie 
 
 Wechseln legt fest, an welchem Branch Sie gerade arbeiten.
 
-Der Ordner Code zeigt danach die Dateien dieses Branches. Hochladen und Holen gelten dann für ihn.
+Der Ordner Repository zeigt danach die Dateien dieses Branches. Hochladen und Holen gelten dann für ihn.
 
 Wechseln geht zu jedem Branch der Liste, nicht nur zu main.
 
@@ -112,7 +112,7 @@ Hochladen und Holen arbeiten immer mit dem aktuellen Branch.
 
 ## Was passiert wo?
 
-Wechseln: nur auf Ihrem Rechner. Die Dateien im Ordner Code zeigen danach den Stand dieses Branches.
+Wechseln: nur auf Ihrem Rechner. Die Dateien im Ordner Repository zeigen danach den Stand dieses Branches.
 
 Neuer Branch: zuerst nur auf Ihrem Rechner. Auf GitHub kommt er mit „Änderungen hochladen“.
 
@@ -129,7 +129,7 @@ Jeden Branch außer dem, auf dem Sie gerade sind, und außer main.
 
 Sie müssen einen Branch nicht erst aktivieren, um ihn zu löschen. Markieren Sie ihn in der Liste und wählen Sie „Löschen …“.
 
-Den Branch, auf dem Sie sind, löschen Sie erst, nachdem Sie zu einem anderen gewechselt haben. Der Grund: Ihr Ordner Code zeigt gerade seine Dateien. Den Boden, auf dem man steht, kann man nicht wegnehmen. So ist es auch in Git und GitHub Desktop.
+Den Branch, auf dem Sie sind, löschen Sie erst, nachdem Sie zu einem anderen gewechselt haben. Der Grund: Ihr Ordner Repository zeigt gerade seine Dateien. Den Boden, auf dem man steht, kann man nicht wegnehmen. So ist es auch in Git und GitHub Desktop.
 
 Meist löscht man einen Branch, nachdem er in main übernommen wurde. Dann steht seine Arbeit ja in main.
 
@@ -148,7 +148,7 @@ In „Branches verwalten“ steht unter „Neuer Branch …“ die Auswahl „Br
 ## Ein typischer Ablauf
 
 1. Projekt ausklappen, „Branches verwalten“, oben „Neuer Branch …“, Name design.
-2. Im Ordner Code die Dateien ändern.
+2. Im Ordner Repository die Dateien ändern.
 3. „Änderungen hochladen“. Das legt einen Commit an und bringt den Branch auf GitHub.
 4. Andere schauen sich den Branch auf GitHub an.
 5. Passt alles: In „Branches verwalten“ design markieren, „In main übernehmen …“.

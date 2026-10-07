@@ -1,7 +1,7 @@
 """Die Aktionsliste (Konzept 8.3).
 
 Sie zeigt die Aktionen für den im Baum markierten Eintrag. Nicht verfügbare Aktionen stehen mit
-Grund in der Liste ("Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe."). Enter oder
+Grund in der Liste ("Exe starten, nicht verfügbar: Im Ordner Release liegt keine Exe."). Enter oder
 Leertaste führt die markierte Aktion aus.
 """
 from __future__ import annotations

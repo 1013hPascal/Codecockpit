@@ -35,19 +35,20 @@ TARGET_NAMES = {
     Target.ADD_REMOTE: "auf dem zweiten Eintrag „Projekt von GitHub herunterladen“",
     Target.PROJECT: "auf einer Projektzeile",
     Target.CODE: "auf Code bzw. Main-Branch und auf einer Branch-Zeile",
-    Target.BRANCH_OVERVIEW: "auf „Branches verwalten“",
-    Target.EXE: "auf Exe",
+    Target.REPOSITORY: "auf der Zeile Repository unter dem Projekt",
+    Target.RELEASES: "auf der Zeile Releases unter den Branches",
+    Target.EXE: "auf dem Release Exe-main",
+    Target.RELEASE: "auf dem Release eines Branches, zum Beispiel Exe-neue-funktion",
     Target.REMOTE_REPO: "auf einem Repository, das nur auf GitHub liegt",
-    Target.REMOTE_BRANCHES: "auf „Branches auf GitHub“",
-    Target.REMOTE_BRANCH: "auf einem ausgewählten Branch anderer",
+    Target.REMOTE_BRANCH: "auf einem Branch, der nur auf GitHub liegt",
 }
 LAYOUT = ("Das Hauptfenster hat links die Projektliste und rechts die Aktionen. Tab wechselt "
           "zwischen beiden. Projekte lassen sich in Projektsammlungen ordnen, zum Beispiel "
           "„Sammlung Webseiten“. Enter oder Pfeil rechts öffnet eine Sammlung, dann stehen nur "
           "ihre Projekte in der Liste. Rücktaste oder Pfeil links auf der Sammlung schließt sie. "
           "Ein Projekt ist in höchstens einer Sammlung. In der Projektliste klappt Pfeil rechts, Leertaste oder Enter ein "
-          "Projekt aus. Darunter stehen Code, bei Branch-Ordnern „Code, main“, die Zeilen der "
-          "Branches und Exe. Enter führt die wichtigste Aktion der Zeile aus. Tab führt zu allen "
+          "Projekt aus. Darunter stehen Repository, der Main-Branch, die Zeilen der Branches, "
+          "Releases und je Release eine Zeile wie Exe-main. Enter führt die wichtigste Aktion der Zeile aus. Tab führt zu allen "
           "Aktionen der Zeile, die Menütaste öffnet sie als Kontextmenü.")
 
 

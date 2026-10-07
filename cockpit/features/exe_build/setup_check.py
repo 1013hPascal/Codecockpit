@@ -149,7 +149,7 @@ def _packages(code_dir: Path) -> set[str]:
 
 
 def data_folders(code_dir: Path, known: set[str] | None = None) -> list[str]:
-    """Ordner im Ordner Code, die der Code als Pfad nutzt, zum Beispiel "Meine-Vokabeln". Sie
+    """Ordner im Ordner Repository, die der Code als Pfad nutzt, zum Beispiel "Meine-Vokabeln". Sie
     gehören meistens neben die Exe. known: Ordner, die die .spec-Datei schon einbindet."""
     folders = {p.name for p in code_dir.iterdir()
                if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith(".")} \
@@ -161,7 +161,7 @@ def data_folders(code_dir: Path, known: set[str] | None = None) -> list[str]:
 
 
 def relative_data_paths(code_dir: Path, known: set[str] | None = None) -> list[tuple[str, str]]:
-    """(Datei, Name): Der Code öffnet einen Ordner oder eine Datei aus dem Ordner Code nur mit
+    """(Datei, Name): Der Code öffnet einen Ordner oder eine Datei aus dem Ordner Repository nur mit
     Namen und bestimmt den Ort nicht über die Exe. In der Exe sucht er dann im Startordner."""
     names = {p.name for p in code_dir.iterdir()
              if p.name not in SKIP_DIRS and not p.name.startswith(".") and p.suffix != ".py"
@@ -178,7 +178,7 @@ def relative_data_paths(code_dir: Path, known: set[str] | None = None) -> list[t
 
 
 def spec_known(code_dir: Path, spec: Path | None) -> set[str]:
-    """Namen im Ordner Code, die die .spec-Datei schon nennt. Sie stecken in der Exe."""
+    """Namen im Ordner Repository, die die .spec-Datei schon nennt. Sie stecken in der Exe."""
     text = _read(spec) if spec is not None and spec.is_file() else ""
     return {p.name for p in code_dir.iterdir() if p.name in text} if text else set()
 
@@ -192,7 +192,7 @@ def _spec_of(code_dir: Path, settings: exe.BuildSettings | None) -> Path | None:
 
 def required_beside(code_dir: Path, settings: exe.BuildSettings | None = None) -> list[str]:
     """Was neben die Exe muss, weil der Code es benutzt und die .spec-Datei es nicht schon in
-    die Exe packt: Ordner und Dateien, die es im Ordner Code gibt (Wunsch des Nutzers vom
+    die Exe packt: Ordner und Dateien, die es im Ordner Repository gibt (Wunsch des Nutzers vom
     03.10.2026: in den Exe-Einstellungen angehakt und als "unbedingt nötig" markiert)."""
     known = spec_known(code_dir, _spec_of(code_dir, settings))
     names = data_folders(code_dir, known)
@@ -238,7 +238,7 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
         for name in settings.beside:
             if not (code_dir / name).exists():
                 lines.append(f"{PROBLEM}: Der Ordner {name}, der neben die Exe soll, fehlt im "
-                             "Ordner Code.")
+                             "Ordner Repository.")
         # Was die .spec-Datei schon einbindet, fehlt in der Exe nicht (beim Cockpit: anleitungen)
         known = spec_known(code_dir, spec)
         for name in data_folders(code_dir, known):
@@ -257,11 +257,11 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
             if not path.exists():
                 lines.append(f"{PROBLEM}: Die eingebundene Datei {source} fehlt.")
             elif not path.is_relative_to(code_dir.resolve()):
-                lines.append(f"{PROBLEM}: {source} liegt außerhalb des Ordners Code.")
+                lines.append(f"{PROBLEM}: {source} liegt außerhalb des Ordners Repository.")
     if spec is not None:
         text = spec.read_text(encoding="utf-8", errors="replace")
         lines.append(f"{PROBLEM}: {spec.name} enthält feste Pfade wie C:\\. Bitte Pfade relativ "
-                     "zum Ordner Code angeben." if _ABSOLUTE.search(text)
+                     "zum Ordner Repository angeben." if _ABSOLUTE.search(text)
                      else f"{OK}: Keine festen Pfade in {spec.name}.")
 
     from cockpit.features.exe_build import imports_check

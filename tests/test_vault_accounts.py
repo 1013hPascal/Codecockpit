@@ -316,4 +316,4 @@ def test_testdata_in_use_is_explained_and_nothing_is_deleted(tmp_path, monkeypat
     monkeypatch.setattr(Path, "rename", locked)
     with pytest.raises(CockpitError, match="noch von einem offenen CodeCockpit"):
         testdata.prepare(base)
-    assert (base / "Projekte" / "PDF-Chat" / "Code").is_dir()
+    assert (base / "Projekte" / "PDF-Chat" / "Repository").is_dir()

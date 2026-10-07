@@ -325,7 +325,7 @@ def test_code_actions_for_history(live, qtbot, make_services, projects_root, tmp
     texts = labels(win)
     assert "Verlauf …" in texts
     assert "Änderungen verwerfen …, nicht verfügbar: Es gibt keine Änderungen ohne Commit." in texts
-    assert texts.index("Verlauf …") < texts.index("Git-Identität …")
+    assert texts.index("Verlauf …") < texts.index("Branch-Ordner öffnen")
     write(code, "main.py", "x\n")
     win.refresh_status()
     wait_idle(qtbot, win)
@@ -510,14 +510,14 @@ def test_testdata_have_a_history(tmp_path, monkeypatch):
     from cockpit.core.paths import HOME_VARIABLE
     monkeypatch.setenv(HOME_VARIABLE, str(tmp_path / "vorher"))
     _, root = testdata.prepare(tmp_path / "Testdaten")
-    pdf = root / "PDF-Chat" / "Code"
+    pdf = root / "PDF-Chat" / "Repository"
     lines = [c.line() for c in history.log_commits(pdf)]
     assert lines == ["23.09.2026: Hilfetext geändert", "22.09.2026: Alte Datei entfernt",
                      "21.09.2026: Einstellungen ergänzt",
                      "20.09.2026, Version 1.0.0: Hilfe ergänzt", "19.09.2026: Erste Version"]
     assert [c.line() for c in history.local_changes(pdf)] == ["main.py, geändert",
                                                               "versuch.py, neu"]
-    rezepte = history.log_commits(root / "Rezepte" / "Code")
+    rezepte = history.log_commits(root / "Rezepte" / "Repository")
     assert rezepte[0].subject == "Rezept geändert" and history.can_undo(rezepte[0])
     # Die Version "Hilfetext geändert" lässt sich sauber rückgängig machen
     history.revert(pdf, "PDF-Chat", history.log_commits(pdf)[0], NAME, EMAIL)

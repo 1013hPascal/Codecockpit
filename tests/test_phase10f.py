@@ -113,11 +113,11 @@ def test_status_lists_branch_folders(tmp_path, projects_root, make_services):
     assert [t.folder for t, _s in status.worktrees] == ["suche"]
     assert project_status.for_folder(status, "suche").pending == 1
     rows = children_of(project, status, "GitHub")
-    # Wunsch vom 30.09.2026: "Main-Branch" und darunter "Branches verwalten"
-    # Seit dem 02.10.2026 nur lokale Branches, ohne "Branches auf GitHub"
-    assert [r[0] for r in rows] == ["Main-Branch, alles hochgeladen", "Branches verwalten",
+    # Seit dem 06.10.2026 oben "Repository", "Branches verwalten" ist dort eine Aktion
+    assert [r[0] for r in rows] == ["Repository, Branches: main & die Sie lokal haben",
+                                    "Main-Branch, alles hochgeladen",
                                     "Branch suche, 1 Datei noch nicht hochgeladen"]
-    assert [r[1] for r in rows] == [Target.CODE, Target.BRANCH_OVERVIEW, Target.BRANCH]
+    assert [r[1] for r in rows] == [Target.REPOSITORY, Target.CODE, Target.BRANCH]
 
 
 def test_merge_state_is_found_in_a_branch_folder(tmp_path, projects_root, make_services):
@@ -212,7 +212,7 @@ def test_download_without_branch_folders(account, projects_root, tmp_path):
     bare = make_remote(tmp_path, "Rechner")
     repo = stored_repo(services, acc.id, bare, "Rechner", "2026-09-20T10:00:00Z")
     project = project_setup.download(services, repo, projects_root)
-    assert project.code_dir == projects_root / "Rechner" / "Code"
+    assert project.code_dir == projects_root / "Rechner" / "Repository"
     assert not project.has_branch_folders
 
 
@@ -223,7 +223,7 @@ def test_add_local_repo_into_main_folder(tmp_path, projects_root, make_services)
     sh(folder, "init", "-q")
     commit(folder, "Erste Version", {"notizen.py": "x\n"})
     project, moved = services.projects.convert(folder, projects_root, "main")
-    assert moved and project.code_dir == projects_root / "Notizen" / "Code" / "main"
+    assert moved and project.code_dir == projects_root / "Notizen" / "Repository" / "main"
     assert project.has_branch_folders and (project.code_dir / "notizen.py").is_file()
 
 def test_new_folder_in_main_does_not_block_merging(qtbot, tmp_path, projects_root, make_services,

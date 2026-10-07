@@ -24,6 +24,7 @@ from cockpit.core.text import count
 from cockpit.core.venv_repair import VenvState
 
 if TYPE_CHECKING:
+    from cockpit.core.branches import Branch
     from cockpit.core.worktrees import Worktree
 
 log = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ class ProjectStatus:
     error: str = ""
     # Branch-Ordner (Phase 10f), jeder mit eigenem Stand, sortiert nach Ordnername
     worktrees: list[tuple["Worktree", "ProjectStatus"]] = field(default_factory=list)
+    # Branches nur auf der Plattform, für die Auswahl bei der Zeile Repository (06.10.2026)
+    remote_branches: list["Branch"] = field(default_factory=list)
 
     @property
     def on_platform(self) -> bool:
@@ -83,6 +86,14 @@ def compute(project: Project, with_worktrees: bool = True) -> ProjectStatus:
         for worktree in worktrees.list_worktrees(project):
             inner = compute(replace(project, code_dir=worktree.path), with_worktrees=False)
             status.worktrees.append((worktree, inner))
+    if (with_worktrees and status.repo is not None and status.repo.is_repo
+            and status.repo.has_commits and status.repo.remote_url):
+        from cockpit.core import branches
+        try:
+            status.remote_branches = [b for b in branches.list_branches(project.code_dir)
+                                      if b.remote and not b.local and not b.default]
+        except CockpitError as exc:
+            log.warning("Branches von %s nicht lesbar: %s", project.name, exc.message)
     return status
 
 

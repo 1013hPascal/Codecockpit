@@ -1,12 +1,12 @@
 """Projekte und ihre Ordner (Konzept 7).
 
 Jedes Projekt hat einen Projektordner mit den Unterordnern Code (das Git-Repository) und Exe.
-Die Projekteinstellungen stehen ohne Geheimnisse in Code\\cockpit.toml und werden mitversioniert.
+Die Projekteinstellungen stehen ohne Geheimnisse in Repository\\cockpit.toml und werden mitversioniert.
 Die Zuordnung von Projekt und Pfad steht in der Datenbank.
 
 Projekte kommen auf diesen Wegen in die Liste (Konzept 7.3 und 7.4):
-- Im Projekte-Hauptordner gefunden oder als Projektordner mit Unterordner Code hinzugefügt.
-- Umgestellt: Ein Ordner ohne Unterordner Code wird als Code in einen neuen Projektordner
+- Im Projekte-Hauptordner gefunden oder als Projektordner mit Unterordner Repository hinzugefügt.
+- Umgestellt: Ein Ordner ohne Unterordner Repository wird als Code in einen neuen Projektordner
   verschoben.
 - Nur verknüpft: Code-Ordner und Exe-Ordner bleiben, wo sie sind (linked).
 """
@@ -29,10 +29,38 @@ from cockpit.core.git import RemoteAddress
 
 log = logging.getLogger(__name__)
 
-CODE_DIR = "Code"
-EXE_DIR = "Exe"
+# Antwort des Nutzers (06.10.2026): Code heißt jetzt Repository, Exe heißt Release. Projekte mit
+# den alten Namen funktionieren weiter, bis das Cockpit ihre Ordner umbenannt hat.
+CODE_DIR = "Repository"
+EXE_DIR = "Release"
+OLD_CODE_DIR = "Code"
+OLD_EXE_DIR = "Exe"
+CODE_NAMES = (CODE_DIR, OLD_CODE_DIR)
 CONFIG_NAME = "cockpit.toml"
 REMOVED_KEY = "projects.removed"       # aus der Liste entfernte Ordner (Phase 5e)
+
+
+def is_code_name(name: str) -> bool:
+    """Heißt der Ordner Repository oder noch Code?"""
+    return name.lower() in (n.lower() for n in CODE_NAMES)
+
+
+def code_root_in(project_dir: Path) -> Path:
+    """Der Ordner Repository des Projekts, bei alten Projekten noch Code."""
+    for name in CODE_NAMES:
+        if (project_dir / name).is_dir():
+            return project_dir / name
+    return project_dir / CODE_DIR
+
+
+def exe_dir_in(project_dir: Path) -> Path:
+    """Der Ordner Release des Projekts. Bei alten Projekten Exe, solange es Release nicht gibt."""
+    if (project_dir / EXE_DIR).is_dir():
+        return project_dir / EXE_DIR
+    old = project_dir / OLD_EXE_DIR
+    if old.is_dir() or code_root_in(project_dir).name == OLD_CODE_DIR:
+        return old
+    return project_dir / EXE_DIR
 
 
 @dataclass(frozen=True)
@@ -53,13 +81,13 @@ class Project:
 
     @property
     def code_root(self) -> Path:
-        """Der Ordner Code. Bei einem Ordner pro Branch (Phase 10f) liegt code_dir darin."""
+        """Der Ordner Repository. Bei einem Ordner pro Branch (Phase 10f) liegt code_dir darin."""
         return self.code_dir.parent if self.has_branch_folders else self.code_dir
 
     @property
     def has_branch_folders(self) -> bool:
-        """Code enthält nur Ordner: den Haupt-Branch, zum Beispiel Code\\main, und die Branches."""
-        return (not self.linked and self.code_dir.parent.name.lower() == CODE_DIR.lower()
+        """Code enthält nur Ordner: den Haupt-Branch, zum Beispiel Repository\\main, und die Branches."""
+        return (not self.linked and is_code_name(self.code_dir.parent.name)
                 and self.code_dir.parent.parent == self.project_dir)
 
     @property
@@ -113,7 +141,7 @@ class ProjectStore:
         if row["exe_dir"]:
             exe_dir = Path(row["exe_dir"])
         else:
-            exe_dir = None if linked else project_dir / EXE_DIR
+            exe_dir = None if linked else exe_dir_in(project_dir)
         remote = (RemoteAddress(row["remote_host"], row["remote_owner"], row["remote_name"])
                   if row["remote_name"] else None)
         return Project(
@@ -123,13 +151,13 @@ class ProjectStore:
             remote=remote)
 
     def all(self) -> list[Project]:
-        """Alle Projekte, zuletzt aktualisierte oben. Liegt der Code inzwischen in Code\\main,
+        """Alle Projekte, zuletzt aktualisierte oben. Liegt der Code inzwischen in Repository\\main,
         merkt sich das Cockpit den neuen Ort (Rückmeldung des Nutzers vom 04.10.2026: nach dem
         Verschieben von Hand hieß die Zeile weiter Code)."""
         projects = []
         for row in self.database.query("SELECT * FROM projects"):
             project = self._from_row(row)
-            if not project.linked and project.code_dir == project.project_dir / CODE_DIR:
+            if not project.linked and project.code_dir == code_root_in(project.project_dir):
                 found = main_code_dir(project.code_dir)
                 if found != project.code_dir:
                     project = self.set_code_dir(project, found)
@@ -153,19 +181,20 @@ class ProjectStore:
 
     # -- Ändern --------------------------------------------------------------------------
     def add(self, project_dir: Path) -> Project:
-        """Einen Projektordner mit Unterordner Code aufnehmen. Schon vorhandene bleiben gleich."""
+        """Einen Projektordner mit Unterordner Repository aufnehmen. Schon vorhandene bleiben gleich."""
         project_dir = project_dir.resolve()
         self.forget_removed(project_dir)
         existing = self.find_by_dir(project_dir)
         if existing is not None:
             return existing
-        if not (project_dir / CODE_DIR).is_dir():
-            raise CockpitError(f"Im Ordner {project_dir} gibt es keinen Unterordner Code.")
-        code_dir = main_code_dir(project_dir / CODE_DIR)
+        if not code_root_in(project_dir).is_dir():
+            raise CockpitError(f"Im Ordner {project_dir} gibt es keinen Unterordner "
+                               f"{CODE_DIR}.")
+        code_dir = main_code_dir(code_root_in(project_dir))
         self.database.execute(
             "INSERT INTO projects (name, project_dir, code_dir, exe_dir, added_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            (project_dir.name, str(project_dir), str(code_dir), str(project_dir / EXE_DIR),
+            (project_dir.name, str(project_dir), str(code_dir), str(exe_dir_in(project_dir)),
              datetime.now().isoformat(timespec="seconds")))
         return self.find_by_dir(project_dir)
 
@@ -222,17 +251,18 @@ class ProjectStore:
 
     def relocate(self, project: Project, new_dir: Path) -> Project:
         """Neuen Ort angeben (Konzept 7.2). Bei verknüpften Projekten ist new_dir der Code-Ordner,
-        sonst der Projektordner mit Unterordner Code (oder dieser Unterordner selbst)."""
+        sonst der Projektordner mit Unterordner Repository (oder dieser Unterordner selbst)."""
         new_dir = new_dir.resolve()
         if project.linked:
             project_dir = code_dir = new_dir
             exe_dir = str(project.exe_dir) if project.exe_dir else None
         else:
             kind, project_dir = classify_folder(new_dir)
-            code_dir = main_code_dir(project_dir / CODE_DIR)
-            exe_dir = str(project_dir / EXE_DIR)
+            code_dir = main_code_dir(code_root_in(project_dir))
+            exe_dir = str(exe_dir_in(project_dir))
             if kind != "project":
-                raise CockpitError(f"Im Ordner {new_dir} gibt es keinen Unterordner Code.")
+                raise CockpitError(f"Im Ordner {new_dir} gibt es keinen Unterordner "
+                                   f"{CODE_DIR}.")
         if not code_dir.is_dir():
             raise CockpitError(f"Den Ordner {code_dir} gibt es nicht.")
         other = self.find_by_dir(project_dir)
@@ -241,6 +271,16 @@ class ProjectStore:
         self.database.execute(
             "UPDATE projects SET project_dir = ?, code_dir = ?, exe_dir = ? WHERE id = ?",
             (str(project_dir), str(code_dir), exe_dir, project.id))
+        return self.get(project.id)
+
+    def rename(self, project: Project, name: str, project_dir: Path, code_dir: Path,
+               exe_dir: Path | None) -> Project:
+        """Neuer Name und neue Orte nach "Projekt umbenennen" (06.10.2026)."""
+        self.database.execute(
+            "UPDATE projects SET name = ?, project_dir = ?, code_dir = ?, exe_dir = ? "
+            "WHERE id = ?",
+            (name, str(project_dir), str(code_dir), str(exe_dir) if exe_dir else None,
+             project.id))
         return self.get(project.id)
 
     def set_remote(self, project: Project, remote: RemoteAddress | None,
@@ -259,7 +299,7 @@ class ProjectStore:
         return self.get(project.id)
 
     def set_code_dir(self, project: Project, code_dir: Path) -> Project:
-        """Nach dem Einrichten der Branch-Ordner liegt der Code in Code\\main (Phase 10f)."""
+        """Nach dem Einrichten der Branch-Ordner liegt der Code in Repository\\main (Phase 10f)."""
         self.database.execute("UPDATE projects SET code_dir = ? WHERE id = ?",
                               (str(code_dir.resolve()), project.id))
         return self.get(project.id)
@@ -269,7 +309,7 @@ class ProjectStore:
                               (account_id, project.id))
 
     def scan(self, root: Path) -> list[Project]:
-        """Alle Unterordner des Hauptordners mit einem Ordner Code aufnehmen (Konzept 7.2).
+        """Alle Unterordner des Hauptordners mit einem Ordner Repository aufnehmen (Konzept 7.2).
         Gibt die neu gefundenen Projekte zurück."""
         found: list[Project] = []
         try:
@@ -281,7 +321,7 @@ class ProjectStore:
         for folder in candidates:
             if _key(folder) in removed:
                 continue                        # "Aus der Liste entfernen" gilt weiter
-            if (folder / CODE_DIR).is_dir() and self.find_by_dir(folder) is None:
+            if code_root_in(folder).is_dir() and self.find_by_dir(folder) is None:
                 found.append(self.add(folder))
         return found
 
@@ -350,14 +390,14 @@ def main_code_dir(code_root: Path) -> Path:
     return code_root
 
 
-# -- Aufbau Projektordner\Code\main und Projektordner\Exe (Wunsch des Nutzers, 04.10.2026) ----
+# -- Aufbau Projektordner\Repository\main und Projektordner\Exe (Wunsch des Nutzers, 04.10.2026) ----
 MAIN_DIR = "main"
 GIT_OUTSIDE, FLAT = "git_outside", "flat"
 
 
 def layout_problem(code_root: Path) -> str:
-    """GIT_OUTSIDE: Der Code liegt schon in Code\\main, der Git-Ordner .git aber noch in Code
-    (zum Beispiel nach dem Verschieben von Hand). FLAT: Der Code liegt direkt in Code. Leer:
+    """GIT_OUTSIDE: Der Code liegt schon in Repository\\main, der Git-Ordner .git aber noch in Code
+    (zum Beispiel nach dem Verschieben von Hand). FLAT: Der Code liegt direkt in Repository. Leer:
     alles passt."""
     try:
         names = {p.name for p in code_root.iterdir()}
@@ -374,9 +414,9 @@ def layout_problem(code_root: Path) -> str:
 
 
 def fix_git_outside(code_root: Path) -> Path:
-    """Den Git-Ordner zum Code nach Code\\main verschieben. Am Inhalt ändert sich nichts."""
+    """Den Git-Ordner zum Code nach Repository\\main verschieben. Am Inhalt ändert sich nichts."""
     if layout_problem(code_root) != GIT_OUTSIDE:
-        raise CockpitError("Der Ordner Code hat nicht den erwarteten Aufbau.")
+        raise CockpitError("Der Ordner Repository hat nicht den erwarteten Aufbau.")
     try:
         os.rename(code_root / ".git", code_root / MAIN_DIR / ".git")
     except OSError as exc:
@@ -386,7 +426,7 @@ def fix_git_outside(code_root: Path) -> Path:
 
 
 def nest_code(code_root: Path, name: str = MAIN_DIR) -> Path:
-    """Den Code, der direkt in Code liegt, nach Code\\<name> verschieben. Nur der Ort ändert
+    """Den Code, der direkt in Repository liegt, nach Repository\\<name> verschieben. Nur der Ort ändert
     sich. Klappt ein Teil nicht, kommt alles zurück."""
     target = code_root / name
     if target.exists():
@@ -416,17 +456,17 @@ def nest_code(code_root: Path, name: str = MAIN_DIR) -> Path:
 def classify_folder(folder: Path) -> tuple[str, Path]:
     """Was für ein Ordner wurde gewählt?
 
-    ("project", Projektordner): enthält einen Unterordner Code.
-    ("project", Projektordner): ist selbst der Ordner Code eines Projekts.
+    ("project", Projektordner): enthält einen Unterordner Repository.
+    ("project", Projektordner): ist selbst der Ordner Repository eines Projekts.
     ("other", folder): passt nicht zum Aufbau, Umstellen oder Verknüpfen nötig."""
     folder = folder.resolve()
-    if (folder / CODE_DIR).is_dir():
+    if code_root_in(folder).is_dir():
         return "project", folder
-    if folder.name.lower() == CODE_DIR.lower() and folder.parent != folder:
+    if is_code_name(folder.name) and folder.parent != folder:
         return "project", folder.parent
-    if folder.parent.name.lower() == CODE_DIR.lower() and (folder / ".git").exists() \
+    if is_code_name(folder.parent.name) and (folder / ".git").exists() \
             and folder.parent.parent != folder.parent:
-        return "project", folder.parent.parent        # Code\main oder ein Branch-Ordner
+        return "project", folder.parent.parent        # Repository\main oder ein Branch-Ordner
     return "other", folder
 
 

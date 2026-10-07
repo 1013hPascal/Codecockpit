@@ -201,7 +201,7 @@ def test_project_dialog_adds_dependencies(qtbot, services, projects_root, intros
     text, buttons = questions[0]
     assert text.startswith("Beispiel Aufbau benötigt Beispiel Grundlage. Beispiel Grundlage "
                            "ist für dieses Projekt ausgeschaltet und wird mit eingeschaltet.")
-    assert text.endswith("Die Auswahl steht danach in der Datei cockpit.toml im Ordner Code "
+    assert text.endswith("Die Auswahl steht danach in der Datei cockpit.toml im Ordner Repository "
                          "und wird mit hochgeladen. Speichern?")
     assert buttons == {"yes": "Speichern", "no": "Abbrechen"}
     assert services.features.project_features(project) == {BASE, BUILD}

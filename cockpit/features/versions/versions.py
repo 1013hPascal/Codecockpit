@@ -56,7 +56,7 @@ def options(version: str) -> tuple[str, ...]:
 
 
 def find_version_file(code_dir: Path) -> str:
-    """Datei mit __version__ = "x.y.z": oben im Ordner Code oder in einem Paket darunter."""
+    """Datei mit __version__ = "x.y.z": oben im Ordner Repository oder in einem Paket darunter."""
     candidates = sorted(code_dir.glob("*.py")) + sorted(code_dir.glob("*/__init__.py"))
     for path in candidates:
         if SKIP & set(path.relative_to(code_dir).parts[:-1]):

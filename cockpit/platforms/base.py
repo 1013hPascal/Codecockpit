@@ -176,6 +176,15 @@ class Platform(Adapter):
         """Archivierung aufheben. Plattformen, die das nicht können, melden es."""
         raise PlatformError("Die Plattform kann die Archivierung nicht aufheben.")
 
+    def rename_repo(self, repo: RepoRef, name: str) -> RepoRef:
+        """Repository umbenennen (Projekt umbenennen, 06.10.2026). Gibt die neue Adresse zurück.
+        Plattformen, die das nicht können, melden es."""
+        raise PlatformError("Die Plattform kann Repositories nicht umbenennen.")
+
+    def rename_branch(self, repo: RepoRef, old: str, new: str) -> None:
+        """Branch auf der Plattform umbenennen, auch den Haupt-Branch (06.10.2026)."""
+        raise PlatformError("Die Plattform kann Branches nicht umbenennen.")
+
     def settings_url(self, repo: RepoRef) -> str:
         """Seite mit den Einstellungen des Repositories im Browser, leer wenn unbekannt."""
         return ""

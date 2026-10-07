@@ -11,7 +11,7 @@ Beispielprojekte:
 - PDF-Chat: Code und Exe. Die Exe ist absichtlich keine echte Exe, damit man das Fehlerfenster
   testen kann.
 - Tagebuch: nur Code.
-- Bildbeschreiber: Code und ein leerer Ordner Exe.
+- Bildbeschreiber: Code und ein leerer Ordner Release.
 - Notizen: steht in der Liste, der Ordner fehlt aber ("Ordner nicht gefunden").
 
 Ab Phase 5a mit Git (nur, wenn Git installiert ist):
@@ -51,6 +51,7 @@ from cockpit.core import git
 from cockpit.core.backups import remove_tree
 from cockpit.core.errors import CockpitError
 from cockpit.core.paths import HOME_VARIABLE
+from cockpit.core.projects import CODE_DIR, EXE_DIR
 
 log = logging.getLogger(__name__)
 
@@ -90,14 +91,14 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
 
     def project(name: str, files: dict[str, str], exe: str | None = None,
                 empty_exe: bool = False) -> Path:
-        code = root / name / "Code"
+        code = root / name / CODE_DIR
         code.mkdir(parents=True)
         for filename, content in files.items():
             (code / filename).write_text(content, encoding="utf-8")
         if exe is not None or empty_exe:
-            (root / name / "Exe").mkdir()
+            (root / name / EXE_DIR).mkdir()
         if exe is not None:
-            (root / name / "Exe" / exe).write_text(FAKE_EXE_TEXT, encoding="utf-8")
+            (root / name / EXE_DIR / exe).write_text(FAKE_EXE_TEXT, encoding="utf-8")
         return code
 
     # Reihenfolge der Änderungszeit: zuletzt angelegte stehen oben
@@ -116,8 +117,8 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
         except (OSError, subprocess.CalledProcessError) as exc:
             log.warning("Testdaten ohne Git: %r", exc)
     others = base / "Andere Ordner"
-    (others / "Wetter" / "Code").mkdir(parents=True)
-    (others / "Wetter" / "Code" / "wetter.py").write_text("print('Wetter')\n", encoding="utf-8")
+    (others / "Wetter" / CODE_DIR).mkdir(parents=True)
+    (others / "Wetter" / CODE_DIR / "wetter.py").write_text("print('Wetter')\n", encoding="utf-8")
     for name in ("Rechner", "Firmenprojekt"):
         (others / name).mkdir(parents=True)
         (others / name / "main.py").write_text(f"print('{name}')\n", encoding="utf-8")
@@ -136,12 +137,12 @@ def prepare(base: Path | None = None) -> tuple[Path, Path]:
         (test / ".env").write_text("GEHEIM=erfunden\n", encoding="utf-8")
         (test / "daten.db").write_bytes(b"SQLite format 3\0erfunden")
     # Neuer Ort für Notizen (das Projekt fehlt im Hauptordner)
-    (others / "Notizen" / "Code").mkdir(parents=True)
-    (others / "Notizen" / "Code" / "notizen.py").write_text("print('Notizen')\n",
+    (others / "Notizen" / CODE_DIR).mkdir(parents=True)
+    (others / "Notizen" / CODE_DIR / "notizen.py").write_text("print('Notizen')\n",
                                                            encoding="utf-8")
     if git.find_git() is not None:
         # Projekt mit einer anderen Git-Identität, für die Rückfrage beim Hinzufügen
-        code = others / "Vereinsseite" / "Code"
+        code = others / "Vereinsseite" / CODE_DIR
         code.mkdir(parents=True)
         (code / "index.html").write_text("<h1>Verein</h1>\n", encoding="utf-8")
         try:
@@ -180,7 +181,7 @@ def add_git(base: Path, root: Path) -> None:
 
 def _first_version(base: Path, root: Path, name: str) -> Path:
     """Erste Version als Commit und die leere "Plattform" dazu, noch ohne Hochladen."""
-    code = root / name / "Code"
+    code = root / name / CODE_DIR
     _git(code, "init", "-q")
     _git(code, "add", "-A")
     _git(code, "commit", "-q", "-m", "Erste Version", "--date", "2026-09-19T09:00:00")
@@ -245,7 +246,7 @@ def _tagebuch(base: Path, root: Path) -> None:
     (venv / "Scripts").mkdir(parents=True)
     python = Path(getattr(sys, "_base_executable", sys.executable))
     python = python.with_name("python.exe") if python.name.lower() == "pythonw.exe" else python
-    old = base / "Alter Ort" / "Tagebuch" / "Code" / ".venv"
+    old = base / "Alter Ort" / "Tagebuch" / CODE_DIR / ".venv"
     (venv / "pyvenv.cfg").write_text(
         f"home = {python.parent}\ninclude-system-site-packages = false\n"
         f"version = {sys.version.split()[0]}\nexecutable = {python}\n"

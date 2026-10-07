@@ -214,8 +214,8 @@ def test_convert_moves_folder_into_new_project_dir(make_services, projects_root,
     project, moved = services.projects.convert(folder, projects_root)
     assert moved
     assert not folder.exists()
-    assert (projects_root / "Rechner" / "Code" / "main.py").read_text() == "print(1)\n"
-    assert project.name == "Rechner" and project.code_dir == projects_root / "Rechner" / "Code"
+    assert (projects_root / "Rechner" / "Repository" / "main.py").read_text() == "print(1)\n"
+    assert project.name == "Rechner" and project.code_dir == projects_root / "Rechner" / "Repository"
 
 
 def test_convert_refuses_existing_target(make_services, projects_root, tmp_path):
@@ -265,7 +265,7 @@ def test_relocate_project_and_linked_project(make_services, projects_root, tmp_p
     assert not services.projects.get(project.id).folder_found
     moved = services.projects.relocate(project, new_place / "Tagebuch" / "Code")
     assert moved.folder_found and moved.project_dir == new_place / "Tagebuch"
-    with pytest.raises(CockpitError, match="keinen Unterordner Code"):
+    with pytest.raises(CockpitError, match="keinen Unterordner Repository"):
         services.projects.relocate(moved, tmp_path)
     code = tmp_path / "repo"
     code.mkdir()
@@ -341,8 +341,8 @@ def test_download_clones_into_projects_root(account, projects_root, tmp_path):
     repo = stored_repo(services, acc.id, bare, "Rechner", "2026-09-20T10:00:00Z")
     project = project_setup.download(services, repo, projects_root)
     # Phase 10f: Vorgabe ist ein Ordner pro Branch, der Haupt-Branch liegt in Code\main
-    assert (projects_root / "Rechner" / "Code" / "main" / "main.py").exists()
-    assert project.code_dir == projects_root / "Rechner" / "Code" / "main"
+    assert (projects_root / "Rechner" / "Repository" / "main" / "main.py").exists()
+    assert project.code_dir == projects_root / "Rechner" / "Repository" / "main"
     assert project.account_id == acc.id
     assert project.remote.name == "Rechner"
     assert project.last_updated.startswith("2026-09-20")
@@ -600,7 +600,7 @@ def test_refresh_remote_downloads_new_repos_when_switched_on(live, qtbot, accoun
     win.refresh_remote()
     wait_idle(qtbot, win)
     qtbot.waitUntil(lambda: said("Neu heruntergeladen."), timeout=10000)
-    assert (projects_root / "Neu" / "Code" / "main" / "main.py").exists()
+    assert (projects_root / "Neu" / "Repository" / "main" / "main.py").exists()
 
 
 def test_refresh_remote_without_auto_download(live, qtbot, account, projects_root, tmp_path):
@@ -666,10 +666,10 @@ def test_add_other_folder_offers_convert_link_and_cancel(live, qtbot, make_servi
     assert labels == ["In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
                       "Abbrechen"]
     assert default == escape == 2                              # sichere Vorgabe
-    assert text.startswith("Der Ordner Rechner hat keinen Unterordner Code.")
+    assert text.startswith("Der Ordner Rechner hat keinen Unterordner Repository.")
     answers = [0]
     win.controller.add_local()                              # Umstellen
-    assert (projects_root / "Rechner" / "Code").is_dir() and not folder.exists()
+    assert (projects_root / "Rechner" / "Repository").is_dir() and not folder.exists()
     assert said("Rechner hinzugefügt.")
 
 
@@ -788,10 +788,10 @@ def test_testdata_can_be_prepared_twice(tmp_path, monkeypatch):
     monkeypatch.setenv("CODECOCKPIT_HOME", str(tmp_path / "home"))
     base = tmp_path / "Testdaten"
     testdata.prepare(base)
-    assert (base / "Projekte" / "Tagebuch" / "Code" / ".git").is_dir()
+    assert (base / "Projekte" / "Tagebuch" / "Repository" / ".git").is_dir()
     testdata.prepare(base)
     assert not base.with_name("Testdaten-alt").exists()
-    assert (base / "Andere Ordner" / "Vereinsseite" / "Code" / ".git").is_dir()
+    assert (base / "Andere Ordner" / "Vereinsseite" / "Repository" / ".git").is_dir()
 
 
 def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, projects_root,
@@ -803,8 +803,8 @@ def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, pro
     services.settings.update(git_name=NAME, git_email=EMAIL)
     win = live(services)
     project = services.projects.all()[0]
-    win.project_list.select(Target.CODE, project.id)
-    entry = next(e for e in win.current_entries() if e.label == "Git-Identität …")
+    win.project_list.select(Target.REPOSITORY, project.id)
+    entry = next(e for e in win.current_entries() if e.label == "Repository-Identität …")
     asked = []
     monkeypatch.setattr(project_actions, "confirm",
                         lambda parent, title, text, **k: asked.append((text, k)) or True)
@@ -823,5 +823,5 @@ def test_identity_action_only_for_repositories(live, qtbot, make_services, proje
     make_project(projects_root, "OhneGit")
     services = make_services()
     win = live(services)
-    win.project_list.select(Target.CODE, services.projects.all()[0].id)
-    assert "Git-Identität …" not in [e.label for e in win.current_entries()]
+    win.project_list.select(Target.REPOSITORY, services.projects.all()[0].id)
+    assert "Repository-Identität …" not in [e.label for e in win.current_entries()]

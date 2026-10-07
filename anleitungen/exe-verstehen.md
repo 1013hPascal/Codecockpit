@@ -4,21 +4,21 @@
 
 Eine Exe ist Ihr Programm als Datei für Windows. Andere starten sie mit einem Doppelklick oder mit Enter, ohne Python zu installieren.
 
-Im Cockpit hat ein Projekt dafür neben „Code“ den Eintrag „Exe“. Er gehört zum Ordner Exe im Projektordner.
+Im Cockpit steht dafür unter einem Projekt die Zeile „Releases“ und darunter „Exe-main“. Sie gehören zum Ordner Release im Projektordner. Eine Exe aus einem anderen Branch steht dort als eigene Zeile, zum Beispiel „Exe-neue-funktion“.
 
 ## Den Eintrag Exe bekommen
 
-Fehlt der Eintrag, wählen Sie auf der Projektzeile „Exe hinzufügen …“. Das Cockpit legt den Ordner Exe an. Danach steht „Exe“ unter „Code“.
+Fehlt der Eintrag, wählen Sie auf der Projektzeile „Exe hinzufügen …“. Das Cockpit legt den Ordner Release an. Danach stehen „Releases“ und „Exe-main“ unter den Branches.
 
 ## Woher die Exe kommt
 
 Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
 
-1. Vom Cockpit erstellt: „Exe aus dem Code erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner. Wie das geht, steht unten unter „Exe aus dem Code erstellen“.
-2. Extern erstellt: „Exe einlesen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Exe.
-3. Aus dem Release: „Exe einlesen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
+1. Vom Cockpit erstellt: „Exe aus main erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner. Wie das geht, steht unten unter „Exe aus main erstellen“.
+2. Extern erstellt: „Release einlesen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Release.
+3. Aus dem Release: „Release einlesen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
 
-## Exe aus dem Code erstellen
+## Exe aus main erstellen
 
 Das Cockpit führt Sie Schritt für Schritt. Jeder Schritt hat „Zurück“ und „Abbrechen“.
 
@@ -37,7 +37,7 @@ Fehlen README oder Lizenz, warnt das Cockpit vor dem Bau und vor dem Veröffentl
 
 ## Ordner neben der Exe
 
-Jede Exe hat im Ordner Exe einen eigenen Ordner, zum Beispiel Exe\VokabelApp. Die Exe aus dem Branch liegt in Exe\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe, README, Lizenz und die Ordner neben der Exe.
+Jede Exe hat im Ordner Release einen eigenen Ordner, zum Beispiel Release\VokabelApp. Die Exe aus dem Branch liegt in Release\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe, README, Lizenz und die Ordner neben der Exe.
 
 Manche Programme brauchen Ordner neben der Exe, zum Beispiel Meine-Vokabeln. Sie wählen sie im ersten Schritt oder in „Exe-Einstellungen …“ in der Liste „Ordner und Dateien neben der Exe“. Was der Code benutzt, ist angehakt. Einen neuen Ordner fügen Sie mit „Neuer Ordner neben der Exe“ hinzu. Er wird neben der Exe leer angelegt. Beim Bau kopiert das Cockpit die gewählten Ordner neben die Exe. Ein Ordner, in dem schon Daten liegen, bleibt, wie er ist. So bleiben zum Beispiel eigene Vokabellisten erhalten. README und Lizenz sind dagegen immer die aktuellen aus dem Code.
 
@@ -47,7 +47,7 @@ Mit „Mit den Hinweisen wiederholen“ führt die KI die Einrichtung mit dem Ge
 
 - „noch keine Exe-Datei“: Der Ordner ist leer.
 - „aktuell“: Das Cockpit hat die Exe aus dem jetzigen Stand des Codes gebaut.
-- „älter als der Code“: Seit dem Bau gibt es neue Commits. Mit „Exe aus dem Code erstellen …“ bauen Sie neu.
+- „älter als der Code“: Seit dem Bau gibt es neue Commits. Mit „Exe aus main erstellen …“ bauen Sie neu.
 
 ## Was beim Bauen passiert
 
@@ -66,7 +66,7 @@ In die Exe kommt nur, was Ihre Startdatei wirklich importiert, dazu Dateien, die
 
 Hochgeladen wird der ganze Ordner der Exe als ZIP-Datei mit festem Namen, zum Beispiel VokabelApp.zip. Darin liegt der Ordner mit der Versionsnummer, zum Beispiel VokabelApp-v1.0.1, mit der Datei version.txt. So überschreibt beim Auspacken keine Version eine andere, und der Link auf die neueste Version bleibt immer gleich. README und Lizenz hängen zusätzlich einzeln am Release.
 
-Auch bei Ihnen bekommt der Ordner der Exe danach die Version im Namen, zum Beispiel Exe\VokabelApp-v1.0.1. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen. Eine neue Exe baut das Cockpit in Exe\VokabelApp. Läuft die Exe gerade, behält ihr Ordner den Namen.
+Auch bei Ihnen bekommt der Ordner der Exe danach die Version im Namen, zum Beispiel Release\VokabelApp-v1.0.1. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen. Eine neue Exe baut das Cockpit in Release\VokabelApp. Läuft die Exe gerade, behält ihr Ordner den Namen.
 
 Während das Release hochgeladen wird, steht bei „Exe veröffentlichen …“ „wird gerade hochgeladen“.
 

@@ -5,7 +5,10 @@ lokal haben" (Wunsch des Nutzers, 02.10.2026). Leertaste oder Enter öffnet dort
 "Die Sie lokal haben" (Vorgabe), "Die nur auf GitHub sind" und "Alle". So behält man den
 Überblick, auch wenn viele Leute an eigenen Branches arbeiten. Darunter die Branches, zum Beispiel
 "design, hier und auf GitHub, zuletzt von Anna am 24.09.2026, 2 Commits vor main". Enter wechselt
-zum markierten Branch. Per Tab beim Haupt-Branch: "Exe" mit Version und Veröffentlichung. Bei einem
+zum markierten Branch. Per Tab beim Haupt-Branch (Wunsch des Nutzers vom 06.10.2026): "Infos" (wer
+ihn angelegt hat, letzte Änderung, Commits, Stand der Exe), "Umbenennen …" und "Löschen …, nicht
+verfügbar", weil main der Haupt-Branch ist. Umbenennen geht auf der Plattform über deren
+Schnittstelle, der Ordner Repository\\main heißt danach wie der Branch. Bei einem
 Branch: "In main übernehmen …, 2 Commits offen" bzw. "…, alles aktuell", "Umbenennen …",
 "Löschen …". "Branch-Ordner entfernen …" entfällt seit dem 03.10.2026 (Wunsch des Nutzers), weil
 "Löschen …" fragt, ob nur hier, nur auf GitHub oder beides. Löschen verwirft auch die Änderungen
@@ -62,7 +65,7 @@ def filtered(items: list[Branch], kind: str) -> list[Branch]:
 def exe_lines(project: "Project") -> list[str]:
     """Stand der Exe für den Haupt-Branch: Version und ob sie veröffentlicht ist."""
     if not project.has_exe_dir:
-        return ["Exe: Dieses Projekt hat keinen Ordner Exe."]
+        return ["Exe: Dieses Projekt hat keinen Ordner Release."]
     lines = [exe.status_line(project)]
     record = exe.read_record(project.code_dir) if project.folder_found else None
     if record is not None and record.version:
@@ -100,6 +103,7 @@ class BranchesDialog(FocusDialog):
         self.folders = folders or {}                  # Branch: Ordnername
         self.new_request = ""
         self.open_request = ""
+        self.rename_main_request = ""                 # neuer Name des Haupt-Branches
         self.worker = DialogWorker(self, "Branches")
         self.list = QListWidget()
         name_widget(self.list, "Branches")
@@ -118,11 +122,10 @@ class BranchesDialog(FocusDialog):
         self.rename_button, self.delete_button = rename, delete
         new.setVisible(False)                         # steht jetzt oben in der Liste
         self.new_button = new
-        # Beim Haupt-Branch mit Tab: Stand der Exe (Wunsch des Nutzers, 30.09.2026)
+        # Beim Haupt-Branch mit Tab: Infos mit dem Stand der Exe (30.09. und 06.10.2026)
         self.exe_info = QListWidget()
-        self.exe_label = label_for(self.exe_info, "&Exe:")
-        self.exe_info.addItems(exe_lines(project))
-        self.exe_info.setCurrentRow(0)
+        self.exe_label = label_for(self.exe_info, "&Infos:")
+        self.info_for = ""
         self.list.currentRowChanged.connect(lambda _row: self.update_buttons())
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
@@ -226,9 +229,9 @@ class BranchesDialog(FocusDialog):
             return branch.line(self.main, self.platform_name)
         text = dataclasses.replace(branch, current=False).line(self.main, self.platform_name)
         if branch.default:
-            where = f"Ordner Code\\{self.code_dir.name}"
+            where = f"Ordner {self.code_dir.parent.name}\\{self.code_dir.name}"
         elif branch.name in self.folders:
-            where = f"Ordner Code\\{self.folders[branch.name]}"
+            where = f"Ordner {self.code_dir.parent.name}\\{self.folders[branch.name]}"
         else:
             where = "ohne Ordner"
         name, _, rest = text.partition(", ")
@@ -244,6 +247,12 @@ class BranchesDialog(FocusDialog):
         main = branch is not None and branch.default
         self.exe_label.setVisible(main and not self.single)
         self.exe_info.setVisible(main and not self.single)
+        if main and not self.single and self.info_for != branch.name:
+            self.info_for = branch.name
+            self.exe_info.clear()
+            self.exe_info.addItems(branches.info_lines(self.code_dir, branch, self.platform_name)
+                                   + exe_lines(self.project))
+            self.exe_info.setCurrentRow(0)
         # Wunsch aus dem Test von 6a: Der Knopf nennt das Ziel, zum Beispiel "Zu main wechseln"
         if self.structured:
             self.switch_button.setVisible(branch is not None and not branch.default
@@ -267,8 +276,12 @@ class BranchesDialog(FocusDialog):
             self.merge_button.setText(f"In &{main} übernehmen …, {state}")
         self.merge_button.setVisible(branch is not None and not branch.default
                                      and branch.local)
-        self.rename_button.setVisible(branch is not None and not branch.default)
-        self.delete_button.setVisible(branch is not None and not branch.default)
+        self.rename_button.setVisible(branch is not None and (not branch.default
+                                                              or not self.single))
+        self.delete_button.setVisible(branch is not None)
+        # Wunsch des Nutzers (06.10.2026): bei main steht Löschen da und nennt den Grund
+        is_main = branch is not None and branch.default
+        self.delete_button.setText("&Löschen …, nicht verfügbar" if is_main else "&Löschen …")
 
     def reload(self, select: str = "") -> None:
         try:
@@ -304,10 +317,11 @@ class BranchesDialog(FocusDialog):
             return
         if self.structured:
             if branch.default:
-                announce(f"{branch.name} liegt im Ordner Code\\{self.code_dir.name}.")
+                announce(f"{branch.name} liegt im Ordner "
+                         f"{self.code_dir.parent.name}\\{self.code_dir.name}.")
             elif branch.name in self.folders:
                 announce(f"{branch.name} hat schon einen Ordner: "
-                         f"Code\\{self.folders[branch.name]}.")
+                         f"{self.code_dir.parent.name}\\{self.folders[branch.name]}.")
             else:
                 self.open_request = branch.name
                 self.accept()
@@ -459,15 +473,14 @@ class BranchesDialog(FocusDialog):
         branch = self.current()
         if branch is None:
             return
-        if branch.default:
-            show_error(self, "Umbenennen", f"{branch.name} ist der Haupt-Branch. Er lässt sich "
-                       "hier nicht umbenennen.")
-            return
         dialog = BranchNameDialog(f"{branch.name} umbenennen", "", self.code_dir, branch.name,
                                   self)
         if not dialog.exec():
             return
         new = dialog.name
+        if branch.default:
+            self.rename_main(branch, new)
+            return
         if branch.remote and not confirm(
                 self, "Umbenennen",
                 f"{branch.name} gibt es auch auf {self.platform_name}. Das Cockpit lädt ihn dort "
@@ -495,6 +508,22 @@ class BranchesDialog(FocusDialog):
         self.worker.run(lambda: branches.rename_remote(code_dir, old, new, env, local), done,
                         speak="Wird umbenannt.")
 
+    def rename_main(self, branch: Branch, new: str) -> None:
+        """Haupt-Branch umbenennen. Das erledigt nach dem Schließen der Aufrufer im Hintergrund,
+        weil es mit der Plattform spricht und den Ordner umbenennt."""
+        where = (f" Auf {self.platform_name} wird er auch umbenannt, {self.platform_name} macht "
+                 f"{new} dann zum Haupt-Branch und leitet Pull Requests um." if branch.remote
+                 else "")
+        folder = (f" Der Ordner {self.code_dir.parent.name}\\{self.code_dir.name} heißt danach wie der Branch. Schließen "
+                  "Sie vorher alle Programme, die ihn geöffnet haben." if self.structured else "")
+        if not confirm(self, "Haupt-Branch umbenennen",
+                       f"{branch.name} ist der Haupt-Branch und heißt danach {new}.{where}{folder}"
+                       " Wer das Repository schon heruntergeladen hat, muss danach neu holen. "
+                       "Umbenennen?", yes="Umbenennen", no="Abbrechen"):
+            return
+        self.rename_main_request = new
+        self.accept()
+
     # -- Löschen -----------------------------------------------------------------------------
     def delete_current(self) -> None:
         branch = self.current()
@@ -506,8 +535,8 @@ class BranchesDialog(FocusDialog):
             self.accept()
             return
         if branch.default:
-            show_error(self, title, f"{branch.name} ist der Haupt-Branch. Er lässt sich hier "
-                       "nicht löschen.")
+            show_error(self, title, f"{branch.name} ist der Haupt-Branch und kann nicht gelöscht "
+                       "werden. Alle anderen Branches bauen auf ihm auf.")
             return
         if branch.current:
             # Wunsch des Nutzers (03.10.2026): Was im Branch war, kommt nicht nach main

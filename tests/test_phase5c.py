@@ -423,7 +423,7 @@ def test_code_actions_on_platform(live, qtbot, make_services, projects_root, tmp
     texts = labels(win)
     # Reihenfolge vom 30.09.2026
     # Seit dem 02.10.2026 mit dem Stand hinter dem Namen
-    assert texts[:4] == ["Projekt neu einlesen", "Terminal …",
+    assert texts[:4] == ["Repository neu einlesen", "Terminal …",
                          "Änderungen auf GitHub hochladen …, nichts offen",
                          "Änderungen von GitHub holen …, alles aktuell"]
     assert "Auf GitHub hochladen …" not in texts and "Konflikte lösen …" not in texts
@@ -738,16 +738,22 @@ def test_code_line_says_what_is_not_fetched(tmp_path, projects_root, make_servic
 
 
 def test_reread_project_is_on_top_of_every_level(live, qtbot, make_services, projects_root,
-                                                 tmp_path):
+                                                 tmp_path, monkeypatch):
     from cockpit.core.actions import Target
+    from cockpit.ui import worktree_flow
+    # Seit dem 04.10.2026 bietet Neu einlesen "Ordner für Branches einrichten" an. Abbrechen.
+    monkeypatch.setattr(worktree_flow, "confirm", lambda *args, **kwargs: False)
     services = make_services()
     _, code, _ = setup_repo(tmp_path, projects_root)
     (code.parent / "Exe").mkdir()
     win = live(services)
     project = select_code(win, services, code)
-    for target in (Target.PROJECT, Target.CODE, Target.EXE):
+    # Seit dem 06.10.2026 mit dem Namen der Zeile
+    for target, text in ((Target.PROJECT, "Projekt neu einlesen"),
+                         (Target.CODE, "Repository neu einlesen"),
+                         (Target.EXE, "Releases neu einlesen")):
         win.project_list.select(target, project.id)
-        assert labels(win)[0] == "Projekt neu einlesen"
+        assert labels(win)[0] == text
         assert not win.current_entries()[0].action.is_default     # Enter bleibt wie bisher
     write(code, "neu.py", "x\n")
     win.project_list.select(Target.CODE, project.id)

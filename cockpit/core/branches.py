@@ -92,6 +92,35 @@ def _day(iso: str) -> str:
         return ""
 
 
+def info_lines(code_dir: Path, branch: Branch, platform_name: str = "GitHub") -> list[str]:
+    """Angaben zu einem Branch für "Infos" (Wunsch des Nutzers vom 06.10.2026, bei main):
+    wer ihn angelegt hat und wann, die letzte Änderung, Anzahl der Commits und wo er liegt."""
+    ref = branch.name if branch.local else f"origin/{branch.name}"
+    lines = [f"{branch.name}, {branch.place(platform_name)}"]
+    first = git.run(["rev-list", "--max-parents=0", ref], code_dir, check=False).stdout.split()
+    if first:
+        shown = git.run(["show", "-s", f"--format=%an{_FIELD}%aI", first[-1]], code_dir,
+                        check=False).stdout.strip()
+        author, _, date = shown.partition(_FIELD)
+        if author:
+            lines.append(f"Angelegt von {author}" + (f" am {_day(date)}" if _day(date) else ""))
+    if branch.author:
+        when = _day(branch.date)
+        lines.append(f"Zuletzt geändert von {branch.author}" + (f" am {when}" if when else ""))
+    total = git.run(["rev-list", "--count", ref], code_dir, check=False).stdout.strip()
+    if total.isdigit():
+        lines.append(count(int(total), "Commit", "Commits"))
+    if branch.local and branch.remote:
+        if branch.ahead:
+            lines.append(f"{count(branch.ahead, 'Commit', 'Commits')} noch nicht hochgeladen")
+        if branch.behind:
+            lines.append(f"{count(branch.behind, 'Commit', 'Commits')} auf {platform_name} noch "
+                         "nicht geholt")
+        if not branch.ahead and not branch.behind:
+            lines.append(f"Gleicher Stand wie auf {platform_name}")
+    return lines
+
+
 def default_branch(code_dir: Path) -> str:
     return git.status(code_dir).default_branch
 

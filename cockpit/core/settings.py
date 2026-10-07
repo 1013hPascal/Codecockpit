@@ -50,7 +50,7 @@ class Settings:
     # Feature-Verwaltung (default_features). Der alte Wert gilt nur, solange dort nichts steht.
     branches_by_default: bool = False
     auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
-    branch_folders: bool = True                   # neue Projekte: Code\main und Branch-Ordner
+    branch_folders: bool = True                   # neue Projekte: Repository\main und Branch-Ordner
     update_check: bool = True                    # Exe: bei jedem Start nach Updates suchen
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:

@@ -4,10 +4,8 @@ Aktionen:
 - Code: "Ordner für Branches einrichten …" (alte Struktur) und "Neuer Branch …" (neue Struktur).
 - Branch-Ordner: die Aktionen von Code. "Branch-Ordner entfernen …" gibt es seit dem 03.10.2026
   nicht mehr, "Löschen …" in "Branches verwalten" erledigt das (Wunsch des Nutzers).
-- "Branches auf GitHub": Enter zeigt die Branches anderer zur Auswahl. Der gewählte steht danach
-  vorübergehend in der Liste.
-- Ein solcher Branch: "In Liste anpinnen" legt seinen Ordner an, "Aus der Liste entfernen",
-  "Auf GitHub öffnen".
+- Ein Branch nur auf GitHub steht in der Liste, wenn die Auswahl beim Repository ihn zeigt
+  (06.10.2026). "Herunterladen" legt seinen Ordner an, dazu "Auf GitHub öffnen".
 
 Was mit Git oder der Plattform spricht, läuft im Hintergrund. Ein neuer Branch-Ordner bekommt eine
 eigene virtuelle Umgebung, wenn der Haupt-Branch eine hat.
@@ -22,11 +20,10 @@ from cockpit.core import branches, git, sync, venv_repair, worktrees
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project
-from cockpit.core.text import count
 from cockpit.core.worktrees import Worktree
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import choose_from_list, confirm, show_info
+from cockpit.ui.common import confirm
 from cockpit.ui.tasks import Task
 
 if TYPE_CHECKING:
@@ -63,15 +60,11 @@ class WorktreeActions:
             Action("setup_branch_folders", "Ordner für Branches einrichten …", Target.CODE,
                    self.setup, visible=lambda c: c.worktree is None and c.project is not None
                    and _repo_with_commits(c) and worktrees.can_convert(c.project), order=94),
-            Action("show_remote_branches", f"Branches auf {name} anzeigen …",
-                   Target.REMOTE_BRANCHES, self.pick_remote, is_default=True, order=10),
-            Action("pin_branch", "In Liste anpinnen", Target.REMOTE_BRANCH, self.pin,
+            Action("pin_branch", "Herunterladen", Target.REMOTE_BRANCH, self.pin,
                    is_default=True, order=10),
             Action("open_branch_remote", f"Auf {name} öffnen", Target.REMOTE_BRANCH,
                    self.open_remote, visible=lambda c: c.project is not None
                    and c.project.remote is not None, order=20),
-            Action("unshow_branch", "Aus der Liste entfernen", Target.REMOTE_BRANCH,
-                   self.unshow, order=90),
         ]
 
     def _manage_text(self) -> str:
@@ -121,7 +114,8 @@ class WorktreeActions:
         buttons = ["Nur auf diesem Rechner"] + ([f"Hier und auf {self.platform_name}"]
                                                 if remote else []) + ["Abbrechen"]
         # Wunsch des Nutzers (03.10.2026): Löschen verwirft alles, nichts kommt nach main
-        text = (f"{name} wird gelöscht, mit dem Ordner Code\\{tree.folder}. Änderungen darin "
+        text = (f"{name} wird gelöscht, mit dem Ordner "
+                f"{project.code_root.name}\\{tree.folder}. Änderungen darin "
                 "werden verworfen und kommen nicht nach main. Liegt darin etwas, das noch nicht "
                 "hochgeladen ist, kommt der Ordner vorher in die Sicherheitskopien.")
         choice = ask_buttons(self.window, "Branch löschen", text, buttons,
@@ -143,6 +137,36 @@ class WorktreeActions:
                                            if with_remote else "."))
 
         self.controller.run_task(f"project:{project.id}", work, done, "Branch löschen")
+
+    def rename_main(self, project: Project, old: str, new: str, env: dict[str, str]) -> None:
+        """Haupt-Branch umbenennen, im Hintergrund (Wunsch des Nutzers vom 06.10.2026)."""
+        from cockpit.core import project_admin
+        services = self.services
+
+        def work(task: Task):
+            platform = services.platform_for(project) if project.remote is not None else None
+            renamed, note = project_admin.rename_main(services.projects, project, old, new,
+                                                      platform, env, task.status.emit)
+            if renamed.code_dir != project.code_dir and venv_repair.check(
+                    renamed.code_dir).broken:
+                task.status.emit("Virtuelle Umgebung wird neu angelegt")
+                try:
+                    venv_repair.repair(renamed.code_dir, project.name, lambda *a: None,
+                                       task.cancel_event)
+                except CockpitError as exc:
+                    log.warning("Virtuelle Umgebung nach dem Umbenennen: %s", exc.message)
+            return renamed, note
+
+        def done(outcome) -> None:
+            renamed, note = outcome
+            self.window.reload_projects(refresh=False)
+            self.window.refresh_status([renamed.id], on_done=lambda: self.window.project_list
+                                       .select(Target.CODE, renamed.id))
+            announce(f"Der Haupt-Branch heißt jetzt {new}. {note}".strip())
+
+        announce("Wird umbenannt.")
+        self.controller.run_task(f"project:{project.id}", work, done, "Haupt-Branch umbenennen",
+                                 on_status=lambda text: announce(text, speak=False))
 
     # -- Hilfen -------------------------------------------------------------------------------
     def _environment(self, project: Project) -> dict[str, str] | None:
@@ -185,12 +209,14 @@ class WorktreeActions:
         self.convert(context.project)
 
     def convert(self, project: Project, intro: str = "",
-                after: Callable[[Project], None] | None = None) -> None:
+                after: Callable[[Project], None] | None = None) -> bool:
         """Ordner für Branches einrichten, nach Rückfrage. intro steht vor der Erklärung, after
-        bekommt danach das umgestellte Projekt (Projekt vom Rechner hinzufügen, 04.10.2026)."""
+        bekommt danach das umgestellte Projekt (Projekt vom Rechner hinzufügen, 04.10.2026).
+        False, wenn der Nutzer abbricht."""
         state = git.status(project.code_dir)
         folder = worktrees.folder_name(state.branch or state.default_branch)
-        text = intro + (f"Der Inhalt des Ordners Code wandert nach Code\\{folder}. Danach bekommt jeder "
+        text = intro + (f"Der Inhalt des Ordners {project.code_root.name} "
+                f"wandert nach {project.code_root.name}\\{folder}. Danach bekommt jeder "
                 "Branch einen eigenen Ordner neben diesem. Ihre Dateien und Änderungen bleiben "
                 "erhalten. Vorher kommt eine Sicherheitskopie in den Ordner backups.")
         if venv_repair.check(project.code_dir).exists:
@@ -200,7 +226,7 @@ class WorktreeActions:
                  "Beispiel den Explorer, ein Terminal oder Claude. Einrichten?")
         if not confirm(self.window, "Ordner für Branches einrichten", text, yes="Einrichten",
                        no="Abbrechen"):
-            return
+            return False
         services = self.services
 
         def work(task: Task):
@@ -219,13 +245,14 @@ class WorktreeActions:
             self.window.refresh_status([moved.id], on_done=lambda: self.window.project_list
                                        .select(Target.CODE, moved.id))
             announce(f"Ordner für Branches eingerichtet. Der Code liegt jetzt in "
-                     f"Code\\{moved.code_dir.name}.")
+                     f"{moved.code_root.name}\\{moved.code_dir.name}.")
             if after is not None:
                 after(moved)
 
         announce("Ordner für Branches werden eingerichtet.")
         self.controller.run_task(f"project:{project.id}", work, done,
                                  "Ordner für Branches einrichten", on_status=announce)
+        return True
 
     # -- Neuer Branch -------------------------------------------------------------------------
     def new_branch(self, context: ActionContext) -> None:
@@ -251,51 +278,9 @@ class WorktreeActions:
         self.controller.run_task(
             f"project:{project.id}", work,
             lambda tree: self.after_created(project, tree, f"Branch {name} angelegt, im Ordner "
-                                            f"Code\\{tree.folder}."), "Neuer Branch")
+                                            f"{project.code_root.name}\\{tree.folder}."), "Neuer Branch")
 
-    # -- Branches anderer ---------------------------------------------------------------------
-    def pick_remote(self, context: ActionContext) -> None:
-        project = context.project
-        env = self._environment(project)
-        if env is None:
-            return
-        platform_name = self.platform_name
-
-        def work(task: Task):
-            note = ""
-            try:
-                branches.refresh(project.code_dir, env, task.cancel_event)
-            except CockpitError as exc:
-                note = f"Stand von {platform_name} nicht abgefragt. {exc.message}"
-            items = [b for b in branches.list_branches(project.code_dir)
-                     if b.remote and not b.local and not b.default]
-            return items, note
-
-        def done(outcome) -> None:
-            items, note = outcome
-            if note:
-                announce(note)
-            if not items:
-                show_info(self.window, f"Branches auf {platform_name}",
-                          f"Auf {platform_name} gibt es keine weiteren Branches. Ihre eigenen "
-                          "stehen schon in der Liste.")
-                return
-            main = context.status.repo.default_branch if context.status else "main"
-            chosen = choose_from_list(self.window, f"Branches auf {platform_name}: "
-                                      f"{count(len(items), 'Branch', 'Branches')}", "Branches",
-                                      [b.line(main, platform_name) for b in items])
-            if chosen is None:
-                return
-            branch = items[chosen]
-            self.window.project_list.show_remote_branch(project.id, branch)
-            self.window.project_list.select(Target.REMOTE_BRANCH, project.id, branch.name)
-            announce(f"Branch {branch.name} steht jetzt in der Liste. Anpinnen legt seinen "
-                     "Ordner an.")
-
-        announce(f"Branches auf {platform_name} werden abgefragt.")
-        self.controller.run_task(f"project:{project.id}", work, done,
-                                 f"Branches auf {platform_name}")
-
+    # -- Branches nur auf der Plattform -------------------------------------------------------
     def pin(self, context: ActionContext) -> None:
         project, branch = context.project, context.remote_branch
         if branch is None:
@@ -308,12 +293,14 @@ class WorktreeActions:
             return worktrees.open_branch(project, branch.name, env, task.cancel_event)
 
         def done(tree: Worktree) -> None:
-            self.window.project_list.hide_remote_branch(project.id, branch.name)
-            self.after_created(project, tree, f"{branch.name} angepinnt, im Ordner "
-                                              f"Code\\{tree.folder}.")
+            listing = self.window.project_list
+            if listing.show_of(project.id) not in ("local", "all"):
+                listing.set_show(project.id, "all")      # der neue Ordner soll zu sehen sein
+            self.after_created(project, tree, f"{branch.name} heruntergeladen, im Ordner "
+                                              f"{project.code_root.name}\\{tree.folder}.")
 
         announce(f"{branch.name} wird heruntergeladen.")
-        self.controller.run_task(f"project:{project.id}", work, done, "In Liste anpinnen")
+        self.controller.run_task(f"project:{project.id}", work, done, "Herunterladen")
 
     def open_folder_for(self, project: Project, name: str) -> None:
         """Aus der Übersicht Branches: Ordner für einen vorhandenen Branch anlegen."""
@@ -327,15 +314,7 @@ class WorktreeActions:
         self.controller.run_task(
             f"project:{project.id}", work,
             lambda tree: self.after_created(project, tree, f"Ordner für {name} angelegt: "
-                                            f"Code\\{tree.folder}."), "Branch-Ordner anlegen")
-
-    def unshow(self, context: ActionContext) -> None:
-        project, branch = context.project, context.remote_branch
-        if branch is None:
-            return
-        self.window.project_list.hide_remote_branch(project.id, branch.name)
-        self.window.project_list.select(Target.REMOTE_BRANCHES, project.id)
-        announce(f"{branch.name} aus der Liste entfernt.")
+                                            f"{project.code_root.name}\\{tree.folder}."), "Branch-Ordner anlegen")
 
     def open_remote(self, context: ActionContext) -> None:
         remote, branch = context.project.remote, context.remote_branch

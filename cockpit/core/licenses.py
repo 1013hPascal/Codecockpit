@@ -1,6 +1,6 @@
 """Lizenzdatei eines Projekts (Wunsch des Nutzers vom 03.10.2026), ohne Qt.
 
-Die Lizenz liegt im Ordner Code als LICENSE, kommt mit ins Repository und liegt immer neben der
+Die Lizenz liegt im Ordner Repository als LICENSE, kommt mit ins Repository und liegt immer neben der
 Exe. Auf der Projektzeile steht dafür "Lizenz …".
 """
 from __future__ import annotations

@@ -4,9 +4,9 @@ Mit diesem Feature baut das Cockpit aus Ihrem Python-Code eine Exe. Andere könn
 
 Dafür braucht das Cockpit Python auf Ihrem Rechner. Fehlt es, steht im Menü Hilfe die Anleitung „Python installieren“.
 
-Beim ersten Bauen fragt das Cockpit nach der Startdatei, dem Namen der Exe und der Bauart. Daraus entsteht eine Datei mit der Endung .spec im Ordner Code. Sie wird mit hochgeladen und bei jedem weiteren Bau wiederverwendet.
+Beim ersten Bauen fragt das Cockpit nach der Startdatei, dem Namen der Exe und der Bauart. Daraus entsteht eine Datei mit der Endung .spec im Ordner Repository. Sie wird mit hochgeladen und bei jedem weiteren Bau wiederverwendet.
 
-Das Cockpit legt im Ordner Code eine eigene virtuelle Umgebung an und installiert dort Ihre Bibliotheken und PyInstaller. Beim ersten Mal dauert das einige Minuten.
+Das Cockpit legt im Ordner Repository eine eigene virtuelle Umgebung an und installiert dort Ihre Bibliotheken und PyInstaller. Beim ersten Mal dauert das einige Minuten.
 
 Die neue Exe wird zuerst getestet. Nur wenn der Test klappt, ersetzt sie die bisherige. Die bisherige kommt vorher in die Sicherheitskopien.
 

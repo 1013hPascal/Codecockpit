@@ -393,7 +393,7 @@ def test_branches_from_the_window(live, qtbot, make_services, projects_root, tmp
 
     monkeypatch.setattr(branch_dialogs, "BranchesDialog", FakeBranches)
     project_id = win.action_context().project.id
-    assert win.project_list.select(Target.BRANCH_OVERVIEW, project_id)
+    assert win.project_list.select(Target.REPOSITORY, project_id)
     entry = next(e for e in win.current_entries() if e.action.id == "branches")
     win.run_entry(entry)
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)
@@ -574,8 +574,8 @@ def test_rename_and_delete_in_the_dialog(qtbot, make_services, tmp_path, project
 
     monkeypatch.setattr(branch_dialogs, "BranchNameDialog", FakeName)
     select(dialog, "main")
-    dialog.rename_current()
-    assert "Haupt-Branch" in answers.errors[-1]
+    dialog.rename_current()            # seit dem 06.10.2026 mit Rückfrage, Vorgabe Abbrechen
+    assert "main ist der Haupt-Branch und heißt danach main-2." in answers.questions[-1][1]
     select(dialog, "suche")
     dialog.rename_current()
     assert "Offene Pull Requests zum alten Namen werden dabei geschlossen." in \
@@ -651,12 +651,12 @@ def test_testdata_have_branches_and_a_stash(tmp_path, monkeypatch):
     from cockpit.core.paths import HOME_VARIABLE
     monkeypatch.setenv(HOME_VARIABLE, str(tmp_path / "vorher"))
     _, root = testdata.prepare(tmp_path / "Testdaten")
-    pdf = root / "PDF-Chat" / "Code"
+    pdf = root / "PDF-Chat" / "Repository"
     lines = {b.name: b.line() for b in branches.list_branches(pdf)}
     assert lines["suche-pdfs"] == ("suche-pdfs, hier und auf GitHub, zuletzt von Testdaten am "
                                    "24.09.2026, 2 Commits vor main")
     assert lines["neues-design"].startswith("neues-design, nur auf GitHub, zuletzt von Testdaten")
-    stash = branches.stashes(root / "Rezepte" / "Code")
+    stash = branches.stashes(root / "Rezepte" / "Repository")
     assert len(stash) == 1 and stash[0].files == ["notiz.txt"] and stash[0].branch == "main"
 
 
@@ -682,7 +682,9 @@ def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, proj
     visible = lambda: (dialog.merge_button.isVisible(), dialog.rename_button.isVisible(),  # noqa
                        dialog.delete_button.isVisible())
     select(dialog, "main")
-    assert visible() == (False, False, False)
+    # Seit dem 06.10.2026: Umbenennen, und Löschen nennt den Grund
+    assert visible() == (False, True, True)
+    assert dialog.delete_button.text() == "&Löschen …, nicht verfügbar"
     assert dialog.switch_button.text() == "Zu main &wechseln"      # Wunsch aus dem Test von 6a
     select(dialog, "suche")                                        # aktueller Branch
     assert visible() == (True, True, True)       # löschen geht auch hier (03.10.2026)

@@ -287,7 +287,7 @@ def test_import_action_asks_first(qtbot, tmp_path, projects_root, make_services,
                         lambda parent, title, text, **kw: asked.append(text) or False)
     context = ActionContext(services, project, Target.PROJECT)
     readme.import_file(context)
-    assert asked == ["Beschreibung.md wird als README.md in den Ordner Code kopiert. "
+    assert asked == ["Beschreibung.md wird als README.md in den Ordner Repository kopiert. "
                      "Übernehmen?"]
     assert not (project.code_dir / "README.md").exists()          # Abbrechen ist die Vorgabe
     monkeypatch.setattr(readme_flow, "confirm", lambda *args, **kw: True)

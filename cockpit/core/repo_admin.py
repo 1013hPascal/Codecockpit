@@ -85,10 +85,10 @@ def forget_address(services, address) -> list[str]:
     origin entfernen, auch bei Projekten, die aus der Liste entfernt wurden (Rückmeldung des
     Nutzers vom 04.10.2026: die Adresse blieb stehen, das Cockpit hielt das Projekt danach für
     hochgeladen). Gibt die Namen der getrennten Projekte zurück."""
-    from cockpit.core.projects import CODE_DIR, main_code_dir
+    from cockpit.core.projects import code_root_in, main_code_dir
     folders = [(p.code_dir, p.name) for p in services.projects.all() if p.folder_found]
     for removed in services.projects.removed_dirs():
-        code_root = Path(removed) / CODE_DIR
+        code_root = code_root_in(Path(removed))
         # Gemerkt ist der Ordner klein geschrieben, angesagt wird der echte Name
         folder = Path(removed)
         try:

@@ -5,7 +5,7 @@ gibt, zeigt die Prüfsumme (SHA-256), die GitHub zu jeder Datei eines Releases a
 von der laufenden Exe ab und ist das Release jünger als die Exe, gibt es ein Update. Eine selbst
 gebaute, neuere Exe wird so nicht durch ein älteres Release ersetzt.
 
-Die neue Exe wird heruntergeladen, gegen die Prüfsumme geprüft und wartet in Exe\\_neu. Nach dem
+Die neue Exe wird heruntergeladen, gegen die Prüfsumme geprüft und wartet in Release\\_neu. Nach dem
 Beenden tauscht ein kleines Skript sie aus, die bisherige Exe kommt in die Sicherheitskopien.
 
 Liegen Dateien neben der Exe (zum Beispiel LICENSE), steht am Release statt der Exe die ZIP-Datei
@@ -163,7 +163,7 @@ def check(exe_path: Path, skipped: str = "",
 
 def download(update: Update, exe_path: Path, cancel: threading.Event | None = None,
              transport: httpx.BaseTransport | None = None) -> Path:
-    """Neue Exe nach Exe\\_neu laden, unter dem Namen der laufenden Exe. Prüft die Prüfsumme."""
+    """Neue Exe nach Release\\_neu laden, unter dem Namen der laufenden Exe. Prüft die Prüfsumme."""
     pending = exe_path.parent / exe.PENDING
     backups.remove_tree(pending)
     pending.mkdir()

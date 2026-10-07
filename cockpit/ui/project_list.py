@@ -9,8 +9,10 @@ herunterladen", darunter Sammlungen und Projekte ohne Sammlung gemischt, zuletzt
 oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt (Wunsch des Nutzers, 02.10.2026).
 Eine geöffnete Sammlung zeigt oben "Sammlung Webseiten, 3 Projekte, geöffnet" und darunter nur
 ihre Projekte. Sie werden dort bedient wie sonst auch.
-Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt", darunter stehen "Code" (mit
-Branch-Ordnern "Main-Branch"), "Branches verwalten" und "Exe, ...".
+Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt". Darunter steht zuerst "Repository,
+Branches: main & die Sie lokal haben" (Wunsch des Nutzers vom 06.10.2026). Enter dort öffnet die
+Auswahl, welche Branches darunter stehen: nur main, main & die lokalen (Vorgabe), main & die nur
+auf GitHub, main & alle. Dann "Main-Branch" (ohne Branch-Ordner "Code"), die Branches und "Exe".
 Repositories des Kontos, die noch nicht auf dem Rechner liegen, stehen dazwischen als
 "Rechner, nur auf GitHub". Enter lädt sie herunter.
 
@@ -75,34 +77,92 @@ def exe_label(project: Project) -> str:
     return status_line(project)
 
 
+SHOW_MAIN, SHOW_LOCAL, SHOW_REMOTE, SHOW_ALL = "main", "local", "remote", "all"
+SHOW_DEFAULT = SHOW_LOCAL                 # Wunsch des Nutzers: nur die eigenen, lokalen Branches
+
+
+def show_names(main: str = "main", platform_name: str = "GitHub") -> dict[str, str]:
+    """Die Auswahl bei der Zeile Repository. Main steht immer da, das zeigt "main &"."""
+    return {SHOW_MAIN: f"Nur {main}", SHOW_LOCAL: f"{main} & die Sie lokal haben",
+            SHOW_REMOTE: f"{main} & die nur auf {platform_name} sind", SHOW_ALL: f"{main} & alle"}
+
+
+def pick_show(listing: QListWidget, names: dict[str, str], current: str) -> str | None:
+    """Menü mit der Auswahl unter der markierten Zeile, wie "Branches anzeigen" in "Branches
+    verwalten". None bei Escape."""
+    from PySide6.QtGui import QActionGroup
+    from PySide6.QtWidgets import QMenu
+    menu = QMenu(listing)
+    name_widget(menu, "Branches anzeigen")
+    group = QActionGroup(menu)
+    chosen = {}
+    for key, label in names.items():
+        action = menu.addAction(label.replace("&", "&&"))
+        action.setCheckable(True)
+        action.setChecked(key == current)
+        group.addAction(action)
+        chosen[action] = key
+    active = next((a for a, k in chosen.items() if k == current), None)
+    menu.setActiveAction(active)
+    item = listing.currentItem()
+    rect = listing.visualItemRect(item) if item is not None else listing.rect()
+    picked = menu.exec(listing.viewport().mapToGlobal(rect.bottomLeft()), active)
+    return chosen.get(picked)
+
+
+def main_name(project: Project, status: ProjectStatus | None) -> str:
+    from cockpit.core.local_releases import main_name as name
+    return name(project, status)
+
+
+def repository_label(project: Project, status: ProjectStatus | None, show: str = SHOW_DEFAULT,
+                     platform_name: str = "GitHub") -> str:
+    """Zum Beispiel "Repository, Branches: main & die Sie lokal haben"."""
+    names = show_names(main_name(project, status), platform_name)
+    return f"Repository, Branches: {names.get(show, names[SHOW_DEFAULT])}"
+
+
 def children_of(project: Project, status: ProjectStatus | None = None,
-                platform_name: str = "GitHub", shown: list[Branch] | None = None
+                platform_name: str = "GitHub", show: str = SHOW_DEFAULT
                 ) -> list[tuple[str, Target, str | None]]:
-    """Die Unterordner, die es gibt (Konzept 8.2: nur vorhandene Ordner). Mit Branch-Ordnern
-    (Phase 10f): Code des Haupt-Branches und die Branch-Ordner. Der dritte Wert unterscheidet
-    Zeilen mit gleichem Ziel.
-    Wunsch des Nutzers (30.09.2026): Oben steht der Haupt-Branch, darunter "Branches verwalten".
-    Wunsch des Nutzers (02.10.2026): Hier stehen nur die Branches, die man lokal hat. Branches
-    auf GitHub zeigt "Branches verwalten" mit "Branches anzeigen". shown bleibt nur für den
-    Aufruf erhalten und wird nicht mehr benutzt."""
+    """Die Zeilen unter dem Projekt (Konzept 8.2: nur vorhandene Ordner). Der dritte Wert
+    unterscheidet Zeilen mit gleichem Ziel.
+    Wunsch des Nutzers (06.10.2026): Oben steht "Repository". Darunter der Haupt-Branch und je
+    nach Auswahl beim Repository die lokalen Branches (Branch-Ordner) und die Branches, die es
+    nur auf der Plattform gibt. "Branches verwalten" ist eine Aktion des Repositorys."""
     if not project.folder_found:
         return []
+    rows = [(repository_label(project, status, show, platform_name), Target.REPOSITORY, None)]
     if not project.has_branch_folders:
-        rows = [(code_line(status, platform_name), Target.CODE, None)]
-        if has_branches(status):
-            rows.append((BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None))
+        rows.append((code_line(status, platform_name), Target.CODE, None))
     else:
-        rows = [(code_line(status, platform_name, main_head(project)), Target.CODE, None)]
-        if has_branches(status):
-            rows.append((BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None))
-        for tree, inner in (status.worktrees if status is not None else []):
-            rows.append((branch_label(tree, inner, platform_name), Target.BRANCH, tree.folder))
+        rows.append((code_line(status, platform_name, main_head(project)), Target.CODE, None))
+        if show in (SHOW_LOCAL, SHOW_ALL):
+            for tree, inner in (status.worktrees if status is not None else []):
+                rows.append((branch_label(tree, inner, platform_name), Target.BRANCH,
+                             tree.folder))
+    if show in (SHOW_REMOTE, SHOW_ALL) and status is not None:
+        main = main_name(project, status)
+        for branch in status.remote_branches:
+            rows.append((f"Branch {branch.line(main, platform_name)}", Target.REMOTE_BRANCH,
+                         branch.name))
     if project.has_exe_dir:
-        rows.append((exe_label(project), Target.EXE, None))
+        rows += release_rows(project, main_name(project, status))
     return rows
 
 
-BRANCH_OVERVIEW_TEXT = "Branches verwalten"
+def release_rows(project: Project, main: str = "main") -> list[tuple[str, Target, str | None]]:
+    """Zeile Releases, darunter Exe-main und je Branch-Release eine Zeile (Wunsch des Nutzers
+    vom 06.10.2026)."""
+    from cockpit.core import local_releases
+    rows = [(local_releases.releases_line(project), Target.RELEASES, None)]
+    for release in local_releases.all_releases(project):
+        if release.is_main:
+            rows.append((local_releases.line(project, release, main), Target.EXE, None))
+        else:
+            rows.append((local_releases.line(project, release, main), Target.RELEASE,
+                         release.folder))
+    return rows
 
 
 def main_head(project: Project) -> str:
@@ -141,8 +201,8 @@ def collection_label(collection: Collection, size: int, opened: bool = False,
     return text + OPENED_SUFFIX if opened else text
 
 
-CHILD_TARGETS = (Target.CODE, Target.EXE, Target.BRANCH, Target.REMOTE_BRANCHES,
-                 Target.REMOTE_BRANCH, Target.BRANCH_OVERVIEW)
+CHILD_TARGETS = (Target.REPOSITORY, Target.CODE, Target.EXE, Target.BRANCH,
+                 Target.REMOTE_BRANCH, Target.RELEASES, Target.RELEASE)
 
 
 def _sort_key(entry: Project | StoredRepo) -> str:
@@ -159,6 +219,7 @@ class ProjectList(QListWidget):
     defaultActionRequested = Signal()
     contextMenuRequested = Signal(QPoint)
     expandedChanged = Signal()
+    showChanged = Signal(int, str)              # Auswahl beim Repository geändert (06.10.)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -166,7 +227,7 @@ class ProjectList(QListWidget):
         self._projects: dict[int, Project] = {}
         self._remote: dict[int, StoredRepo] = {}
         self._status: dict[int, ProjectStatus] = {}
-        self._shown: dict[int, list[Branch]] = {}     # ausgewählte Branches anderer (10f)
+        self._show: dict[int, str] = {}               # Auswahl beim Repository je Projekt
         self._expanded: int | None = None
         self._collections: dict[int, Collection] = {}
         self._member_of: dict[int, int] = {}          # Projekt -> Sammlung
@@ -347,7 +408,30 @@ class ProjectList(QListWidget):
 
     def _children(self, project: Project) -> list[tuple[str, Target, str | None]]:
         return children_of(project, self._status.get(project.id), self.platform_name,
-                           self._shown.get(project.id))
+                           self.show_of(project.id))
+
+    # -- Auswahl beim Repository ------------------------------------------------------------
+    def show_of(self, project_id: int | None) -> str:
+        return self._show.get(project_id, SHOW_DEFAULT)
+
+    def set_shows(self, shows: dict[int, str]) -> None:
+        """Gespeicherte Auswahl beim Start."""
+        self._show = {k: v for k, v in shows.items() if v in show_names()}
+
+    def set_show(self, project_id: int, show: str) -> None:
+        """Welche Branches unter dem Projekt stehen. Die Markierung bleibt auf Repository."""
+        self._show[project_id] = show
+        project = self._projects.get(project_id)
+        if project is not None and project_id == self._expanded:
+            self._update_children(project)
+        self.showChanged.emit(project_id, show)
+
+    def remote_branch(self, project_id: int | None, name: str | None) -> Branch | None:
+        """Branch nur auf der Plattform, der gerade in der Liste steht."""
+        status = self._status.get(project_id) if project_id is not None else None
+        if status is None:
+            return None
+        return next((b for b in status.remote_branches if b.name == name), None)
 
     def _update_children(self, project: Project) -> None:
         """Zeilen unter dem ausgeklappten Projekt auffrischen. Sind Zeilen dazugekommen oder
@@ -378,24 +462,6 @@ class ProjectList(QListWidget):
         finally:
             self.blockSignals(False)
         self.currentRowChanged.emit(self.currentRow())
-
-    def show_remote_branch(self, project_id: int, branch: Branch) -> None:
-        """Einen Branch anderer vorübergehend zeigen (bis zum Beenden oder Anpinnen)."""
-        shown = self._shown.setdefault(project_id, [])
-        if all(b.name != branch.name for b in shown):
-            shown.append(branch)
-        project = self._projects.get(project_id)
-        if project is not None and project_id == self._expanded:
-            self._update_children(project)
-
-    def hide_remote_branch(self, project_id: int, name: str) -> None:
-        self._shown[project_id] = [b for b in self._shown.get(project_id, []) if b.name != name]
-        project = self._projects.get(project_id)
-        if project is not None and project_id == self._expanded:
-            self._update_children(project)
-
-    def shown_branch(self, project_id: int | None, name: str | None) -> Branch | None:
-        return next((b for b in self._shown.get(project_id, []) if b.name == name), None)
 
     def _set_text(self, row: int, text: str) -> None:
         item = self.item(row)

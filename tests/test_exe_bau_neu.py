@@ -151,7 +151,7 @@ def test_license_from_file_asks_and_writes(qtbot, tmp_path, projects_root, make_
     monkeypatch.setattr(license_flow, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or True)
     win.controller.licenses.from_file(project)
-    assert asked == ["meine-lizenz.txt wird als LICENSE in den Ordner Code kopiert. "
+    assert asked == ["meine-lizenz.txt wird als LICENSE in den Ordner Repository kopiert. "
                      "Übernehmen?"]
     assert (project.code_dir / "LICENSE").read_text(encoding="utf-8") == "MIT License\n"
     assert said("Lizenz gespeichert: MIT.")
@@ -160,10 +160,11 @@ def test_license_from_file_asks_and_writes(qtbot, tmp_path, projects_root, make_
 def test_license_entry_on_the_project_row(qtbot, tmp_path, projects_root, make_services):
     services, project = plain_project(tmp_path, projects_root, make_services)
     win = window(qtbot, services)
-    win.project_list.select(Target.PROJECT, project.id)
+    # Seit dem 06.10.2026 bei der Zeile Repository
+    win.project_list.select(Target.REPOSITORY, project.id)
     labels = [e.label for e in win.current_entries()]
     assert "Lizenz …, MIT" in labels
-    assert win.focus_action(project.id, "license")
+    assert win.focus_action(project.id, "license", Target.REPOSITORY)
     assert win.actions_list.current_entry().action.id == "license"
 
 
@@ -178,7 +179,7 @@ def test_docs_check_before_building(qtbot, tmp_path, projects_root, make_service
     monkeypatch.setattr(exe_flow, "ask_buttons", lambda parent, title, text, buttons, default,
                         escape: asked.append((text, buttons, default, escape)) or answer)
     monkeypatch.setattr(type(win), "focus_action",
-                        lambda self, pid, action: jumped.append(action) or True)
+                        lambda self, pid, action, target=None: jumped.append(action) or True)
     assert win.controller.exe.docs_ok(project, "Exe aus dem Code erstellen") is expected
     text, buttons, default, escape = asked[0]
     assert text.startswith("Bei Tagebuch fehlt Lizenz.")

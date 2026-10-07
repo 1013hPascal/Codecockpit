@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] Neue Projektliste: Projekt verwalten mit Umbenennen und Löschen, Zeile Repository mit Auswahl der Branches, main in Branches verwalten, Releases mit Release-Zeilen, Terminal überall, Ordner Repository und Release (Wunsch vom 06.10.2026, Checkliste checklisten\projektliste-neu.md)
 - [ ] Repository anlegen, wenn es auf GitHub fehlt, Adresse nach dem Löschen entfernen (Rückmeldung vom 04.10.2026, Checkliste checklisten\repo-anlegen.md)
 - [ ] Aufbau Code\main und Exe beim Hinzufügen, Exe-Ordner mit Version, Update nach Versionsnummer, Anzeige beim Hochladen (Rückmeldung vom 04.10.2026, Checkliste checklisten\aufbau-und-version.md)
 - [ ] Exe bauen in Schritten, eigener Ordner je Exe, Release als ZIP mit Versionsordner, Lizenz auf der Projektzeile, Update bei jedem Start, Branch löschen ohne main (Wunsch vom 03.10.2026, Checkliste checklisten\exe-bau-ueberarbeiten.md)

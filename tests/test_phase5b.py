@@ -432,9 +432,9 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
     assert errors == []
     wait_idle(qtbot, win)
     # Seit dem 04.10.2026 auch ohne Git nach Code\main, daneben der Ordner Exe
-    target = projects_root / "Mein Rechner" / "Code" / "main"
+    target = projects_root / "Mein Rechner" / "Repository" / "main"
     assert not source.exists() and (target / "main.py").exists()          # verschoben
-    assert (projects_root / "Mein Rechner" / "Exe").is_dir()
+    assert (projects_root / "Mein Rechner" / "Release").is_dir()
     offer, buttons = asked[-1]
     assert offer.startswith("Mein Rechner ist noch nicht auf GitHub. Jetzt hochladen?")
     assert buttons == {"yes": "Jetzt hochladen …", "no": "Später"}
@@ -492,7 +492,7 @@ def test_download_from_list_with_organizations(live, qtbot, account, projects_ro
     assert shown[0] == ["Adresse eingeben …",
                         "Vereinsseite, verein, öffentlich, aktualisiert am 20.09.2026",
                         "Eigenes, tester, privat, aktualisiert am 01.09.2026"]
-    assert (projects_root / "Vereinsseite" / "Code" / "main" / "main.py").exists()
+    assert (projects_root / "Vereinsseite" / "Repository" / "main" / "main.py").exists()
 
 
 def test_upload_existing_project_is_offered_only_when_not_on_platform(live, qtbot, account,

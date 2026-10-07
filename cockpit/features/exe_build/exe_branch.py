@@ -6,7 +6,7 @@ Exe-Einstellungen kommen nur in den Branch. Main bleibt unverändert, bis der Nu
 main überführt (Wunsch des Nutzers: vorher blieb cockpit.toml geändert in main liegen).
 - Mit Branch-Ordnern bekommt er einen eigenen Ordner und beginnt beim Stand von main
   auf diesem Rechner.
-- Ohne Branch-Ordner legt das Cockpit ihn vom Stand von main an und wechselt im Ordner Code
+- Ohne Branch-Ordner legt das Cockpit ihn vom Stand von main an und wechselt im Ordner Repository
   dorthin.
 Dort entsteht ein Commit mit den Änderungen. Die Exe wird aus dem Branch gebaut und kommt als
 eigene Datei neben die normale Exe. Erst danach entscheidet der Nutzer, ob der Branch in main
@@ -29,9 +29,9 @@ def where_text(project: Project) -> str:
     main = git.status(project.code_dir).default_branch or "main"
     if project.has_branch_folders:
         return (f"Die Änderungen kommen in den Branch {BRANCH}, nicht in {main}. Er bekommt "
-                f"einen eigenen Ordner im Ordner Code und beginnt beim Stand von {main}.")
+                f"einen eigenen Ordner im Ordner Repository und beginnt beim Stand von {main}.")
     return (f"Die Änderungen kommen in den Branch {BRANCH}, nicht in {main}. Das Cockpit legt "
-            f"ihn vom Stand von {main} an und wechselt im Ordner Code dorthin.")
+            f"ihn vom Stand von {main} an und wechselt im Ordner Repository dorthin.")
 
 
 def _local(code_dir: Path, name: str) -> bool:

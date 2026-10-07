@@ -1,21 +1,21 @@
 """Die Exe eines Projekts (Konzept 10.4, Phase 10).
 
 Zustand im Git-Ordner des Projekts, Datei codecockpit-exe.toml (seit 10g, vorher in
-Code\\cockpit.toml, Abschnitt [exe]; ohne Git weiter dort): woher die Exe kommt ("cockpit": vom Cockpit
+Repository\\cockpit.toml, Abschnitt [exe]; ohne Git weiter dort): woher die Exe kommt ("cockpit": vom Cockpit
 erstellt, "extern": extern erstellt und von Hand gewählt, "release": aus einem Release), wann, aus
 welchem Commit und mit welcher Version. Die Einstellungen zum Bauen stehen unter [exe.build].
 
 Grundsätze:
-- Jede Exe hat im Ordner Exe einen eigenen Ordner (Wunsch des Nutzers vom 03.10.2026), zum
-  Beispiel Exe\\VokabelApp und Exe\\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe,
+- Jede Exe hat im Ordner Release einen eigenen Ordner (Wunsch des Nutzers vom 03.10.2026), zum
+  Beispiel Release\\VokabelApp und Release\\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe,
   README, Lizenz und die Ordner neben der Exe.
 - README und Lizenz liegen immer neben der Exe und sind immer die aktuellen aus dem Code.
-- Nach dem Veröffentlichen heißt der Ordner mit Version, zum Beispiel Exe\\VokabelApp-v1.2.0, und
+- Nach dem Veröffentlichen heißt der Ordner mit Version, zum Beispiel Release\\VokabelApp-v1.2.0, und
   darin steht version.txt. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen
-  (Wunsch des Nutzers vom 04.10.2026). Neu gebaut wird in Exe\\VokabelApp.
+  (Wunsch des Nutzers vom 04.10.2026). Neu gebaut wird in Release\\VokabelApp.
 - Eine bisherige Exe kommt immer erst in eine Sicherheitskopie, bevor eine neue sie ersetzt.
 - Eine neu gebaute Exe ersetzt die alte erst, wenn sie den Test bestanden hat.
-- Das Cockpit selbst kann seine laufende Exe nicht ersetzen. Die neue Exe wartet dann in Exe\\_neu
+- Das Cockpit selbst kann seine laufende Exe nicht ersetzen. Die neue Exe wartet dann in Release\\_neu
   und wird beim Neustart übernommen.
 """
 from __future__ import annotations
@@ -75,7 +75,7 @@ class ExeRecord:
     date: str                           # ISO, zum Beispiel "2026-09-27T16:00:00"
     commit: str = ""                    # nur bei "cockpit": Stand des Codes beim Bau
     version: str = ""                   # bei "release" und nach dem Veröffentlichen
-    pending: bool = False               # wartet in Exe\_neu auf den Neustart
+    pending: bool = False               # wartet in Release\_neu auf den Neustart
     tested: bool = True                 # False: Windows ließ den Test nicht zu (Phase 10)
 
 
@@ -91,7 +91,7 @@ class BuildSettings:
     self_test: bool = False             # Programm kennt --selbsttest
     test_seconds: int = 10
     # Ordner, die neben die Exe gehören, zum Beispiel "Meine-Vokabeln" (Phase 10g). Beim ersten
-    # Bau kommen sie aus dem Ordner Code dorthin, danach bleiben sie, wie die Nutzer sie haben.
+    # Bau kommen sie aus dem Ordner Repository dorthin, danach bleiben sie, wie die Nutzer sie haben.
     beside: list[str] = field(default_factory=list)
 
     @property
@@ -203,7 +203,7 @@ def head_commit(code_dir: Path) -> str:
 
 
 def current_exe(project: Project) -> Path | None:
-    """Die Exe im Ordner Exe (auch in einem Programmordner), ohne die wartende."""
+    """Die Exe im Ordner Release (auch in einem Programmordner), ohne die wartende."""
     if not project.has_exe_dir:
         return None
     found = [p for p in project.exe_dir.rglob("*.exe")
@@ -272,7 +272,7 @@ def now() -> str:
 
 # -- Exe-Ordner ----------------------------------------------------------------------------------
 def add_exe_dir(project: Project) -> Path:
-    """Ordner Exe anlegen (Aktion "Exe hinzufügen …")."""
+    """Ordner Release anlegen (Aktion "Exe hinzufügen …")."""
     if project.exe_dir is None:
         raise CockpitError("Bei diesem verknüpften Projekt ist kein Exe-Ordner festgelegt.")
     project.exe_dir.mkdir(parents=True, exist_ok=True)
@@ -319,7 +319,7 @@ def _put(source: Path, target_dir: Path, move: bool) -> Path:
 
 def adopt(project: Project, source: Path, kind: str = "extern", version: str = "",
           move: bool = False) -> Path:
-    """Eine vorhandene Exe (Datei oder Programmordner) in den Ordner Exe übernehmen. Die
+    """Eine vorhandene Exe (Datei oder Programmordner) in den Ordner Release übernehmen. Die
     bisherige kommt vorher in eine Sicherheitskopie."""
     if not source.exists():
         raise CockpitError(f"{source} gibt es nicht.")
@@ -329,7 +329,7 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
         raise CockpitError("In diesem Ordner liegt keine Exe-Datei.")
     exe_dir = add_exe_dir(project)
     if source.resolve().is_relative_to(exe_dir.resolve()):
-        raise CockpitError("Diese Exe liegt schon im Ordner Exe.")
+        raise CockpitError("Diese Exe liegt schon im Ordner Release.")
     names = beside_names(project)
     old_home = _home_of(project)
     home = exe_dir / home_name(project, source)
@@ -345,7 +345,7 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
 
 def _previous(project: Project, backup: Path | None, old_home: Path | None) -> Path | None:
     """Wo die Daten der bisherigen Exe jetzt liegen: in der Sicherheitskopie, oder noch im
-    Ordner Exe, wenn es ein Ordner einer veröffentlichten Version ist (der bleibt liegen)."""
+    Ordner Release, wenn es ein Ordner einer veröffentlichten Version ist (der bleibt liegen)."""
     if old_home is None:
         return backup
     if backup is not None and (backup / old_home).exists():
@@ -394,7 +394,7 @@ def is_doc(name: str) -> bool:
 
 
 def doc_files(code_dir: Path) -> list[str]:
-    """README- und Lizenzdateien im Ordner Code."""
+    """README- und Lizenzdateien im Ordner Repository."""
     try:
         return sorted(p.name for p in code_dir.iterdir()
                       if p.is_file() and is_doc(p.name)
@@ -404,7 +404,7 @@ def doc_files(code_dir: Path) -> list[str]:
 
 
 def _home_of(project: Project) -> Path | None:
-    """Ordner der bisherigen Exe, relativ zum Ordner Exe ("." bei einer einzelnen Exe-Datei)."""
+    """Ordner der bisherigen Exe, relativ zum Ordner Release ("." bei einer einzelnen Exe-Datei)."""
     current = current_exe(project)
     if current is None:
         return None
@@ -415,12 +415,12 @@ def place_beside(project: Project, names: list[str], home: Path, backup: Path | 
                  old_home: Path | None, source_dir: Path | None = None) -> list[str]:
     """Ordner neben die Exe legen. Ein vorhandener bleibt unverändert. Lag er bei der bisherigen
     Exe (jetzt in der Sicherheitskopie), kommt er von dort zurück, mit allem, was die Nutzer
-    hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Code (source_dir, sonst
-    der Ordner Code des Projekts). Gibt es ihn dort nicht, wird er leer angelegt (Wunsch des
+    hinzugefügt haben. Sonst, beim ersten Mal, kommt er aus dem Ordner Repository (source_dir, sonst
+    der Ordner Repository des Projekts). Gibt es ihn dort nicht, wird er leer angelegt (Wunsch des
     Nutzers, 02.10.2026). Gibt die neu angelegten oder gefüllten Namen zurück.
     Ein leerer Ordner zählt nicht als vorhanden: Die Exe legt ihn beim Start-Test oft selbst an,
     dann würden die Dateien aus dem Code fehlen (Rückmeldung vom 02.10.2026, Meine-Vokabeln war
-    leer). Er wird gefüllt, aus der bisherigen Exe oder aus dem Ordner Code."""
+    leer). Er wird gefüllt, aus der bisherigen Exe oder aus dem Ordner Repository."""
     placed: list[str] = []
     source_dir = source_dir or project.code_dir
     for name in names:
@@ -620,7 +620,7 @@ def _works(python: Path) -> bool:
 
 def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = None) -> Path:
     """Virtuelle Umgebung anlegen, requirements.txt und PyInstaller installieren. venv: Ort der
-    Umgebung, sonst .venv im Ordner Code. Eine kaputte Umgebung wird neu angelegt."""
+    Umgebung, sonst .venv im Ordner Repository. Eine kaputte Umgebung wird neu angelegt."""
     from cockpit.core import long_paths, safety_check
     venv = venv or code_dir / ".venv"
     python = python_in(venv)
@@ -674,7 +674,7 @@ def spec_text(settings: BuildSettings) -> str:
     icon = repr(settings.icon) if settings.icon else "None"
     datas = [tuple(d) for d in settings.datas]
     head = (f"{SPEC_MARK} Sie dürfen die Datei anpassen, das Cockpit nutzt sie\n"
-            f"# bei jedem Bau weiter. Pfade sind relativ zum Ordner Code.\n\n"
+            f"# bei jedem Bau weiter. Pfade sind relativ zum Ordner Repository.\n\n"
             f"a = Analysis([{settings.start_file!r}], pathex=[], binaries=[], "
             f"datas={datas!r},\n"
             f"             hiddenimports={settings.hidden_imports!r}, excludes=[])\n"
@@ -845,7 +845,7 @@ def running_from(folder: Path) -> bool:
 
 
 def install(project: Project, built: Path, commit: str, tested: bool = True) -> BuildResult:
-    """Getestete Exe übernehmen. Die eigene laufende Exe des Cockpits wartet in Exe\\_neu."""
+    """Getestete Exe übernehmen. Die eigene laufende Exe des Cockpits wartet in Release\\_neu."""
     exe_dir = add_exe_dir(project)
     names = beside_names(project)
     home = exe_dir / home_name(project)
@@ -863,7 +863,7 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
     try:
         target = _into_home(built, home)
     except OSError as exc:
-        raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben. Die "
+        raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Release verschieben. Die "
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
     placed = place_beside(project, names, home, _previous(project, backup, old_home), old_home)
     write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
@@ -946,7 +946,7 @@ def install_branch(project: Project, built: Path, folder: str,
     try:
         target = _into_home(built, home)
     except OSError as exc:
-        raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Exe verschieben.",
+        raise CockpitError("Die neue Exe ließ sich nicht in den Ordner Release verschieben.",
                            str(exc)) from None
     # Die Sicherheitskopie ist der alte Ordner selbst, die Ordner der Nutzer kommen von dort
     names = list(settings.beside)
@@ -967,7 +967,7 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
     """Der ganze Ablauf, blockiert. on_status bekommt "Schritt 1 von 4: …".
     branch_dir: aus diesem Branch-Ordner bauen (Phase 10f). Die Exe heißt dann
     <Name>_branch_<Ordner>.exe und kommt neben die normale. branch_name ersetzt den Ordner im
-    Namen, zum Beispiel wenn der Ordner Code selbst auf dem Branch steht."""
+    Namen, zum Beispiel wenn der Ordner Repository selbst auf dem Branch steht."""
     code_dir = branch_dir or project.code_dir
     folder = (branch_name or branch_dir.name) if branch_dir is not None else ""
 
@@ -1025,12 +1025,12 @@ def restart_script(project: Project) -> Path:
 def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], backup: Path,
                 start: Path | None, pid: int | None = None) -> Path:
     """Skript, das auf das Ende des Cockpits wartet, old_items in die Sicherheitskopie backup
-    verschiebt, new_items aus Exe\\_neu nach exe_dir holt und start startet (None: nicht starten).
+    verschiebt, new_items aus Release\\_neu nach exe_dir holt und start startet (None: nicht starten).
     Genutzt vom Neustart nach dem Bauen und von der Selbst-Aktualisierung (update.py)."""
     pending = exe_dir / PENDING
     pid = pid or os.getpid()                  # auf das Ende dieses Prozesses warten
     # Befehle mit vollem Pfad (kein anderes find aus dem Suchpfad). Beim Test des Nutzers kam
-    # das Skript nicht aus der Warteschleife, und die neue Exe blieb in Exe\_neu liegen.
+    # das Skript nicht aus der Warteschleife, und die neue Exe blieb in Release\_neu liegen.
     system = r"%SystemRoot%\System32"
     lines = ["@echo off", "chcp 65001 >nul", "set versuche=0",
              ":warten",
@@ -1106,7 +1106,7 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
     """Den ganzen Ordner der Exe als ZIP-Datei mit festem Namen. Darin liegt ein Ordner mit der
     Versionsnummer, zum Beispiel VokabelApp-1.2.0, damit beim Auspacken keine Version eine andere
     überschreibt (Wunsch des Nutzers vom 03.10.2026). Ordner neben der Exe kommen so in die ZIP,
-    wie sie im Ordner Code stehen, nicht mit den eigenen Daten aus dem Ordner Exe. README und
+    wie sie im Ordner Repository stehen, nicht mit den eigenen Daten aus dem Ordner Release. README und
     Lizenz kommen immer mit."""
     folder = exe.parent
     names = [n for n in beside_names(project) if (project.code_dir / n).exists()]
@@ -1130,9 +1130,9 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
     return Path(archive)
 
 
-def mark_published(project: Project, exe: Path, version: str) -> Path:
+def mark_published(project: Project, exe: Path, version: str, rename: bool = True) -> Path:
     """Nach dem Veröffentlichen: version.txt neben die Exe legen und ihren Ordner mit der
-    Version benennen, zum Beispiel Exe\\VokabelApp-v1.2.0. So merkt die Exe, welche Version
+    Version benennen, zum Beispiel Release\\VokabelApp-v1.2.0. So merkt die Exe, welche Version
     sie ist, und ältere Versionen bleiben nebeneinander liegen (Wunsch des Nutzers vom
     04.10.2026). Läuft die Exe gerade, bleibt der Name, bis sie das nächste Mal veröffentlicht
     oder neu gebaut wird. Gibt die Exe an ihrem neuen Ort zurück."""
@@ -1140,6 +1140,8 @@ def mark_published(project: Project, exe: Path, version: str) -> Path:
     if home.resolve() == project.exe_dir.resolve():
         return exe                                  # alte Ablage ohne eigenen Ordner
     (home / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
+    if not rename:
+        return exe                                  # Release eines Branches (06.10.2026)
     target = project.exe_dir / f"{home_name(project, exe)}-v{version}"
     if target.exists() or target == home or running_from(home):
         return exe
