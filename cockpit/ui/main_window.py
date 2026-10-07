@@ -195,6 +195,13 @@ class MainWindow(QMainWindow):
 
         ai_menu = AccessibleMenu("&KI", self)
         bar.addMenu(ai_menu)
+        # Wunsch des Nutzers (07.10.2026): oben steht, ob die KI auf den Rechner eingestellt ist
+        from cockpit.ui.ai_tuning_ui import Calibrator
+        self.calibrator = Calibrator(self.services, self)
+        self.act_ai_tuning = self._action(ai_menu, self.calibrator.menu_text,
+                                          self.open_ai_tuning)
+        ai_menu.aboutToShow.connect(
+            lambda: self.act_ai_tuning.setText(self.calibrator.menu_text))
         self._action(ai_menu, "KI-&Verwaltung …", self.open_ai_manager)
         self._action(ai_menu, "KI-&Features …", self.open_ai_features)
 
@@ -239,6 +246,21 @@ class MainWindow(QMainWindow):
         """Fragen zur Bedienung (Konzept 10.17, Teilschritt 8e)."""
         from cockpit.ui.ai_help_dialog import open_help
         open_help(self)
+
+    def open_ai_tuning(self) -> None:
+        """Erklärung der Messung, Art und Stufe von +3 bis -3 (07.10.2026)."""
+        from cockpit.ui.ai_tuning_ui import AITuningDialog
+        calibrator = self.calibrator
+        name = calibrator.name
+        if not name:
+            tool = self.services.text_tool(None)
+            name = self.services.ai_tools.label(tool, mark_default=False) if tool else ""
+        AITuningDialog(self.services, name, calibrator.state, self).exec()
+
+    def start_ai_tuning(self) -> None:
+        """Nach dem Start, nicht in startup(): Starttest der KI im Hintergrund (07.10.2026)."""
+        if not self.testdata:
+            self.calibrator.start()
 
     def open_ai_manager(self) -> None:
         """KI-Werkzeuge für Text, lokal oder extern (Konzept 11.1)."""
@@ -714,6 +736,7 @@ class MainWindow(QMainWindow):
         QApplication.instance().removeEventFilter(self)
         self.lock_timer.stop()
         self.controller.wait()
+        self.calibrator.stop()
         self.updater.shutdown()
         self.dictation.shutdown()
         for task in (self.status_task, self.remote_task):

@@ -112,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(1500, finish)
     else:
         QTimer.singleShot(1200, window.offer_folder_rename)
+        QTimer.singleShot(2000, window.start_ai_tuning)
     code = app.exec()
     services.close()
     log.info("%s beendet", APP_NAME)

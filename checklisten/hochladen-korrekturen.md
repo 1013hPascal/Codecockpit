@@ -72,8 +72,8 @@ Ergebnis:
 ## Töne
 
 [ ] 12. Töne beim Hochladen
-Tasten: Etwas ändern und hochladen, bei einem größeren Projekt, damit es länger als 10 Sekunden dauert.
-Ansage: Beim Start ein Windows-Ton, alle 10 Sekunden ein kurzer leiser Ton, am Ende der Ton für fertig und die Zusammenfassung.
+Tasten: Etwas ändern und hochladen, bei einem größeren Projekt, damit es länger als 3 Sekunden dauert.
+Ansage: Beim Start ein Windows-Ton, alle 3 Sekunden ein kurzer leiser Ton, am Ende der Ton für fertig und die Zusammenfassung.
 Ergebnis:
 
 [ ] 13. Töne beim Holen und Herunterladen
