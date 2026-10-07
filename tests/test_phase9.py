@@ -169,7 +169,7 @@ def test_check_before_upload_proposes_and_takes_the_edited_text(tmp_path, projec
     asker = ScriptedAsker("- plus\n- Suche in PDFs")
     summary, _context = push(services, project, asker)
     assert summary.completed and "README angepasst." in summary.text()
-    assert asker.questions[0].title == "README: Features"
+    assert asker.questions[0].title.startswith("README: Features, Schritt ")
     assert "Neue Suche." in asker.questions[0].label
     committed = sh(project.code_dir, "show", "HEAD:README.md")
     assert "- Suche in PDFs" in committed                     # im selben Commit
@@ -222,7 +222,8 @@ def test_new_version_proposes_changes_and_asks_the_ai(tmp_path, projects_root, m
     asker = ScriptedAsker(2, changes_text, "- plus\n- Suche")
     summary, _context = push(services, project, asker)
     assert summary.completed and "Version 1.0.0." in summary.text()
-    assert [q.title for q in asker.questions[1:]] == ["README: Changes", "README: Features"]
+    assert [q.title.split(", Schritt")[0] for q in asker.questions[1:]] == ["README: Changes",
+                                                                         "README: Features"]
     assert "Neue Suche" in asker.questions[1].default
     assert "Neue Version 1.0.0." in ai.prompts[0]
     committed = sh(project.code_dir, "show", "HEAD:README.md")

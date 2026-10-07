@@ -58,12 +58,13 @@ class _Editor:
         self.taken = 0
 
     def offer(self, key: str, title: str, reason: str, text: str) -> None:
-        """Vorschlag als Textfrage: OK übernimmt, auch angepasst. Abbrechen überspringt."""
+        """Vorschlag zum Lesen: Übernehmen nimmt ihn, auch bearbeitet. Überspringen nicht."""
         part = next((p for p in self.readme.parts if p.title.lower() == title.lower()), None)
         own = part is not None and doc.is_own(self.code_dir, "README.md", part)
         label = (f"Vorschlag der KI für „{title}“: {reason}"
                  + (" Diesen Abschnitt haben Sie selbst geschrieben." if own else "")
-                 + " OK übernimmt den Text, auch angepasst. Abbrechen überspringt.")
+                 + " Übernehmen nimmt den Text, auch bearbeitet. Überspringen lässt die README, "
+                   "wie sie ist.")
         new = self.context.ask(TextQuestion(f"README: {title}", label, text, multiline=True))
         if not new or not str(new).strip():
             return

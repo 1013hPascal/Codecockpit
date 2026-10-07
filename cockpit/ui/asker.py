@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QInputDialog, QLineEdit, QWidget
 
 from cockpit.core.flows.questions import ChoiceQuestion, ConfirmQuestion, Question, TextQuestion
 from cockpit.ui.common import confirm
+from cockpit.ui.proposal_dialog import ask_proposal
 
 
 class QtAsker(QObject):
@@ -46,8 +47,7 @@ class QtAsker(QObject):
             return question.options.index(text) if ok else None
         if isinstance(question, TextQuestion):
             if question.multiline:
-                text, ok = QInputDialog.getMultiLineText(parent, question.title, question.label,
-                                                         question.default)
+                return ask_proposal(parent, question.title, question.label, question.default)
             else:
                 text, ok = QInputDialog.getText(parent, question.title, question.label,
                                                 QLineEdit.EchoMode.Normal, question.default)

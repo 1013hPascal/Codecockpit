@@ -294,13 +294,29 @@ vielleicht schon. Man macht es mit einem neuen Commit rückgängig, der das Gege
 
 ## Fragen an dich
 
-1. Erledigt (Antwort vom 07.10.2026): projektliste-neu ist fertig und in main überführt.
-2. Version nur, wenn es nach main geht: einverstanden?
-3. Töne: einverstanden mit einem Ton bei Start und Ende und einem leisen Tick alle 10 Sekunden?
-   Oder lieber nur bei Start und Ende?
-4. Filter: einverstanden mit den fünf Filtern aus Punkt 1 und 6, also „Auf GitHub“ und „Mit
-   Release“ getrennt?
-5. Strg+K als Befehlssuche dazu: ja oder nein?
-6. „Speichern und hochladen“ als Ein-Knopf-Weg: ja oder nein?
-7. Tastenhinweise: Tooltip plus Strg+F1, oder doch im Namen? Das Zweite ändert eine Regel in
-   CLAUDE.md.
+Erledigt:
+
+- Frage 1 (Antwort vom 07.10.2026): projektliste-neu ist fertig und in main überführt.
+- Fragen 2 und 3 sind im Branch hochladen-korrekturen nach meinem Vorschlag gebaut, weil Sie
+  „baue los“ gesagt haben. Die Versionsfrage kommt nur noch beim Hochladen auf main. Töne gibt es
+  beim Start, alle 10 Sekunden leise und am Ende. Beides lässt sich leicht ändern. Sagen Sie es
+  beim Testen mit der Checkliste checklisten\hochladen-korrekturen.md.
+
+Noch offen. Jede Frage nennt zuerst, wo im Programm sie spielt:
+
+4. Projektliste, ganz oben, neues Auswahlmenü zum Filtern (Punkt 1 oben): Sie wünschten
+   „Lokal, GitHub und/oder Release“ und „GitHub und/oder Release“. Da jedes Projekt in der Liste
+   lokal ist, sind beide fast gleich. Ich schlage stattdessen zwei getrennte Filter vor: „Auf
+   GitHub“ und „Mit Release“. Dazu kommen „Alle Projekte“, „Mit offenen Sachen“ und „Nur auf dem
+   Rechner“. Einverstanden?
+5. Überall im Hauptfenster, eine neue Taste (Punkt 4 oben, zusätzlicher Vorschlag): Strg+K öffnet
+   ein Suchfeld für alle Aktionen. Man tippt zum Beispiel „hoch“, und „Änderungen hochladen“ steht
+   oben. Enter führt die Aktion aus. Soll ich das bauen?
+6. Branch-Zeilen und Main-Branch, Aktionsliste (Abschnitt „Was mir sonst noch fehlt“): heute sind
+   Commit, Hochladen und Pull Request mehrere Wege. Ein neuer Eintrag „Speichern und hochladen …“
+   würde alles in einem Weg machen, mit KI-Vorschlag für die Commit-Nachricht. Soll ich das bauen?
+7. Alle Knöpfe und Listen, Tastenhinweise (Punkt 5 oben): Unsere Regel in CLAUDE.md verbietet
+   eine Beschreibung am Bedienelement, weil sie die Braillezeile überlädt. Mein Vorschlag: Die
+   Tasten stehen im Tooltip und in der Statuszeile, und Strg+F1 sagt sie für das Element mit dem
+   Fokus an. Oder wollen Sie die Tasten doch direkt im Namen hören, zum Beispiel „Branches
+   anzeigen, Enter“? Dann ändere ich die Regel.

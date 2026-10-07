@@ -1063,7 +1063,7 @@ class ExeActions:
         self.uploading.add(project.id)
         self.window.refresh_actions(keep_selection=True)
         self.controller.run_task(f"exe:{project.id}", work, done, "Exe veröffentlichen",
-                                 on_failed=failed)
+                                 on_failed=failed, transfer=True)
 
     def _suggested_version(self, project: Project, tags: list[str]) -> str:
         """Mit dem Feature Versionen die zuletzt gesetzte, wenn es dazu noch kein Release gibt
@@ -1142,4 +1142,4 @@ class ExeActions:
         self.controller.run_task(f"exe:{project.id}", work,
                                  lambda target: self._after(
                                      project, f"Exe aus dem Release {release.tag} übernommen."),
-                                 "Exe aus dem Release holen")
+                                 "Exe aus dem Release holen", transfer=True)

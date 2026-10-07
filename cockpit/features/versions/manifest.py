@@ -18,8 +18,8 @@ MANIFEST = FeatureManifest(
     steps=(Step("version_choose", "Version festlegen", Hook.BEFORE_PUSH, steps.choose, order=500,
                 feature_id=FEATURE_ID, flows=FLOWS),
            Step("version_tag", "Version als Tag setzen", Hook.BEFORE_PUSH, steps.tag, order=950,
-                feature_id=FEATURE_ID, flows=FLOWS),
+                feature_id=FEATURE_ID, flows=FLOWS, applies=steps.needs_version),
            Step("version_push", "Version hochladen", Hook.PUSH, steps.push, order=30,
-                feature_id=FEATURE_ID, flows=FLOWS)),
+                feature_id=FEATURE_ID, flows=FLOWS, applies=steps.needs_version)),
     enabled_by_default=False,
 )

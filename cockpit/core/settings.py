@@ -34,6 +34,7 @@ def setting_fields() -> list[SettingField]:
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
         YesNo("branch_folders", "Neue Projekte mit einem Ordner pro Branch", True),
         YesNo("update_check", "Täglich nach Updates für CodeCockpit suchen", True),
+        YesNo("transfer_sounds", "Töne beim Hoch- und Herunterladen", True),
     ]
 
 
@@ -52,6 +53,7 @@ class Settings:
     auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
     branch_folders: bool = True                   # neue Projekte: Repository\main und Branch-Ordner
     update_check: bool = True                    # Exe: bei jedem Start nach Updates suchen
+    transfer_sounds: bool = True                 # Töne beim Hoch- und Herunterladen (07.10.2026)
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
     setup_done: bool = False                      # Einrichtungsassistent abgeschlossen

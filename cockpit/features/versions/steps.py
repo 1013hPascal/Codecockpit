@@ -26,11 +26,29 @@ def _version_file(context: FlowContext) -> str:
     return chosen or versions.find_version_file(context.project.code_dir)
 
 
+def _exists(code_dir, branch: str) -> bool:
+    """Gibt es den Haupt-Branch hier oder auf der Plattform? Ohne ihn ist unklar, welcher Branch
+    der Haupt-Branch ist, dann fragt das Cockpit wie bisher."""
+    return any(git.run(["rev-parse", "-q", "--verify", ref], code_dir, check=False).returncode == 0
+               for ref in (f"refs/heads/{branch}", f"refs/remotes/origin/{branch}"))
+
+
+def needs_version(context: FlowContext) -> bool:
+    """Für die Zählung der Schritte: Tag setzen und hochladen nur mit neuer Version."""
+    return bool(context.data.get("version"))
+
+
 def choose(context: FlowContext) -> StepResult:
     code_dir = context.project.code_dir
     state = git.status(code_dir)
     if not context.data.get("message") and state.upstream and not state.ahead:
         return StepResult(True)                        # nichts Neues, also keine Version
+    main = state.default_branch or "main"
+    if state.branch and state.branch != main and _exists(code_dir, main):
+        # Rückmeldung des Nutzers (07.10.2026): Eine Version gehört zu main. Auf einem anderen
+        # Branch kommt die Frage erst, wenn die Änderungen in main hochgeladen werden.
+        return StepResult(True, f"Die Version legen Sie fest, wenn die Änderungen in {main} "
+                          "hochgeladen werden.")
     version = versions.current(code_dir)
     answer = context.ask(ChoiceQuestion(
         "Version", f"Ist das eine neue Version? Bisher: {version or 'noch keine'}.",
