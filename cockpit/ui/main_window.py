@@ -87,7 +87,8 @@ SHORTCUTS = [
     "Spracheingabe",
     "Diktieren starten und beenden, in einem Textfeld, Strg+D",
     "Diktieren abbrechen, Strg+Umschalt+D",
-    "Diese Liste, F1",
+    "Hilfe mit Kurzanleitungen und KI fragen, F1",
+    "Diese Liste, Strg+Umschalt+F1",
     "Befehl suchen, alle Aktionen und Menüs, Strg+K",
     "Tasten für das Element mit dem Fokus ansagen, Strg+F1",
     "KI-Hilfe, Fragen zur Bedienung, Umschalt+F1",
@@ -235,7 +236,9 @@ class MainWindow(QMainWindow):
 
         help_menu = AccessibleMenu("&Hilfe", self)
         bar.addMenu(help_menu)
-        self._action(help_menu, "&Tastenkürzel", self.show_shortcuts, "F1")
+        # Wunsch des Nutzers (07.10.2026): F1 öffnet die Hilfe mit den Kurzanleitungen
+        self._action(help_menu, "Hilfe und &Kurzanleitungen …", self.open_help, "F1")
+        self._action(help_menu, "&Tastenkürzel", self.show_shortcuts, "Ctrl+Shift+F1")
         self._action(help_menu, "KI-&Hilfe …", self.open_ai_help, "Shift+F1")
         # Wunsch des Nutzers (07.10.2026): Befehle suchen und Tasten ansagen lassen
         self._action(help_menu, "Befehl &suchen …", self.search_commands, "Ctrl+K")
@@ -662,6 +665,13 @@ class MainWindow(QMainWindow):
             announce("Grundeinstellungen gespeichert.")
             if self.services.settings.load().projects_root != old_root:
                 self.rescan()
+
+    def open_help(self) -> None:
+        """Hilfefenster, nicht modal. Ein Fenster für die ganze Sitzung."""
+        from cockpit.ui.help_window import HelpWindow, area_of
+        if getattr(self, "help_window", None) is None:
+            self.help_window = HelpWindow(self)
+        self.help_window.open_for(area_of(self))
 
     def search_commands(self) -> None:
         from cockpit.ui.quick_nav import search_commands

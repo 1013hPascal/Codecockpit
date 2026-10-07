@@ -118,7 +118,9 @@ def test_help_menu_entries_and_shortcuts(window):
     help_menu = win.menuBar().actions()[-1].menu()
     entries = {a.text().replace("&", ""): a.shortcut().toString()
                for a in help_menu.actions() if not a.isSeparator()}
-    assert entries["Tastenkürzel"] == "F1"
+    # Seit dem 07.10.2026 öffnet F1 die Hilfe mit den Kurzanleitungen
+    assert entries["Hilfe und Kurzanleitungen …"] == "F1"
+    assert entries["Tastenkürzel"] == "Ctrl+Shift+F1"
     assert entries["Letzte Meldung wiederholen"] == "Ctrl+Shift+M"
     assert entries["Meldungen …"] == "Ctrl+Shift+L"
     assert "Git installieren …" in entries

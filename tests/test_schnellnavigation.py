@@ -27,7 +27,8 @@ def test_quick_menu_entries(qtbot, make_services, projects_root):
     menu = quick_nav.quick_menu(win, project.id)
     assert menu.title() == "&Schnellnavigation Tagebuch"
     assert [a.text() for a in menu.actions()] == [
-        "&Hilfe, mit der KI chatten …", "&Tastenbefehle …", "&Projekt verwalten …",
+        "&Hilfe, Kurzanleitungen und KI fragen …", "&Tastenbefehle …",
+        "&Projekt verwalten …",
         "&Repository verwalten …", "&Branches verwalten …", "Re&leases verwalten …"]
 
 

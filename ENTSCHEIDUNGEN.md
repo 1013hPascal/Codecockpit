@@ -1121,3 +1121,22 @@ Wunsch des Nutzers, Punkte 4 und 5 aus KONZEPT-NAECHSTE-SCHRITTE.md, Antworten a
 - Tastenhinweise (Antwort auf Frage 7: „was du besser findest“): Strg+F1 sagt für das Element mit dem Fokus kurz an, welche Tasten dort etwas tun, zum Beispiel „Tasten hier: Pfeil rechts oder Enter klappt auf, …“. Strg+F1 wirkt zurzeit nur im Hauptfenster, noch nicht in anderen Fenstern. Sehende sehen denselben Hinweis als Tooltip der Projektliste und der Aktionsliste. Die Regel in CLAUDE.md bleibt: keine Beschreibung am Bedienelement, und Ansagen erklären keine Tasten von selbst, nur auf Wunsch mit Strg+F1.
 - „Speichern und hochladen“ (Antwort auf Frage 6: ja): Das gibt es schon. „Änderungen auf GitHub hochladen …“ fragt nach der Commit-Nachricht (mit Vorschlag der KI), macht den Commit, lädt hoch und bietet danach einen Pull Request an. Deshalb kein zweiter Eintrag, der dasselbe tut. Die Kurzanleitungen sollen das klar sagen.
 - Die Liste der Tastenkürzel (F1) nennt die neuen Tasten und spricht von „Zeilen unter dem Projekt“ statt von Code und Exe.
+
+
+## 07.10.2026: Hilfe mit Kurzanleitungen
+
+Wunsch des Nutzers, Punkt 7 aus KONZEPT-NAECHSTE-SCHRITTE.md. Gebaut im Branch hilfe-anleitungen, Checkliste in checklisten\hilfe-anleitungen.md.
+
+- F1 öffnet jetzt das Fenster „Hilfe“ (auch Menü Hilfe, „Hilfe und Kurzanleitungen …“). Die Liste der Tastenkürzel liegt auf Strg+Umschalt+F1 und steht als Anleitung „Alle Tastenkürzel“ auch in der Hilfe. So gilt weiter: Tastenkürzel stehen im Menü und in der Hilfe (F1).
+- Das Fenster ist nicht modal. Es bleibt offen, mit Alt+Tab arbeiten Sie im Cockpit weiter. F1 holt es wieder nach vorne. Escape oder „Schließen“ schließt es.
+- Von oben: „Suchen“, „KI fragen“, „Anleitungen“, „Schritte“ (Ausgabefeld). Ohne Suche stehen die Anleitungen für die markierte Zeile oben, zum Beispiel bei Releases „Exe erstellen“. Mit Suche die besten oben: Ein passender Titel zählt am meisten, dann Stichwörter, dann der Text. Wortanfänge zählen auch. Enter im Suchfeld springt in die Liste, Enter in der Liste in die Schritte.
+- „KI fragen“ nimmt den Text aus dem Suchfeld. Passt eine Anleitung gut, zeigt das Cockpit sie und sagt „Passende Anleitung: …“. Sonst fragt es die KI über das Feature KI-Hilfe. Sie bekommt die Bedienung des Cockpits, alle Anleitungen und die Bitte, Schritte mit Tasten zu schreiben. Die Antwort steht in „Schritte“.
+- 32 Kurzanleitungen in anleitungen\kurzanleitungen.md, jede mit Bereich, Aktionen, Stichwörtern und „Schritt 1: …“ mit Tasten. Ein Test prüft, dass jede genannte Aktion im Programm existiert und die Schritte lückenlos nummeriert sind.
+- In der Schnellnavigation heißt der erste Eintrag jetzt „Hilfe, Kurzanleitungen und KI fragen …“ und öffnet dieses Fenster.
+
+Was beim Schreiben der Anleitungen auffiel (Vorschläge, noch nicht gebaut):
+- „Neuer Branch …“ gibt es nur im Fenster „Branches verwalten“. Ein Eintrag direkt bei der Zeile Repository spart einen Schritt.
+- „In main übernehmen …“ steht nur in „Branches verwalten“. Auf der Zeile eines Branches wäre es dort, wo man arbeitet.
+- Reviews, die auf Sie warten, findet man nur über „Pull Requests …“ beim Main-Branch. Ein Eintrag „Reviews für mich …“ wäre direkter.
+- Der Starttest der KI misst nur beim Start. Nach „KI verknüpfen“ wäre ein Knopf „Jetzt messen“ im Fenster „KI einstellen“ hilfreich.
+- Strg+F1 und Strg+K wirken nur im Hauptfenster, nicht in anderen Fenstern.
