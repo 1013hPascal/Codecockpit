@@ -296,11 +296,17 @@ vielleicht schon. Man macht es mit einem neuen Commit rückgängig, der das Gege
 
 1. Erledigt (Antwort vom 07.10.2026): projektliste-neu ist fertig und in main überführt.
 2. Version nur, wenn es nach main geht: einverstanden?
+ja, so wie es logisch ist, aber wenn es so ist, dann ja
 3. Töne: einverstanden mit einem Ton bei Start und Ende und einem leisen Tick alle 10 Sekunden?
    Oder lieber nur bei Start und Ende?
+start und ende und alle 3 sekunden
 4. Filter: einverstanden mit den fünf Filtern aus Punkt 1 und 6, also „Auf GitHub“ und „Mit
    Release“ getrennt?
+ja ok
 5. Strg+K als Befehlssuche dazu: ja oder nein?
+ja, passt
 6. „Speichern und hochladen“ als Ein-Knopf-Weg: ja oder nein?
+ja
 7. Tastenhinweise: Tooltip plus Strg+F1, oder doch im Namen? Das Zweite ändert eine Regel in
    CLAUDE.md.
+ws du beser findest.
