@@ -110,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
             log.info("Selbsttest: %s", " | ".join(problems or window.project_list.texts()))
             app.exit(0 if window.project_list.texts() and not problems else 1)
         QTimer.singleShot(1500, finish)
+    else:
+        QTimer.singleShot(1200, window.offer_folder_rename)
     code = app.exec()
     services.close()
     log.info("%s beendet", APP_NAME)

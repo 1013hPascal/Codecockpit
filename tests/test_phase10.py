@@ -404,8 +404,8 @@ def test_add_exe_action(qtbot, make_services, projects_root, monkeypatch):
     win.project_list.select(Target.PROJECT, project.id)
     entry = next(e for e in win.current_entries() if e.label == "Exe hinzufügen …")
     win.run_entry(entry)
-    assert questions[0].startswith("Im Projektordner wird der Ordner Exe angelegt")
-    assert project.exe_dir.is_dir() and said("Ordner Exe angelegt.")
+    assert questions[0].startswith("Im Projektordner wird der Ordner Release angelegt")
+    assert project.exe_dir.is_dir() and said("Ordner Release angelegt.")
     assert win.project_list.current_target() == (Target.EXE, project.id)
 
 

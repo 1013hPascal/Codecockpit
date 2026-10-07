@@ -114,7 +114,8 @@ class WorktreeActions:
         buttons = ["Nur auf diesem Rechner"] + ([f"Hier und auf {self.platform_name}"]
                                                 if remote else []) + ["Abbrechen"]
         # Wunsch des Nutzers (03.10.2026): Löschen verwirft alles, nichts kommt nach main
-        text = (f"{name} wird gelöscht, mit dem Ordner Code\\{tree.folder}. Änderungen darin "
+        text = (f"{name} wird gelöscht, mit dem Ordner "
+                f"{project.code_root.name}\\{tree.folder}. Änderungen darin "
                 "werden verworfen und kommen nicht nach main. Liegt darin etwas, das noch nicht "
                 "hochgeladen ist, kommt der Ordner vorher in die Sicherheitskopien.")
         choice = ask_buttons(self.window, "Branch löschen", text, buttons,
@@ -214,7 +215,8 @@ class WorktreeActions:
         False, wenn der Nutzer abbricht."""
         state = git.status(project.code_dir)
         folder = worktrees.folder_name(state.branch or state.default_branch)
-        text = intro + (f"Der Inhalt des Ordners Code wandert nach Code\\{folder}. Danach bekommt jeder "
+        text = intro + (f"Der Inhalt des Ordners {project.code_root.name} "
+                f"wandert nach {project.code_root.name}\\{folder}. Danach bekommt jeder "
                 "Branch einen eigenen Ordner neben diesem. Ihre Dateien und Änderungen bleiben "
                 "erhalten. Vorher kommt eine Sicherheitskopie in den Ordner backups.")
         if venv_repair.check(project.code_dir).exists:
@@ -243,7 +245,7 @@ class WorktreeActions:
             self.window.refresh_status([moved.id], on_done=lambda: self.window.project_list
                                        .select(Target.CODE, moved.id))
             announce(f"Ordner für Branches eingerichtet. Der Code liegt jetzt in "
-                     f"Code\\{moved.code_dir.name}.")
+                     f"{moved.code_root.name}\\{moved.code_dir.name}.")
             if after is not None:
                 after(moved)
 
@@ -276,7 +278,7 @@ class WorktreeActions:
         self.controller.run_task(
             f"project:{project.id}", work,
             lambda tree: self.after_created(project, tree, f"Branch {name} angelegt, im Ordner "
-                                            f"Code\\{tree.folder}."), "Neuer Branch")
+                                            f"{project.code_root.name}\\{tree.folder}."), "Neuer Branch")
 
     # -- Branches nur auf der Plattform -------------------------------------------------------
     def pin(self, context: ActionContext) -> None:
@@ -295,7 +297,7 @@ class WorktreeActions:
             if listing.show_of(project.id) not in ("local", "all"):
                 listing.set_show(project.id, "all")      # der neue Ordner soll zu sehen sein
             self.after_created(project, tree, f"{branch.name} heruntergeladen, im Ordner "
-                                              f"Code\\{tree.folder}.")
+                                              f"{project.code_root.name}\\{tree.folder}.")
 
         announce(f"{branch.name} wird heruntergeladen.")
         self.controller.run_task(f"project:{project.id}", work, done, "Herunterladen")
@@ -312,7 +314,7 @@ class WorktreeActions:
         self.controller.run_task(
             f"project:{project.id}", work,
             lambda tree: self.after_created(project, tree, f"Ordner für {name} angelegt: "
-                                            f"Code\\{tree.folder}."), "Branch-Ordner anlegen")
+                                            f"{project.code_root.name}\\{tree.folder}."), "Branch-Ordner anlegen")
 
     def open_remote(self, context: ActionContext) -> None:
         remote, branch = context.project.remote, context.remote_branch

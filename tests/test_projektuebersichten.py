@@ -129,7 +129,9 @@ def test_project_menu(qtbot, tmp_path, projects_root, make_services):
     expected = ["Projekt neu einlesen", "Terminal …", "Projekt verwalten …",
                 "Features dieses Projekts …", "Projektordner öffnen"]
     assert in_order(found, expected), found
-    assert found[0] == "Projekt neu einlesen" and found[-1] == "Projektordner öffnen"
+    # Das Testprojekt hat noch die alten Ordner Code und Exe, deshalb ganz unten das Umbenennen
+    assert found[0] == "Projekt neu einlesen"
+    assert found[-2:] == ["Projektordner öffnen", "Ordner in Repository und Release umbenennen …"]
     for gone in ("Repository verwalten …", "Links …", "Aus der Liste entfernen …", "Lizenz …",
                  "README …", "Releases …", "GitHub Actions …"):
         assert gone not in found
@@ -293,7 +295,7 @@ def test_main_row_shows_exe_state(qtbot, tmp_path, projects_root, make_services)
 def test_exe_lines_without_release(tmp_path, projects_root, make_services):
     from cockpit.ui.branch_dialogs import exe_lines
     services, project, _other = structured(tmp_path, projects_root, make_services)
-    assert exe_lines(project) == ["Exe: Dieses Projekt hat keinen Ordner Exe."]
+    assert exe_lines(project) == ["Exe: Dieses Projekt hat keinen Ordner Release."]
     project.exe_dir.mkdir(parents=True, exist_ok=True)
     (project.exe_dir / "Tagebuch.exe").write_bytes(b"MZ")
     assert exe_lines(project)[-1] == "Noch nicht veröffentlicht."

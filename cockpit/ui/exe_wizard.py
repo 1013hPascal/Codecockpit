@@ -466,7 +466,8 @@ class ExeWizard:
         add(f"Gebaut wird im Branch {exe_branch.BRANCH}, Ordner {self.folder}. Main bleibt "
             "unverändert.")
         add(beside_line(self.project, self.folder))
-        add(f"Die neue Exe kommt in den Ordner Exe\\{name} und wird getestet. Die bisherige Exe "
+        add(f"Die neue Exe kommt in den Ordner {self.project.exe_dir.name}\\{name} und wird "
+            "getestet. Die bisherige Exe "
             "bleibt, bis Sie die neue in main überführen.")
         return lines, changes
 

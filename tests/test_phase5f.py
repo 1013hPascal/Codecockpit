@@ -651,12 +651,12 @@ def test_testdata_have_branches_and_a_stash(tmp_path, monkeypatch):
     from cockpit.core.paths import HOME_VARIABLE
     monkeypatch.setenv(HOME_VARIABLE, str(tmp_path / "vorher"))
     _, root = testdata.prepare(tmp_path / "Testdaten")
-    pdf = root / "PDF-Chat" / "Code"
+    pdf = root / "PDF-Chat" / "Repository"
     lines = {b.name: b.line() for b in branches.list_branches(pdf)}
     assert lines["suche-pdfs"] == ("suche-pdfs, hier und auf GitHub, zuletzt von Testdaten am "
                                    "24.09.2026, 2 Commits vor main")
     assert lines["neues-design"].startswith("neues-design, nur auf GitHub, zuletzt von Testdaten")
-    stash = branches.stashes(root / "Rezepte" / "Code")
+    stash = branches.stashes(root / "Rezepte" / "Repository")
     assert len(stash) == 1 and stash[0].files == ["notiz.txt"] and stash[0].branch == "main"
 
 

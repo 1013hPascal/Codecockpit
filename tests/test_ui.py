@@ -307,12 +307,13 @@ def test_actions_follow_the_tree_selection(window):
     assert win.actions_list.texts() == [
         "Projekt neu einlesen", "Terminal …", "Projekt verwalten …",
         "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
-        "geht im Menü Features.", "Projektordner öffnen"]
+        "geht im Menü Features.", "Projektordner öffnen",
+        "Ordner in Repository und Release umbenennen …"]          # alte Ordner Code und Exe
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
         "Releases neu einlesen", "Terminal …",
-        "Exe starten, nicht verfügbar: Im Ordner Exe liegt keine Exe.",
+        "Exe starten, nicht verfügbar: Im Ordner Release liegt keine Exe.",
         "Release einlesen …", "Wie funktioniert die Exe? …", "Exe-main-Ordner öffnen"]
 
 
@@ -603,9 +604,9 @@ def test_asker_answers_from_background_thread(monkeypatch, qtbot):
 def test_testdata_are_complete(tmp_path, monkeypatch):
     from cockpit import testdata
     home, root = testdata.prepare(tmp_path / "Testdaten")
-    assert (root / "PDF-Chat" / "Exe" / "PDF-Chat.exe").is_file()
-    assert not (root / "Tagebuch" / "Exe").exists()
-    assert (root / "Bildbeschreiber" / "Exe").is_dir()
+    assert (root / "PDF-Chat" / "Release" / "PDF-Chat.exe").is_file()
+    assert not (root / "Tagebuch" / "Release").exists()
+    assert (root / "Bildbeschreiber" / "Release").is_dir()
     testdata.remove_missing_example(root)
     assert not (root / "Notizen").exists()
 

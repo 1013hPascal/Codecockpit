@@ -1,7 +1,7 @@
 """Ein Ordner pro Branch (Phase 10f).
 
-Der Ordner Code enthält dann nur Ordner: den Haupt-Branch, zum Beispiel Code\\main, und daneben
-einen Ordner pro Branch, zum Beispiel Code\\neue-funktion. Technisch sind das Worktrees von Git:
+Der Ordner Repository enthält dann nur Ordner: den Haupt-Branch, zum Beispiel Repository\\main, und daneben
+einen Ordner pro Branch, zum Beispiel Repository\\neue-funktion. Technisch sind das Worktrees von Git:
 Alle Ordner teilen sich ein Repository, und ein Commit in einem Ordner landet immer in dessen
 Branch. Der Haupt-Branch bleibt code_dir des Projekts, damit Exe-Bau, cockpit.toml und alles
 andere wie bisher arbeiten.
@@ -57,7 +57,7 @@ def list_worktrees(project: Project) -> list[Worktree]:
         return []
     result = git.run(["worktree", "list", "--porcelain"], project.code_dir, check=False)
     found: list[Worktree] = []
-    # Der erste Eintrag ist immer der Haupt-Branch (Code\main), auch von einem Branch-Ordner aus
+    # Der erste Eintrag ist immer der Haupt-Branch (Repository\main), auch von einem Branch-Ordner aus
     for block in result.stdout.replace("\r", "").strip().split("\n\n")[1:]:
         fields: dict[str, str] = {}
         for line in block.splitlines():
@@ -196,8 +196,8 @@ def can_convert(project: Project) -> bool:
 
 
 def convert(project: Project, on_step: Callable[[str], None] = lambda text: None) -> Path:
-    """Ordner für Branches einrichten: Der Inhalt von Code wandert nach Code\\<Branch>, zum
-    Beispiel Code\\main. Vorher kommt eine Sicherheitskopie in den Ordner backups (ohne die
+    """Ordner für Branches einrichten: Der Inhalt von Code wandert nach Repository\\<Branch>, zum
+    Beispiel Repository\\main. Vorher kommt eine Sicherheitskopie in den Ordner backups (ohne die
     virtuelle Umgebung, die danach ohnehin neu angelegt wird). Gibt den neuen Ordner zurück."""
     if not can_convert(project):
         raise CockpitError("Dieses Projekt lässt sich nicht umstellen.")
@@ -211,7 +211,7 @@ def convert(project: Project, on_step: Callable[[str], None] = lambda text: None
     except OSError as exc:
         raise CockpitError("Die Sicherheitskopie ließ sich nicht anlegen. Es wurde nichts "
                            "verschoben.", str(exc)) from None
-    on_step(f"Dateien werden nach Code\\{name} verschoben")
+    on_step(f"Dateien werden nach {root.name}\\{name} verschoben")
     moving = root / MOVING
     moving.mkdir()
     moved: list[Path] = []

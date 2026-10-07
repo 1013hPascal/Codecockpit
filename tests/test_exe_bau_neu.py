@@ -151,7 +151,7 @@ def test_license_from_file_asks_and_writes(qtbot, tmp_path, projects_root, make_
     monkeypatch.setattr(license_flow, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or True)
     win.controller.licenses.from_file(project)
-    assert asked == ["meine-lizenz.txt wird als LICENSE in den Ordner Code kopiert. "
+    assert asked == ["meine-lizenz.txt wird als LICENSE in den Ordner Repository kopiert. "
                      "Übernehmen?"]
     assert (project.code_dir / "LICENSE").read_text(encoding="utf-8") == "MIT License\n"
     assert said("Lizenz gespeichert: MIT.")

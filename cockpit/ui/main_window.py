@@ -302,6 +302,11 @@ class MainWindow(QMainWindow):
             log.warning("Alte Sicherheitskopien nicht gelöscht: %r", exc)
         self.refresh_remote()
 
+    def offer_folder_rename(self) -> None:
+        """Nach dem Start, nicht in startup(): Ordner Code und Exe umbenennen (06.10.2026)."""
+        if not self.testdata:
+            self.controller.folder_renamer.offer()
+
     # -- Projekte -------------------------------------------------------------------------
     def platform_name(self) -> str:
         """Name der Plattform für "nur auf GitHub" und "noch nicht auf GitHub"."""

@@ -1051,5 +1051,10 @@ Wunsch des Nutzers, gebaut im Branch projektliste-neu. Entwurf mit den Antworten
 - „Release entfernen“ fragt: nur lokal, nur auf GitHub oder beides. Vorgabe und Escape: Abbrechen. Lokal kommt der Ordner in die Sicherheitskopien. Auf GitHub wird das Release der zuletzt veröffentlichten Version gelöscht, das Tag bleibt (wie Frage 3 zu Phase 14).
 - Jede Zeile hat ein Terminal an ihrem Ort: Projektordner, Ordner Code (Antwort des Nutzers: von dort geht man selbst in die Branches), Branch-Ordner, Ordner Exe und der Ordner des Releases.
 - Aktionen können einen Namen haben, der von der Zeile abhängt, etwa „Exe aus neue-funktion erstellen …“ oder „Exe-main-Ordner öffnen“.
-- Noch offen: Die Ordner Code und Exe heißen künftig Repository und Release (Antwort des Nutzers). Das kommt als eigener Schritt.
+- Die Ordner Code und Exe heißen jetzt Repository und Release (Antwort des Nutzers). Neue Projekte bekommen gleich die neuen Namen. Projekte mit den alten Namen funktionieren weiter.
+- Beim Start fragt das Cockpit einmal für alle Projekte mit den alten Namen: „Umbenennen“, „Später“ (Vorgabe und Escape, fragt beim nächsten Start wieder) oder „Nicht umbenennen“ (fragt nie mehr). Danach repariert es die Verweise der Branch-Ordner und legt die virtuellen Umgebungen neu an, weil sie feste Pfade enthalten.
+- Ohne Sicherheitskopie (Antwort des Nutzers vom 07.10.2026): Nur die Namen ändern sich, nicht der Inhalt. Eine volle Kopie hätte bei großen Exe-Ordnern viel Zeit und Platz gekostet. Dafür gibt es auf der Projektzeile „Ordnernamen zurücksetzen …“. Scheitert ein Ordner, weil er geöffnet ist, benennt das Cockpit den anderen zurück, und es ist nichts geändert.
+- Einzeln geht es auf der Projektzeile mit „Ordner in Repository und Release umbenennen …“.
+- Das Projekt, aus dem das Cockpit gerade läuft, benennt es nicht um. Seine Ordner sind in Benutzung.
+- Meldungen nennen den echten Ordnernamen, zum Beispiel „Repository\suche“ oder bei einem alten Projekt „Code\suche“. Feste Texte nennen die neuen Namen.
 - Nachtrag (Fehler beim Testen gefunden): „Neu einlesen“ bei einem Projekt mit dem Code direkt in Code bietet „Ordner für Branches einrichten“ an. Wer das abbrach, bekam gar kein Neu einlesen. Jetzt liest das Cockpit nach dem Abbrechen trotzdem neu ein.

@@ -1,7 +1,7 @@
 """Die Releases eines Projekts auf dem Rechner (Wunsch des Nutzers vom 06.10.2026).
 
 Unter der Zeile Releases steht je Branch ein Release, zum Beispiel "Exe-main" und
-"Exe-neue-funktion". Auf dem Rechner ist das je ein Ordner im Ordner Exe: die normale Exe aus dem
+"Exe-neue-funktion". Auf dem Rechner ist das je ein Ordner im Ordner Release: die normale Exe aus dem
 Haupt-Branch und daneben die Ordner <Name>_branch_<Ordner> (Phase 10f). Ein Release für einen
 Branch gibt es nur für Branches, die lokal auf dem Rechner sind.
 """
@@ -41,7 +41,7 @@ def main_name(project: Project, status=None) -> str:
 
 
 def main_release(project: Project) -> LocalRelease:
-    """Ordner der normalen Exe. Bei der alten Ablage ohne eigenen Ordner der Ordner Exe."""
+    """Ordner der normalen Exe. Bei der alten Ablage ohne eigenen Ordner der Ordner Release."""
     current = exe.current_exe(project)
     if current is not None:
         home = current.parent

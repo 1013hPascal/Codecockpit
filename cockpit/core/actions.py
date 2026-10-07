@@ -57,7 +57,7 @@ class ActionContext:
     status: "ProjectStatus | None" = None            # Stand des Projekts, falls schon bekannt
     remote_repo: "StoredRepo | None" = None          # bei Target.REMOTE_REPO
     worktree: "Worktree | None" = None               # Branch-Ordner (Phase 10f)
-    main_project: "Project | None" = None            # bei worktree: das Projekt mit Code\main
+    main_project: "Project | None" = None            # bei worktree: das Projekt mit Repository\main
     remote_branch: "Branch | None" = None            # bei Target.REMOTE_BRANCH
     collection: "Collection | None" = None           # bei Target.COLLECTION
     release: "LocalRelease | None" = None            # bei Target.EXE und Target.RELEASE

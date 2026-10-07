@@ -384,7 +384,7 @@ class ProjectFeaturesDialog(_FeatureListDialog):
             self.reject()
             return
         text = " ".join(sentences + ["Die Auswahl steht danach in der Datei cockpit.toml im "
-                                     "Ordner Code und wird mit hochgeladen. Speichern?"])
+                                     "Ordner Repository und wird mit hochgeladen. Speichern?"])
         if not confirm(self, "Features speichern", text, yes="Speichern", no="Abbrechen"):
             return
         features = self.services.features

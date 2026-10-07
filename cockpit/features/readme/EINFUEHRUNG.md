@@ -4,7 +4,7 @@ Die README ist die Startseite Ihres Projekts auf GitHub. Dieses Feature erstellt
 
 Auf der Projektzeile steht „README …“. Gibt es noch keine README, wählen Sie dort „README-Einstellungen …“, „README aus Ordner hochladen …“ oder „README mit KI schreiben …“. Gibt es schon eine, stehen dort „README-Einstellungen …“ und „README bearbeiten …“.
 
-„README aus Ordner hochladen …“ übernimmt eine fertige Markdown- oder Textdatei als README.md in den Ordner Code. Auf GitHub kommt sie wie jede Änderung mit „Änderungen auf GitHub hochladen …“.
+„README aus Ordner hochladen …“ übernimmt eine fertige Markdown- oder Textdatei als README.md in den Ordner Repository. Auf GitHub kommt sie wie jede Änderung mit „Änderungen auf GitHub hochladen …“.
 
 „README mit KI schreiben …“: Fügen Sie Dateien hinzu, die etwas über Ihr Programm erzählen, und schreiben Sie Infos für die README in das Feld darunter. „Von KI verfassen lassen“ schreibt die ganze README. Der Text steht danach in einem Feld zum Lesen und Ändern. Im Feld darunter schreiben Sie Verbesserungsvorschläge für die KI und lassen sie den Text noch einmal verfassen. „README ist fertig so“ speichert.
 

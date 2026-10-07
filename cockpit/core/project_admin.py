@@ -19,7 +19,8 @@ from typing import Callable
 
 from cockpit.core import git
 from cockpit.core.errors import CockpitError
-from cockpit.core.projects import Project, ProjectStore
+from cockpit.core.projects import (CODE_DIR, EXE_DIR, OLD_CODE_DIR, OLD_EXE_DIR, Project,
+                                   ProjectStore)
 
 log = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ def rename_main(store: ProjectStore, project: Project, old: str, new: str, platf
     """Den Haupt-Branch umbenennen (Wunsch des Nutzers vom 06.10.2026, "Branches verwalten").
     Auf der Plattform über ihre Schnittstelle, weil man den Haupt-Branch dort nicht löschen und
     neu hochladen kann. Sie stellt auch den Haupt-Branch um. Dann hier, und der Ordner
-    Code\\<alt> heißt danach Code\\<neu>. Gibt das Projekt und einen Hinweis zurück, wenn etwas
+    Repository\\<alt> heißt danach Repository\\<neu>. Gibt das Projekt und einen Hinweis zurück, wenn etwas
     nicht geklappt hat."""
     from cockpit.core import branches, worktrees
     code_dir = project.code_dir
@@ -170,3 +171,70 @@ def delete_local(store: ProjectStore, project: Project) -> list[Path]:
                                "Programm geöffnet?", str(exc)) from None
     store.remove(project.id)
     return kept
+
+
+# -- Ordner Code und Exe umbenennen (Antwort des Nutzers vom 06.10.2026) ------------------------
+FOLDER_PAIRS = ((OLD_CODE_DIR, CODE_DIR), (OLD_EXE_DIR, EXE_DIR))
+
+
+def folder_plan(project: Project, back: bool = False) -> list[tuple[Path, Path]]:
+    """Was umbenannt wird: Code in Repository und Exe in Release, mit back umgekehrt. Nur
+    Ordner, die es gibt und deren neuer Name frei ist. Leer bei verknüpften Projekten."""
+    if project.linked or not project.project_dir.is_dir():
+        return []
+    plan = []
+    for old, new in FOLDER_PAIRS:
+        source, target = (new, old) if back else (old, new)
+        if (project.project_dir / source).is_dir() and not (project.project_dir / target).exists():
+            plan.append((project.project_dir / source, project.project_dir / target))
+    return plan
+
+
+def contains_program(project: Project) -> bool:
+    """Läuft das Cockpit selbst aus diesem Projekt? Dann lassen sich die Ordner nicht umbenennen."""
+    import sys
+    import cockpit
+    here = [Path(sys.executable), Path(cockpit.__file__)]
+    try:
+        root = project.project_dir.resolve()
+        return any(p.resolve().is_relative_to(root) for p in here)
+    except OSError:
+        return False
+
+
+def rename_folders(store: ProjectStore, project: Project, back: bool = False,
+                   on_step: Callable[[str], None] = lambda text: None) -> Project:
+    """Code in Repository und Exe in Release umbenennen, mit back zurück. Nur die Namen ändern
+    sich, deshalb ohne Sicherheitskopie (Antwort des Nutzers vom 06.10.2026). Scheitert ein
+    Ordner, wird zurückbenannt, und nichts ist geändert. Danach werden die Verweise der
+    Branch-Ordner repariert. Gibt das geänderte Projekt zurück."""
+    plan = folder_plan(project, back)
+    if not plan:
+        return project
+    from cockpit.core import worktrees
+    trees = [t.path for t in worktrees.list_worktrees(project)] if project.folder_found else []
+    on_step("Ordner werden umbenannt")
+    done: list[tuple[Path, Path]] = []
+    try:
+        for source, target in plan:
+            os.rename(source, target)              # ändert keinen Inhalt, nur den Namen
+            done.append((source, target))
+    except OSError as exc:
+        for source, target in reversed(done):
+            try:
+                os.rename(target, source)
+            except OSError:
+                log.exception("Zurückbenennen fehlgeschlagen: %s", target)
+        raise CockpitError(LOCKED, str(exc)) from None
+    code_dir, exe_dir, moved_trees = project.code_dir, project.exe_dir, trees
+    for source, target in done:
+        log.info("Ordner umbenannt: %s -> %s", source, target)
+        code_dir = _moved(code_dir, source, target)
+        exe_dir = _moved(exe_dir, source, target)
+        moved_trees = [_moved(t, source, target) for t in moved_trees]
+    renamed = store.rename(project, project.name, project.project_dir, code_dir, exe_dir)
+    if moved_trees:
+        on_step("Branch-Ordner werden angepasst")
+        git.run(["worktree", "repair", *(str(t) for t in moved_trees)], renamed.code_dir,
+                check=False)
+    return renamed

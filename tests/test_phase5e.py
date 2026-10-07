@@ -311,7 +311,7 @@ def test_project_actions(live, qtbot, account, tmp_path, projects_root):
     texts = labels(win)
     # Seit dem 06.10.2026: "Projekt verwalten …" mit Umbenennen, Entfernen und Löschen, Links und
     # "Repository verwalten …" stehen beim Repository
-    assert "Projekt verwalten …" in texts and texts[-1] == "Projektordner öffnen"
+    assert "Projekt verwalten …" in texts and "Projektordner öffnen" in texts
     assert "Links …" not in texts and "Aus der Liste entfernen …" not in texts
     win.project_list.select(Target.REPOSITORY, project.id)
     texts = labels(win)

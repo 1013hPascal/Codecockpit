@@ -161,3 +161,39 @@ Ergebnis:
 Tasten: Bei einem Projekt, dessen Code noch direkt im Ordner Code liegt, „Repository neu einlesen“. Die Frage „Ordner für Branches einrichten“ mit Abbrechen beantworten.
 Ansage: „… neu eingelesen.“ Vorher kam danach gar nichts.
 Ergebnis:
+
+
+## Ordner Repository und Release
+
+Vorher: Starten Sie das Cockpit einmal mit Ihren Projekten. Schließen Sie Explorer und Terminals in den Projektordnern. Das Projekt CodeCockpit selbst wird nicht umbenannt, solange das Cockpit daraus läuft.
+
+[ ] 28. Frage beim Start
+Tasten: Cockpit starten und kurz warten.
+Ansage: „Die Ordner Code und Exe heißen jetzt Repository und Release. Das Cockpit benennt sie bei … Projekten um: …“ Knöpfe „Umbenennen“, „Später“, „Nicht umbenennen“. Vorgabe ist „Später“, Escape auch.
+Ergebnis:
+
+[ ] 29. Später
+Tasten: Escape. Danach das Cockpit neu starten.
+Ansage: Beim nächsten Start kommt die Frage wieder. An den Ordnern ändert sich nichts.
+Ergebnis:
+
+[ ] 30. Umbenennen
+Tasten: Beim Start „Umbenennen“ wählen.
+Ansage: „Ordner umbenennen.“, dann die Projekte nacheinander und am Ende „Ordner bei … Projekten umbenannt.“ Ist ein Ordner geöffnet, nennt eine Meldung das Projekt. Dort ist nichts geändert.
+Prüfen: Im Explorer heißen die Ordner Repository und Release. Branch-Ordner, Hochladen und Exe starten funktionieren weiter.
+Ergebnis:
+
+[ ] 31. Zurücksetzen
+Tasten: Auf einer Projektzeile Tab bis „Ordnernamen zurücksetzen …“, Enter, bestätigen.
+Ansage: Die Rückfrage nennt „Repository in Code und Release in Exe“. Danach „Ordner bei 1 Projekt zurückgesetzt.“ Beim nächsten Start fragt das Cockpit für dieses Projekt nicht mehr.
+Ergebnis:
+
+[ ] 32. Einzeln umbenennen
+Tasten: Auf einer Projektzeile mit alten Namen „Ordner in Repository und Release umbenennen …“.
+Ansage: Rückfrage, dann „Ordner bei 1 Projekt umbenannt.“
+Ergebnis:
+
+[ ] 33. Neues Projekt
+Tasten: „Projekt von GitHub herunterladen …“ oder ein Ordner ohne den Aufbau mit „Projekt vom Rechner hinzufügen …“.
+Ansage: Die Texte nennen Repository und Release. Die neuen Ordner heißen so.
+Ergebnis:

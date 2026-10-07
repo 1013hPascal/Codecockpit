@@ -37,7 +37,7 @@ def _project_found(context: ActionContext) -> Availability:
 
 def _exe_dir_found(context: ActionContext) -> Availability:
     if context.project is None or not context.project.has_exe_dir:
-        return Availability.no("Den Ordner Exe gibt es nicht.")
+        return Availability.no("Den Ordner Release gibt es nicht.")
     return Availability.yes()
 
 
@@ -47,7 +47,7 @@ def _exe_found(context: ActionContext) -> Availability:
         return state
     from cockpit.core.exe import current_exe
     if current_exe(context.project) is None:
-        return Availability.no("Im Ordner Exe liegt keine Exe.")
+        return Availability.no("Im Ordner Release liegt keine Exe.")
     return Availability.yes()
 
 
@@ -80,7 +80,7 @@ def _release_title(context: ActionContext) -> str:
 
 
 def _open_exe_dir(context: ActionContext) -> None:
-    """Ordner dieses Releases, solange es ihn noch nicht gibt der Ordner Exe."""
+    """Ordner dieses Releases, solange es ihn noch nicht gibt der Ordner Release."""
     release = context.release
     path = release.path if release is not None and release.path.is_dir()         else context.project.exe_dir
     open_path(path)

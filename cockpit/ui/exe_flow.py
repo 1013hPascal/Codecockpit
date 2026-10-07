@@ -65,7 +65,7 @@ ALWAYS = ", kommt immer mit"
 
 
 def beside_candidates(code_dir: Path) -> list[str]:
-    """Was neben die Exe kommen kann: Ordner und Dateien im Ordner Code. Ohne Python-Code,
+    """Was neben die Exe kommen kann: Ordner und Dateien im Ordner Repository. Ohne Python-Code,
     .spec-Datei, Pakete, versteckte und Build-Ordner. README und Lizenz stehen nicht hier, sie
     kommen immer mit (Wunsch des Nutzers vom 03.10.2026)."""
     from cockpit.features.exe_build.setup_check import SKIP_DIRS, _packages
@@ -120,7 +120,7 @@ class BuildSettingsDialog(FocusDialog):
                             options=(ONE_FILE, FOLDER)),
                   sf.YesNo("windowed", "Ohne Konsolenfenster (für Programme mit Fenster)",
                            current.windowed),
-                  sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Code",
+                  sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Repository",
                           current.icon)]
         self.form = SettingsForm(fields)
         self.handmade = self.current is not None and \
@@ -208,7 +208,7 @@ class BuildSettingsDialog(FocusDialog):
             return
         if not (self.code_dir / values["start_file"]).is_file():
             show_error(self, self.windowTitle(), f"Die Startdatei {values['start_file']} gibt es "
-                       "im Ordner Code nicht.")
+                       "im Ordner Repository nicht.")
             self.form.focus_field("start_file")
             return
         if values["icon"] and not (self.code_dir / values["icon"]).is_file():
@@ -350,7 +350,8 @@ class BuildDialog(FocusDialog):
                 return
         self.result = result
         if result.branch:
-            text = f"Exe aus dem Branch erstellt und getestet: Ordner Exe\\{result.exe.parent.name}."
+            text = (f"Exe aus dem Branch erstellt und getestet: Ordner "
+                    f"{result.exe.parent.parent.name}\\{result.exe.parent.name}.")
             if result.backup is not None:
                 text += " Die vorherige Exe dieses Branches steht in den Sicherheitskopien."
             if result.placed:
@@ -633,8 +634,9 @@ class ExeActions:
         project, tree = context.main_project, context.worktree
         settings = exe.read_settings(project.code_dir)
         name = exe.branch_exe_name(settings.name, tree.folder)
-        text = (f"Das Cockpit baut die Exe aus dem Ordner Code\\{tree.folder} und testet sie. "
-                f"Sie kommt in den Ordner Exe\\{name}. Die normale Exe aus "
+        text = (f"Das Cockpit baut die Exe aus dem Ordner "
+                f"{project.code_root.name}\\{tree.folder} und testet sie. "
+                f"Sie kommt in den Ordner {project.exe_dir.name}\\{name}. Die normale Exe aus "
                 f"{project.code_dir.name} bleibt unverändert. Starten?")
         if not confirm(self.window, "Exe aus dem Branch erstellen", text, yes="Starten",
                        no="Abbrechen"):
@@ -679,7 +681,7 @@ class ExeActions:
                 return
             project = self.services.projects.set_exe_dir(project, folder)
         elif not confirm(self.window, "Exe hinzufügen",
-                         f"Im Projektordner wird der Ordner Exe angelegt: {project.exe_dir}. "
+                         f"Im Projektordner wird der Ordner Release angelegt: {project.exe_dir}. "
                          "Danach steht Exe unter Code. Anlegen?", yes="Anlegen", no="Abbrechen"):
             return
         try:
@@ -687,7 +689,7 @@ class ExeActions:
         except (CockpitError, OSError) as exc:
             show_error(self.window, "Exe hinzufügen", getattr(exc, "message", str(exc)))
             return
-        self._after(project, "Ordner Exe angelegt.")
+        self._after(project, "Ordner Release angelegt.")
 
     # -- Exe-Datei wählen -------------------------------------------------------------------
     def choose(self, context: ActionContext) -> None:
@@ -705,7 +707,7 @@ class ExeActions:
             source = pick_folder(self.window, "Programmordner wählen", str(project.project_dir))
         if source is None:
             return
-        text = f"{source.name} wird in einen eigenen Ordner im Ordner Exe kopiert."
+        text = f"{source.name} wird in einen eigenen Ordner im Ordner Release kopiert."
         if exe.current_exe(project) is not None:
             text += " Die bisherige Exe kommt vorher in die Sicherheitskopien."
         if not confirm(self.window, "Exe-Datei wählen", text + " Übernehmen?", yes="Übernehmen",
@@ -1046,7 +1048,7 @@ class ExeActions:
                 record.version = version
                 exe.write_record(project.code_dir, record)
             moved = exe.mark_published(project, current, version, rename=not branch)
-            where = f" Die Exe liegt jetzt in Exe\\{moved.parent.name}." \
+            where = f" Die Exe liegt jetzt in {project.exe_dir.name}\\{moved.parent.name}." \
                 if moved.parent != current.parent else ""
             QGuiApplication.clipboard().setText(release.url)
             self._after(project, f"Version {version} veröffentlicht. Link kopiert.{where}")
@@ -1117,7 +1119,7 @@ class ExeActions:
         release, asset = found
         size = f"{max(1, round(asset.size / (1024 * 1024)))} MB"
         text = (f"Die Datei {asset.name} ({size}) aus dem Release {release.tag} wird "
-                "heruntergeladen und in den Ordner Exe übernommen.")
+                "heruntergeladen und in den Ordner Release übernommen.")
         if exe.current_exe(project) is not None:
             text += " Die bisherige Exe kommt vorher in die Sicherheitskopien."
         if not confirm(self.window, "Exe aus dem Release holen", text + " Holen?", yes="Holen",

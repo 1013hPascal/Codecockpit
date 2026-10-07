@@ -10,7 +10,7 @@ from pathlib import Path
 
 from cockpit.core import git, worktrees
 from cockpit.core.errors import CockpitError
-from cockpit.core.projects import CODE_DIR, Project
+from cockpit.core.projects import Project, code_root_in
 from cockpit.core.remote_repos import StoredRepo
 
 
@@ -33,12 +33,12 @@ def download(services, repo: StoredRepo, root: Path,
              cancel: threading.Event | None = None) -> Project:
     """Repository in <Hauptordner>\\<Name>\\Code herunterladen und in die Liste aufnehmen."""
     project_dir = download_target(root, repo.name)
-    code_dir = project_dir / CODE_DIR
+    code_dir = code_root_in(project_dir)        # auch ein alter Ordner Code zählt
     if code_dir.exists() and any(code_dir.iterdir()):
         raise CockpitError(f"Den Ordner {code_dir} gibt es schon, und er ist nicht leer. "
                            "Nichts wurde verändert.")
     folders = services.settings.load().branch_folders
-    # Phase 10f: mit einem Ordner pro Branch nach Code\<Haupt-Branch>, zum Beispiel Code\main
+    # Phase 10f: mit einem Ordner pro Branch nach Repository\<Haupt-Branch>, zum Beispiel Repository\main
     target = code_dir / DOWNLOADING if folders else code_dir
     git.clone(repo.clone_url, target, _environment(services, repo.account_id), cancel)
     if folders:

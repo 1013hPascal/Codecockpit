@@ -423,7 +423,7 @@ class ReadmeActions:
             return
         source = Path(chosen)
         if not confirm(self.window, "README aus Ordner hochladen",
-                       f"{source.name} wird als README.md in den Ordner Code kopiert. "
+                       f"{source.name} wird als README.md in den Ordner Repository kopiert. "
                        "Übernehmen?", yes="Übernehmen", no="Abbrechen"):
             return
         try:

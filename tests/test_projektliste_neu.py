@@ -316,3 +316,103 @@ def test_remove_release_asks_and_cancel_keeps_it(qtbot, tmp_path, projects_root,
     win.run_entry(entry)
     assert local_releases.find(project, "suche") is None
     assert said("Exe-suche lokal entfernt")
+
+
+# -- Ordner Repository und Release (Schritt 6) -----------------------------------------------------
+def test_rename_folders_and_back(tmp_path, projects_root, make_services):
+    from cockpit.core.projects import CODE_DIR, EXE_DIR
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    worktrees.open_branch(project, "suche")
+    project.exe_dir.mkdir()
+    base = project.project_dir
+    assert [(s.name, t.name) for s, t in project_admin.folder_plan(project)] == [
+        ("Code", CODE_DIR), ("Exe", EXE_DIR)]
+    steps = []
+    renamed = project_admin.rename_folders(services.projects, project, on_step=steps.append)
+    assert not (base / "Code").exists() and not (base / "Exe").exists()
+    assert renamed.code_dir == base / "Repository" / "main"
+    assert renamed.exe_dir == base / "Release" and renamed.has_branch_folders
+    trees = worktrees.list_worktrees(renamed)
+    assert [t.path for t in trees] == [base / "Repository" / "suche"]
+    assert git.status(trees[0].path).branch == "suche"
+    assert services.projects.get(project.id).code_dir == renamed.code_dir
+    assert steps == ["Ordner werden umbenannt", "Branch-Ordner werden angepasst"]
+    assert project_admin.folder_plan(renamed) == []
+    back = project_admin.rename_folders(services.projects, renamed, back=True)
+    assert back.code_dir == base / "Code" / "main" and back.exe_dir == base / "Exe"
+    assert git.status(worktrees.list_worktrees(back)[0].path).branch == "suche"
+
+
+def test_rename_folders_changes_nothing_when_one_is_busy(tmp_path, projects_root,
+                                                          make_services, monkeypatch):
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    project.exe_dir.mkdir()
+    real = project_admin.os.rename
+    calls = []
+
+    def second_busy(source, target):
+        calls.append(source)
+        if len(calls) == 2:
+            raise PermissionError("in Benutzung")
+        real(source, target)
+
+    monkeypatch.setattr(project_admin.os, "rename", second_busy)
+    with pytest.raises(CockpitError, match="Es wurde nichts geändert"):
+        project_admin.rename_folders(services.projects, project)
+    assert (project.project_dir / "Code" / "main").is_dir()
+    assert (project.project_dir / "Exe").is_dir()
+    assert services.projects.get(project.id).code_dir == project.code_dir
+
+
+def test_new_names_are_found_and_old_ones_still_work(tmp_path, projects_root, make_services):
+    from cockpit.core.projects import classify_folder, code_root_in, exe_dir_in
+    new = projects_root / "Neu"
+    (new / "Repository").mkdir(parents=True)
+    old = projects_root / "Alt"
+    (old / "Code").mkdir(parents=True)
+    assert code_root_in(new) == new / "Repository" and exe_dir_in(new) == new / "Release"
+    assert code_root_in(old) == old / "Code" and exe_dir_in(old) == old / "Exe"
+    assert classify_folder(new / "Repository") == ("project", new.resolve())
+    services = make_services([])
+    found = {p.name: p for p in services.projects.scan(projects_root)}
+    assert found["Neu"].code_dir == (new / "Repository").resolve()
+    assert found["Alt"].exe_dir == (old / "Exe").resolve()
+
+
+def test_offer_at_start_asks_once_and_never_again(qtbot, tmp_path, projects_root,
+                                                  make_services, monkeypatch):
+    from cockpit.ui import folder_rename_flow
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    renamer = win.controller.folder_renamer
+    asked = []
+    monkeypatch.setattr(folder_rename_flow, "ask_buttons", lambda parent, title, text, buttons,
+                        default, escape: asked.append((text, buttons, default, escape)) or 1)
+    renamer.offer()                                     # Später: nichts geändert
+    text, buttons, default, escape = asked[0]
+    assert "bei 1 Projekt um: Tagebuch." in text and buttons == ["Umbenennen", "Später",
+                                                                    "Nicht umbenennen"]
+    assert default == escape == 1
+    assert (project.project_dir / "Code").is_dir()
+    monkeypatch.setattr(folder_rename_flow, "ask_buttons", lambda *a, **k: 0)
+    renamer.offer()
+    qtbot.waitUntil(lambda: said("Ordner bei 1 Projekt umbenannt."), timeout=20000)
+    assert (project.project_dir / "Repository" / "main").is_dir()
+    assert renamer.candidates() == []
+    win.project_list.select(Target.PROJECT, project.id)
+    labels = [e.label for e in win.current_entries()]
+    assert "Ordnernamen zurücksetzen …" in labels
+    assert "Ordner in Repository und Release umbenennen …" not in labels
+
+
+def test_never_is_remembered(qtbot, tmp_path, projects_root, make_services, monkeypatch):
+    from cockpit.ui import folder_rename_flow
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    monkeypatch.setattr(folder_rename_flow, "ask_buttons", lambda *a, **k: 2)
+    win.controller.folder_renamer.offer()
+    assert win.controller.folder_renamer.candidates() == []
+    assert said("Die Ordner bleiben, wie sie sind.")
+    win.project_list.select(Target.PROJECT, project.id)
+    assert "Ordner in Repository und Release umbenennen …" in [
+        e.label for e in win.current_entries()]

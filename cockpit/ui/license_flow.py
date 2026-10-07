@@ -6,7 +6,7 @@ zum Beispiel "Lizenz …, MIT" oder "Lizenz …, noch keine Lizenz".
   hochladen …" (eine fertige Datei).
 - Mit Lizenz: "Lizenz ansehen" und "Lizenz ändern …". Ändern bietet dieselben zwei Wege an, die
   bisherige Lizenz kommt vorher in die Sicherheitskopien.
-Die Datei heißt LICENSE, liegt im Ordner Code und kommt wie jede Änderung ins Repository.
+Die Datei heißt LICENSE, liegt im Ordner Repository und kommt wie jede Änderung ins Repository.
 """
 from __future__ import annotations
 
@@ -95,7 +95,7 @@ class LicenseActions:
         holder = git.identity(project.code_dir)[0] if git.is_repo(project.code_dir) else ""
         holder = holder or project.name
         year = datetime.now().year
-        text = (f"Die Lizenz {spdx} wird als LICENSE in den Ordner Code geschrieben, mit dem "
+        text = (f"Die Lizenz {spdx} wird als LICENSE in den Ordner Repository geschrieben, mit dem "
                 f"Namen {holder} und dem Jahr {year}.")
         if licenses.find(project.code_dir) is not None:
             text += " Die bisherige Lizenz kommt vorher in die Sicherheitskopien."
@@ -136,7 +136,7 @@ class LicenseActions:
         if not chosen:
             return
         source = Path(chosen)
-        text = f"{source.name} wird als LICENSE in den Ordner Code kopiert."
+        text = f"{source.name} wird als LICENSE in den Ordner Repository kopiert."
         if licenses.find(project.code_dir) is not None:
             text += " Die bisherige Lizenz kommt vorher in die Sicherheitskopien."
         if not confirm(self.window, IMPORT.rstrip(" …"), text + " Übernehmen?", yes="Übernehmen",

@@ -10,4 +10,4 @@ In Firmen ist main oft geschützt. Dann ist dieser Weg ohnehin nötig.
 
 Sie schalten das Feature auf der Projektzeile mit „Features dieses Projekts …“ ein und aus. Für alle Projekte geht das im Menü Features.
 
-Die Einstellung steht in der Datei cockpit.toml im Ordner Code. Diese Datei gehört zum Projekt und wird mit hochgeladen.
+Die Einstellung steht in der Datei cockpit.toml im Ordner Repository. Diese Datei gehört zum Projekt und wird mit hochgeladen.

@@ -8,7 +8,7 @@ lokal haben" (Wunsch des Nutzers, 02.10.2026). Leertaste oder Enter öffnet dort
 zum markierten Branch. Per Tab beim Haupt-Branch (Wunsch des Nutzers vom 06.10.2026): "Infos" (wer
 ihn angelegt hat, letzte Änderung, Commits, Stand der Exe), "Umbenennen …" und "Löschen …, nicht
 verfügbar", weil main der Haupt-Branch ist. Umbenennen geht auf der Plattform über deren
-Schnittstelle, der Ordner Code\\main heißt danach wie der Branch. Bei einem
+Schnittstelle, der Ordner Repository\\main heißt danach wie der Branch. Bei einem
 Branch: "In main übernehmen …, 2 Commits offen" bzw. "…, alles aktuell", "Umbenennen …",
 "Löschen …". "Branch-Ordner entfernen …" entfällt seit dem 03.10.2026 (Wunsch des Nutzers), weil
 "Löschen …" fragt, ob nur hier, nur auf GitHub oder beides. Löschen verwirft auch die Änderungen
@@ -65,7 +65,7 @@ def filtered(items: list[Branch], kind: str) -> list[Branch]:
 def exe_lines(project: "Project") -> list[str]:
     """Stand der Exe für den Haupt-Branch: Version und ob sie veröffentlicht ist."""
     if not project.has_exe_dir:
-        return ["Exe: Dieses Projekt hat keinen Ordner Exe."]
+        return ["Exe: Dieses Projekt hat keinen Ordner Release."]
     lines = [exe.status_line(project)]
     record = exe.read_record(project.code_dir) if project.folder_found else None
     if record is not None and record.version:
@@ -229,9 +229,9 @@ class BranchesDialog(FocusDialog):
             return branch.line(self.main, self.platform_name)
         text = dataclasses.replace(branch, current=False).line(self.main, self.platform_name)
         if branch.default:
-            where = f"Ordner Code\\{self.code_dir.name}"
+            where = f"Ordner {self.code_dir.parent.name}\\{self.code_dir.name}"
         elif branch.name in self.folders:
-            where = f"Ordner Code\\{self.folders[branch.name]}"
+            where = f"Ordner {self.code_dir.parent.name}\\{self.folders[branch.name]}"
         else:
             where = "ohne Ordner"
         name, _, rest = text.partition(", ")
@@ -317,10 +317,11 @@ class BranchesDialog(FocusDialog):
             return
         if self.structured:
             if branch.default:
-                announce(f"{branch.name} liegt im Ordner Code\\{self.code_dir.name}.")
+                announce(f"{branch.name} liegt im Ordner "
+                         f"{self.code_dir.parent.name}\\{self.code_dir.name}.")
             elif branch.name in self.folders:
                 announce(f"{branch.name} hat schon einen Ordner: "
-                         f"Code\\{self.folders[branch.name]}.")
+                         f"{self.code_dir.parent.name}\\{self.folders[branch.name]}.")
             else:
                 self.open_request = branch.name
                 self.accept()
@@ -513,7 +514,7 @@ class BranchesDialog(FocusDialog):
         where = (f" Auf {self.platform_name} wird er auch umbenannt, {self.platform_name} macht "
                  f"{new} dann zum Haupt-Branch und leitet Pull Requests um." if branch.remote
                  else "")
-        folder = (f" Der Ordner Code\\{self.code_dir.name} heißt danach wie der Branch. Schließen "
+        folder = (f" Der Ordner {self.code_dir.parent.name}\\{self.code_dir.name} heißt danach wie der Branch. Schließen "
                   "Sie vorher alle Programme, die ihn geöffnet haben." if self.structured else "")
         if not confirm(self, "Haupt-Branch umbenennen",
                        f"{branch.name} ist der Haupt-Branch und heißt danach {new}.{where}{folder}"

@@ -48,7 +48,7 @@ def test_missing_folder_stays_in_list(make_services, projects_root):
 
 def test_add_requires_code_folder(make_services, projects_root):
     (projects_root / "Leer").mkdir()
-    with pytest.raises(CockpitError, match="keinen Unterordner Code"):
+    with pytest.raises(CockpitError, match="keinen Unterordner Repository"):
         make_services().projects.add(projects_root / "Leer")
 
 

@@ -38,9 +38,9 @@ from cockpit.core import (core_actions, git, history, identity, project_setup, r
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
-from cockpit.core.projects import (CODE_DIR, FLAT, GIT_OUTSIDE, MAIN_DIR, Project,
-                                   classify_folder, fix_git_outside, layout_problem, nest_code,
-                                   same_drive)
+from cockpit.core.projects import (CODE_DIR, EXE_DIR, FLAT, GIT_OUTSIDE, MAIN_DIR, Project,
+                                   classify_folder, code_root_in, fix_git_outside,
+                                   layout_problem, nest_code, same_drive)
 from cockpit.core.remote_repos import StoredRepo
 from cockpit.core.text import count
 from cockpit.ui import vault_ui
@@ -85,6 +85,8 @@ class ProjectController:
         self.project_manager = ProjectManager(self)  # Projekt verwalten (06.10.2026)
         from cockpit.ui.release_rows import ReleaseRowActions
         self.release_rows = ReleaseRowActions(self)  # Zeile Releases (06.10.2026)
+        from cockpit.ui.folder_rename_flow import FolderRenamer
+        self.folder_renamer = FolderRenamer(self)   # Code und Exe umbenennen (06.10.2026)
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
@@ -200,7 +202,7 @@ class ProjectController:
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
         ] + self.exe.actions() + self.worktrees.actions() + self.readme.actions() \
-            + self.licenses.actions() + self.releases.actions() + self.collections.actions()             + self.release_rows.actions()
+            + self.licenses.actions() + self.releases.actions() + self.collections.actions()             + self.release_rows.actions() + self.folder_renamer.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],
@@ -261,32 +263,33 @@ class ProjectController:
         self.window.refresh_status([project_id],
                                    on_done=lambda: announce(f"{name} neu eingelesen."))
 
-    # -- Aufbau Projektordner\\Code\\main und Exe (Wunsch des Nutzers vom 04.10.2026) ----------
+    # -- Aufbau Projektordner\\Repository\\main und Exe (Wunsch des Nutzers vom 04.10.2026) ----------
     def check_layout(self, project: Project, then: Callable[[Project], None]) -> bool:
         """Passt der Aufbau nicht, die Reparatur anbieten. Danach then(Projekt). False, wenn das
         im Hintergrund weiterläuft (then kommt dann später)."""
         if project.linked or not project.folder_found:
             then(project)
             return True
-        code_root = project.project_dir / CODE_DIR
+        code_root = code_root_in(project.project_dir)
         problem = layout_problem(code_root)
         title = "Aufbau des Projekts"
         if problem == GIT_OUTSIDE:
             if confirm(self.window, title, f"Bei {project.name} liegt der Code in "
-                       f"Code\\{MAIN_DIR}, der Git-Ordner .git aber noch direkt in Code. Darum "
-                       "sieht das Cockpit den Code noch in Code. Das Cockpit verschiebt .git nach "
-                       f"Code\\{MAIN_DIR}. Am Code ändert sich nichts. Verschieben?",
+                       f"{code_root.name}\\{MAIN_DIR}, der Git-Ordner .git aber noch direkt in "
+                       f"{code_root.name}. Darum sieht das Cockpit den Code noch in "
+                       f"{code_root.name}. Das Cockpit verschiebt .git nach "
+                       f"{code_root.name}\\{MAIN_DIR}. Am Code ändert sich nichts. Verschieben?",
                        yes="Verschieben", no="So lassen"):
                 try:
                     project = self.services.projects.set_code_dir(project,
                                                                   fix_git_outside(code_root))
-                    announce(f"Der Code liegt jetzt in Code\\{MAIN_DIR}.")
+                    announce(f"Der Code liegt jetzt in {code_root.name}\\{MAIN_DIR}.")
                 except CockpitError as exc:
                     show_error(self.window, title, exc.message, exc.details)
         elif problem == FLAT and self.services.settings.load().branch_folders:
-            intro = (f"Bei {project.name} liegt der Code direkt im Ordner Code. Richtig ist "
-                     f"Projektordner, darin Code und Exe, und in Code der Ordner {MAIN_DIR} mit "
-                     "dem Code. ")
+            intro = (f"Bei {project.name} liegt der Code direkt im Ordner {code_root.name}. "
+                     f"Richtig ist Projektordner, darin {CODE_DIR} und {EXE_DIR}, und in "
+                     f"{CODE_DIR} der Ordner {MAIN_DIR} mit dem Code. ")
             from cockpit.core import worktrees
             if worktrees.can_convert(project):
                 # Abbrechen lässt den Aufbau, wie er ist, und macht mit then weiter
@@ -294,24 +297,24 @@ class ProjectController:
                                           lambda moved: then(self._exe_dir(moved))):
                     return False
             elif confirm(self.window, title, intro + f"Das Cockpit verschiebt den Code nach "
-                       f"Code\\{MAIN_DIR}. Nur der Ort ändert sich, der Inhalt bleibt. "
+                       f"{code_root.name}\\{MAIN_DIR}. Nur der Ort ändert sich, der Inhalt bleibt. "
                        "Verschieben?", yes="Verschieben", no="So lassen"):
                 try:
                     project = self.services.projects.set_code_dir(project, nest_code(code_root))
-                    announce(f"Der Code liegt jetzt in Code\\{MAIN_DIR}.")
+                    announce(f"Der Code liegt jetzt in {code_root.name}\\{MAIN_DIR}.")
                 except CockpitError as exc:
                     show_error(self.window, title, exc.message, exc.details)
         then(self._exe_dir(project))
         return True
 
     def _exe_dir(self, project: Project) -> Project:
-        """Neben Code gehört der Ordner Exe. Fehlt er, legt ihn das Cockpit leer an."""
+        """Neben Code gehört der Ordner Release. Fehlt er, legt ihn das Cockpit leer an."""
         if not project.linked and project.exe_dir is not None and not project.exe_dir.exists():
             try:
                 project.exe_dir.mkdir(parents=True)
-                announce("Ordner Exe angelegt.")
+                announce("Ordner Release angelegt.")
             except OSError as exc:
-                log.warning("Ordner Exe nicht angelegt: %s", exc)
+                log.warning("Ordner Release nicht angelegt: %s", exc)
         return project
 
     # -- Projekt vom Rechner hinzufügen ------------------------------------------------------
@@ -336,7 +339,7 @@ class ProjectController:
         self._add_other(folder, Path(root))
 
     def _add_other(self, folder: Path, root: Path) -> None:
-        text = (f"Der Ordner {folder.name} hat keinen Unterordner Code. "
+        text = (f"Der Ordner {folder.name} hat keinen Unterordner Repository. "
                 f"In den Projekte-Hauptordner verschieben: Das Cockpit legt den Projektordner "
                 f"{root / folder.name} an und verschiebt den gewählten Ordner dorthin als Code. "
                 f"Am Ort lassen: Der Ordner bleibt, wo er ist. Das Cockpit merkt sich nur, wo er "
@@ -352,7 +355,7 @@ class ProjectController:
     def _convert(self, folder: Path, root: Path) -> None:
         from cockpit.core import worktrees
         target = root / folder.name
-        # Phase 10f: Ein Git-Ordner kommt gleich nach Code\<Branch>, wenn so eingestellt
+        # Phase 10f: Ein Git-Ordner kommt gleich nach Repository\<Branch>, wenn so eingestellt
         inner = ""
         if self.services.settings.load().branch_folders:
             # Ohne Git heißt der Ordner main (Wunsch des Nutzers vom 04.10.2026)
@@ -370,7 +373,7 @@ class ProjectController:
                    "Sie können ihn später selbst löschen.")
         if inner:
             how += " Jeder weitere Branch bekommt einen eigenen Ordner daneben."
-        how += f" Daneben entsteht der Ordner {target / 'Exe'}."
+        how += f" Daneben entsteht der Ordner {target / EXE_DIR}."
         if not confirm(self.window, "Verschieben", f"{how} Verschieben?", yes="Verschieben",
                        no="Abbrechen"):
             return

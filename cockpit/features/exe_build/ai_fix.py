@@ -29,7 +29,7 @@ SMALL_FILE = 4000                     # kleinere Startdateien gehen ganz an die 
 
 @dataclass
 class Change:
-    file: str                         # relativ zum Ordner Code
+    file: str                         # relativ zum Ordner Repository
     reason: str
     old: str                          # leer: neue Datei
     new: str
@@ -145,7 +145,7 @@ _TRACE_FILE = re.compile(r'File "([^"]+\.py)", line (\d+)')
 
 def error_excerpts(code_dir: Path, error: str) -> list[tuple[str, str]]:
     """Stellen im Code, die die Fehlermeldung nennt, zum Beispiel aus einem Traceback
-    ("File ...\\gui.py", line 12). Nur Dateien im Ordner Code. Gibt (Datei, Auszug) zurück."""
+    ("File ...\\gui.py", line 12). Nur Dateien im Ordner Repository. Gibt (Datei, Auszug) zurück."""
     root = code_dir.resolve()
     found: list[tuple[str, str]] = []
     seen: set[tuple[str, int]] = set()
@@ -207,12 +207,12 @@ def parse(answer: str) -> Proposal:
 
 
 def check_changes(code_dir: Path, proposal: Proposal) -> None:
-    """Jede Änderung prüfen: Datei im Ordner Code, alter Text genau einmal vorhanden."""
+    """Jede Änderung prüfen: Datei im Ordner Repository, alter Text genau einmal vorhanden."""
     root = code_dir.resolve()
     for change in proposal.changes:
         path = (code_dir / change.file).resolve()
         if not path.is_relative_to(root) or ".git" in path.relative_to(root).parts:
-            change.problem = "Die Datei liegt nicht im Ordner Code."
+            change.problem = "Die Datei liegt nicht im Ordner Repository."
         elif not change.old:
             if path.exists() and change.file != "requirements.txt":
                 change.problem = "Die Datei gibt es schon."

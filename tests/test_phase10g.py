@@ -250,7 +250,7 @@ def test_ai_may_not_touch_files_outside(tmp_path):
     proposal = ai_fix.parse("AENDERUNG: ../../boese.py\nGRUND: x\nALT:\n<<<\n>>>\nNEU:\n<<<\n"
                             "print(1)\n>>>\n")
     ai_fix.check_changes(code, proposal)
-    assert proposal.changes[0].problem == "Die Datei liegt nicht im Ordner Code."
+    assert proposal.changes[0].problem == "Die Datei liegt nicht im Ordner Repository."
     assert proposal.usable == []
 
 
