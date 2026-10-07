@@ -216,7 +216,8 @@ class PushRunner(_Runner):
                                          lambda n, total, text: task.status.emit(text + " …"))
             return summary, context.data
 
-        self.controller.run_task(self.key, work, self.finished, self.title, on_status=announce)
+        self.controller.run_task(self.key, work, self.finished, self.title, on_status=announce,
+                                 transfer=True)
 
     # -- 5. Ergebnis -------------------------------------------------------------------------
     def finished(self, outcome) -> None:
@@ -328,7 +329,7 @@ class PullRunner(_Runner):
         def work(task: Task) -> Incoming:
             return sync.fetch(code_dir, sync.environment(services, project), task.cancel_event)
 
-        self.controller.run_task(self.key, work, self.ask, self.title)
+        self.controller.run_task(self.key, work, self.ask, self.title, transfer=True)
 
     # -- 2. Rückfrage --------------------------------------------------------------------------
     def ask(self, incoming: Incoming) -> None:

@@ -294,19 +294,17 @@ vielleicht schon. Man macht es mit einem neuen Commit rückgängig, der das Gege
 
 ## Fragen an dich
 
-1. Erledigt (Antwort vom 07.10.2026): projektliste-neu ist fertig und in main überführt.
-2. Version nur, wenn es nach main geht: einverstanden?
-ja, so wie es logisch ist, aber wenn es so ist, dann ja
-3. Töne: einverstanden mit einem Ton bei Start und Ende und einem leisen Tick alle 10 Sekunden?
-   Oder lieber nur bei Start und Ende?
-start und ende und alle 3 sekunden
-4. Filter: einverstanden mit den fünf Filtern aus Punkt 1 und 6, also „Auf GitHub“ und „Mit
-   Release“ getrennt?
-ja ok
-5. Strg+K als Befehlssuche dazu: ja oder nein?
-ja, passt
-6. „Speichern und hochladen“ als Ein-Knopf-Weg: ja oder nein?
-ja
-7. Tastenhinweise: Tooltip plus Strg+F1, oder doch im Namen? Das Zweite ändert eine Regel in
-   CLAUDE.md.
-ws du beser findest.
+Alle Fragen sind beantwortet (Antworten des Nutzers vom 07.10.2026, direkt in dieser Datei):
+
+1. Projektliste zuerst fertig machen: ja. projektliste-neu ist in main überführt.
+2. Versionsfrage nur, wenn Änderungen nach main kommen: ja. Gebaut im Branch
+   hochladen-korrekturen.
+3. Töne: bei Start und Ende und **alle 3 Sekunden**. Im Branch hochladen-korrekturen waren es
+   noch 10 Sekunden. Das ändert der nächste Branch.
+4. Filter oben in der Projektliste: ja, „Auf GitHub“ und „Mit Release“ getrennt. Dazu „Alle
+   Projekte“, „Mit offenen Sachen“ und „Nur auf dem Rechner“.
+5. Strg+K als Befehlssuche für alle Aktionen: ja.
+6. „Speichern und hochladen …“ als Ein-Knopf-Weg auf Main- und Branch-Zeilen: ja.
+7. Tastenhinweise: „was du besser findest“. Gewählt: Tooltip und Statuszeile, dazu sagt Strg+F1
+   die Tasten für das Element mit dem Fokus an. Die Regel in CLAUDE.md bleibt, also keine
+   Beschreibung am Bedienelement.

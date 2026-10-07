@@ -180,7 +180,7 @@ class UploadRunner:
             return summary, context.data
 
         self.controller.run_task(f"project:{project.id}", work, self.finished, self.title,
-                                 on_status=announce)
+                                 on_status=announce, transfer=True)
 
     # -- 7. Ergebnis -------------------------------------------------------------------------
     def finished(self, outcome) -> None:

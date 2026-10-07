@@ -288,6 +288,15 @@ def memory_keyring():
 
 
 @pytest.fixture(autouse=True)
+def played(monkeypatch) -> list[str]:
+    """Kein Test spielt echte Töne. Die Liste nennt, was gespielt worden wäre."""
+    from cockpit.ui import sounds
+    calls: list[str] = []
+    monkeypatch.setattr(sounds, "play", calls.append)
+    return calls
+
+
+@pytest.fixture(autouse=True)
 def fast_vault_file(monkeypatch):
     """Schnelle Schlüsselableitung für neue Tresordateien in Tests."""
     from cockpit.vault import vault_file

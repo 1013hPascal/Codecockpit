@@ -26,3 +26,6 @@ class Step:
     order: int = 100
     feature_id: str = ""                           # leer: Schritt des Kerns
     flows: tuple[str, ...] = ()                    # Kennungen der Abläufe, leer: alle
+    # Hat der Schritt diesmal etwas zu tun? Sonst wird er weder angesagt noch gezählt
+    # (Rückmeldung des Nutzers vom 07.10.2026: Schritt 3 und 4 schienen vertauscht).
+    applies: Callable[["FlowContext"], bool] | None = None

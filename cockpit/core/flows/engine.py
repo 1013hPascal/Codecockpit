@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from cockpit.core.errors import Cancelled, CockpitError
@@ -54,6 +54,7 @@ class FlowContext:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     data: dict[str, Any] = field(default_factory=dict)
     status: Callable[[str], None] = lambda text: None
+    step_text: str = ""            # "Schritt 3 von 5: Version festlegen", steht bei Rückfragen
 
     def check_cancelled(self) -> None:
         if self.cancel_event.is_set():
@@ -61,6 +62,10 @@ class FlowContext:
 
     def ask(self, question: Question) -> Any:
         self.check_cancelled()
+        if self.step_text:
+            # Die Rückfrage nennt ihren Schritt. So ist die Reihenfolge klar, auch wenn eine
+            # Ansage später kommt als das Fenster (Rückmeldung des Nutzers vom 07.10.2026).
+            question = replace(question, title=f"{question.title}, {self.step_text}")
         answer = self.asker.ask(question)
         self.check_cancelled()
         return answer
@@ -142,13 +147,20 @@ class FlowEngine:
         "Schritt 3 von 5: …"."""
         with self._reserve(context.project):
             steps = self.steps_for(flow, context.project)
-            summary = FlowSummary(flow, len(steps))
-            for number, step in enumerate(steps, start=1):
+            summary = FlowSummary(flow, sum(1 for s in steps if _applies(s, context)))
+            number = 0
+            for index, step in enumerate(steps):
                 if context.cancel_event.is_set():
                     summary.cancelled = True
                     break
-                on_progress(number, len(steps),
-                            f"Schritt {number} von {len(steps)}: {step.title}")
+                if not _applies(step, context):
+                    continue                           # nichts zu tun: nicht ansagen, nicht zählen
+                number += 1
+                # Gezählt wird, was nach heutigem Stand noch zu tun ist. Wählt man zum Beispiel
+                # eine neue Version, kommen die Schritte für das Tag dazu.
+                summary.total = number + sum(1 for s in steps[index + 1:] if _applies(s, context))
+                context.step_text = f"Schritt {number} von {summary.total}: {step.title}"
+                on_progress(number, summary.total, context.step_text)
                 try:
                     result = step.run(context)
                 except Cancelled:
@@ -159,6 +171,7 @@ class FlowEngine:
                 except Exception as exc:             # ein Feature darf den Ablauf nie still beenden
                     log.exception("Unerwarteter Fehler in Schritt %s", step.id)
                     result = StepResult(False, "Unerwarteter Fehler.", repr(exc))
+                context.step_text = ""
                 summary.results.append((step, result))
                 if not result.ok:
                     log.warning("Schritt %s fehlgeschlagen: %s %s", step.id, result.text,
@@ -168,3 +181,14 @@ class FlowEngine:
                         break
             log.info("Ablauf %s: %s", flow.id, summary.text())
             return summary
+
+
+def _applies(step: Step, context: FlowContext) -> bool:
+    """Ein Fehler bei der Prüfung darf den Ablauf nie verhindern: dann läuft der Schritt."""
+    if step.applies is None:
+        return True
+    try:
+        return bool(step.applies(context))
+    except Exception:                         # noqa: BLE001
+        log.exception("Prüfung für Schritt %s fehlgeschlagen", step.id)
+        return True

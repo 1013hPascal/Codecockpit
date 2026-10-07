@@ -145,7 +145,7 @@ def test_questions_reach_the_asker(setup):
     context = FlowContext(services, project, asker)
     services.flows.run(flow, context)
     assert context.data["choice"] == 2
-    assert asker.questions[0].title == "README"
+    assert asker.questions[0].title == "README, Schritt 1 von 1: A"       # mit Schritt (07.10.2026)
 
 
 def test_asking_after_cancel_raises(setup):

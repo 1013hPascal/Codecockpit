@@ -202,19 +202,24 @@ class ProjectController:
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
         ] + self.exe.actions() + self.worktrees.actions() + self.readme.actions() \
-            + self.licenses.actions() + self.releases.actions() + self.collections.actions()             + self.release_rows.actions() + self.folder_renamer.actions()
+            + self.licenses.actions() + self.releases.actions() + self.collections.actions() \
+            + self.release_rows.actions() + self.folder_renamer.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],
                  done: Callable[[object], None], failed_title: str,
                  on_status: Callable[[str], None] | None = None,
-                 on_failed: Callable[[], None] | None = None) -> None:
-        """work läuft im Hintergrund. done und Fehlermeldungen kommen im Thread der Oberfläche."""
+                 on_failed: Callable[[], None] | None = None, transfer: bool = False) -> None:
+        """work läuft im Hintergrund. done und Fehlermeldungen kommen im Thread der Oberfläche.
+        transfer: Hoch- oder Herunterladen, mit Tönen (Wunsch des Nutzers vom 07.10.2026)."""
         if key in self.busy:
             announce("Das läuft schon.")
             return
         self.busy.add(key)
         task = Task(work, self.window)
+        from cockpit.ui.sounds import TransferSound
+        sound = TransferSound(transfer and self.services.settings.load().transfer_sounds,
+                              task)
 
         def finish() -> None:
             self.busy.discard(key)
@@ -227,6 +232,7 @@ class ProjectController:
             self.busy.discard(key)
             # Mit Details ins Protokoll (Wunsch aus dem Test von 10f: der Grund stand nirgends)
             log.warning("%s: %s %s", failed_title, message, details)
+            sound.finish(False)
             if on_failed is not None:
                 on_failed()
             announce(message, urgent=True)
@@ -234,15 +240,17 @@ class ProjectController:
 
         def result(value) -> None:
             self.busy.discard(key)          # done darf gleich den nächsten Schritt starten
+            sound.finish(True)
             done(value)
 
         task.result.connect(result)
         task.error.connect(failed)
         if on_status is not None:
             task.status.connect(on_status)
-        task.cancelled.connect(lambda: announce("Abgebrochen."))
+        task.cancelled.connect(lambda: (sound.stop(), announce("Abgebrochen.")))
         task.finished.connect(finish)
         self.tasks.append(task)
+        sound.start()
         task.start()
 
     def wait(self) -> None:
@@ -1029,7 +1037,8 @@ class ProjectController:
             self.window.refresh_status([project.id])
             announce(f"{project.name} heruntergeladen.")
 
-        self.run_task(f"clone:{repo.owner}/{repo.name}".lower(), work, done, "Herunterladen")
+        self.run_task(f"clone:{repo.owner}/{repo.name}".lower(), work, done, "Herunterladen",
+                      transfer=True)
 
     def open_remote_action(self, context: ActionContext) -> None:
         core_actions.open_path(context.remote_repo.web_url)
