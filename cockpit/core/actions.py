@@ -35,11 +35,16 @@ class Target(Enum):
     # Phase 10f: Ein Branch-Ordner steht in der Liste als BRANCH. Seine Aktionen sind die von
     # CODE, mit dem Branch-Ordner als code_dir (ActionContext.worktree ist dann gesetzt).
     BRANCH = "branch"
-    REMOTE_BRANCHES = "remote_branches"  # "Branches auf GitHub"
-    REMOTE_BRANCH = "remote_branch"      # ausgewählter Branch anderer, noch ohne Ordner
+    REMOTE_BRANCH = "remote_branch"      # Branch nur auf der Plattform, noch ohne Ordner
     NEW_COLLECTION = "new_collection"    # oberster Eintrag "Neue Projektsammlung"
     COLLECTION = "collection"            # "Sammlung Webseiten, 3 Projekte"
-    BRANCH_OVERVIEW = "branch_overview"  # "Branches verwalten" unter dem Haupt-Branch
+    # Wunsch des Nutzers (06.10.2026): erste Zeile unter dem Projekt, mit den Aktionen für das
+    # Repository und der Auswahl, welche Branches darunter stehen
+    REPOSITORY = "repository"
+    # Wunsch des Nutzers (06.10.2026): Zeile Releases unter den Branches. Darunter das Release
+    # aus dem Haupt-Branch als EXE ("Exe-main") und je Branch-Release eine Zeile RELEASE.
+    RELEASES = "releases"
+    RELEASE = "release"
 
 
 @dataclass
@@ -55,6 +60,7 @@ class ActionContext:
     main_project: "Project | None" = None            # bei worktree: das Projekt mit Code\main
     remote_branch: "Branch | None" = None            # bei Target.REMOTE_BRANCH
     collection: "Collection | None" = None           # bei Target.COLLECTION
+    release: "LocalRelease | None" = None            # bei Target.EXE und Target.RELEASE
 
 
 @dataclass(frozen=True)
@@ -72,6 +78,9 @@ class Action:
     # Stand hinter dem Namen, zum Beispiel "3 Dateien offen" oder "alles aktuell" (Wunsch des
     # Nutzers, 02.10.2026: Man sieht in der Aktionsliste, ob es etwas zu tun gibt)
     detail: Callable[[ActionContext], str] | None = None
+    # Name, der von der Zeile abhängt, zum Beispiel "Exe aus neue-funktion erstellen …"
+    # (Wunsch des Nutzers vom 06.10.2026). Sonst gilt text.
+    title: Callable[[ActionContext], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -80,12 +89,17 @@ class ActionEntry:
     action: Action
     availability: Availability
     detail: str = ""
+    title: str = ""
+
+    @property
+    def text(self) -> str:
+        return self.title or self.action.text
 
     @property
     def label(self) -> str:
         if not self.availability.available:
-            return f"{self.action.text}, nicht verfügbar: {self.availability.reason}"
-        return f"{self.action.text}, {self.detail}" if self.detail else self.action.text
+            return f"{self.text}, nicht verfügbar: {self.availability.reason}"
+        return f"{self.text}, {self.detail}" if self.detail else self.text
 
 
 def entries_for(actions: Iterable[Action], context: ActionContext) -> list[ActionEntry]:
@@ -97,7 +111,8 @@ def entries_for(actions: Iterable[Action], context: ActionContext) -> list[Actio
         if action.visible is not None and not action.visible(context):
             continue
         availability = action.availability(context) if action.availability else Availability.yes()
-        result.append(ActionEntry(action, availability, _detail(action, context)))
+        title = action.title(context) if action.title is not None else ""
+        result.append(ActionEntry(action, availability, _detail(action, context), title))
     return sorted(result, key=lambda e: (e.action.order, e.action.text))
 
 

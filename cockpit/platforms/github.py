@@ -348,6 +348,16 @@ class GitHubPlatform(Platform, SupportsBrowserLogin, SupportsCollaborators,
         self.request("DELETE", f"/repos/{repo.owner}/{repo.name}", "Löschen",
                      Capability.DELETE_REPO)
 
+    def rename_repo(self, repo: RepoRef, name: str) -> RepoRef:
+        data = self.request("PATCH", f"/repos/{repo.owner}/{repo.name}", "Umbenennen",
+                            json={"name": name}).json()
+        return RepoRef(data["owner"]["login"], data["name"])
+
+    def rename_branch(self, repo: RepoRef, old: str, new: str) -> None:
+        from urllib.parse import quote
+        self.request("POST", f"/repos/{repo.owner}/{repo.name}/branches/{quote(old, safe='')}"
+                     "/rename", "Branch umbenennen", json={"new_name": new})
+
     def unarchive(self, repo: RepoRef) -> None:
         self.request("PATCH", f"/repos/{repo.owner}/{repo.name}", "Archivierung aufheben",
                      Capability.ARCHIVE, json={"archived": False})

@@ -24,7 +24,7 @@ from cockpit.core import repo_admin
 from cockpit.core.errors import CockpitError
 from cockpit.core.text import count, join_words
 from cockpit.platforms.base import (PERMISSION_NAMES, BranchProtection, Capability,
-                                    Collaborator, PermissionMissing, RepoInfo,
+                                    Collaborator, NotFound, PermissionMissing, RepoInfo,
                                     SupportsBranchProtection, SupportsCollaborators)
 from cockpit.ui import browser_login_dialog
 from cockpit.ui.announcer import announce
@@ -158,7 +158,7 @@ class ManageRepoDialog(FocusDialog):
         self.platform_name = platform_name
         self.changed = self.deleted = self.removed = False
         self.worker = _Worker(self, "Repository verwalten")
-        self.setWindowTitle(f"Projekt verwalten: {info.ref.name}")
+        self.setWindowTitle(f"Repository verwalten: {info.ref.name}")
         self.list = QListWidget()
         name_widget(self.list, "Angaben")
         make_copyable(self.list)
@@ -421,6 +421,11 @@ class RepoDeleter:
         dialog = TypeNameDialog(name, self.parent)
         if not dialog.exec():
             return
+        self.delete_now()
+
+    def delete_now(self) -> None:
+        """Ohne weitere Rückfrage löschen, wenn schon bestätigt ist (auch für "Projekt löschen",
+        06.10.2026). Fehlt das Recht, kommt die zweite Anmeldung."""
         allowed = self.platform.permissions().get(Capability.DELETE_REPO)
         if allowed is not None and not allowed.available:
             self.second_login()
@@ -432,6 +437,8 @@ class RepoDeleter:
                 platform.delete(ref)
             except PermissionMissing:
                 return False                      # Recht fehlt: zweite Anmeldung anbieten
+            except NotFound:
+                pass                              # schon weg, das Ziel ist erreicht
             return True
 
         def done(ok: bool) -> None:

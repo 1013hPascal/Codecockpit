@@ -1130,7 +1130,7 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
     return Path(archive)
 
 
-def mark_published(project: Project, exe: Path, version: str) -> Path:
+def mark_published(project: Project, exe: Path, version: str, rename: bool = True) -> Path:
     """Nach dem Veröffentlichen: version.txt neben die Exe legen und ihren Ordner mit der
     Version benennen, zum Beispiel Exe\\VokabelApp-v1.2.0. So merkt die Exe, welche Version
     sie ist, und ältere Versionen bleiben nebeneinander liegen (Wunsch des Nutzers vom
@@ -1140,6 +1140,8 @@ def mark_published(project: Project, exe: Path, version: str) -> Path:
     if home.resolve() == project.exe_dir.resolve():
         return exe                                  # alte Ablage ohne eigenen Ordner
     (home / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
+    if not rename:
+        return exe                                  # Release eines Branches (06.10.2026)
     target = project.exe_dir / f"{home_name(project, exe)}-v{version}"
     if target.exists() or target == home or running_from(home):
         return exe

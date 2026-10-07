@@ -267,8 +267,8 @@ def test_branch_row_has_manage_and_publish(qtbot, tmp_path, projects_root, make_
     win.project_list.update_status(project_status.compute(project), project)
     assert win.project_list.select(Target.BRANCH, project.id, "neue-funktion")
     labels = [e.label for e in win.current_entries()]
-    # Seit dem 30.09.2026: Verwalten steht in "Branches verwalten", oben "Projekt neu einlesen"
-    assert labels[0] == "Projekt neu einlesen"
+    # Seit dem 06.10.2026 heißt es bei Branches "Repository neu einlesen"
+    assert labels[0] == "Repository neu einlesen"
     assert "neue-funktion verwalten …" not in labels
     assert "Branch auf GitHub hochladen …" in labels
     assert not any(label.startswith("Änderungen auf GitHub hochladen …") for label in labels)

@@ -46,6 +46,7 @@ from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
 log = logging.getLogger(__name__)
 
 LOCK_CHECK_MS = 15_000
+SHOW_KEY = "projects.branch_show"          # Auswahl beim Repository je Projekt (06.10.2026)
 
 SHORTCUTS = [
     "Aufbau: links die Projektliste, rechts die Aktionen",
@@ -146,6 +147,10 @@ class MainWindow(QMainWindow):
         self.project_list.defaultActionRequested.connect(self.run_default_action)
         self.project_list.contextMenuRequested.connect(self.show_context_menu)
         self.actions_list.entryTriggered.connect(self.run_entry)
+        # Auswahl beim Repository je Projekt merken (06.10.2026)
+        saved = services.database.get_value(SHOW_KEY, {}) or {}
+        self.project_list.set_shows({int(k): v for k, v in saved.items() if str(k).isdigit()})
+        self.project_list.showChanged.connect(self._save_show)
 
         # Automatisches Sperren der Tresordatei nach Inaktivität (Tresor-Einstellungen).
         # Geprüft wird alle 15 Sekunden gegen die Uhrzeit der letzten Eingabe. So zählt auch
@@ -495,8 +500,23 @@ class MainWindow(QMainWindow):
                 context.project = dataclasses.replace(project, code_dir=tree.path)
                 context.status = project_status.for_folder(status, key)
         elif target is Target.REMOTE_BRANCH and project is not None:
-            context.remote_branch = self.project_list.shown_branch(project.id, key)
+            context.remote_branch = self.project_list.remote_branch(project.id, key)
+        elif target in (Target.EXE, Target.RELEASE) and project is not None                 and project.has_exe_dir:
+            # Releases (06.10.2026): EXE ist Exe-main, RELEASE das Release eines Branches
+            from cockpit.core import local_releases
+            folder = key if target is Target.RELEASE else local_releases.MAIN
+            context.release = local_releases.find(project, folder or local_releases.MAIN)
+            if target is Target.RELEASE:
+                context.main_project = project
+                context.worktree = next((t for t, _s in (status.worktrees if status else [])
+                                         if t.folder == key), None)
         return context
+
+    def _save_show(self, project_id: int, show: str) -> None:
+        saved = dict(self.services.database.get_value(SHOW_KEY, {}) or {})
+        saved[str(project_id)] = show
+        self.services.database.set_value(SHOW_KEY, saved)
+        self.refresh_actions(keep_selection=True)
 
     def current_entries(self) -> list[ActionEntry]:
         context = self.action_context()
@@ -508,18 +528,18 @@ class MainWindow(QMainWindow):
 
     def run_entry(self, entry: ActionEntry) -> None:
         if not entry.availability.available:
-            announce(f"{entry.action.text} ist nicht verfügbar. {entry.availability.reason}")
+            announce(f"{entry.text} ist nicht verfügbar. {entry.availability.reason}")
             return
         try:
             entry.action.run(self.action_context())
         except CockpitError as exc:
             announce(exc.message, urgent=True)
-            show_error(self, entry.action.text, exc.message, exc.details)
+            show_error(self, entry.text, exc.message, exc.details)
         except OSError as exc:
             log.warning("Aktion %s fehlgeschlagen: %r", entry.action.id, exc)
-            message = f"{entry.action.text} hat nicht geklappt."
+            message = f"{entry.text} hat nicht geklappt."
             announce(message, urgent=True)
-            show_error(self, entry.action.text, message, str(exc))
+            show_error(self, entry.text, message, str(exc))
         # Die Markierung bleibt auf der ausgeführten Aktion, statt nach oben zu springen
         self.refresh_actions(keep_selection=True)
 
@@ -556,11 +576,12 @@ class MainWindow(QMainWindow):
     def focus_actions(self) -> None:
         self.actions_list.setFocus()
 
-    def focus_action(self, project_id: int, action_id: str) -> bool:
-        """Projektzeile markieren und in der Aktionsliste auf eine Aktion springen, zum Beispiel
-        "Lizenz …" (Wunsch des Nutzers vom 03.10.2026: "Jetzt hinzufügen" beim Bauen). False,
-        wenn es die Aktion dort nicht gibt."""
-        self.project_list.select(Target.PROJECT, project_id)
+    def focus_action(self, project_id: int, action_id: str,
+                     target: Target = Target.PROJECT) -> bool:
+        """Zeile markieren und in der Aktionsliste auf eine Aktion springen, zum Beispiel
+        "Lizenz …" beim Repository (Wunsch des Nutzers vom 03.10.2026: "Jetzt hinzufügen" beim
+        Bauen). False, wenn es die Aktion dort nicht gibt."""
+        self.project_list.select(target, project_id)
         self.refresh_actions()
         entries = self.actions_list.entries
         row = next((i for i, e in enumerate(entries) if e.action.id == action_id), None)

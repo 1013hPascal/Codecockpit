@@ -325,7 +325,7 @@ def test_code_actions_for_history(live, qtbot, make_services, projects_root, tmp
     texts = labels(win)
     assert "Verlauf …" in texts
     assert "Änderungen verwerfen …, nicht verfügbar: Es gibt keine Änderungen ohne Commit." in texts
-    assert texts.index("Verlauf …") < texts.index("Git-Identität …")
+    assert texts.index("Verlauf …") < texts.index("Branch-Ordner öffnen")
     write(code, "main.py", "x\n")
     win.refresh_status()
     wait_idle(qtbot, win)

@@ -1,6 +1,6 @@
 """Projektübersichten und Aktionsmenüs, überarbeitet am 30.09.2026 (Wunsch des Nutzers).
 
-Unter dem Projekt: Main-Branch, dann "Branches verwalten". Die Aktionsmenüs von Main-Branch, Branch,
+Unter dem Projekt (seit 06.10.2026): Repository, Main-Branch, die Branches. Die Aktionsmenüs von Main-Branch, Branch,
 Exe und Projekt in der gewünschten Reihenfolge. Exe: ein Knopf zum Einrichten und Erstellen,
 "Exe einlesen" und "Links der Exe". Die Plattform ist ein nacktes Repository, kein echtes Netz.
 """
@@ -17,7 +17,7 @@ from cockpit.core.git import RemoteAddress
 from cockpit.platforms.base import Release, ReleaseAsset
 from cockpit.ui import exe_flow
 from cockpit.ui.branch_dialogs import NEW_BRANCH_TEXT, BranchesDialog
-from cockpit.ui.project_list import BRANCH_OVERVIEW_TEXT, children_of
+from cockpit.ui.project_list import children_of
 from tests.conftest import make_project, said
 from tests.test_phase10f import structured, window
 from tests.test_phase5a import account, sh  # noqa: F401
@@ -44,7 +44,8 @@ def entries(win, project, target, status=None, worktree=None, main_project=None)
 
 
 # -- Projektliste ---------------------------------------------------------------------------
-def test_main_branch_then_branches_overview(qtbot, tmp_path, projects_root, make_services):
+def test_repository_then_main_then_branches(qtbot, tmp_path, projects_root, make_services):
+    """Wunsch des Nutzers (06.10.2026): oben Repository, dann Main-Branch und die Branches."""
     services, project, _other = structured(tmp_path, projects_root, make_services)
     worktrees.open_branch(project, "suche")
     win = window(qtbot, services)
@@ -52,39 +53,40 @@ def test_main_branch_then_branches_overview(qtbot, tmp_path, projects_root, make
     win.project_list.expand(project.id, speak=False)
     rows = win.project_list.texts()
     start = rows.index(next(r for r in rows if r.startswith("Tagebuch"))) + 1
-    assert rows[start].startswith("Main-Branch, ")
-    assert rows[start + 1] == BRANCH_OVERVIEW_TEXT
+    assert rows[start] == "Repository, Branches: main & die Sie lokal haben"
+    assert rows[start + 1].startswith("Main-Branch, ")
     assert rows[start + 2].startswith("Branch suche")
-    assert win.project_list.select(Target.BRANCH_OVERVIEW, project.id)
-    labels = [e.action.text for e in win.current_entries()]
-    assert labels == ["Branches verwalten …"]
-    assert win.current_entries()[0].action.is_default
+    assert "Branches verwalten" not in rows
+    assert win.project_list.select(Target.REPOSITORY, project.id)
+    entries_now = win.current_entries()
+    assert entries_now[0].action.text == "Branches anzeigen …"
+    assert entries_now[0].action.is_default
+    assert entries_now[0].label == "Branches anzeigen …, main & die Sie lokal haben"
 
 
-def test_overview_row_without_branch_folders(tmp_path, projects_root):
+def test_repository_row_without_branch_folders(tmp_path, projects_root):
     from cockpit.core.database import Database
     from cockpit.core.projects import ProjectStore
     _bare, code, _other = branch_repo(tmp_path, projects_root)
     project = ProjectStore(Database(tmp_path / "db.sqlite")).add(code.parent)
     rows = children_of(project, project_status.compute(project))
-    assert rows[0][1] is Target.CODE and rows[0][0].startswith("Code")
-    assert rows[1] == (BRANCH_OVERVIEW_TEXT, Target.BRANCH_OVERVIEW, None)
+    assert rows[0][1] is Target.REPOSITORY
+    assert rows[1][1] is Target.CODE and rows[1][0].startswith("Code")
 
 
-def test_no_overview_without_commits(tmp_path, projects_root):
+def test_repository_row_without_commits(tmp_path, projects_root):
     from cockpit.core.database import Database
     from cockpit.core.projects import ProjectStore
     folder = make_project(projects_root, "Neu")
     project = ProjectStore(Database(tmp_path / "db.sqlite")).add(folder)
     rows = children_of(project, project_status.compute(project))
-    assert [target for _text, target, _key in rows] == [Target.CODE]
+    assert [target for _text, target, _key in rows] == [Target.REPOSITORY, Target.CODE]
 
 
 # -- Aktionsmenüs ---------------------------------------------------------------------------
-MAIN_ORDER = ["Projekt neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
+MAIN_ORDER = ["Repository neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
               "Änderungen von GitHub holen …", "Pull Requests …", "Verlauf …",
-              "Änderungen verwerfen …", "Änderungen beiseitelegen …", "Git-Identität …",
-              "Code-Ordner öffnen"]
+              "Änderungen verwerfen …", "Änderungen beiseitelegen …", "Branch-Ordner öffnen"]
 
 
 def test_main_branch_menu(qtbot, tmp_path, projects_root, make_services):
@@ -94,7 +96,9 @@ def test_main_branch_menu(qtbot, tmp_path, projects_root, make_services):
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.CODE, status))
     assert in_order(found, MAIN_ORDER), found
     assert found[:3] == MAIN_ORDER[:3]
-    for gone in ("Branches …", "Neuer Branch …", "Pull-Requests-Übersicht …"):
+    assert found[-1] == "Branch-Ordner öffnen"
+    for gone in ("Branches …", "Neuer Branch …", "Pull-Requests-Übersicht …", "Git-Identität …",
+                 "Repository-Identität …", "Code-Ordner öffnen", "Projekt neu einlesen"):
         assert gone not in found
 
 
@@ -105,26 +109,43 @@ def test_branch_menu(qtbot, tmp_path, projects_root, make_services):
     status = project_status.for_folder(project_status.compute(project), "suche")
     branch = dataclasses.replace(project, code_dir=tree.path, remote=REMOTE)
     found = texts(entries(win, branch, Target.CODE, status, tree, project))
-    expected = ["Projekt neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
+    expected = ["Repository neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
                 "Änderungen von GitHub holen …", "Pull Request erstellen …",
                 "Pull-Requests-Übersicht …", "Verlauf …", "Änderungen verwerfen …",
-                "Änderungen beiseitelegen …", "Git-Identität …", "Code-Ordner öffnen"]
+                "Änderungen beiseitelegen …", "Branch-Ordner öffnen"]
     assert in_order(found, expected), found
+    assert found[-1] == "Branch-Ordner öffnen"
     for gone in ("Branch-Ordner entfernen …", "suche verwalten …", "Neuer Branch …",
-                 "Pull Requests …"):
+                 "Pull Requests …", "Git-Identität …"):
         assert gone not in found
 
 
 def test_project_menu(qtbot, tmp_path, projects_root, make_services):
+    """Wunsch des Nutzers (06.10.2026): beim Projekt nur noch das, was das ganze Projekt
+    betrifft."""
     services, project, _other = structured(tmp_path, projects_root, make_services)
     win = window(qtbot, services)
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.PROJECT))
-    expected = ["Projekt neu einlesen", "Terminal …", "Projekt verwalten …", "Links …",
-                "Features dieses Projekts …", "Aus der Liste entfernen …",
-                "Projektordner öffnen"]
+    expected = ["Projekt neu einlesen", "Terminal …", "Projekt verwalten …",
+                "Features dieses Projekts …", "Projektordner öffnen"]
     assert in_order(found, expected), found
     assert found[0] == "Projekt neu einlesen" and found[-1] == "Projektordner öffnen"
-    assert "Repository verwalten …" not in found
+    for gone in ("Repository verwalten …", "Links …", "Aus der Liste entfernen …", "Lizenz …",
+                 "README …", "Releases …", "GitHub Actions …"):
+        assert gone not in found
+
+
+def test_repository_menu(qtbot, tmp_path, projects_root, make_services):
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    status = project_status.compute(project)
+    found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.REPOSITORY,
+                          status))
+    expected = ["Branches anzeigen …", "Repository neu einlesen", "Terminal …",
+                "Repository verwalten …", "Branches verwalten …", "Links …", "Lizenz …",
+                "Repository-Identität …", "Auf GitHub öffnen", "Repository-Ordner öffnen"]
+    assert in_order(found, expected), found
+    assert found[0] == "Branches anzeigen …" and found[-1] == "Repository-Ordner öffnen"
 
 
 def exe_services(make_services, projects_root):
@@ -139,9 +160,10 @@ def test_exe_menu(qtbot, make_services, projects_root):
     services, project = exe_services(make_services, projects_root)
     win = window(qtbot, services)
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.EXE))
-    expected = ["Projekt neu einlesen", "Exe starten", "Exe aus dem Code erstellen …",
-                "Exe einlesen …", "Links der Exe …", "Exe-Ordner öffnen",
-                "Wie funktioniert die Exe? …"]
+    # Seit dem 06.10.2026 Release-Zeile Exe-main mit Terminal, Ordner ganz unten
+    expected = ["Releases neu einlesen", "Terminal …", "Exe starten",
+                "Exe aus dem Code erstellen …", "Release einlesen …", "Links der Exe …",
+                "Wie funktioniert die Exe? …", "Exe-Ordner öffnen"]
     assert in_order(found, expected), found
     for gone in ("Exe-Einrichtung prüfen", "Exe mit KI einrichten …", "Exe-Datei wählen …",
                  "Exe aus dem Release holen …", "Exe aus dem Code aktualisieren …"):
@@ -251,12 +273,21 @@ def test_main_row_shows_exe_state(qtbot, tmp_path, projects_root, make_services)
     dialog.list.setCurrentRow(dialog.row_of("main"))
     assert dialog.exe_info.isVisible()
     lines = [dialog.exe_info.item(r).text() for r in range(dialog.exe_info.count())]
-    assert lines[0].startswith("Exe, Version 1.2.0")
-    assert lines[1] == "Veröffentlicht als Version 1.2.0."
-    assert dialog.exe_info.accessibleName() == "Exe"
+    # Seit dem 06.10.2026 "Infos": erst der Branch, dann die Exe
+    assert lines[0].startswith("main, ")
+    assert any(line.startswith("Angelegt von ") for line in lines)
+    assert any(line.endswith("Commits") or line == "1 Commit" for line in lines)
+    exe_at = next(i for i, line in enumerate(lines) if line.startswith("Exe, Version 1.2.0"))
+    assert lines[exe_at + 1] == "Veröffentlicht als Version 1.2.0."
+    assert dialog.exe_info.accessibleName() == "Infos"
     assert not dialog.merge_button.isVisible()
+    # Bei main: Umbenennen und Löschen mit Grund (Wunsch des Nutzers, 06.10.2026)
+    assert dialog.rename_button.isVisible()
+    assert dialog.delete_button.isVisible()
+    assert dialog.delete_button.text() == "&Löschen …, nicht verfügbar"
     dialog.list.setCurrentRow(dialog.row_of("suche"))
     assert not dialog.exe_info.isVisible()
+    assert dialog.delete_button.text() == "&Löschen …"
 
 
 def test_exe_lines_without_release(tmp_path, projects_root, make_services):

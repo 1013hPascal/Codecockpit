@@ -28,7 +28,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QFileDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton, QVBoxLayout, QWidget)
 
-from cockpit.core import exe, paths, repo_admin
+from cockpit.core import exe, local_releases, paths, repo_admin
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.features import settings_fields as sf
@@ -592,9 +592,12 @@ class ExeActions:
             Action("add_exe", "Exe hinzufügen …", Target.PROJECT, self.add_exe,
                    visible=lambda c: c.project is not None and c.project.folder_found
                    and not c.project.has_exe_dir, order=72),
+            # Wunsch des Nutzers (06.10.2026): "Exe aus main erstellen …"
             Action("build_exe", "Exe aus dem Code erstellen …", Target.EXE, self.build_menu,
                    visible=self._building, order=20,
-                   detail=lambda c: exe.build_state(c.project)),
+                   detail=lambda c: exe.build_state(c.project),
+                   title=lambda c: f"Exe aus {local_releases.main_name(c.project, c.status)} "
+                                   "erstellen …"),
             Action("finish_exe", "Exe-Bau abschließen …", Target.EXE, self.finish_menu,
                    visible=self._branch_open, order=30),
             Action("publish_exe", "Exe veröffentlichen …", Target.EXE, self.publish,
@@ -602,7 +605,7 @@ class ExeActions:
                    detail=self._publish_detail,
                    visible=lambda c: self._building(c) and has_exe(c)
                    and c.project.remote is not None, order=40),
-            Action("import_exe", "Exe einlesen …", Target.EXE, self.import_exe,
+            Action("import_exe", "Release einlesen …", Target.EXE, self.import_exe,
                    visible=lambda c: c.project is not None and c.project.has_exe_dir, order=45),
             Action("exe_settings", "Exe-Einstellungen …", Target.EXE, self.edit_settings,
                    visible=lambda c: self._building(c)
@@ -661,7 +664,8 @@ class ExeActions:
             return True
         if choice == 0:
             wanted = ["readme", "license"] if "README" in missing else ["license"]
-            if not any(self.window.focus_action(project.id, w) for w in wanted):
+            if not any(self.window.focus_action(project.id, w, Target.REPOSITORY)
+                       for w in wanted):
                 announce("Die Aktion gibt es hier nicht. Schalten Sie bei Features die "
                          "README-Pflege ein.")
         return False
@@ -943,7 +947,11 @@ class ExeActions:
             return None
         return platform
 
-    def publish(self, context: ActionContext) -> None:
+    def publish(self, context: ActionContext, chosen: Path | None = None,
+                branch: str = "", branch_ref: str = "") -> None:
+        """chosen: diese Exe ohne Rückfrage (aus "Release veröffentlichen …"). branch und
+        branch_ref beim Release eines anderen Branches: Tag v1.0.0-<branch>, auf dem Stand des
+        Branches (Wunsch des Nutzers vom 06.10.2026)."""
         project = context.project
         if not self.docs_ok(project, "Exe veröffentlichen"):
             return
@@ -951,7 +959,7 @@ class ExeActions:
         if platform is None:
             return
         ref = repo_admin.repo_ref(project)
-        found = self._publishable(project)
+        found = [chosen] if chosen is not None else self._publishable(project)
         if not found:
             show_info(self.window, "Exe veröffentlichen", "Es gibt noch keine Exe.")
             return
@@ -973,17 +981,24 @@ class ExeActions:
 
         self.controller.run_task(f"exe:{project.id}", work,
                                  lambda tags: self._ask_publish(project, platform, ref, current,
-                                                                tags), "Exe veröffentlichen")
+                                                                tags, branch, branch_ref),
+                                 "Exe veröffentlichen")
 
-    def _ask_publish(self, project, platform, ref, current: Path, tags: list[str]) -> None:
+    def _ask_publish(self, project, platform, ref, current: Path, tags: list[str],
+                     branch: str = "", branch_ref: str = "") -> None:
         """Wunsch des Nutzers (03.10.2026): Hochgeladen wird der ganze Ordner der Exe als
         Name.zip, darin der Ordner Name-Version. README und Lizenz hängen zusätzlich einzeln am
         Release."""
         from cockpit.ui import ai_suggest
         name = exe.asset_name(project, current)
         source = ai_suggest.for_release_notes(self.services, project, tags)
-        dialog = PublishDialog(project, self._suggested_version(project, tags), tags, name,
-                               self.window, source=source)
+        if branch:
+            suffix = f"-{branch}"
+            tags = [t.removesuffix(suffix) for t in tags if t.endswith(suffix)]
+            suggestion = exe.next_version(tags)
+        else:
+            suffix, suggestion = "", self._suggested_version(project, tags)
+        dialog = PublishDialog(project, suggestion, tags, name, self.window, source=source)
         if not dialog.exec():
             return
         version, notes = dialog.version, dialog.notes
@@ -996,10 +1011,11 @@ class ExeActions:
                        "anlegen.", str(exc))
             return
         docs = exe.release_docs(project)
-        record = exe.read_record(project.code_dir)
-        target = self._release_target(project, record)
-        text = (f"Auf {self.window.project_list.platform_name} wird das Release v{version} "
-                f"angelegt, mit dem Tag v{version} auf dem Stand {target[:12]}. Angehängt wird "
+        record = None if branch else exe.read_record(project.code_dir)
+        target = branch_ref or self._release_target(project, record)
+        tag = f"v{version}{suffix}"
+        text = (f"Auf {self.window.project_list.platform_name} wird das Release {tag} "
+                f"angelegt, mit dem Tag {tag} auf dem Stand {target[:12]}. Angehängt wird "
                 f"{asset.name} ({_size(asset)}) mit dem ganzen Ordner der Exe, darin der Ordner "
                 f"{exe.home_name(project, current)}-{version}.")
         if docs:
@@ -1015,8 +1031,8 @@ class ExeActions:
 
         def work(task: Task):
             try:
-                release = platform.create_release(ref, f"v{version}", f"Version {version}",
-                                                  notes, target)
+                title = f"Version {version}" + (f", Branch {branch_ref}" if branch else "")
+                release = platform.create_release(ref, tag, title, notes, target)
                 platform.upload_asset(ref, release, asset)
                 for doc in docs:
                     platform.upload_asset(ref, release, doc)
@@ -1029,7 +1045,7 @@ class ExeActions:
             if record is not None:
                 record.version = version
                 exe.write_record(project.code_dir, record)
-            moved = exe.mark_published(project, current, version)
+            moved = exe.mark_published(project, current, version, rename=not branch)
             where = f" Die Exe liegt jetzt in Exe\\{moved.parent.name}." \
                 if moved.parent != current.parent else ""
             QGuiApplication.clipboard().setText(release.url)

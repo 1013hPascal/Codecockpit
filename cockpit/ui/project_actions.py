@@ -81,15 +81,38 @@ class ProjectController:
         self.releases = ReleasesActions(self)      # Phase 14
         from cockpit.ui.collections_flow import CollectionActions
         self.collections = CollectionActions(self)  # Projektsammlungen
+        from cockpit.ui.project_manage import ProjectManager
+        self.project_manager = ProjectManager(self)  # Projekt verwalten (06.10.2026)
+        from cockpit.ui.release_rows import ReleaseRowActions
+        self.release_rows = ReleaseRowActions(self)  # Zeile Releases (06.10.2026)
 
     # -- Aktionen für die Aktionsliste -----------------------------------------------------
     def actions(self) -> list[Action]:
         platform_name = self.window.project_list.platform_name
-        reread = [Action(f"reread_{target.value}", "Projekt neu einlesen", target,
-                         self.reread_action, visible=lambda c: c.project is not None, order=1)
-                  for target in (Target.PROJECT, Target.CODE, Target.EXE)]
+        # Wunsch des Nutzers (06.10.2026): beim Repository und bei den Branches "Repository neu
+        # einlesen"
+        reread = [Action(f"reread_{target.value}", text, target, self.reread_action,
+                         visible=lambda c: c.project is not None, order=1)
+                  for target, text in ((Target.PROJECT, "Projekt neu einlesen"),
+                                       (Target.REPOSITORY, "Repository neu einlesen"),
+                                       (Target.CODE, "Repository neu einlesen"),
+                                       (Target.RELEASES, "Releases neu einlesen"),
+                                       (Target.EXE, "Releases neu einlesen"),
+                                       (Target.RELEASE, "Releases neu einlesen"))]
         on_main = lambda c: c.worktree is None                          # noqa: E731
+        found = lambda c: c.project is not None and c.project.folder_found  # noqa: E731
         return reread + [
+            Action("branch_show", "Branches anzeigen …", Target.REPOSITORY,
+                   self.branch_show_action, detail=self._branch_show_detail, is_default=True,
+                   order=0),
+            Action("terminal_repository", "Terminal …", Target.REPOSITORY,
+                   lambda c: self.terminal_action(c, c.project.code_root, "Repository"),
+                   visible=found, order=5),
+            Action("manage_project", "Projekt verwalten …", Target.PROJECT,
+                   self.project_manager.manage, visible=lambda c: c.project is not None,
+                   order=20),
+            Action("open_repo_remote", f"Auf {platform_name} öffnen", Target.REPOSITORY,
+                   self.open_repo_remote_action, visible=_has_remote, order=88),
             Action("add_local", "Projekt vom Rechner hinzufügen …", Target.ADD_LOCAL,
                    lambda c: self.add_local(), is_default=True, order=10),
             Action("add_remote", f"Projekt von {platform_name} herunterladen …",
@@ -117,10 +140,10 @@ class ProjectController:
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
                    self.pull_action, availability=_git_availability, detail=_pull_detail,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c), order=20),
-            # Die Branches verwaltet die eigene Zeile "Branches verwalten" (30.09.2026)
-            Action("branches", "Branches verwalten …", Target.BRANCH_OVERVIEW,
-                   self.branches_action, availability=_git_availability, is_default=True,
-                   order=10),
+            # Seit dem 06.10.2026 eine Aktion des Repositorys (Wunsch des Nutzers)
+            Action("branches", "Branches verwalten …", Target.REPOSITORY,
+                   self.branches_action, availability=_git_availability,
+                   visible=_has_commits, order=25),
             Action("create_pull", "Pull Request erstellen …", Target.CODE,
                    self.create_pull_action, availability=self._account_availability,
                    visible=_on_other_branch, order=26),
@@ -143,22 +166,20 @@ class ProjectController:
                    detail=_changed_detail),
             Action("project_features", "Features dieses Projekts …", Target.PROJECT,
                    self.project_features_action, availability=self._features_availability,
-                   visible=lambda c: c.project is not None and c.project.folder_found,
-                   order=70),
+                   visible=found, order=30),
             Action("terminal_project", "Terminal …", Target.PROJECT,
-                   lambda c: self.terminal_action(c, False),
-                   visible=lambda c: c.project is not None and c.project.folder_found,
-                   order=10),
+                   lambda c: self.terminal_action(c, c.project.project_dir, ""),
+                   visible=found, order=10),
             Action("terminal_code", "Terminal …", Target.CODE,
-                   lambda c: self.terminal_action(c, True),
-                   visible=lambda c: c.project is not None and c.project.folder_found,
-                   order=5),
-            Action("links", "Links …", Target.PROJECT, self.links_action,
+                   lambda c: self.terminal_action(c, c.project.code_dir,
+                                                  c.worktree.branch if c.worktree else "Code"),
+                   visible=found, order=5),
+            Action("links", "Links …", Target.REPOSITORY, self.links_action,
                    availability=self._account_availability, visible=_has_remote, order=30),
-            Action("manage_repo", "Projekt verwalten …", Target.PROJECT, self.manage_action,
-                   availability=self._account_availability, visible=_has_remote, order=20),
-            Action("remove_project", "Aus der Liste entfernen …", Target.PROJECT,
-                   self.remove_action, visible=lambda c: c.project is not None, order=90),
+            # "Projekt verwalten …" hieß bis zum 06.10.2026 das, was jetzt beim Repository steht
+            Action("manage_repo", "Repository verwalten …", Target.REPOSITORY,
+                   self.manage_action, availability=self._account_availability,
+                   visible=_has_remote, order=20),
             # Wunsch des Nutzers (02.10.2026): löschen, ohne vorher herunterzuladen
             Action("delete_remote_repo", "Repository löschen …", Target.REMOTE_REPO,
                    self.delete_remote_action, availability=self._remote_account_availability,
@@ -170,8 +191,8 @@ class ProjectController:
                    order=5),
             Action("connect_repo", "Mit vorhandenem Repository verbinden …", Target.CODE,
                    self.connect_action, visible=_git_missing, order=40),
-            Action("git_identity", "Git-Identität …", Target.CODE, self.identity_action,
-                   visible=_is_repo, order=85),
+            Action("git_identity", "Repository-Identität …", Target.REPOSITORY,
+                   self.identity_action, visible=_is_repo, order=85),
             Action("repair_venv", "Virtuelle Umgebung neu anlegen …", Target.CODE,
                    self.repair_venv_action, visible=_venv_broken, order=45),
             Action("download", "Herunterladen", Target.REMOTE_REPO, self.download_action,
@@ -179,7 +200,7 @@ class ProjectController:
             Action("open_remote", f"Auf {platform_name} öffnen",
                    Target.REMOTE_REPO, self.open_remote_action, order=20),
         ] + self.exe.actions() + self.worktrees.actions() + self.readme.actions() \
-            + self.licenses.actions() + self.releases.actions() + self.collections.actions()
+            + self.licenses.actions() + self.releases.actions() + self.collections.actions()             + self.release_rows.actions()
 
     # -- Hintergrund ------------------------------------------------------------------------
     def run_task(self, key: str, work: Callable[[Task], object],
@@ -268,9 +289,11 @@ class ProjectController:
                      "dem Code. ")
             from cockpit.core import worktrees
             if worktrees.can_convert(project):
-                self.worktrees.convert(project, intro, lambda moved: then(self._exe_dir(moved)))
-                return False
-            if confirm(self.window, title, intro + f"Das Cockpit verschiebt den Code nach "
+                # Abbrechen lässt den Aufbau, wie er ist, und macht mit then weiter
+                if self.worktrees.convert(project, intro,
+                                          lambda moved: then(self._exe_dir(moved))):
+                    return False
+            elif confirm(self.window, title, intro + f"Das Cockpit verschiebt den Code nach "
                        f"Code\\{MAIN_DIR}. Nur der Ort ändert sich, der Inhalt bleibt. "
                        "Verschieben?", yes="Verschieben", no="So lassen"):
                 try:
@@ -674,6 +697,8 @@ class ProjectController:
                 self.worktrees.create(project, dialog.new_request)
             elif dialog.open_request:
                 self.worktrees.open_folder_for(project, dialog.open_request)
+            elif getattr(dialog, "rename_main_request", ""):
+                self.worktrees.rename_main(project, dialog.main, dialog.rename_main_request, env)
             elif getattr(dialog, "delete_request", ""):
                 tree = next((t for t in worktrees.list_worktrees(project)
                              if t.branch == dialog.delete_request), None)
@@ -700,13 +725,51 @@ class ProjectController:
         PullRequestRunner(self, context.project).create()
 
     # -- Terminal (Konzept 9.9, Phase 8a) --------------------------------------------------
-    def terminal_action(self, context: ActionContext, code: bool) -> None:
+    def terminal_action(self, context: ActionContext, folder: Path, where: str) -> None:
+        """Terminal im Ordner der Zeile (Wunsch des Nutzers vom 06.10.2026): Projekt im
+        Projektordner, Repository im Ordner des Repositorys, Branch im Ordner des Branches."""
         from cockpit.ui.terminal_dialog import open_terminal
-        project = context.project
-        folder = project.code_dir if code else project.project_dir
-        title = f"{project.name}, Code" if code else project.name
+        project = context.main_project or context.project
+        title = f"{project.name}, {where}" if where else project.name
         open_terminal(self.services, self.window, folder, title, project)
         self.window.refresh_status([project.id])
+
+    # -- Repository (06.10.2026) ---------------------------------------------------------------
+    def _branch_show_detail(self, context: ActionContext) -> str:
+        from cockpit.ui.project_list import main_name, show_names
+        project_list = self.window.project_list
+        names = show_names(main_name(context.project, context.status), project_list.platform_name)
+        return names[project_list.show_of(context.project.id)]
+
+    def branch_show_action(self, context: ActionContext) -> None:
+        """Auswahl, welche Branches unter dem Repository stehen. Pfeil hoch und runter, Enter
+        wählt, Escape lässt alles, wie es ist."""
+        from cockpit.ui import project_list as listing
+        project_list = self.window.project_list
+        project = context.project
+        names = listing.show_names(listing.main_name(project, context.status),
+                                   project_list.platform_name)
+        show = listing.pick_show(project_list, names, project_list.show_of(project.id))
+        project_list.setFocus()
+        if show is None:
+            return
+        project_list.set_show(project.id, show)
+        status = context.status
+        shown = 0
+        if status is not None:
+            if show in ("local", "all"):
+                shown += len(status.worktrees)
+            if show in ("remote", "all"):
+                shown += len(status.remote_branches)
+        announce(f"{names[show]}: {count(shown, 'weiterer Branch', 'weitere Branches')}"
+                 if show != "main" else names[show])
+
+    def open_repo_remote_action(self, context: ActionContext) -> None:
+        """Link zum Repository im Browser öffnen."""
+        import webbrowser
+        remote = context.project.remote
+        webbrowser.open(f"https://{remote.host}/{remote.owner}/{remote.name}")
+        announce(f"{remote.name} wird im Browser geöffnet.")
 
     # -- Features dieses Projekts (Konzept 8.4, Phase 7) ----------------------------------------
     def _features_availability(self, context: ActionContext) -> Availability:

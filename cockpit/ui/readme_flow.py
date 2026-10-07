@@ -384,7 +384,7 @@ class ReadmeActions:
         # Auf der Projektzeile (Wunsch des Nutzers zu Phase 9): die README gehört zum Projekt
         return [
             # Ein Eintrag mit Auswahl (Wunsch des Nutzers, 30.09.2026)
-            Action("readme", "README …", Target.PROJECT, self.choose,
+            Action("readme", "README …", Target.REPOSITORY, self.choose,
                    visible=self._active, order=40),
         ]
 

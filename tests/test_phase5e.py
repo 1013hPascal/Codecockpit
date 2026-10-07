@@ -309,13 +309,17 @@ def test_project_actions(live, qtbot, account, tmp_path, projects_root):
     win = live(services)
     win.project_list.select(Target.PROJECT, project.id)
     texts = labels(win)
-    # Reihenfolge vom 30.09.2026: Projekt verwalten, Links, ..., Projektordner öffnen am Ende
-    assert texts.index("Projekt verwalten …") < texts.index("Links …")
-    assert texts[-2:] == ["Aus der Liste entfernen …", "Projektordner öffnen"]
+    # Seit dem 06.10.2026: "Projekt verwalten …" mit Umbenennen, Entfernen und Löschen, Links und
+    # "Repository verwalten …" stehen beim Repository
+    assert "Projekt verwalten …" in texts and texts[-1] == "Projektordner öffnen"
+    assert "Links …" not in texts and "Aus der Liste entfernen …" not in texts
+    win.project_list.select(Target.REPOSITORY, project.id)
+    texts = labels(win)
+    assert texts.index("Repository verwalten …") < texts.index("Links …")
     services.projects.set_remote(project, None, None)
     win.refresh_actions()
     texts = labels(win)
-    assert "Links …" not in texts and "Aus der Liste entfernen …" in texts
+    assert "Links …" not in texts and "Repository verwalten …" not in texts
 
 
 def test_remove_from_list(live, qtbot, account, tmp_path, projects_root, monkeypatch):
@@ -329,13 +333,15 @@ def test_remove_from_list(live, qtbot, account, tmp_path, projects_root, monkeyp
     monkeypatch.setattr(project_actions, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or len(questions) > 1)
     win.project_list.select(Target.PROJECT, project.id)
-    entry = next(e for e in win.current_entries() if e.action.id == "remove_project")
-    win.run_entry(entry)                                           # Escape
+
+    # "Aus der Liste entfernen …" steht seit dem 06.10.2026 in "Projekt verwalten …"
+    remove = lambda: win.controller.remove_action(win.action_context())  # noqa: E731
+    remove()                                           # Escape
     assert services.projects.get(project.id) is not None
     text, buttons = questions[0]
     assert text.startswith("Tagebuch wird nur aus der Liste des Cockpits entfernt.")
     assert buttons == {"yes": "Entfernen", "no": "Abbrechen"}
-    win.run_entry(entry)
+    remove()
     assert services.projects.all() == []
     assert said("Tagebuch aus der Liste entfernt.")
     win.reload_projects(refresh=False)                             # Strg+R findet es nicht wieder
@@ -384,7 +390,7 @@ def test_manage_opens_with_repo_info(live, qtbot, account, tmp_path, projects_ro
             return 0
 
     monkeypatch.setattr(repo_dialogs, "ManageRepoDialog", FakeManage)
-    win.project_list.select(Target.PROJECT, project.id)
+    win.project_list.select(Target.REPOSITORY, project.id)          # seit dem 06.10.2026
     entry = next(e for e in win.current_entries() if e.action.id == "manage_repo")
     win.run_entry(entry)
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)

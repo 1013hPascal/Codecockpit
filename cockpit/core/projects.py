@@ -243,6 +243,16 @@ class ProjectStore:
             (str(project_dir), str(code_dir), exe_dir, project.id))
         return self.get(project.id)
 
+    def rename(self, project: Project, name: str, project_dir: Path, code_dir: Path,
+               exe_dir: Path | None) -> Project:
+        """Neuer Name und neue Orte nach "Projekt umbenennen" (06.10.2026)."""
+        self.database.execute(
+            "UPDATE projects SET name = ?, project_dir = ?, code_dir = ?, exe_dir = ? "
+            "WHERE id = ?",
+            (name, str(project_dir), str(code_dir), str(exe_dir) if exe_dir else None,
+             project.id))
+        return self.get(project.id)
+
     def set_remote(self, project: Project, remote: RemoteAddress | None,
                    last_updated: str | None) -> None:
         """Adresse auf der Plattform und Datum des letzten Hochladens merken."""

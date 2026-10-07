@@ -189,13 +189,14 @@ def test_check_is_skipped_when_only_the_readme_changed(tmp_path, projects_root, 
 
 # -- Oberfläche -----------------------------------------------------------------------------------
 def test_readme_actions_on_the_project_row(qtbot, tmp_path, projects_root, make_services):
-    """Wunsch des Nutzers zu Phase 9: README bei den Aktionen des Projekts."""
+    """Wunsch des Nutzers zu Phase 9: README bei den Aktionen des Projekts, seit dem 06.10.2026
+    bei der Zeile Repository."""
     from cockpit.core.actions import Target
     from tests.test_phase10f import window
     services, project, bare = project_with(tmp_path, projects_root, make_services, ["readme"],
                                            {"main.py": "print(1)\n"})
     win = window(qtbot, services)
-    win.project_list.select(Target.PROJECT, project.id)
+    win.project_list.select(Target.REPOSITORY, project.id)
     # Seit dem 30.09.2026 ein Eintrag "README …" mit Auswahl (test_projektuebersichten.py)
     labels = [e.label for e in win.current_entries()]
     assert "README …" in labels and "README-Sprachen …" not in labels

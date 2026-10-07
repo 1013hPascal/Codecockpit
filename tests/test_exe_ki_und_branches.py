@@ -236,12 +236,26 @@ def test_filtered():
 
 
 def test_project_list_shows_only_local_branches(tmp_path, projects_root, make_services):
+    """Vorgabe beim Repository (06.10.2026): main und die lokalen Branches."""
+    from cockpit.core.branches import Branch
+    from cockpit.ui.project_list import SHOW_ALL, SHOW_MAIN, SHOW_REMOTE
     services, project, _other = structured(tmp_path, projects_root, make_services)
     worktrees.open_branch(project, "suche")
-    targets = [target for _text, target, _key in
-               children_of(project, project_status.compute(project))]
-    assert Target.REMOTE_BRANCHES not in targets and Target.REMOTE_BRANCH not in targets
-    assert targets == [Target.CODE, Target.BRANCH_OVERVIEW, Target.BRANCH]
+    status = project_status.compute(project)
+    status.remote_branches = [Branch("design", remote=True, author="Anna")]
+
+    def targets(show=None):
+        rows = children_of(project, status, show=show) if show else children_of(project, status)
+        return [target for _text, target, _key in rows]
+
+    assert targets() == [Target.REPOSITORY, Target.CODE, Target.BRANCH]
+    assert targets(SHOW_MAIN) == [Target.REPOSITORY, Target.CODE]
+    assert targets(SHOW_REMOTE) == [Target.REPOSITORY, Target.CODE, Target.REMOTE_BRANCH]
+    assert targets(SHOW_ALL) == [Target.REPOSITORY, Target.CODE, Target.BRANCH,
+                                 Target.REMOTE_BRANCH]
+    rows = children_of(project, status, show=SHOW_REMOTE)
+    assert rows[0][0] == "Repository, Branches: main & die nur auf GitHub sind"
+    assert rows[2][0].startswith("Branch design, nur auf GitHub, zuletzt von Anna")
 
 
 # -- 4. Reihenfolge ganz oben -----------------------------------------------------------------

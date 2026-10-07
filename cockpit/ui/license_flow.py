@@ -44,7 +44,7 @@ class LicenseActions:
         self.services = controller.services
 
     def actions(self) -> list[Action]:
-        return [Action(ACTION_ID, "Lizenz …", Target.PROJECT, self.choose,
+        return [Action(ACTION_ID, "Lizenz …", Target.REPOSITORY, self.choose,
                        visible=lambda c: c.project is not None and c.project.folder_found,
                        detail=lambda c: licenses.state(c.project.code_dir), order=41)]
 

@@ -341,9 +341,10 @@ class ReleasesActions:
 
     def actions(self) -> list[Action]:
         return [
-            Action("releases_list", "Releases …", Target.PROJECT, self.open_releases,
+            Action("releases_list",
+                   f"Releases auf {self.window.project_list.platform_name} …", Target.RELEASES, self.open_releases,
                    visible=lambda c: self.active(c.project), order=45),
-            Action("actions_list", "GitHub Actions …", Target.PROJECT, self.open_actions,
+            Action("actions_list", "GitHub Actions …", Target.REPOSITORY, self.open_actions,
                    visible=lambda c: self.active(c.project) and self.has_workflows(c.project),
                    order=46),
         ]
