@@ -342,8 +342,12 @@ def test_history_dialog_and_revert(qtbot, make_services, tmp_path, projects_root
                         lambda p, t, text, **k: questions.append((t, text, k)) or True)
     dialog = history_dialogs.HistoryDialog(services, project, history.log_commits(code))
     qtbot.addWidget(dialog)
-    assert dialog.windowTitle() == "Verlauf von Tagebuch: 4 Versionen"
-    assert dialog.list.item(2).text() == "21.09.2026, Version 1.0.0: Hilfe ergänzt"
+    # Seit dem 07.10.2026 oben die Versionen, darunter die Commits der gewählten
+    assert dialog.windowTitle() == "Verlauf von Tagebuch: 1 Version, 4 Commits"
+    assert [dialog.versions.item(i).text() for i in range(2)] == [
+        "In Arbeit, noch keine Version, 2 Commits", "Version 1.0.0 vom 21.09.2026, 2 Commits"]
+    dialog.versions.setCurrentRow(1)
+    assert dialog.list.item(0).text().endswith(": Hilfe ergänzt")
     details = history_dialogs.VersionDialog(services, project, dialog.commits[1], dialog)
     qtbot.addWidget(details)
     assert details.windowTitle() == "22.09.2026: Einstellungen ergänzt"
@@ -364,7 +368,7 @@ def test_history_dialog_and_revert(qtbot, make_services, tmp_path, projects_root
     dialog.reload(0)
     assert dialog.list.item(0).text().endswith(
         ": Rückgängig: Einstellungen ergänzt, noch nicht hochgeladen")
-    assert dialog.windowTitle() == "Verlauf von Tagebuch: 5 Versionen"
+    assert dialog.windowTitle() == "Verlauf von Tagebuch: 1 Version, 5 Commits"
 
 
 def test_version_dialog_restore_and_undo(qtbot, make_services, tmp_path, projects_root,

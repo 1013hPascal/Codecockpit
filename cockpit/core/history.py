@@ -67,6 +67,12 @@ class Commit:
                 return match[1]
         return ""
 
+    def short_line(self) -> str:
+        """In der Liste der Commits einer Version oder eines Hochladens (07.10.2026): Datum,
+        Person und Text, zum Beispiel "05.10.2026, Pascal: Suche verbessert"."""
+        text = f"{self.date:%d.%m.%Y}, {self.author}: {self.subject}"
+        return text if self.uploaded else f"{text}, noch nicht hochgeladen"
+
     def line(self) -> str:
         """Konzept 9.4: "23.09.2026, Version 1.4.0: Suche in mehreren PDFs ergänzt"."""
         head = f"{self.date:%d.%m.%Y}"
@@ -76,13 +82,14 @@ class Commit:
         return text if self.uploaded else f"{text}, noch nicht hochgeladen"
 
 
-def log_commits(code_dir: Path) -> list[Commit]:
-    """Alle Commits des aktuellen Branches, neueste zuerst. Leer, wenn es noch keinen gibt."""
+def log_commits(code_dir: Path, revisions: str = "HEAD") -> list[Commit]:
+    """Alle Commits des aktuellen Branches, neueste zuerst. Leer, wenn es noch keinen gibt.
+    revisions: zum Beispiel "abc..def" für die Commits eines Hochladens."""
     if git.run(["rev-parse", "-q", "--verify", "HEAD"], code_dir, check=False).returncode != 0:
         return []
     fields = _FIELD.join(["%H", "%P", "%an", "%aI", "%D", "%s", "%b"])
-    result = git.run(["log", "-z", "--decorate-refs=refs/tags/", f"--format={fields}", "HEAD"],
-                     code_dir, action="Verlauf lesen")
+    result = git.run(["log", "-z", "--decorate-refs=refs/tags/", f"--format={fields}",
+                      revisions], code_dir, action="Verlauf lesen")
     upstream = git.status(code_dir).upstream
     not_uploaded: set[str] = set()
     if upstream:
@@ -98,8 +105,9 @@ def log_commits(code_dir: Path) -> list[Commit]:
         commits.append(Commit(sha.strip(), parents.split(), author,
                               datetime.fromisoformat(date), subject, body.strip(), tags,
                               uploaded=sha.strip() not in not_uploaded))
-    if commits:
-        commits[0].newest = True
+    head = git.run(["rev-parse", "HEAD"], code_dir, check=False).stdout.strip()
+    for commit in commits:
+        commit.newest = commit.sha == head
     return commits
 
 
@@ -382,3 +390,182 @@ def discard(code_dir: Path, project_name: str, items: list[LocalChange]) -> Path
     trash.move_to_recycle_bin([p for p in to_trash if p.exists()])
     log.info("Verworfen in %s: %s", project_name, ", ".join(c.path for c in items))
     return folder
+
+
+# -- Versionen als Gruppen (Wunsch des Nutzers vom 07.10.2026) -----------------------------------
+WORK, VERSION, DAY = "work", "version", "day"
+
+
+@dataclass
+class Group:
+    """Eine Zeile im Versionsverlauf mit ihren Commits, neueste zuerst."""
+    kind: str                               # WORK, VERSION oder DAY
+    commits: list[Commit]
+    version: str = ""
+    date: datetime | None = None
+
+    @property
+    def head(self) -> Commit | None:
+        """Der Commit, der die Version trägt (bei VERSION der erste der Gruppe)."""
+        return self.commits[0] if self.commits else None
+
+    def line(self) -> str:
+        amount = count(len(self.commits), "Commit", "Commits")
+        if self.kind == WORK:
+            return f"In Arbeit, noch keine Version, {amount}"
+        if self.kind == VERSION:
+            return f"Version {self.version} vom {self.head.date:%d.%m.%Y}, {amount}"
+        return f"{self.date:%d.%m.%Y}, {amount}"
+
+
+def group_days(commits: list[Commit]) -> list[Group]:
+    groups: list[Group] = []
+    for commit in commits:
+        if not groups or groups[-1].date.date() != commit.date.date():
+            groups.append(Group(DAY, [], date=commit.date))
+        groups[-1].commits.append(commit)
+    return groups
+
+
+def group_versions(commits: list[Commit]) -> list[Group]:
+    """Commits nach Versionen: Eine Version umfasst ihren Commit mit dem Tag und alles davor bis
+    zur nächsten Version. Darüber steht, was seit der letzten Version dazukam ("In Arbeit").
+    Ohne jede Version nach Tagen, damit die Liste übersichtlich bleibt."""
+    if not any(c.version for c in commits):
+        return group_days(commits)
+    groups = []
+    current = Group(WORK, [])
+    for commit in commits:
+        if commit.version:
+            if current.commits:
+                groups.append(current)
+            current = Group(VERSION, [], version=commit.version)
+        current.commits.append(commit)
+    if current.commits:
+        groups.append(current)
+    return groups
+
+
+# -- Zu einer Version zurück -------------------------------------------------------------------
+def back_to_message(version: str) -> str:
+    return f"Zurück zu Version {version}"
+
+
+def back_to(code_dir: Path, project_name: str, commit: Commit, git_name: str = "",
+            git_email: str = "") -> Path | None:
+    """Alle Dateien auf den Stand dieser Version, als ein neuer Commit. Der Verlauf bleibt
+    vollständig, auf der Plattform wird nichts umgeschrieben (kein force push). Gibt den Ordner
+    der Sicherheitskopie zurück."""
+    _no_unfinished_merge(code_dir)
+    if sync.changes(code_dir).files or git.run(["diff", "--cached", "--quiet"], code_dir,
+                                               check=False).returncode != 0:
+        raise CockpitError("Es gibt Änderungen ohne Commit. Bitte laden Sie sie zuerst hoch oder "
+                           "verwerfen Sie sie.")
+    touched = git.run(["diff", "--name-only", "-z", commit.sha, "HEAD"], code_dir,
+                      action="Zurück zur Version").stdout.split("\0")
+    touched = [t for t in touched if t]
+    if not touched:
+        raise CockpitError("Die Dateien sind schon auf dem Stand dieser Version. Es wurde nichts "
+                           "verändert.")
+    sync.prepare_commit(code_dir, project_name, git_name, git_email)
+    folder = backup_files(code_dir, project_name, "vor dem Zurück zur Version", touched,
+                          [_version_note(commit)])
+    # restore mit "." nimmt auch Dateien weg, die es in der Version noch nicht gab
+    git.run(["restore", f"--source={commit.sha}", "--staged", "--worktree", "--", "."], code_dir,
+            action="Zurück zur Version")
+    message = back_to_message(commit.version or commit.short)
+    git.run(["commit", "-q", "-m", message, "-m", f"Stand von Commit {commit.sha}."], code_dir,
+            action="Zurück zur Version")
+    log.info("Zurück zu %s", commit.short)
+    return folder
+
+
+# -- Hochladeverlauf je Branch (Wunsch des Nutzers vom 07.10.2026) -------------------------------
+PUSHES_KEY = "history.pushes"
+MAX_PUSHES = 200                            # je Projekt
+
+
+@dataclass(frozen=True)
+class Push:
+    branch: str
+    date: str                               # ISO
+    author: str
+    old: str                                # Stand auf der Plattform vorher, leer beim ersten Mal
+    new: str
+
+    @property
+    def revisions(self) -> str:
+        return f"{self.old}..{self.new}" if self.old else self.new
+
+    def line(self, size: int) -> str:
+        """Zum Beispiel "06.10.2026 14:12, Pascal, 3 Commits nach main"."""
+        when = datetime.fromisoformat(self.date)
+        return (f"{when:%d.%m.%Y %H:%M}, {self.author or 'unbekannt'}, "
+                f"{count(size, 'Commit', 'Commits')} nach {self.branch}")
+
+
+def remote_head(code_dir: Path, branch: str) -> str:
+    """Stand des Branches auf der Plattform, wie Git ihn zuletzt kannte. Leer, wenn unbekannt."""
+    result = git.run(["rev-parse", "-q", "--verify", f"refs/remotes/origin/{branch}"], code_dir,
+                     check=False)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def record_push(database, project_id: int, push: Push) -> None:
+    """Ein Hochladen aus dem Cockpit merken. Git selbst weiß nicht, wer wann hochgeladen hat."""
+    if not push.new or push.new == push.old:
+        return
+    saved = dict(database.get_value(PUSHES_KEY, {}) or {})
+    entries = list(saved.get(str(project_id), []))
+    entries.append({"branch": push.branch, "date": push.date, "author": push.author,
+                    "old": push.old, "new": push.new})
+    saved[str(project_id)] = entries[-MAX_PUSHES:]
+    database.set_value(PUSHES_KEY, saved)
+
+
+def pushes(database, project_id: int, branch: str) -> list[Push]:
+    """Gemerkte Hochladen dieses Branches, neueste zuerst."""
+    entries = (database.get_value(PUSHES_KEY, {}) or {}).get(str(project_id), [])
+    found = []
+    for entry in entries:
+        try:
+            push = Push(entry["branch"], entry["date"], entry.get("author", ""),
+                        entry.get("old", ""), entry["new"])
+        except (KeyError, TypeError):
+            continue
+        if push.branch == branch:
+            found.append(push)
+    return list(reversed(found))
+
+
+@dataclass
+class Upload:
+    """Eine Zeile im Hochladeverlauf mit ihren Commits."""
+    text: str
+    commits: list[Commit]
+
+
+MAX_OLDER = 300                             # so viele ältere Commits höchstens, nach Tagen
+
+
+def upload_history(database, project_id: int, code_dir: Path, branch: str) -> list[Upload]:
+    """Erst die Hochladen aus dem Cockpit, neueste oben. Darunter, was davor auf der Plattform
+    war, nach Tagen ("vor dem Aufzeichnen"), weil Git nicht weiß, wer wann hochgeladen hat."""
+    found: list[Upload] = []
+    recorded = pushes(database, project_id, branch)
+    for push in recorded:
+        try:
+            commits = log_commits(code_dir, push.revisions) if push.old else \
+                log_commits(code_dir, push.new)[:1]
+        except CockpitError:
+            continue                        # Stand gibt es nicht mehr, zum Beispiel gelöscht
+        found.append(Upload(push.line(len(commits)), commits))
+    start = recorded[-1].old if recorded else remote_head(code_dir, branch)
+    if start:
+        try:
+            older = log_commits(code_dir, start)[:MAX_OLDER]
+        except CockpitError:
+            older = []
+        for group in group_days(older):
+            found.append(Upload(f"{group.line()}, vor dem Aufzeichnen", group.commits))
+    return found

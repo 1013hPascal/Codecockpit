@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] Verlauf: Versionen mit ihren Commits, Zu einer Version zurück, Hochladeverlauf je Branch (Wunsch vom 07.10.2026, Checkliste checklisten\verlauf.md)
 - [ ] Filter über den Projekten, Pull Requests und Reviews in der Zeile, Zeichen für Offenes (Wunsch vom 07.10.2026, Checkliste checklisten\listenfilter.md)
 - [ ] KI schneller: Starttest, Budget je Aufgabe, Stufen +3 bis -3 im Menü KI, Modell bleibt geladen (Wunsch vom 07.10.2026, Checkliste checklisten\ki-tempo.md)
 - [ ] Korrekturen beim Hochladen: Versionsfrage nur auf main, README-Vorschlag mit Tab, Schritte richtig gezählt, Töne (Rückmeldung vom 07.10.2026, Checkliste checklisten\hochladen-korrekturen.md)

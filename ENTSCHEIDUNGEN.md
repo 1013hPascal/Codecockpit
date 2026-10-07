@@ -1099,3 +1099,14 @@ Wunsch des Nutzers, Punkte 1 und 6 aus KONZEPT-NAECHSTE-SCHRITTE.md, Antwort auf
 - Die Zeile eines Projekts nennt jetzt auch „2 offene Pull Requests“ und „1 Review angefragt“.
 - Zeichen für das Auge: Vor jeder Projektzeile steht ein kleines Bild mit Zeichen: ● Änderungen ohne Commit, ↑ nicht hochgeladen, ↓ auf GitHub neuer, PR offene Pull Requests, R Review angefragt. Die Farbe ist die Textfarbe des Windows-Themas. Der Screenreader liest das Bild nicht, dieselbe Information steht als Text in der Zeile (keine Information nur über Zeichen oder Farbe).
 - Aussehen: Qt nutzt unter Windows 11 schon den Stil von Windows 11 mit hellem und dunklem Modus. Ein eigener Stil oder eigene Farben kommen nicht dazu (Regel: keine festen Farben).
+
+
+## 07.10.2026: Versionsverlauf, Zu einer Version zurück, Hochladeverlauf
+
+Wunsch des Nutzers, Punkt 3 aus KONZEPT-NAECHSTE-SCHRITTE.md. Gebaut im Branch verlauf, Checkliste in checklisten\verlauf.md.
+
+- „Verlauf …“ zeigt oben die Versionen, zuerst „In Arbeit, noch keine Version, 2 Commits“ mit dem, was seit der letzten Version dazukam, dann zum Beispiel „Version 1.0.0 vom 21.09.2026, 2 Commits“. Eine Version umfasst ihren Commit mit dem Tag und alles davor bis zur vorigen Version. Ohne jede Version stehen oben die Tage.
+- Tab führt in „Commits“ der gewählten Version. Jeder Commit nennt Datum, Person und Text, zum Beispiel „05.10.2026, Pascal: Suche verbessert“. Enter zeigt die Details mit den Dateien. Dort gibt es wie bisher „Datei wiederherstellen …“, „Version rückgängig machen …“ (ein neuer Commit, der einen Commit aufhebt) und beim neuesten, noch nicht hochgeladenen Commit „Commit zurücknehmen …“.
+- Neu: „Zu dieser Version zurück …“. Alle Dateien kommen auf den Stand der gewählten Version, als ein neuer Commit „Zurück zu Version 1.0.0“. Was danach kam, bleibt im Verlauf. Auf GitHub wird nichts umgeschrieben, also nie ein force push. Vorher kommen die betroffenen Dateien in die Sicherheitskopien. Bei Änderungen ohne Commit lehnt das Cockpit ab, damit nichts verloren geht. Das geht auch bei Zusammenführungen dazwischen, anders als mehrere einzelne Rückgängig-Commits.
+- Neu an jeder Branch-Zeile und am Main-Branch: „Hochladeverlauf …“. Oben jedes Hochladen, zum Beispiel „06.10.2026 14:12, Pascal, 3 Commits nach main“, Tab führt in die Commits dieses Hochladens, Enter zeigt die Details. Git selbst weiß nicht, wer wann hochgeladen hat. Deshalb merkt sich das Cockpit ab jetzt jedes eigene Hochladen in seiner Datenbank (Branch, Zeit, Name aus den Grundeinstellungen, Stand vorher und nachher, höchstens 200 je Projekt). Was davor auf GitHub kam, steht darunter nach Tagen mit „vor dem Aufzeichnen“, höchstens 300 Commits.
+- Noch nicht gebaut: eine geführte Hilfe bei Konflikten. „Konflikte lösen …“ gibt es schon. Ob sie für Neulinge reicht, zeigen die Kurzanleitungen.
