@@ -55,6 +55,30 @@ def filter_diff(diff: str) -> str:
     return "\n".join(kept)
 
 
+def spread(diff: str, budget: int) -> str:
+    """Bei knappem Budget bekommt jede Datei einen gleichen Anteil, statt dass hinten alles
+    abgeschnitten wird (Wunsch des Nutzers vom 07.10.2026: nur das Nötigste, aber von allem).
+    Bei Platz bleibt der Text, wie er ist."""
+    if budget <= 0 or len(diff) <= budget:
+        return diff
+    sections: list[list[str]] = []
+    for line in diff.splitlines():
+        if _DIFF_HEADER.match(line) or not sections:
+            sections.append([])
+        # Kopfzeilen von Git ohne Inhalt weglassen, sie kosten nur Platz
+        if line.startswith(("index ", "--- ", "+++ ")):
+            continue
+        sections[-1].append(line)
+    share = max(200, budget // len(sections))
+    kept = []
+    for lines in sections:
+        text = "\n".join(lines)
+        if len(text) > share:
+            text = text[:share].rsplit("\n", 1)[0] + "\n…"
+        kept.append(text)
+    return "\n".join(kept)
+
+
 def _has_commit(code_dir: Path) -> bool:
     return git.run(["rev-parse", "-q", "--verify", "HEAD"], code_dir,
                    check=False).returncode == 0
@@ -86,7 +110,8 @@ def commit_context(code_dir: Path, max_chars: int) -> str:
         diff = git.run(["diff", "HEAD", "--no-color", "--unified=2", "--", *tracked], code_dir,
                        check=False).stdout
         if diff.strip():
-            parts += ["", "Geänderte Zeilen:", filter_diff(diff)]
+            room = max_chars - len("\n".join(parts)) - 200 * len(changes.added)
+            parts += ["", "Geänderte Zeilen:", spread(filter_diff(diff), room)]
     for path in changes.added:
         parts += ["", f"Neue Datei {path}: Inhalt nicht gesendet, vertraulich."
                   if confidential(path) else _new_file(code_dir, path)]
@@ -106,7 +131,8 @@ def pull_request_context(code_dir: Path, head: str, base: str, max_chars: int) -
     diff = git.run(["diff", "--no-color", "--unified=1", f"{base_ref}...{head}"], code_dir,
                    check=False).stdout
     if diff.strip():
-        parts += ["", "Geänderte Zeilen:", filter_diff(diff)]
+        room = max_chars - len("\n".join(parts))
+        parts += ["", "Geänderte Zeilen:", spread(filter_diff(diff), room)]
     return limit_text(redact("\n".join(parts)), max_chars)
 
 

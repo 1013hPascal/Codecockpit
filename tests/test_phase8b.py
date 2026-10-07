@@ -217,7 +217,8 @@ def test_ai_for_uses_tools_and_privacy_rule(make_services):
     assert services.ai_for("x") is None
     local = services.ai_tools.add(TEXT, OLLAMA, "gemma4:12b")
     ai = services.ai_for("terminal_explain")
-    assert ai.model == "gemma4:12b" and ai.is_local and ai.max_chars == 8000
+    # Seit dem 07.10.2026 bekommen Vorschläge für Textfelder weniger Text (ai_tuning.py)
+    assert ai.model == "gemma4:12b" and ai.is_local and ai.max_chars == 3000
     account = ai_account(services)
     cloud = services.ai_tools.add(TEXT, ACCOUNT, "gpt-a", account.id)
     assert services.ai_for("x", tool_id=cloud.id).name == "Firmen-KI, gpt-a"
@@ -574,7 +575,8 @@ def test_menu_ai(qtbot, make_services, quiet_machine, monkeypatch):
     win = MainWindow(services)
     qtbot.addWidget(win)
     menu = next(a.menu() for a in win.menuBar().actions() if a.text() == "&KI")
-    assert [a.text() for a in menu.actions()] == ["KI-&Verwaltung …", "KI-&Features …"]
+    assert [a.text() for a in menu.actions()] == ["KI &einstellen …", "KI-&Verwaltung …",
+                                                "KI-&Features …"]
     selected = []
     monkeypatch.setattr(features_dialogs.GlobalFeaturesDialog, "exec",
                         lambda self: selected.append(self.current().id))

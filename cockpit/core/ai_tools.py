@@ -191,6 +191,8 @@ class TextAI:
     model: str
     name: str                     # für Rückfragen und Meldungen, zum Beispiel "Ollama, gemma4:12b"
     max_chars: int
+    answer_factor: float = 1.0      # Länge der Antwort nach der Stufe (ai_tuning.py)
+    think: bool = False             # nachdenken lassen, nur wenn der Anbieter es kann
 
     @property
     def is_local(self) -> bool:
@@ -200,8 +202,12 @@ class TextAI:
             max_tokens: int | None = None) -> str:
         """Blockiert, also im Hintergrund aufrufen. Wirft AIError oder Cancelled."""
         self.provider.start()
+        if max_tokens:
+            max_tokens = max(20, int(max_tokens * self.answer_factor))
+        extra = {"think": True} if self.think and getattr(self.provider, "supports_think",
+                                                           False) else {}
         answer = self.provider.complete([{"role": "user",
                                           "content": limit_text(prompt, self.max_chars)}],
                                         model=self.model, system=system, max_tokens=max_tokens,
-                                        cancel=cancel)
+                                        cancel=cancel, **extra)
         return str(answer).strip()

@@ -23,6 +23,7 @@ from cockpit.ai.base import AIError, AIProvider
 from cockpit.ai.streaming import stream_lines
 from cockpit.core import paths
 from cockpit.core.errors import CockpitError
+from cockpit.core.ai_tuning import KEEP_ALIVE
 from cockpit.core.http import make_client
 
 log = logging.getLogger(__name__)
@@ -125,6 +126,7 @@ class OllamaProvider(AIProvider):
     kind = "ollama"
     display_name = "Ollama"
     is_local = True
+    supports_think = True                   # complete(..., think=True) lässt nachdenken
 
     def __init__(self, host: str = DEFAULT_HOST,
                  transport: httpx.BaseTransport | None = None) -> None:
@@ -159,13 +161,16 @@ class OllamaProvider(AIProvider):
 
     def complete(self, messages: Sequence[dict], *, model: str, system: str = "",
                  schema: dict | None = None, max_tokens: int | None = None,
-                 cancel: threading.Event | None = None) -> str | dict[str, Any]:
+                 cancel: threading.Event | None = None,
+                 think: bool = False) -> str | dict[str, Any]:
         chat = ([{"role": "system", "content": system}] if system else []) + list(messages)
         # Ohne Nachdenken: Modelle wie gemma4 verbrauchen sonst die ganze Länge der Antwort mit
         # Überlegungen, und die eigentliche Antwort bleibt leer (Test mit gemma4:12b in 8b).
-        payload: dict[str, Any] = {"model": model, "messages": chat, "stream": True}
+        # keep_alive: Das Modell bleibt 30 Minuten geladen, die nächste Frage spart das Laden
+        payload: dict[str, Any] = {"model": model, "messages": chat, "stream": True,
+                                   "keep_alive": KEEP_ALIVE}
         if model not in self.no_think:
-            payload["think"] = False
+            payload["think"] = think
         if max_tokens:
             payload["options"] = {"num_predict": max_tokens}
         if schema is not None:

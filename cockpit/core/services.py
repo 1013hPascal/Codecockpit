@@ -54,6 +54,7 @@ class Services:
     email: "EmailSender | None" = None
     accounts: AccountStore = field(init=False)
     ai_tools: AIToolStore = field(init=False)
+    tunings: "TuningStore" = field(init=False)
     remote_repos: RemoteRepoStore = field(init=False)
     collections: CollectionStore = field(init=False)
     pull_request_cache: "PullRequestCache" = field(init=False)
@@ -66,6 +67,8 @@ class Services:
                                       NameIndex(self.database))
         self.accounts = AccountStore(self.database, self.vault)
         self.ai_tools = AIToolStore(self.database, self.accounts)
+        from cockpit.core.ai_tuning import TuningStore
+        self.tunings = TuningStore(self.database)          # KI auf den Rechner einstellen
         self.remote_repos = RemoteRepoStore(self.database)
         self.collections = CollectionStore(self.database)
         from cockpit.core.pull_requests import PullRequestCache
@@ -197,4 +200,8 @@ class Services:
             model, name = tool.model, self.ai_tools.label(tool, mark_default=False)
         if settings.ai_local_only and not provider.is_local:
             return None
-        return TextAI(provider, model, name, settings.ai_max_chars)
+        # Wunsch des Nutzers (07.10.2026): Textfelder knapp und schnell, Code gründlich
+        from cockpit.core.ai_tuning import purpose_of
+        tuned = self.tunings.tuning(name, purpose_of(task), settings.ai_max_chars)
+        return TextAI(provider, model, name, tuned.max_chars, tuned.answer_factor,
+                      tuned.think)

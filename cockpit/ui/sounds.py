@@ -1,6 +1,6 @@
 """Töne beim Hoch- und Herunterladen (Wunsch des Nutzers vom 07.10.2026).
 
-Ein kurzer Windows-Ton beim Start, alle 10 Sekunden ein leiser Ton, solange es läuft, und am Ende
+Ein kurzer Windows-Ton beim Start, alle 3 Sekunden ein leiser Ton, solange es läuft, und am Ende
 der Ton für fertig oder für einen Fehler. So hört man, dass etwas passiert, auch wenn das
 Cockpit gerade nicht vorne ist. Abschalten: Grundeinstellungen, „Töne beim Hoch- und
 Herunterladen“. Es sind die Systemklänge von Windows (winsound), keine neue Bibliothek.
@@ -14,7 +14,7 @@ from PySide6.QtCore import QObject, QTimer
 
 log = logging.getLogger(__name__)
 
-TICK_MS = 10_000
+TICK_MS = 3_000                 # Antwort des Nutzers vom 07.10.2026: alle 3 Sekunden
 START, TICK, DONE, ERROR = "start", "tick", "done", "error"
 
 
