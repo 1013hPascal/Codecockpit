@@ -151,6 +151,13 @@ class MainWindow(QMainWindow):
         saved = services.database.get_value(SHOW_KEY, {}) or {}
         self.project_list.set_shows({int(k): v for k, v in saved.items() if str(k).isdigit()})
         self.project_list.showChanged.connect(self._save_show)
+        # Filter "Anzeigen:" über den Projekten merken (07.10.2026), gilt ab dem ersten Füllen
+        from cockpit.core import list_filter
+        self.project_list.restore_filter(
+            services.database.get_value(list_filter.FILTER_KEY, list_filter.ALL))
+        self.project_list.filterChanged.connect(
+            lambda kind: (services.database.set_value(list_filter.FILTER_KEY, kind),
+                          self.refresh_actions(keep_selection=True)))
 
         # Automatisches Sperren der Tresordatei nach Inaktivität (Tresor-Einstellungen).
         # Geprüft wird alle 15 Sekunden gegen die Uhrzeit der letzten Eingabe. So zählt auch
@@ -406,6 +413,11 @@ class MainWindow(QMainWindow):
                     # Aus dem Zwischenspeicher, ohne GitHub zu fragen (Phase 6)
                     status.open_pulls = pulls.count_for_branch(project.remote,
                                                                status.repo.branch)
+                # Für Filter und Zeichen in der Liste (07.10.2026)
+                open_pulls = pulls.open_pulls(project.remote) if project.remote else []
+                status.repo_pulls = len(open_pulls)
+                status.review_requests = sum(1 for p in open_pulls if p.reviewers)
+                status.has_release = _has_release(project)
                 if project.remote is not None:
                     # Gemerkt beim Abfragen der Repositories (Phase 14)
                     from cockpit.features.releases.runs import last_failed
@@ -748,6 +760,16 @@ class MainWindow(QMainWindow):
         from cockpit.ai import ollama
         ollama.server().stop()                      # nur ein selbst gestartetes Ollama
         super().closeEvent(event)
+
+
+def _has_release(project) -> bool:
+    """Liegt in einem Release-Ordner eine Exe? Fehler beim Lesen zählen als nein."""
+    from cockpit.core import local_releases
+    try:
+        return any(local_releases.release_exe(r) is not None
+                   for r in local_releases.all_releases(project))
+    except OSError:
+        return False
 
 
 def refresh_pull_requests(services, platform, account, cancel=None) -> None:

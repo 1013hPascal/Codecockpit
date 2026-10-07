@@ -33,8 +33,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import (core_actions, git, history, identity, project_setup, repo_admin,
-                          venv_repair)
+from cockpit.core import (core_actions, git, history, identity, list_filter, project_setup,
+                          repo_admin, venv_repair)
 from cockpit.core.actions import Action, ActionContext, Target
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
@@ -107,6 +107,11 @@ class ProjectController:
             Action("branch_show", "Branches anzeigen …", Target.REPOSITORY,
                    self.branch_show_action, detail=self._branch_show_detail, is_default=True,
                    order=0),
+            # Wunsch des Nutzers (07.10.2026): Filter über den Projekten
+            Action("list_filter", "Anzeigen …", Target.LIST_FILTER, self.list_filter_action,
+                   detail=lambda c: list_filter.names(platform_name)[
+                       self.window.project_list.filter_kind],
+                   is_default=True, order=0),
             Action("terminal_repository", "Terminal …", Target.REPOSITORY,
                    lambda c: self.terminal_action(c, c.project.code_root, "Repository"),
                    visible=found, order=5),
@@ -751,6 +756,17 @@ class ProjectController:
         project_list = self.window.project_list
         names = show_names(main_name(context.project, context.status), project_list.platform_name)
         return names[project_list.show_of(context.project.id)]
+
+    def list_filter_action(self, context: ActionContext) -> None:
+        """Auswahl "Anzeigen:" über den Projekten. Pfeil hoch und runter, Enter wählt, Escape
+        lässt alles, wie es ist (Wunsch des Nutzers vom 07.10.2026)."""
+        from cockpit.ui import project_list as listing
+        project_list = self.window.project_list
+        names = list_filter.names(project_list.platform_name)
+        kind = listing.pick_filter(project_list, names, project_list.filter_kind)
+        project_list.setFocus()
+        if kind is not None:
+            project_list.set_filter(kind, speak=True)
 
     def branch_show_action(self, context: ActionContext) -> None:
         """Auswahl, welche Branches unter dem Repository stehen. Pfeil hoch und runter, Enter

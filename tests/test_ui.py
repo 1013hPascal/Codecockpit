@@ -168,9 +168,9 @@ def test_area_shortcuts(window, qtbot):
 def test_list_starts_with_new_project_and_lists_projects(window):
     win = window()
     texts = win.project_list.texts()
-    assert texts[:3] == ["Neue Projektsammlung", ADD_LOCAL_TEXT,
-                         "Projekt von GitHub herunterladen"]
-    assert sorted(texts[3:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
+    assert texts[:4] == ["Neue Projektsammlung", ADD_LOCAL_TEXT,
+                         "Projekt von GitHub herunterladen", "Anzeigen: Alle Projekte"]   # seit 07.10.
+    assert sorted(texts[4:]) == ["PDF-Chat", "Tagebuch"]          # zugeklappt, keine Unterordner
     assert current_text(win) == "Neue Projektsammlung"
     assert win.project_list.accessibleName() == "Projekte"
 
@@ -244,7 +244,7 @@ def test_every_project_stays_reachable_after_collapsing(window, qtbot):
     press(qtbot, win.project_list, Qt.Key.Key_Left)
     win.project_list.setCurrentRow(0)
     seen = [current_text(win)]
-    for _ in range(5):
+    for _ in range(6):                                 # mit der Zeile "Anzeigen:" (07.10.)
         press(qtbot, win.project_list, Qt.Key.Key_Down)
         seen.append(current_text(win))
     assert {ADD_LOCAL_TEXT, "A", "B", "C"} <= set(seen)

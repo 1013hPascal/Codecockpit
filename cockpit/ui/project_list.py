@@ -5,8 +5,9 @@ Zuklappen waren Einträge nicht mehr erreichbar. Deshalb ist die Projektliste ei
 in die beim Ausklappen die Unterordner eingefügt werden.
 
 Oben stehen "Neue Projektsammlung", "Projekt vom Rechner hinzufügen" und "Projekt von GitHub
-herunterladen", darunter Sammlungen und Projekte ohne Sammlung gemischt, zuletzt aktualisierte
-oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt (Wunsch des Nutzers, 02.10.2026).
+herunterladen", dann "Anzeigen: Alle Projekte" (Filter, 07.10.2026), darunter Sammlungen und
+Projekte ohne Sammlung gemischt, zuletzt aktualisierte oben. Mit einem Filter stehen nur die
+passenden Projekte da, auch in den Sammlungen ("Sammlung Web, 2 von 5 Projekten"). Eine Sammlung zählt so neu wie ihr neuestes Projekt (Wunsch des Nutzers, 02.10.2026).
 Eine geöffnete Sammlung zeigt oben "Sammlung Webseiten, 3 Projekte, geöffnet" und darunter nur
 ihre Projekte. Sie werden dort bedient wie sonst auch.
 Ein ausgeklapptes Projekt heißt "PDF-Chat, ausgeklappt". Darunter steht zuerst "Repository,
@@ -37,9 +38,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QPoint, QTimer, Qt, Signal
+from PySide6.QtGui import QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
+from cockpit.core import list_filter
 from cockpit.core.actions import Target
 from cockpit.core.branches import Branch
 from cockpit.core.project_collections import Collection
@@ -87,13 +90,19 @@ def show_names(main: str = "main", platform_name: str = "GitHub") -> dict[str, s
             SHOW_REMOTE: f"{main} & die nur auf {platform_name} sind", SHOW_ALL: f"{main} & alle"}
 
 
-def pick_show(listing: QListWidget, names: dict[str, str], current: str) -> str | None:
+def pick_filter(listing: QListWidget, names: dict[str, str], current: str) -> str | None:
+    """Auswahl für "Anzeigen:" über den Projekten (07.10.2026). None bei Escape."""
+    return pick_show(listing, names, current, "Anzeigen")
+
+
+def pick_show(listing: QListWidget, names: dict[str, str], current: str,
+              title: str = "Branches anzeigen") -> str | None:
     """Menü mit der Auswahl unter der markierten Zeile, wie "Branches anzeigen" in "Branches
     verwalten". None bei Escape."""
     from PySide6.QtGui import QActionGroup
     from PySide6.QtWidgets import QMenu
     menu = QMenu(listing)
-    name_widget(menu, "Branches anzeigen")
+    name_widget(menu, title)
     group = QActionGroup(menu)
     chosen = {}
     for key, label in names.items():
@@ -191,10 +200,15 @@ NOTHING_OPEN = "nichts offen"
 
 
 def collection_label(collection: Collection, size: int, opened: bool = False,
-                     state: str = "") -> str:
+                     state: str = "", shown: int | None = None) -> str:
     """Zum Beispiel "Sammlung Webseiten, 3 Projekte, Änderungen offen". state ist leer, solange
-    der Stand der Projekte noch abgefragt wird."""
-    parts = [collection.title, count(size, "Projekt", "Projekte") if size else "leer"]
+    der Stand der Projekte noch abgefragt wird. shown: mit Filter die passenden, zum Beispiel
+    "Sammlung Webseiten, 2 von 5 Projekten"."""
+    if shown is not None and shown != size:
+        amount = f"{shown} von {size} {'Projekt' if size == 1 else 'Projekten'}"
+    else:
+        amount = count(size, "Projekt", "Projekte") if size else "leer"
+    parts = [collection.title, amount]
     if size and state:
         parts.append(state)
     text = ", ".join(parts)
@@ -220,6 +234,7 @@ class ProjectList(QListWidget):
     contextMenuRequested = Signal(QPoint)
     expandedChanged = Signal()
     showChanged = Signal(int, str)              # Auswahl beim Repository geändert (06.10.)
+    filterChanged = Signal(str)                 # Filter "Anzeigen:" geändert (07.10.2026)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -233,6 +248,8 @@ class ProjectList(QListWidget):
         self._member_of: dict[int, int] = {}          # Projekt -> Sammlung
         self._remote_of: dict[int, int] = {}          # Repository nur auf GitHub -> Sammlung
         self._opened: int | None = None               # geöffnete Sammlung
+        self._filter = list_filter.ALL                # "Anzeigen:" über den Projekten
+        self._refill_pending = False
         self.platform_name = "GitHub"
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._context_menu)
@@ -278,17 +295,22 @@ class ProjectList(QListWidget):
                 p for p in self._projects.values() if self._member_of.get(p.id) == self._opened]
             entries += [r for r in self._remote.values()
                         if self._remote_of.get(r.id) == self._opened]
+            entries = [e for e in entries if self._passes(e)]
         else:
             self.addItem(self._item(NEW_COLLECTION_TEXT, Target.NEW_COLLECTION, None))
             self.addItem(self._item(ADD_LOCAL_TEXT, Target.ADD_LOCAL, None))
             self.addItem(self._item(add_remote_text(self.platform_name), Target.ADD_REMOTE,
                                     None))
+            self.addItem(self._item(self._filter_text(), Target.LIST_FILTER, None))
             entries = [p for p in self._projects.values() if p.id not in self._member_of]
             entries += [r for r in self._remote.values() if r.id not in self._remote_of]
+            entries = [e for e in entries if self._passes(e)]
             # Wunsch des Nutzers (02.10.2026): Sammlungen und einzelne Projekte gemischt, das
             # zuletzt Geänderte oben. Eine Sammlung zählt so neu wie ihr neuestes Projekt.
+            # Mit Filter fallen Sammlungen ohne passendes Projekt weg (07.10.2026).
             top: list[tuple[str, Collection | Project | StoredRepo]] = [
-                (self._collection_key(c), c) for c in self._collections.values()]
+                (self._collection_key(c), c) for c in self._collections.values()
+                if self._filter == list_filter.ALL or self._shown_in(c.id)]
             top += [(_sort_key(e), e) for e in entries]
             top.sort(key=lambda pair: (pair[0], isinstance(pair[1], Collection)), reverse=True)
             for _key, entry in top:
@@ -312,13 +334,85 @@ class ProjectList(QListWidget):
             self.addItem(self._item(remote_line(entry.name, entry.pushed_at, self.platform_name),
                                     Target.REMOTE_REPO, entry.id))
         else:
-            self.addItem(self._item(self._project_text(entry), Target.PROJECT, entry.id))
+            item = self._item(self._project_text(entry), Target.PROJECT, entry.id)
+            self._mark(item, entry.id)
+            self.addItem(item)
+
+    # -- Filter (Wunsch des Nutzers vom 07.10.2026) -------------------------------------------
+    @property
+    def filter_kind(self) -> str:
+        return self._filter
+
+    def restore_filter(self, kind: str | None) -> None:
+        """Gespeicherter Filter beim Start, vor dem ersten Füllen. Ohne Signal."""
+        self._filter = kind if kind in list_filter.KINDS else list_filter.ALL
+
+    def set_filter(self, kind: str, speak: bool = False) -> None:
+        """Filter wählen. Die Markierung bleibt auf der Zeile "Anzeigen:"."""
+        if kind not in list_filter.KINDS:
+            kind = list_filter.ALL
+        changed = kind != self._filter
+        self._filter = kind
+        if changed:
+            self._refill()
+            self.filterChanged.emit(kind)
+        if self._opened is None:
+            self.setCurrentRow(max(0, self.row_of(Target.LIST_FILTER, None)))
+        if speak:
+            announce(self._filter_text().removeprefix("Anzeigen: ") + ".")
+
+    def _passes(self, entry: Project | StoredRepo) -> bool:
+        if isinstance(entry, StoredRepo):
+            return list_filter.matches_remote(self._filter)
+        return list_filter.matches(entry, self._status.get(entry.id), self._filter)
+
+    def _shown_in(self, collection_id: int) -> int:
+        """Passende Projekte und Repositories einer Sammlung."""
+        shown = sum(1 for p, c in self._member_of.items()
+                    if c == collection_id and self._passes(self._projects[p]))
+        return shown + sum(1 for r, c in self._remote_of.items()
+                           if c == collection_id and self._passes(self._remote[r]))
+
+    def _filter_text(self) -> str:
+        shown = sum(1 for p in self._projects.values() if self._passes(p))
+        shown += sum(1 for r in self._remote.values() if self._passes(r))
+        return list_filter.row_text(self._filter, self.platform_name, shown)
+
+    def _update_filter_row(self) -> None:
+        row = self.row_of(Target.LIST_FILTER, None)
+        if row >= 0:
+            self._set_text(row, self._filter_text())
+
+    def _refill(self) -> None:
+        """Neu füllen nach einem Filterwechsel oder wenn ein Projekt dazukommt oder wegfällt.
+        Auswahl und ausgeklapptes Projekt bleiben, wenn möglich."""
+        self._refill_pending = False
+        keep = (*self.current_target(), self.current_key())
+        expanded = self._expanded
+        self.blockSignals(True)
+        try:
+            self._fill()
+            if expanded in self._projects and self._visible(expanded) \
+                    and self.row_of(Target.PROJECT, expanded) >= 0:
+                self.expand(expanded, speak=False)
+            if not self.select(*keep):
+                self.setCurrentRow(max(0, self.row_of(Target.LIST_FILTER, None)))
+        finally:
+            self.blockSignals(False)
+        self.currentRowChanged.emit(self.currentRow())
+
+    def _mark(self, item: QListWidgetItem, project_id: int) -> None:
+        """Zeichen für Offenes als Bild vor der Zeile. Für den Screenreader steht dasselbe im
+        Text der Zeile. Die Farbe kommt aus dem Windows-Thema."""
+        symbols = list_filter.markers(self._status.get(project_id))
+        item.setIcon(_marker_icon(symbols, self.palette()) if symbols else QIcon())
 
     def _collection_text(self, collection: Collection) -> str:
         members = [p for p, c in self._member_of.items() if c == collection.id]
         size = len(members) + sum(1 for c in self._remote_of.values() if c == collection.id)
+        shown = self._shown_in(collection.id) if self._filter != list_filter.ALL else None
         return collection_label(collection, size, collection.id == self._opened,
-                                self._collection_state(members))
+                                self._collection_state(members), shown)
 
     def _collection_state(self, members: list[int]) -> str:
         """"Änderungen offen", sobald ein Projekt etwas offen hat. "nichts offen" erst, wenn
@@ -398,11 +492,19 @@ class ProjectList(QListWidget):
         project = self._projects.get(status.project_id)
         if project is None:
             return
+        before = self._passes(project)
         self._status[status.project_id] = status
+        if self._filter != list_filter.ALL and before != self._passes(project) \
+                and not self._refill_pending:
+            # Das Projekt kommt dazu oder fällt weg. Gesammelt neu füllen, nicht pro Projekt.
+            self._refill_pending = True
+            QTimer.singleShot(0, self._refill)
         self._update_collection_row(project.id)
+        self._update_filter_row()
         row = self.row_of(Target.PROJECT, project.id)
         if row >= 0:
             self._set_text(row, self._project_text(project))
+            self._mark(self.item(row), project.id)
         if project.id == self._expanded:
             self._update_children(project)
 
@@ -479,6 +581,10 @@ class ProjectList(QListWidget):
 
     def texts(self) -> list[str]:
         return [self.item(r).text() for r in range(self.count())]
+
+    def marker_of(self, project_id: int) -> str:
+        """Für Tests: die Zeichen vor der Zeile des Projekts."""
+        return list_filter.markers(self._status.get(project_id))
 
     # -- Auswahl --------------------------------------------------------------------------
     def current_target(self) -> tuple[Target, int | None]:
@@ -652,3 +758,19 @@ class ProjectList(QListWidget):
             return
         rect = self.visualItemRect(item)
         self.contextMenuRequested.emit(self.viewport().mapToGlobal(rect.bottomLeft()))
+
+
+def _marker_icon(symbols: str, palette: QPalette) -> QIcon:
+    """Kleines Bild mit den Zeichen, in der Textfarbe des Windows-Themas."""
+    width = 14 + 11 * len(symbols)
+    pixmap = QPixmap(width, 18)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setPen(palette.color(QPalette.ColorRole.Text))
+    font = painter.font()
+    font.setBold(True)
+    painter.setFont(font)
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                     symbols)
+    painter.end()
+    return QIcon(pixmap)

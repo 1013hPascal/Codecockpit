@@ -45,6 +45,8 @@ class Target(Enum):
     # aus dem Haupt-Branch als EXE ("Exe-main") und je Branch-Release eine Zeile RELEASE.
     RELEASES = "releases"
     RELEASE = "release"
+    # Wunsch des Nutzers (07.10.2026): "Anzeigen: Alle Projekte" über den Projekten
+    LIST_FILTER = "list_filter"
 
 
 @dataclass
