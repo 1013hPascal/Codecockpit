@@ -275,8 +275,8 @@ def test_collections_and_projects_are_mixed_by_date(qtbot, tmp_path):
                                 project(3, "InSammlung", 10), project(4, "Ganz neu", 25))
     web = Collection(7, "Web")
     listing.set_projects([old, new, member, newest], [], [web], {member.id: web.id})
-    names = listing.texts()[3:]
+    names = listing.texts()[4:]                       # nach dem Filter "Anzeigen:" (07.10.)
     assert [n.split(",")[0] for n in names] == ["Ganz neu", "Neu", "Sammlung Web", "Alt"]
     newer = dataclasses.replace(member, last_updated="2026-09-30T10:00:00")
     listing.set_projects([old, new, newer, newest], [], [web], {member.id: web.id})
-    assert listing.texts()[3].startswith("Sammlung Web")          # jetzt ganz oben
+    assert listing.texts()[4].startswith("Sammlung Web")          # jetzt ganz oben

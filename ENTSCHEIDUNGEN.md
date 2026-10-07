@@ -1084,3 +1084,18 @@ Wunsch des Nutzers, Punkt 8 aus KONZEPT-NAECHSTE-SCHRITTE.md: Vorschläge für T
 - Eine Stufe bedeutet 1,6-mal so viel Zeit und damit mehr Text an die KI, und eine um ein Viertel längere Antwort. Ab +2 darf die KI bei Code und komplexen Fragen nachdenken. Die Stufe 0 bei Textfeldern ist knapper als die 0 bei Code, wie gewünscht.
 - Weniger senden: Bei knappem Budget bekommt jede geänderte Datei einen gleichen Anteil an den geänderten Zeilen, statt dass hinten alles abgeschnitten wird. Kopfzeilen von Git ohne Inhalt fallen weg.
 - Nebenbei: Der Ton beim Hoch- und Herunterladen kommt jetzt alle 3 Sekunden (Antwort des Nutzers).
+
+
+## 07.10.2026: Filter über den Projekten und Zeichen für Offenes
+
+Wunsch des Nutzers, Punkte 1 und 6 aus KONZEPT-NAECHSTE-SCHRITTE.md, Antwort auf Frage 4 („ja ok“). Gebaut im Branch listenfilter, Checkliste in checklisten\listenfilter.md.
+
+- Über den Projekten, gleich nach „Projekt von GitHub herunterladen“, steht die Zeile „Anzeigen: Alle Projekte“. Sie steht dort und nicht ganz oben, damit „Neue Projektsammlung“ beim Start weiter der erste Eintrag ist und die Zeile direkt über dem steht, was sie filtert. Enter oder Leertaste öffnet die Auswahl wie bei „Branches anzeigen“. Escape ändert nichts. Die Auswahl bleibt nach einem Neustart.
+- Auswahl: „Alle Projekte“, „Mit offenen Sachen“, „Auf GitHub“, „Mit Release“, „Nur auf dem Rechner“ (Antwort des Nutzers: „Auf GitHub“ und „Mit Release“ getrennt).
+- Offen heißt: Änderungen ohne Commit, Commits nicht hochgeladen, auf GitHub neuer, Zusammenführen nicht abgeschlossen, offene Pull Requests oder angefragte Reviews, auch in einem Branch-Ordner. Pull Requests und Reviews kommen aus dem Zwischenspeicher, der beim Abfragen der Repositories gefüllt wird. Als Review gilt ein offener Pull Request mit angefragtem Prüfer.
+- „Auf GitHub“ zeigt auch die Repositories, die nur auf GitHub liegen. „Mit Release“ heißt: In einem Release-Ordner liegt eine Exe.
+- Mit Filter nennt die Zeile die Zahl, zum Beispiel „Anzeigen: Mit offenen Sachen, 3 Projekte“. Sammlungen zeigen nur ihre passenden Projekte und heißen dann zum Beispiel „Sammlung Web, 1 von 2 Projekten“. Sammlungen ohne passendes Projekt fallen weg.
+- Ändert sich der Stand eines Projekts, kommt es dazu oder fällt weg. Die Liste wird dann gesammelt neu gefüllt, die Markierung bleibt, wo sie war.
+- Die Zeile eines Projekts nennt jetzt auch „2 offene Pull Requests“ und „1 Review angefragt“.
+- Zeichen für das Auge: Vor jeder Projektzeile steht ein kleines Bild mit Zeichen: ● Änderungen ohne Commit, ↑ nicht hochgeladen, ↓ auf GitHub neuer, PR offene Pull Requests, R Review angefragt. Die Farbe ist die Textfarbe des Windows-Themas. Der Screenreader liest das Bild nicht, dieselbe Information steht als Text in der Zeile (keine Information nur über Zeichen oder Farbe).
+- Aussehen: Qt nutzt unter Windows 11 schon den Stil von Windows 11 mit hellem und dunklem Modus. Ein eigener Stil oder eigene Farben kommen nicht dazu (Regel: keine festen Farben).

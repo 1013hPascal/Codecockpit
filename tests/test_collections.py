@@ -87,9 +87,11 @@ def test_removing_a_project_removes_it_from_its_collection(stores):
 def test_collections_stand_below_the_first_entries(window):
     win, _web = web_window(window)
     texts = win.project_list.texts()
-    assert texts[:4] == ["Neue Projektsammlung", "Projekt vom Rechner hinzufügen",
-                         "Projekt von GitHub herunterladen", "Sammlung Web, 1 Projekt"]
-    assert sorted(texts[4:]) == ["PDF-Chat", "Tagebuch"]       # Webseite steht in der Sammlung
+    # Seit dem 07.10.2026 steht der Filter "Anzeigen:" über den Projekten
+    assert texts[:5] == ["Neue Projektsammlung", "Projekt vom Rechner hinzufügen",
+                         "Projekt von GitHub herunterladen", "Anzeigen: Alle Projekte",
+                         "Sammlung Web, 1 Projekt"]
+    assert sorted(texts[5:]) == ["PDF-Chat", "Tagebuch"]       # Webseite steht in der Sammlung
     assert current_text(win) == "Neue Projektsammlung"
 
 

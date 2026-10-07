@@ -39,6 +39,7 @@ TARGET_NAMES = {
     Target.RELEASES: "auf der Zeile Releases unter den Branches",
     Target.EXE: "auf dem Release Exe-main",
     Target.RELEASE: "auf dem Release eines Branches, zum Beispiel Exe-neue-funktion",
+    Target.LIST_FILTER: "auf der Zeile „Anzeigen:“ über den Projekten (Filter)",
     Target.REMOTE_REPO: "auf einem Repository, das nur auf GitHub liegt",
     Target.REMOTE_BRANCH: "auf einem Branch, der nur auf GitHub liegt",
 }

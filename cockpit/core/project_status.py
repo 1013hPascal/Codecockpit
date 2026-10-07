@@ -38,6 +38,10 @@ class ProjectStatus:
     venv: VenvState = field(default_factory=lambda: VenvState(False))
     open_pulls: int = 0                      # offene Pull Requests aus dem aktuellen Branch
     actions_failed: bool = False             # letzter Lauf der GitHub Actions fehlgeschlagen (14)
+    # Für den Filter und die Zeichen in der Liste (07.10.2026), aus dem Zwischenspeicher
+    repo_pulls: int = 0                      # alle offenen Pull Requests des Repositorys
+    review_requests: int = 0                 # davon mit angefragtem Review
+    has_release: bool = False                # eine Exe in einem Release-Ordner
     error: str = ""
     # Branch-Ordner (Phase 10f), jeder mit eigenem Stand, sortiert nach Ordnername
     worktrees: list[tuple["Worktree", "ProjectStatus"]] = field(default_factory=list)
@@ -149,6 +153,12 @@ def project_line(project: Project, status: ProjectStatus | None,
         if status.repo.behind:
             parts.append(f"{count(status.repo.behind, 'Änderung', 'Änderungen')} auf "
                          f"{platform_name} noch nicht geholt")
+        # Wunsch des Nutzers (07.10.2026): schnell sehen, wo Pull Requests und Reviews offen sind
+        if status.repo_pulls:
+            parts.append(count(status.repo_pulls, "offener Pull Request",
+                               "offene Pull Requests"))
+        if status.review_requests:
+            parts.append(count(status.review_requests, "Review angefragt", "Reviews angefragt"))
     if status is not None and status.venv.broken:
         parts.append("virtuelle Umgebung muss neu angelegt werden")
     if status is not None and status.actions_failed:
