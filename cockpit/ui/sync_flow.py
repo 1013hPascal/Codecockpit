@@ -24,6 +24,7 @@ Holen (PullRunner):
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Callable
 
 from cockpit.core import branches, git, history, sync, upload
@@ -211,9 +212,14 @@ class PushRunner(_Runner):
 
         def work(task: Task):
             data["env"] = sync.environment(services, project)
+            # Für den Hochladeverlauf (07.10.2026): Stand auf der Plattform vorher und nachher
+            branch = git.status(project.code_dir).branch
+            old = history.remote_head(project.code_dir, branch) if branch else ""
             context = FlowContext(services, project, asker, task.cancel_event, data=data)
             summary = services.flows.run(sync.PUSH_CHANGES, context,
                                          lambda n, total, text: task.status.emit(text + " …"))
+            if summary.completed and branch:
+                data["pushed"] = (branch, old, history.remote_head(project.code_dir, branch))
             return summary, context.data
 
         self.controller.run_task(self.key, work, self.finished, self.title, on_status=announce,
@@ -227,6 +233,11 @@ class PushRunner(_Runner):
             # Für die Details im Verlauf (ENTSCHEIDUNGEN.md)
             history.record_steps(self.services.database, self.project.id, data["commit"],
                                  history.feature_step_lines(summary))
+        if data.get("pushed"):
+            branch, old, new = data["pushed"]
+            settings = self.services.settings.load()
+            history.record_push(self.services.database, self.project.id, history.Push(
+                branch, datetime.now().isoformat(timespec="seconds"), settings.git_name, old, new))
         if summary.completed:
             announce(summary.text())
             if self.then is not None:

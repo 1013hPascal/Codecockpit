@@ -168,6 +168,10 @@ class ProjectController:
                    visible=_has_stashes, order=37),
             Action("history", "Verlauf …", Target.CODE, self.history_action,
                    availability=_git_availability, visible=_is_repo, order=30),
+            # Wunsch des Nutzers (07.10.2026): wer wann in diesen Branch hochgeladen hat
+            Action("upload_history", "Hochladeverlauf …", Target.CODE,
+                   self.upload_history_action, availability=_git_availability,
+                   visible=_on_platform, order=31),
             Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
                    availability=_discard_availability, visible=_is_repo, order=35,
                    detail=_changed_detail),
@@ -644,6 +648,25 @@ class ProjectController:
                 window.refresh_status([project.id])
 
         self.run_task(f"project:{project.id}", work, done, "Verlauf")
+
+    def upload_history_action(self, context: ActionContext) -> None:
+        project = context.project
+        services, window = self.services, self.window
+        project_id = (context.main_project or project).id
+        branch = git.status(project.code_dir).branch
+
+        def work(task: Task) -> list:
+            return history.upload_history(services.database, project_id, project.code_dir,
+                                          branch)
+
+        def done(uploads: list) -> None:
+            from cockpit.ui.history_dialogs import UploadHistoryDialog
+            dialog = UploadHistoryDialog(services, project, branch, uploads, window)
+            dialog.exec()
+            if dialog.changed:
+                window.refresh_status([project_id])
+
+        self.run_task(f"project:{project_id}", work, done, "Hochladeverlauf")
 
     def discard_action(self, context: ActionContext) -> None:
         from cockpit.ui.history_dialogs import DiscardDialog

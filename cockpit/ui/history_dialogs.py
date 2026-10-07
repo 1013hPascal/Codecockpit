@@ -43,8 +43,11 @@ def _ignore_enter(dialog: FocusDialog, watched, event, lists) -> bool:
 
 
 class HistoryDialog(FocusDialog):
-    """Verlauf eines Projekts. Nach dem Schließen: changed ist True, wenn sich Dateien oder der
-    Verlauf geändert haben."""
+    """Verlauf eines Projekts (Wunsch des Nutzers vom 07.10.2026): oben die Versionen, zuerst
+    „In Arbeit“ mit dem, was seit der letzten Version dazukam. Tab führt in die Commits der
+    gewählten Version (Datum, Person, Text), Enter dort zeigt die Details. Ohne jede Version stehen
+    oben die Tage. Nach dem Schließen: changed ist True, wenn sich Dateien oder der Verlauf
+    geändert haben."""
 
     def __init__(self, services: "Services", project: "Project", commits: list[Commit],
                  parent: QWidget | None = None) -> None:
@@ -52,31 +55,66 @@ class HistoryDialog(FocusDialog):
         self.services = services
         self.project = project
         self.commits = commits
+        self.groups: list[history.Group] = []
         self.changed = False
+        self.versions = QListWidget()
+        self.versions_label = label_for(self.versions, "&Versionen:")
+        self.versions.currentRowChanged.connect(lambda _row: self._fill_commits())
+        self.versions.itemActivated.connect(lambda _item: self.list.setFocus())
         self.list = QListWidget()
-        name_widget(self.list, "Versionen")
+        self.commits_label = label_for(self.list, "&Commits:")
         self.list.itemActivated.connect(lambda _item: self.show_details())
         details = QPushButton("&Details anzeigen …")
         details.clicked.connect(self.show_details)
+        self.back_button = QPushButton("Zu dieser Version &zurück …")
+        self.back_button.clicked.connect(self.back_to_version)
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         buttons = QHBoxLayout()
         buttons.addWidget(details)
+        buttons.addWidget(self.back_button)
         buttons.addStretch(1)
         buttons.addWidget(close)
         layout = QVBoxLayout(self)
+        layout.addWidget(self.versions_label)
+        layout.addWidget(self.versions, 1)
+        layout.addWidget(self.commits_label)
         layout.addWidget(self.list, 1)
         layout.addLayout(buttons)
-        self.resize(720, 460)
-        self.initial_focus_widget = self.list
+        self.resize(720, 560)
+        self.initial_focus_widget = self.versions
         self.fill()
 
     def fill(self, row: int = 0) -> None:
-        self.setWindowTitle(f"Verlauf von {self.project.name}: "
-                            f"{count(len(self.commits), 'Version', 'Versionen')}")
+        self.groups = history.group_versions(self.commits)
+        by_version = any(g.kind != history.DAY for g in self.groups)
+        title = f"Verlauf von {self.project.name}: "
+        if by_version:
+            versions = sum(1 for g in self.groups if g.kind == history.VERSION)
+            title += f"{count(versions, 'Version', 'Versionen')}, "
+        self.setWindowTitle(title + count(len(self.commits), "Commit", "Commits"))
+        self.versions_label.setText("&Versionen:" if by_version else "&Tage:")
+        name_widget(self.versions, "Versionen" if by_version else "Tage")
+        self.versions.blockSignals(True)
+        self.versions.clear()
+        self.versions.addItems([g.line() for g in self.groups] or ["Noch keine Commits."])
+        self.versions.setCurrentRow(max(0, min(row, self.versions.count() - 1)))
+        self.versions.blockSignals(False)
+        self._fill_commits()
+
+    def group(self) -> history.Group | None:
+        row = self.versions.currentRow()
+        return self.groups[row] if 0 <= row < len(self.groups) else None
+
+    def _fill_commits(self) -> None:
+        group = self.group()
         self.list.clear()
-        self.list.addItems([c.line() for c in self.commits] or ["Noch keine Versionen."])
-        self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
+        self.list.addItems([c.short_line() for c in group.commits] if group else
+                           ["Noch keine Commits."])
+        self.list.setCurrentRow(0)
+        head = group.head if group is not None else None
+        self.back_button.setEnabled(group is not None and group.kind == history.VERSION
+                                    and head is not None and not head.newest)
 
     def reload(self, row: int = 0) -> None:
         try:
@@ -86,8 +124,38 @@ class HistoryDialog(FocusDialog):
         self.fill(row)
 
     def current(self) -> Commit | None:
+        group = self.group()
         row = self.list.currentRow()
-        return self.commits[row] if 0 <= row < len(self.commits) else None
+        if group is None or not 0 <= row < len(group.commits):
+            return None
+        return group.commits[row]
+
+    def back_to_version(self) -> None:
+        """Alle Dateien auf den Stand der gewählten Version, als neuer Commit."""
+        group = self.group()
+        if group is None or group.kind != history.VERSION or group.head is None:
+            announce("Bitte wählen Sie eine Version.")
+            return
+        title = "Zu dieser Version zurück"
+        commit = group.head
+        text = (f"Das Cockpit setzt alle Dateien auf den Stand der Version {group.version} vom "
+                f"{commit.date:%d.%m.%Y} und erstellt dafür einen neuen Commit "
+                f"„{history.back_to_message(group.version)}“. Alles, was danach kam, bleibt im "
+                f"Verlauf und lässt sich später wiederholen. {BACKUP_NOTE} Der neue Commit ist "
+                "danach noch nicht hochgeladen. Zurück zu dieser Version?")
+        if not confirm(self, title, text, yes="Zurück zur Version", no="Abbrechen"):
+            return
+        settings = self.services.settings.load()
+        try:
+            history.back_to(self.project.code_dir, self.project.name, commit,
+                            settings.git_name, settings.git_email)
+        except CockpitError as exc:
+            show_error(self, title, exc.message, exc.details)
+            return
+        self.changed = True
+        self.reload(0)
+        self.versions.setFocus()
+        announce(f"Zurück zu Version {group.version}. Neuer Commit, noch nicht hochgeladen.")
 
     def show_details(self) -> None:
         commit = self.current()
@@ -103,6 +171,8 @@ class HistoryDialog(FocusDialog):
         self.changed |= dialog.files_changed or dialog.history_changed
         if dialog.history_changed:
             self.reload(0)                  # der neue oder zurückgenommene Commit ist oben
+            self.versions.setFocus()
+            return
         self.list.setFocus()
 
 
@@ -309,3 +379,68 @@ class DiscardDialog(FocusDialog):
             return
         self.chosen = chosen
         self.accept()
+
+
+class UploadHistoryDialog(FocusDialog):
+    """Hochladeverlauf eines Branches (Wunsch des Nutzers vom 07.10.2026). Oben jedes Hochladen,
+    zum Beispiel „06.10.2026 14:12, Pascal, 3 Commits nach main“. Tab führt in die Commits dieses
+    Hochladens, Enter dort zeigt die Details mit Rückgängig machen."""
+
+    def __init__(self, services: "Services", project: "Project", branch: str,
+                 uploads: list, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.services = services
+        self.project = project
+        self.uploads = uploads
+        self.changed = False
+        self.setWindowTitle(f"Hochladeverlauf von {branch}: "
+                            f"{count(len(uploads), 'Eintrag', 'Einträge')}")
+        self.uploads_list = QListWidget()
+        uploads_label = label_for(self.uploads_list, "&Hochgeladen:")
+        self.uploads_list.addItems([u.text for u in uploads] or [
+            "Noch nichts hochgeladen."])
+        self.uploads_list.currentRowChanged.connect(lambda _row: self._fill_commits())
+        self.uploads_list.itemActivated.connect(lambda _item: self.list.setFocus())
+        self.list = QListWidget()
+        commits_label = label_for(self.list, "&Commits:")
+        self.list.itemActivated.connect(lambda _item: self.show_details())
+        details = QPushButton("&Details anzeigen …")
+        details.clicked.connect(self.show_details)
+        close = QPushButton("Schließen")
+        close.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addWidget(details)
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+        layout = QVBoxLayout(self)
+        for widget in (uploads_label, self.uploads_list, commits_label, self.list):
+            layout.addWidget(widget)
+        layout.addLayout(buttons)
+        self.resize(720, 560)
+        self.initial_focus_widget = self.uploads_list
+        self.uploads_list.setCurrentRow(0)
+        self._fill_commits()
+
+    def _commits(self) -> list[Commit]:
+        row = self.uploads_list.currentRow()
+        return self.uploads[row].commits if 0 <= row < len(self.uploads) else []
+
+    def _fill_commits(self) -> None:
+        self.list.clear()
+        self.list.addItems([c.short_line() for c in self._commits()] or ["Keine Commits."])
+        self.list.setCurrentRow(0)
+
+    def show_details(self) -> None:
+        commits = self._commits()
+        row = self.list.currentRow()
+        if not 0 <= row < len(commits):
+            announce("Es gibt keinen Commit.")
+            return
+        try:
+            dialog = VersionDialog(self.services, self.project, commits[row], self)
+        except CockpitError as exc:
+            show_error(self, "Hochladeverlauf", exc.message, exc.details)
+            return
+        dialog.exec()
+        self.changed |= dialog.files_changed or dialog.history_changed
+        self.list.setFocus()
