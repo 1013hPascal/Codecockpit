@@ -56,9 +56,11 @@ SHORTCUTS = [
     "Projekt ausklappen, Pfeil rechts, Leertaste oder Enter",
     "Im ausgeklappten Projekt zum ersten Unterordner, Pfeil rechts",
     "Projekt zuklappen, Leertaste oder Enter auf dem Projekt",
-    "Zuklappen und zurück zum Projekt, Pfeil links auf Code oder Exe",
-    "Wichtigste Aktion auf Code oder Exe, Enter",
+    "Zuklappen und zurück zum Projekt, Pfeil links auf einer Zeile darunter",
+    "Wichtigste Aktion auf einer Zeile unter dem Projekt, Enter",
     "Aktionen als Kontextmenü, Menütaste oder Umschalt+F10",
+    "Bei einem ausgeklappten Projekt steht im Kontextmenü zuerst die Schnellnavigation",
+    "Filter über den Projekten, Enter auf der Zeile Anzeigen",
     "Repository herunterladen, das nur auf GitHub liegt, Enter",
     "Projektsammlung öffnen, Pfeil rechts, Leertaste oder Enter",
     "Projektsammlung schließen, Pfeil links oder Enter auf der Sammlung, Rücktaste überall darin",
@@ -86,6 +88,8 @@ SHORTCUTS = [
     "Diktieren starten und beenden, in einem Textfeld, Strg+D",
     "Diktieren abbrechen, Strg+Umschalt+D",
     "Diese Liste, F1",
+    "Befehl suchen, alle Aktionen und Menüs, Strg+K",
+    "Tasten für das Element mit dem Fokus ansagen, Strg+F1",
     "KI-Hilfe, Fragen zur Bedienung, Umschalt+F1",
     "In Listen wie dieser: Zeile kopieren, Strg+C",
 ]
@@ -144,6 +148,9 @@ class MainWindow(QMainWindow):
         self.areas = [self.project_list, self.actions_list]
 
         self.project_list.currentRowChanged.connect(lambda _row: self.refresh_actions())
+        self.project_list.currentRowChanged.connect(lambda _row: self._update_hint())
+        self.actions_list.setToolTip("Enter oder Leertaste führt die Aktion aus, Umschalt+Tab "
+                                     "führt zurück zur Projektliste")
         self.project_list.defaultActionRequested.connect(self.run_default_action)
         self.project_list.contextMenuRequested.connect(self.show_context_menu)
         self.actions_list.entryTriggered.connect(self.run_entry)
@@ -230,6 +237,9 @@ class MainWindow(QMainWindow):
         bar.addMenu(help_menu)
         self._action(help_menu, "&Tastenkürzel", self.show_shortcuts, "F1")
         self._action(help_menu, "KI-&Hilfe …", self.open_ai_help, "Shift+F1")
+        # Wunsch des Nutzers (07.10.2026): Befehle suchen und Tasten ansagen lassen
+        self._action(help_menu, "Befehl &suchen …", self.search_commands, "Ctrl+K")
+        self._action(help_menu, "Tasten hier a&nsagen", self.announce_keys, "Ctrl+F1")
         self._action(help_menu, "&Letzte Meldung wiederholen", announcer.repeat_last,
                      "Ctrl+Shift+M")
         self._action(help_menu, "&Meldungen …", self.show_messages, "Ctrl+Shift+L")
@@ -600,6 +610,14 @@ class MainWindow(QMainWindow):
         if not entries:
             return
         menu = AccessibleMenu("Aktionen", self)
+        # Wunsch des Nutzers (07.10.2026): bei einem ausgeklappten Projekt zuerst die
+        # Schnellnavigation als Untermenü
+        target, item_id = self.project_list.current_target()
+        expanded = self.project_list.expanded_project_id
+        if expanded is not None and item_id == expanded and target is not Target.COLLECTION:
+            from cockpit.ui.quick_nav import quick_menu
+            menu.addMenu(quick_menu(self, expanded))
+            menu.addSeparator()
         chosen: dict[QAction, ActionEntry] = {}
         for entry in entries:
             chosen[menu.addAction(entry.label.replace("&", "&&"))] = entry
@@ -644,6 +662,19 @@ class MainWindow(QMainWindow):
             announce("Grundeinstellungen gespeichert.")
             if self.services.settings.load().projects_root != old_root:
                 self.rescan()
+
+    def search_commands(self) -> None:
+        from cockpit.ui.quick_nav import search_commands
+        search_commands(self)
+
+    def announce_keys(self) -> None:
+        from cockpit.ui.quick_nav import announce_hint
+        announce_hint(self)
+
+    def _update_hint(self) -> None:
+        """Tooltip der Projektliste: welche Tasten auf der markierten Zeile etwas tun."""
+        from cockpit.ui.quick_nav import key_hint
+        self.project_list.setToolTip(key_hint(self.project_list, self))
 
     def show_shortcuts(self) -> None:
         TextDialog("Tastenkürzel", SHORTCUTS, "Liste der Tastenkürzel", self).exec()
