@@ -3,7 +3,7 @@
 Stand 07.10.2026. Grundlage ist dein Wunschzettel mit den Punkten 1 bis 8. Ich habe dafür den
 Code an den betroffenen Stellen gelesen. Fragen an dich stehen ganz unten.
 
-## 0. Was noch offen ist: die neue Projektliste (Branch projektliste-neu)
+## 0. Erledigt: die neue Projektliste (in main seit dem 07.10.2026)
 
 Die Schritte 1 bis 3 sind fertig, aber noch nicht committet:
 
@@ -294,8 +294,7 @@ vielleicht schon. Man macht es mit einem neuen Commit rückgängig, der das Gege
 
 ## Fragen an dich
 
-1. Soll ich projektliste-neu zuerst fertig machen und überführen, bevor die neuen Branches
-   beginnen?
+1. Erledigt (Antwort vom 07.10.2026): projektliste-neu ist fertig und in main überführt.
 2. Version nur, wenn es nach main geht: einverstanden?
 3. Töne: einverstanden mit einem Ton bei Start und Ende und einem leisen Tick alle 10 Sekunden?
    Oder lieber nur bei Start und Ende?
