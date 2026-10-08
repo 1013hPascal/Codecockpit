@@ -40,7 +40,8 @@ def quick_menu(window: "MainWindow", project_id: int) -> AccessibleMenu:
     project = window.services.projects.get(project_id)
     name = project.name if project is not None else ""
     menu = AccessibleMenu(f"&Schnellnavigation {name}".strip(), window)
-    menu.addAction("&Hilfe, mit der KI chatten …").triggered.connect(window.open_ai_help)
+    menu.addAction("&Hilfe, Kurzanleitungen und KI fragen …").triggered.connect(
+        window.open_help)
     menu.addAction("&Tastenbefehle …").triggered.connect(window.show_shortcuts)
     for text, target, action_id in QUICK_TARGETS:
         menu.addAction(text).triggered.connect(

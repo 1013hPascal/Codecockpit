@@ -57,6 +57,7 @@ Inhalt:
 - [ ] Projektsammlungen in der Projektliste (Wunsch vom 29.09.2026, gebaut am 29.09.2026, Checkliste checklisten\sammlungen.md)
 - [ ] Phase 15: Weitere KI-Adapter: Azure OpenAI, Anthropic, Gemini
 - [ ] Phase 16: Weitere Plattform-Adapter: GitLab und Azure DevOps
+- [ ] Hilfe mit Kurzanleitungen: F1, Suchen, KI fragen, 32 Anleitungen mit Tasten (Wunsch vom 07.10.2026, Checkliste checklisten\hilfe-anleitungen.md)
 - [ ] Schnellnavigation im Kontextmenü, Befehlssuche mit Strg+K, Tastenhinweise mit Strg+F1 (Wunsch vom 07.10.2026, Checkliste checklisten\schnellnavigation.md)
 - [ ] Verlauf: Versionen mit ihren Commits, Zu einer Version zurück, Hochladeverlauf je Branch (Wunsch vom 07.10.2026, Checkliste checklisten\verlauf.md)
 - [ ] Filter über den Projekten, Pull Requests und Reviews in der Zeile, Zeichen für Offenes (Wunsch vom 07.10.2026, Checkliste checklisten\listenfilter.md)
