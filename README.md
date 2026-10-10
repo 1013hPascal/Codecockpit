@@ -49,20 +49,27 @@ python main.py
 
 ## Änderungen
 
-### 1.1.15 (03.10.2026)
+### 1.1.22 (10.10.2026)
 
-- Version 1.1.15
-- TODO: seltener Qt-Absturz auch in test_exe_ki_und_branches
-- Update-Suche findet auch CodeCockpit.zip am Release und holt die Exe daraus
+- Nacharbeit nach Überprüfung und Gesamttest
+- Hilfe mit Kurzanleitungen: F1, Suchen, KI fragen
+- ENTSCHEIDUNGEN: Satz zu Strg+F1 berichtigt
+- Schnellnavigation, Befehlssuche mit Strg+K, Tastenhinweise mit Strg+F1
+- Verlauf: Versionen mit Commits, Zu einer Version zurück, Hochladeverlauf
+- Filter über den Projekten, Pull Requests und Reviews in der Zeile, Zeichen für Offenes
+- KI schneller: Starttest, Budget je Aufgabe, Stufen im Menü KI
+- Konzept: Antworten des Nutzers auf die Fragen 2 bis 7
+- Hochladen: Versionsfrage nur auf main, README-Vorschlag mit Tab, Schritte, Töne
+- Konzept: Frage 1 beantwortet
 
-### 1.1.14 (03.10.2026)
+### 1.1.21 (04.10.2026)
 
--
+- Version 1.1.21
+- Exe-Einstellungen
 
-### 1.1.13 (03.10.2026)
+### 1.1.20 (04.10.2026)
 
-- Version 1.1.13
-- Einrichtung schlägt keine Ordner neben der Exe mehr vor, die .spec schon einpackt; eigene .spec behält ihre Startdatei
+- Große korrektur bei exe erstellen und readme
 
 ## Windows-Warnungen
 
