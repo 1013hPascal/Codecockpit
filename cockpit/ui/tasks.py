@@ -23,6 +23,8 @@ class Task(QThread):
     error = Signal(str, str)          # einfacher Text, Details
     cancelled = Signal()
 
+    _running: set["Task"] = set()          # alle laufenden Aufgaben, für wait_all
+
     def __init__(self, fn: Callable[["Task"], object], parent=None) -> None:
         super().__init__(parent)
         self._fn = fn
@@ -30,6 +32,29 @@ class Task(QThread):
 
     def cancel(self) -> None:
         self.cancel_event.set()
+
+    @classmethod
+    def wait_all(cls, timeout_ms: int = 20000) -> None:
+        """Alle laufenden Aufgaben abbrechen und auf sie warten, zum Beispiel bevor die
+        Datenbank geschlossen wird (Überprüfung vom 08.10.2026: Eine Standabfrage lief noch, als
+        ein Test die Datenbank schloss, und der nächste Test brach ab)."""
+        from PySide6.QtCore import QCoreApplication
+        app = QCoreApplication.instance()
+        for _round in range(10):
+            for task in list(cls._running):
+                task.cancel()
+                task.wait(timeout_ms)
+            # Ergebnisse und "fertig" noch zustellen, solange die Empfänger leben. Dabei kann
+            # eine wartende Abfrage starten, deshalb mehrere Runden.
+            if app is not None:
+                app.processEvents()
+            if not cls._running:
+                break
+
+    def start(self, *args) -> None:
+        Task._running.add(self)              # schon beim Starten, nicht erst im Thread
+        self.finished.connect(lambda: Task._running.discard(self))
+        super().start(*args)
 
     def run(self) -> None:
         try:

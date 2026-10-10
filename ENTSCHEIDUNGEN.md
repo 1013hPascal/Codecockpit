@@ -1140,3 +1140,14 @@ Was beim Schreiben der Anleitungen auffiel (Vorschläge, noch nicht gebaut):
 - Reviews, die auf Sie warten, findet man nur über „Pull Requests …“ beim Main-Branch. Ein Eintrag „Reviews für mich …“ wäre direkter.
 - Der Starttest der KI misst nur beim Start. Nach „KI verknüpfen“ wäre ein Knopf „Jetzt messen“ im Fenster „KI einstellen“ hilfreich.
 - Strg+F1 und Strg+K wirken nur im Hauptfenster, nicht in anderen Fenstern.
+
+
+## 08.10.2026: Überprüfung und Gesamttest nach den Branches vom 07.10.2026
+
+Wunsch des Nutzers: Überprüfung und ganzer Testlauf vor n8n und E-Mail. Gebaut im Branch nacharbeit, Checkliste in checklisten\nacharbeit.md.
+
+- Gefunden im Gesamttest: Der Testlauf brach bei Test 857 von 1026 ohne Meldung ab (Code 127). Ursache: Nach einem Test lief im Hintergrund noch eine Standabfrage, und ihre letzten Nachrichten kamen erst an, als das Fenster schon abgebaut war. Seit dem 06.10.2026 liest die Standabfrage auch die Branches auf GitHub und dauert deshalb etwas länger. Das Cockpit merkt sich jetzt jede laufende Hintergrundaufgabe schon beim Start (Task.wait_all). Die Tests warten darauf, bevor sie die Datenbank schließen. Im Programm selbst wartet das Hauptfenster beim Schließen wie bisher.
+- Gefunden in der Überprüfung: Der Filter „Mit Release“ durchsuchte bei jeder Standabfrage alle Release-Ordner mit allen Unterordnern nach Exe-Dateien. Bei Programmordnern mit tausenden Dateien bremst das. Jetzt sucht er höchstens zwei Ebenen tief, und eine Release-Zeile sucht ihre Exe oben und eine Ebene tiefer.
+- Im README-Vorschlag beim Hochladen löste Enter im nur lesbaren Text die Vorgabe „Überspringen“ aus. Wer beim Lesen versehentlich Enter drückte, verlor den Vorschlag. Jetzt tut Enter im Text nichts, wie in den anderen Ausgabefeldern.
+- Lief im Hilfefenster gerade eine Frage an die KI, während das Cockpit beendet wurde, konnte Qt beim Beenden abstürzen. Das Hilfefenster wird jetzt beim Beenden mit geschlossen und wartet auf die Antwort oder bricht sie ab.
+- Hinweis ohne Änderung: Der Starttest der KI startet bei jedem Start Ollama und lädt das Modell, auch wenn Sie die KI in dieser Sitzung nicht nutzen. Ollama behält es 30 Minuten im Speicher. Wenn das stört, kann der Test seltener laufen, zum Beispiel einmal am Tag.

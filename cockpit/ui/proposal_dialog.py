@@ -58,8 +58,14 @@ class ProposalDialog(FocusDialog):
         announce("Text bearbeitbar.")
 
     def keyPressEvent(self, event) -> None:
-        # Enter auf einem Knopf drückt diesen Knopf, nicht die Vorgabe
-        if self.focusWidget() is not self.edit and click_focused_button(self, event):
+        # Enter auf einem Knopf drückt diesen Knopf, nicht die Vorgabe. Enter im Text tut nichts,
+        # wie in den anderen Ausgabefeldern (Überprüfung vom 08.10.2026: sonst übersprang ein
+        # versehentliches Enter beim Lesen den Vorschlag).
+        if self.focusWidget() is self.edit:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                event.accept()
+                return
+        elif click_focused_button(self, event):
             return
         super().keyPressEvent(event)
 
