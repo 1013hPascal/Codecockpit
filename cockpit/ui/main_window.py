@@ -790,6 +790,8 @@ class MainWindow(QMainWindow):
         self.lock_timer.stop()
         self.controller.wait()
         self.calibrator.stop()
+        if getattr(self, "help_window", None) is not None:
+            self.help_window.close()             # wartet auf eine laufende Frage an die KI
         self.updater.shutdown()
         self.dictation.shutdown()
         for task in (self.status_task, self.remote_task):
@@ -807,8 +809,7 @@ def _has_release(project) -> bool:
     """Liegt in einem Release-Ordner eine Exe? Fehler beim Lesen zählen als nein."""
     from cockpit.core import local_releases
     try:
-        return any(local_releases.release_exe(r) is not None
-                   for r in local_releases.all_releases(project))
+        return local_releases.has_any_exe(project)
     except OSError:
         return False
 

@@ -71,10 +71,22 @@ def find(project: Project, folder: str) -> LocalRelease | None:
 
 
 def release_exe(release: LocalRelease) -> Path | None:
+    """Die neueste Exe im Release-Ordner. Gesucht wird oben und eine Ebene tiefer, nicht im
+    ganzen Programmordner (Überprüfung vom 08.10.2026: in _internal liegen tausende Dateien)."""
     if not release.path.is_dir():
         return None
-    found = [p for p in release.path.rglob("*.exe") if p.is_file()]
+    found = [p for pattern in ("*.exe", "*/*.exe") for p in release.path.glob(pattern)
+             if p.is_file()]
     return max(found, key=lambda p: p.stat().st_mtime) if found else None
+
+
+def has_any_exe(project: Project) -> bool:
+    """Für den Filter „Mit Release“: liegt irgendwo im Ordner Release eine Exe? Schnell, weil es
+    bei jeder Abfrage des Stands läuft: nur bis zwei Ebenen tief."""
+    if not project.has_exe_dir:
+        return False
+    return any(p.is_file() for pattern in ("*.exe", "*/*.exe", "*/*/*.exe")
+               for p in project.exe_dir.glob(pattern) if exe.PENDING not in p.parts)
 
 
 def _day(timestamp: float) -> str:

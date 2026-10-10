@@ -237,6 +237,8 @@ def make_services(tmp_path, projects_root):
         return services
 
     yield factory
+    from cockpit.ui.tasks import Task
+    Task.wait_all()                      # keine Hintergrundarbeit mehr auf der Datenbank
     for services in created:
         services.close()
 
