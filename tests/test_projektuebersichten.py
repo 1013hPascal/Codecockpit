@@ -505,6 +505,50 @@ def test_build_venv_is_short_and_shared_with_the_branch(tmp_path, projects_root,
     (folder / "requirements.txt").write_text("requests==2.32.0\n", encoding="utf-8")
     own = exe.build_venv(project, folder)
     assert own != main_venv and own.name.endswith("-b")           # main bleibt sauber
+    assert len(own.name) <= 40
+
+
+# -- Umgebung übersteht das Umbenennen (Rückmeldung vom 11.10.2026) ---------------------------
+def test_build_venv_survives_renamed_folders(tmp_path, projects_root, make_services):
+    import dataclasses
+    from cockpit.core import exe
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    venv = exe.build_venv(project)
+    venv.mkdir(parents=True)
+    moved = dataclasses.replace(project, code_dir=tmp_path / "anderer" / "Repository",
+                                name="Neuer Name")
+    assert exe.build_venv(moved) == venv                          # gleiche Projektnummer
+
+
+def test_build_venv_takes_over_the_old_path_name(tmp_path, projects_root, make_services):
+    import hashlib
+    from cockpit.core import exe, paths
+    services, project, _other = structured(tmp_path, projects_root, make_services)
+    digest = hashlib.sha1(str(project.code_dir.resolve()).lower().encode()).hexdigest()[:8]
+    old = paths.cache_dir() / "venvs" / f"Tagebuch-{digest}"
+    (old / "Scripts").mkdir(parents=True)
+    venv = exe.build_venv(project)
+    assert venv.name == f"Tagebuch-p{project.id}"
+    assert (venv / "Scripts").is_dir() and not old.exists()
+
+
+def test_prepare_venv_shows_pip_output_and_a_hint(tmp_path, monkeypatch):
+    from cockpit.core import exe
+    venv = fake_venv(tmp_path)
+    monkeypatch.setattr(exe, "_works", lambda python: True)
+    calls = []
+
+    def pip(args, cwd, on_line=None, cancel=None, env=None):
+        calls.append(args)
+        on_line("Requirement already satisfied: altgraph")
+        on_line("Downloading pyside6_webengine-6.12.0.whl (131.7 MB)")
+        return 0
+
+    monkeypatch.setattr(exe, "run_process", pip)
+    lines = []
+    exe.prepare_venv(tmp_path, lines.append, venv=venv)
+    assert "--quiet" not in calls[0]
+    assert lines == [exe.PIP_HINT, "Downloading pyside6_webengine-6.12.0.whl (131.7 MB)"]
 
 
 def fake_venv(tmp_path):

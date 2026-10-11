@@ -548,18 +548,38 @@ def build_venv(project: Project, code_dir: Path | None = None) -> Path:
     %LOCALAPPDATA%\\CodeCockpit\\venvs, nicht im Projektordner. Sonst wird der Pfad bei tief
     liegenden Projekten mit Bibliotheken wie PySide6 länger als Windows erlaubt.
     Ein Branch nutzt die Umgebung von main mit, wenn seine requirements.txt gleich ist. Sonst
-    bekommt er eine eigene, damit main sauber bleibt."""
+    bekommt er eine eigene, damit main sauber bleibt.
+    Seit dem 11.10.2026 hängt der Name an der Nummer des Projekts, nicht mehr am Pfad. Vorher
+    bekam ein Projekt nach dem Umbenennen eines Ordners eine neue, leere Umgebung, und Schritt 1
+    lud alle Bibliotheken neu herunter (Rückmeldung des Nutzers). Eine Umgebung mit dem alten
+    Namen für den jetzigen Pfad wird einmal umbenannt und weiter benutzt."""
     main = project.code_dir
     code_dir = code_dir or main
-    key = str(main.resolve()).lower()
-    suffix = ""
+    old_key = str(main.resolve()).lower()
+    marker = f"-p{project.id}"
+    old_suffix = ""
     if code_dir.resolve() != main.resolve() and \
             _requirements_text(code_dir) != _requirements_text(main):
-        key += "|" + code_dir.name.lower()
-        suffix = "-b"
+        old_key += "|" + code_dir.name.lower()
+        old_suffix = "-b"
+        branch = hashlib.sha1(code_dir.name.lower().encode("utf-8")).hexdigest()[:6]
+        marker += f"-{branch}-b"
+    root = paths.cache_dir() / "venvs"
+    # Schon vorhanden, vielleicht unter einem früheren Projektnamen
+    found = sorted(root.glob(f"*{marker}")) if root.is_dir() else []
+    if found:
+        return found[0]
     name = re.sub(r"[^A-Za-z0-9_-]", "", project.name)[:20] or "Projekt"
-    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:8]
-    return paths.cache_dir() / "venvs" / f"{name}-{digest}{suffix}"
+    venv = root / f"{name}{marker}"
+    old_digest = hashlib.sha1(old_key.encode("utf-8")).hexdigest()[:8]
+    old = root / f"{name}-{old_digest}{old_suffix}"
+    if old.is_dir():
+        try:
+            old.rename(venv)
+        except OSError as exc:
+            log.warning("Umgebung %s nicht umbenannt: %s", old.name, exc)
+            return old
+    return venv
 
 
 def run_process(args: list[str], cwd: Path, on_line: Callable[[str], None] | None = None,
@@ -609,6 +629,11 @@ LONG_PATHS = ("Die Bibliotheken ließen sich nicht installieren, weil ein Pfad l
               "Windows erlaubt. Abhilfe: lange Pfade in Windows einschalten.")
 
 
+PIP_HINT = ("Die Bibliotheken werden geprüft und, wenn nötig, heruntergeladen. Beim ersten Mal "
+            "kann das über 10 Minuten dauern, auch wenn eine Weile nichts Neues erscheint.")
+QUIET_PIP = ("Requirement already satisfied", "Using cached")
+
+
 def _works(python: Path) -> bool:
     """Startet das Python der Umgebung? Nach einem Wechsel der Python-Version nicht mehr."""
     try:
@@ -639,16 +664,21 @@ def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = 
     if git.is_repo(code_dir) and venv.parent == code_dir:
         safety_check.ensure_gitignore(code_dir)          # .venv nie hochladen
     packages = ["pyinstaller"]
-    args = [str(python), "-m", "pip", "install", "--quiet", "--progress-bar", "off"]
+    # Ohne --quiet (Rückmeldung des Nutzers vom 11.10.2026): Beim ersten Mal lädt pip oft
+    # mehrere hundert MB. Mit --quiet stand minutenlang nichts da, es sah aus wie ein Fehler.
+    args = [str(python), "-m", "pip", "install", "--progress-bar", "off"]
     if (code_dir / "requirements.txt").is_file():
         args += ["-r", "requirements.txt"]
     output: list[str] = []
 
     def line(text: str) -> None:
         output.append(text)
-        if on_line is not None:
+        # Was schon da ist, nicht bei jedem Bau einzeln auflisten
+        if on_line is not None and not text.lstrip().startswith(QUIET_PIP):
             on_line(text)
 
+    if on_line is not None:
+        on_line(PIP_HINT)
     if run_process(args + packages, code_dir, line, cancel, env):
         if long_paths.is_long_path_error("\n".join(output)):
             raise CockpitError(LONG_PATHS, "\n".join(output[-5:]))

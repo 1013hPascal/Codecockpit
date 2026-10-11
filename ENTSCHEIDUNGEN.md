@@ -1151,3 +1151,12 @@ Wunsch des Nutzers: Überprüfung und ganzer Testlauf vor n8n und E-Mail. Gebaut
 - Im README-Vorschlag beim Hochladen löste Enter im nur lesbaren Text die Vorgabe „Überspringen“ aus. Wer beim Lesen versehentlich Enter drückte, verlor den Vorschlag. Jetzt tut Enter im Text nichts, wie in den anderen Ausgabefeldern.
 - Lief im Hilfefenster gerade eine Frage an die KI, während das Cockpit beendet wurde, konnte Qt beim Beenden abstürzen. Das Hilfefenster wird jetzt beim Beenden mit geschlossen und wartet auf die Antwort oder bricht sie ab.
 - Hinweis ohne Änderung: Der Starttest der KI startet bei jedem Start Ollama und lädt das Modell, auch wenn Sie die KI in dieser Sitzung nicht nutzen. Ollama behält es 30 Minuten im Speicher. Wenn das stört, kann der Test seltener laufen, zum Beispiel einmal am Tag.
+
+
+## 11.10.2026: Schritt 1 beim Exe-Bau schien hängen zu bleiben
+
+Rückmeldung des Nutzers: Bei VokabelApp und Tagebuch kam der Exe-Bau nicht über Schritt 1 hinaus. Vor dem Umbau ging es.
+
+- Ursache: Der Name der Bau-Umgebung unter %LOCALAPPDATA%\CodeCockpit\venvs hing am Pfad des Code-Ordners. Nach dem Umbenennen von Code in Repository\main bekam jedes Projekt eine neue, leere Umgebung. Schritt 1 lud dann alles neu herunter. PySide6 6.12 bringt inzwischen Pakete von zusammen über 250 MB mit. Weil pip mit --quiet lief, stand minutenlang nichts in der Ausgabe, und der Bau wurde abgebrochen.
+- Der Name der Umgebung hängt jetzt an der Nummer des Projekts, zum Beispiel VokabelApp-p3. Sie übersteht das Umbenennen von Ordnern und Projekt. Eine Umgebung mit dem alten Namen für den jetzigen Pfad wird einmal umbenannt und weiter benutzt.
+- pip läuft ohne --quiet. Vorher steht der Hinweis, dass es beim ersten Mal über 10 Minuten dauern kann. Zeilen über schon vorhandene Pakete werden nicht angezeigt, damit die Ausgabe bei jedem Bau kurz bleibt.

@@ -49,8 +49,17 @@ python main.py
 
 ## Änderungen
 
+### 1.1.24 (11.10.2026)
+
+- Bezeichnungen von Build-Umgebungen unabhängig von Pfaden gestalten
+
+### 1.1.23 (10.10.2026)
+
+- Readme aktualisiert und Versionsnummern korrigiert
+
 ### 1.1.22 (10.10.2026)
 
+- Version 1.1.22
 - Nacharbeit nach Überprüfung und Gesamttest
 - Hilfe mit Kurzanleitungen: F1, Suchen, KI fragen
 - ENTSCHEIDUNGEN: Satz zu Strg+F1 berichtigt
@@ -60,16 +69,6 @@ python main.py
 - KI schneller: Starttest, Budget je Aufgabe, Stufen im Menü KI
 - Konzept: Antworten des Nutzers auf die Fragen 2 bis 7
 - Hochladen: Versionsfrage nur auf main, README-Vorschlag mit Tab, Schritte, Töne
-- Konzept: Frage 1 beantwortet
-
-### 1.1.21 (04.10.2026)
-
-- Version 1.1.21
-- Exe-Einstellungen
-
-### 1.1.20 (04.10.2026)
-
-- Große korrektur bei exe erstellen und readme
 
 ## Windows-Warnungen
 
