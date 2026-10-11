@@ -95,6 +95,11 @@ def merge_into_main(project: Project) -> sync.MergeOutcome:
     main = git.status(code_dir).default_branch or "main"
     if not project.has_branch_folders and git.status(code_dir).branch != main:
         branches.switch(code_dir, main)
+    # Hat der Branch nichts Neues, etwa ein Bau ohne Änderungen, gibt es nichts zu überführen.
+    # Änderungen ohne Commit in main stören dann nicht (Rückmeldung des Nutzers vom 11.10.2026).
+    if git.run(["merge-base", "--is-ancestor", BRANCH, "HEAD"], code_dir,
+               check=False).returncode == 0:
+        return sync.MergeOutcome()
     return branches.merge_into_current(code_dir, project.name, BRANCH)
 
 

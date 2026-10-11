@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from cockpit.core import backups, branches, exe, git, licenses
+from cockpit.core import backups, branches, exe, git, licenses, sync
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.features.exe_build import exe_branch
@@ -332,7 +332,7 @@ def test_build_window_shows_the_next_steps(qtbot, tmp_path, monkeypatch, works):
     built = tmp_path / "Exe" / "Tagebuch_branch_Cockpit-exe-bauen" / "Tagebuch.exe"
 
     def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None,
-                   branch_name=""):
+                   branch_name="", keep_failed=False):
         if not works:
             raise CockpitError("PyInstaller hat die Exe nicht gebaut.")
         return exe.BuildResult(built, branch=branch_name)
@@ -349,9 +349,139 @@ def test_build_window_shows_the_next_steps(qtbot, tmp_path, monkeypatch, works):
                          exe_wizard.MERGE_ONLY_TEXT]
         assert dialog.choice == exe_wizard.TEST_LATER            # Escape: nichts überführen
     else:
-        assert texts == ["Problem mit &KI lösen", "&Neuer Versuch, Exe zu bauen", "&Zurück"]
+        assert texts == ["Problem mit &KI lösen", exe_wizard.CHAT_TEXT,
+                         "&Neuer Versuch, Exe zu bauen", "&Zurück", "Abbrechen"]
         assert dialog.error_text.startswith("PyInstaller hat die Exe nicht gebaut.")
         assert dialog.choice == exe_wizard.CANCEL
+
+
+# -- Trotzdem behalten (Rückmeldung des Nutzers vom 11.10.2026) --------------------------------
+@pytest.mark.parametrize("error", ["", "Die neue Exe ist beim Test mit Fehler beendet worden."])
+def test_build_window_keeps_a_blocked_or_failed_exe(qtbot, tmp_path, monkeypatch, error):
+    """Windows-Sicherheit blockierte den Test. Die Exe ließ sich im Ergebnis nicht behalten."""
+    from cockpit.core.projects import Project
+    project = Project(1, "Tagebuch", tmp_path, tmp_path / "Code", tmp_path / "Exe")
+    (tmp_path / "Exe").mkdir()
+    work = tmp_path / "work"
+    built = work / "dist" / "Tagebuch"
+    fake_exe(built)
+    calls = []
+
+    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None,
+                   branch_name="", keep_failed=False):
+        calls.append(keep_failed)
+        return exe.BuildResult(built / "Tagebuch.exe", untested=True, built=built, work=work,
+                               branch=branch_name, test_error=error)
+
+    monkeypatch.setattr(exe, "build", fake_build)
+    dialog = exe_wizard.WizardBuildDialog(None, project, exe.BuildSettings("main.py", "Tagebuch"),
+                                          tmp_path / "Code", with_ai=False)
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: not dialog.running and bool(dialog.result_buttons), timeout=5000)
+    assert calls == [True]
+    texts = [b.text() for b in dialog.result_buttons]
+    assert texts == ["Trotzdem &behalten", "&Neuer Versuch, Exe zu bauen", "&Zurück",
+                     "Abbrechen"]
+    assert dialog.result_buttons[0].isDefault()
+    last = dialog.output.item(dialog.output.count() - 1).text()
+    assert ("nicht bestanden" in last) if error else ("Windows hat den Test blockiert" in last)
+    dialog.result_buttons[0].click()
+    home = tmp_path / "Exe" / exe.branch_exe_name("Tagebuch", exe_branch.BRANCH)
+    assert (home / "Tagebuch.exe").read_text() == "neu" and not work.exists()
+    assert [b.text() for b in dialog.result_buttons] == [
+        exe_wizard.TEST_LATER_TEXT, exe_wizard.MERGE_PUBLISH_TEXT, exe_wizard.MERGE_ONLY_TEXT]
+    assert dialog.output.item(dialog.output.count() - 1).text().startswith(
+        "Exe behalten, nicht geprüft")
+
+
+def test_build_window_discards_an_exe_not_kept(qtbot, tmp_path, monkeypatch):
+    from cockpit.core.projects import Project
+    project = Project(1, "Tagebuch", tmp_path, tmp_path / "Code", tmp_path / "Exe")
+    work = tmp_path / "work"
+    built = work / "dist" / "Tagebuch"
+    fake_exe(built)
+    monkeypatch.setattr(exe, "build", lambda *a, **kw: exe.BuildResult(
+        built / "Tagebuch.exe", untested=True, built=built, work=work, branch="x"))
+    dialog = exe_wizard.WizardBuildDialog(None, project, exe.BuildSettings("main.py", "Tagebuch"),
+                                          tmp_path / "Code", with_ai=False)
+    qtbot.addWidget(dialog)
+    qtbot.waitUntil(lambda: not dialog.running and bool(dialog.result_buttons), timeout=5000)
+    dialog.result_buttons[-1].click()                                  # Abbrechen
+    assert dialog.choice == exe_wizard.CANCEL and not work.exists()
+
+
+def test_build_keeps_a_failed_exe_only_when_asked(tmp_path, projects_root, make_services,
+                                                  monkeypatch):
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None: "py")
+    monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,
+                        cancel: fake_exe(work / "dist" / "Tagebuch", "Tagebuch.exe"))
+
+    def failing(path, seconds, self_test, cancel, windowed=False):
+        raise CockpitError("Test nicht bestanden.", "Ausgabe")
+
+    monkeypatch.setattr(exe, "start_test", failing)
+    settings = exe.BuildSettings("main.py", "Tagebuch")
+    with pytest.raises(CockpitError):
+        exe.build(project, settings, lambda s: None, lambda s: None)
+    result = exe.build(project, settings, lambda s: None, lambda s: None, keep_failed=True)
+    assert result.untested and result.test_error == "Test nicht bestanden."
+    assert result.test_details == "Ausgabe" and result.built.exists()
+    exe.discard(result)
+
+
+def test_blocked_message_window_counts_as_blocked(tmp_path, monkeypatch):
+    """Windows-Sicherheit zeigte ein Fenster: Ein Teil der App wurde blockiert."""
+    import subprocess
+    import sys
+    script = tmp_path / "laeuft.py"
+    script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+    real = subprocess.Popen
+    monkeypatch.setattr(exe, "error_window_text", lambda pid: "Intelligente App-Steuerung hat "
+                        "einen Teil dieser App blockiert.")
+    monkeypatch.setattr(exe.subprocess, "Popen",
+                        lambda args, **kw: real([sys.executable, str(script)], **kw))
+    with pytest.raises(exe.BlockedByWindows):
+        exe.start_test(tmp_path / "Tagebuch.exe", seconds=5, windowed=True)
+    assert not exe.looks_blocked("Unhandled exception in script")
+
+
+def test_merge_without_new_commits_ignores_open_changes(tmp_path, projects_root, make_services):
+    """Der Branch hatte nichts Neues, das Überführen scheiterte an Änderungen ohne Commit."""
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    exe_branch.prepare(project)
+    (project.code_dir / "main.py").write_text("print(2)\n", encoding="utf-8")
+    outcome = exe_branch.merge_into_main(project)
+    assert outcome.kind is sync.ConflictKind.NONE
+    assert (project.code_dir / "main.py").read_text(encoding="utf-8") == "print(2)\n"
+
+
+# -- In main überführen auf den Zeilen des Branches (Wunsch des Nutzers vom 11.10.2026) ---------
+def test_finish_is_offered_on_the_branch_and_release_rows(qtbot, tmp_path, projects_root,
+                                                          make_services, monkeypatch):
+    from cockpit.core import local_releases, worktrees
+    from cockpit.core.actions import entries_for
+    services, project = folders_project(tmp_path, projects_root, make_services)
+    win = window(qtbot, services)
+    actions = win.controller.exe
+    monkeypatch.setattr(exe_flow.ExeActions, "_building", lambda self, c: True)
+    exe_branch.prepare(project)
+    fake_exe(project.exe_dir / exe.branch_exe_name("Tagebuch", exe_branch.BRANCH))
+    tree = next(t for t in worktrees.list_worktrees(project) if t.branch == exe_branch.BRANCH)
+    branch_row = ActionContext(services, project, Target.CODE, worktree=tree,
+                               main_project=project)
+    release_row = ActionContext(services, project, Target.RELEASE, main_project=project,
+                                release=local_releases.find(project, exe_branch.BRANCH))
+    main_row = ActionContext(services, project, Target.CODE)
+    for context in (branch_row, release_row):
+        texts = [e.text for e in entries_for(actions.actions(), context)]
+        assert exe_flow.FINISH_HERE in texts
+    assert exe_flow.FINISH_HERE not in [e.text for e in entries_for(actions.actions(), main_row)]
+    chosen = []
+    monkeypatch.setattr(exe_flow, "choose_from_list", lambda parent, title, text, options:
+                        chosen.append(options) and None)
+    actions.finish_here(branch_row)
+    assert chosen[0][0] == exe_flow.MERGE_PUBLISH
 
 
 def test_merge_branch_makes_the_branch_exe_the_normal_one(qtbot, tmp_path, projects_root,

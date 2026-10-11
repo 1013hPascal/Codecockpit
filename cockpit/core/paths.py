@@ -61,11 +61,13 @@ def resource_dir() -> Path:
 def default_projects_root() -> Path:
     """Vorschlag für den Projekte-Hauptordner.
 
-    Liegt das Cockpit selbst im Aufbau <Hauptordner>\\<Projekt>\\Code (oder \\Exe), ist das der
-    Hauptordner. Sonst Dokumente\\GitHub."""
+    Liegt das Cockpit selbst im Aufbau <Hauptordner>\\<Projekt>\\Repository (oder \\Release), ist
+    das der Hauptordner. Sonst Dokumente\\GitHub. Code und Exe sind die früheren Namen."""
     here = program_dir()
-    if here.parent.name.lower() == "code" and here.parent.parent.parent != here.parent.parent:
+    if here.parent.name.lower() in ("code", "repository") and \
+            here.parent.parent.parent != here.parent.parent:
         return here.parent.parent.parent          # Repository\main oder ein Branch-Ordner (10f)
-    if here.name.lower() in ("code", "exe") and here.parent.parent != here.parent:
+    if here.name.lower() in ("code", "exe", "repository", "release") and \
+            here.parent.parent != here.parent:
         return here.parent.parent
     return Path.home() / "Documents" / "GitHub"

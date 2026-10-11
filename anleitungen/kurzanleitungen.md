@@ -220,6 +220,15 @@ Schritt 2: Drücken Sie Tab und wählen Sie „Exe aus main erstellen …“.
 Schritt 3: Folgen Sie den Schritten: Dateien neben der Exe, mit oder ohne KI, Zusammenfassung, Bau.
 Schritt 4: Am Ende testen Sie die Exe und übernehmen sie in main.
 
+## Exe-Bau abschließen und in main überführen
+Bereich: releases
+Aktionen: finish_exe, finish_exe_branch, finish_exe_release
+Stichwörter: Cockpit-exe-bauen, in main überführen, übernehmen, Branch zu main, Exe-Bau abschließen, verwerfen, trotzdem behalten
+Schritt 1: Gehen Sie auf die Zeile „Cockpit-exe-bauen“ unter Repository oder auf „Exe-Cockpit-exe-bauen“ unter Releases.
+Schritt 2: Drücken Sie Tab und wählen Sie „In main überführen oder verwerfen, Exe-Bau abschließen …“. Auf „Exe-main“ heißt es „Exe-Bau abschließen …“.
+Schritt 3: Wählen Sie „Jetzt in main überführen und Release veröffentlichen“ oder „Jetzt in main überführen, später veröffentlichen“.
+Schritt 4: Das Cockpit überführt den Branch in main, macht seine Exe zur normalen Exe und löscht den Branch. Beide Zeilen verschwinden dann.
+
 ## Release für einen Branch erstellen
 Bereich: releases
 Aktionen: create_release

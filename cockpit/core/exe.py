@@ -64,6 +64,15 @@ def is_blocked(exc: OSError) -> bool:
     return getattr(exc, "winerror", None) in BLOCKED_ERRORS
 
 
+BLOCKED_WORDS = ("blockiert", "blocked", "app-steuerung", "app control", "anwendungssteuerung")
+
+
+def looks_blocked(text: str) -> bool:
+    """Meldet das Fenster der Exe, dass Windows sie oder einen Teil davon blockiert?"""
+    lowered = text.lower()
+    return any(word in lowered for word in BLOCKED_WORDS)
+
+
 LOCKED = ("Die bisherige Exe lässt sich nicht verschieben. Läuft sie gerade? Bitte schließen Sie "
           "das Programm und versuchen Sie es noch einmal.")
 
@@ -770,6 +779,9 @@ class BuildResult:
     commit: str = ""
     branch: str = ""                    # Exe aus einem Branch-Ordner (Phase 10f): sein Name
     placed: list[str] = field(default_factory=list)   # neu neben die Exe gelegte Ordner (10g)
+    # bei untested mit keep_failed: Der Test ist nicht bestanden, Meldung und Details dazu
+    test_error: str = ""
+    test_details: str = ""
 
 
 def pyinstaller_build(code_dir: Path, python: Path, spec: Path, work: Path, on_line=None,
@@ -842,6 +854,9 @@ def start_test(exe: Path, seconds: int = 10, self_test: bool = False,
                 # läuft dann weiter. Das zählt nicht als bestanden (Rückmeldung vom 02.10.2026).
                 next_look = time.monotonic() + 1
                 shown = error_window_text(process.pid)
+                if shown and looks_blocked(shown):
+                    # Windows-Sicherheit sperrt einen Teil der Exe (Rückmeldung vom 11.10.2026)
+                    raise BlockedByWindows(BLOCKED + " Die bisherige Exe bleibt.", shown)
                 if shown:
                     raise CockpitError("Die neue Exe zeigt beim Start eine Fehlermeldung. Die "
                                        "bisherige Exe bleibt.", shown)
@@ -935,11 +950,14 @@ def promote_branch(project: Project, folder: str, commit: str) -> BuildResult:
         backups.remove_tree(work)
 
 
-def install_untested(project: Project, result: BuildResult) -> BuildResult:
-    """Nach dem Ja des Nutzers: die nicht geprüfte Exe übernehmen (Wunsch aus Phase 10)."""
+def install_untested(project: Project, result: BuildResult,
+                     settings: BuildSettings | None = None,
+                     source_dir: Path | None = None) -> BuildResult:
+    """Nach dem Ja des Nutzers: die nicht geprüfte Exe übernehmen (Wunsch aus Phase 10).
+    settings und source_dir bei einer Exe aus einem Branch, wie bei install_branch."""
     try:
         if result.branch:
-            return install_branch(project, result.built, result.branch)
+            return install_branch(project, result.built, result.branch, settings, source_dir)
         return install(project, result.built, result.commit, tested=False)
     finally:
         discard(result)
@@ -993,11 +1011,15 @@ def discard(result: BuildResult) -> None:
 
 def build(project: Project, settings: BuildSettings, on_status: Callable[[str], None],
           on_line: Callable[[str], None], cancel: threading.Event | None = None,
-          branch_dir: Path | None = None, branch_name: str = "") -> BuildResult:
+          branch_dir: Path | None = None, branch_name: str = "",
+          keep_failed: bool = False) -> BuildResult:
     """Der ganze Ablauf, blockiert. on_status bekommt "Schritt 1 von 4: …".
     branch_dir: aus diesem Branch-Ordner bauen (Phase 10f). Die Exe heißt dann
     <Name>_branch_<Ordner>.exe und kommt neben die normale. branch_name ersetzt den Ordner im
-    Namen, zum Beispiel wenn der Ordner Repository selbst auf dem Branch steht."""
+    Namen, zum Beispiel wenn der Ordner Repository selbst auf dem Branch steht.
+    keep_failed: Besteht die Exe den Test nicht, kein Fehler, sondern ein Ergebnis mit untested
+    und test_error. Der Nutzer entscheidet dann, ob er sie trotzdem behält (Wunsch des Nutzers
+    vom 11.10.2026)."""
     code_dir = branch_dir or project.code_dir
     folder = (branch_name or branch_dir.name) if branch_dir is not None else ""
 
@@ -1022,6 +1044,13 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
             keep = True
             return BuildResult(exe_in(built), untested=True, built=built, work=work,
                                commit=commit, branch=folder)
+        except CockpitError as exc:
+            if not keep_failed:
+                raise
+            keep = True
+            return BuildResult(exe_in(built), untested=True, built=built, work=work,
+                               commit=commit, branch=folder, test_error=exc.message,
+                               test_details=exc.details)
         step(4)
         if folder:
             return install_branch(project, built, folder, settings, code_dir)

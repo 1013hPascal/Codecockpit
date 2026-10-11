@@ -288,6 +288,9 @@ def offer_long_paths(parent: QWidget) -> bool:
 class BuildDialog(FocusDialog):
     """Bau im Hintergrund mit Ausgabe. result nach dem Ende: BuildResult oder None."""
 
+    # Besteht die Exe den Test nicht, bleibt sie zur Auswahl (WizardBuildDialog)
+    keep_failed = False
+
     def __init__(self, services, project: Project, settings: exe.BuildSettings,
                  parent: QWidget | None = None, branch_dir: Path | None = None,
                  branch_name: str = "") -> None:
@@ -318,9 +321,11 @@ class BuildDialog(FocusDialog):
         self.resize(820, 560)
         self.initial_focus_widget = self.output
 
+        extra = {"keep_failed": True} if self.keep_failed else {}
+
         def work(task: Task):
             return exe.build(project, settings, task.status.emit, task.status.emit,
-                             task.cancel_event, branch_dir, branch_name)
+                             task.cancel_event, branch_dir, branch_name, **extra)
 
         self.task: Task | None = Task(work, self)
         self.task.status.connect(self.add_line)
@@ -513,6 +518,7 @@ ADOPT_ONLY = "Exe als normale Exe übernehmen, später veröffentlichen"
 DISCARD_EXE = "Exe aus dem Branch verwerfen …"
 PICK_BRANCH = "Exe aus dem Branch Cockpit-exe-bauen, die neuere"
 PICK_NORMAL = "Normale Exe"
+FINISH_HERE = "In main überführen oder verwerfen, Exe-Bau abschließen …"
 
 
 def download_links(release, asset) -> list[tuple[str, str]]:
@@ -620,7 +626,26 @@ class ExeActions:
                    visible=lambda c: c.project is not None, order=95),
             Action("build_branch_exe", "Exe aus diesem Branch erstellen …", Target.CODE,
                    self.build_branch, visible=self._branch_building, order=92),
+            # Wunsch des Nutzers (11.10.2026): auch dort, wo der Branch Cockpit-exe-bauen und
+            # seine Exe stehen, nicht nur bei Exe-main
+            Action("finish_exe_branch", FINISH_HERE, Target.CODE, self.finish_here,
+                   visible=self._exe_branch_row, order=1),
+            Action("finish_exe_release", FINISH_HERE, Target.RELEASE, self.finish_here,
+                   visible=self._exe_branch_row, order=1),
         ]
+
+    def _exe_branch_row(self, context: ActionContext) -> bool:
+        """Zeile des Branches Cockpit-exe-bauen unter Repository oder sein Release."""
+        from cockpit.features.exe_build import exe_branch
+        main = context.main_project
+        if main is None:
+            return False
+        here = (context.worktree is not None and context.worktree.branch == exe_branch.BRANCH) \
+            or (context.release is not None and context.release.folder == exe_branch.BRANCH)
+        return here and self._branch_open(ActionContext(self.services, main, Target.EXE))
+
+    def finish_here(self, context: ActionContext) -> None:
+        self.finish_menu(ActionContext(self.services, context.main_project, Target.EXE))
 
     def _branch_building(self, context: ActionContext) -> bool:
         """Nur in einem Branch-Ordner, wenn der Haupt-Branch eine Exe baut (Phase 10f)."""

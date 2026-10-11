@@ -1160,3 +1160,13 @@ Rückmeldung des Nutzers: Bei VokabelApp und Tagebuch kam der Exe-Bau nicht übe
 - Ursache: Der Name der Bau-Umgebung unter %LOCALAPPDATA%\CodeCockpit\venvs hing am Pfad des Code-Ordners. Nach dem Umbenennen von Code in Repository\main bekam jedes Projekt eine neue, leere Umgebung. Schritt 1 lud dann alles neu herunter. PySide6 6.12 bringt inzwischen Pakete von zusammen über 250 MB mit. Weil pip mit --quiet lief, stand minutenlang nichts in der Ausgabe, und der Bau wurde abgebrochen.
 - Der Name der Umgebung hängt jetzt an der Nummer des Projekts, zum Beispiel VokabelApp-p3. Sie übersteht das Umbenennen von Ordnern und Projekt. Eine Umgebung mit dem alten Namen für den jetzigen Pfad wird einmal umbenannt und weiter benutzt.
 - pip läuft ohne --quiet. Vorher steht der Hinweis, dass es beim ersten Mal über 10 Minuten dauern kann. Zeilen über schon vorhandene Pakete werden nicht angezeigt, damit die Ausgabe bei jedem Bau kurz bleibt.
+
+## 11.10.2026: Blockierte Exe behalten und Exe-Bau auf den Branch-Zeilen abschließen
+
+Rückmeldung des Nutzers: Windows-Sicherheit blockierte die neue Exe. Im Ergebnis ließ sie sich nicht behalten. Außerdem war unklar, wie der Branch Cockpit-exe-bauen unter Repository und Releases zu main kommt, dort stand nur Hochladen.
+
+- Im Schritt Ergebnis gilt eine Exe, die gebaut ist, aber den Test nicht besteht oder von Windows blockiert wird, nicht mehr als Fehler ohne Ausweg. Die Knöpfe sind dann: Trotzdem behalten (Vorgabe), Problem mit KI lösen, Mit KI chatten (beide nur mit KI), Neuer Versuch, Zurück, Abbrechen. Nach Trotzdem behalten kommen dieselben Knöpfe wie bei Erfolg. Wer nicht behält, dessen Exe wird gelöscht.
+- Ein Meldungsfenster der Exe mit Wörtern wie blockiert oder App-Steuerung zählt jetzt als Sperre durch Windows, nicht als Absturz.
+- Außerhalb des Assistenten bleibt es, wie es war: Ein nicht bestandener Test ist ein Fehler, bei einer Sperre fragt das Cockpit wie bisher.
+- Auf der Zeile Cockpit-exe-bauen unter Repository und auf Exe-Cockpit-exe-bauen unter Releases steht jetzt oben In main überführen oder verwerfen, Exe-Bau abschließen. Es öffnet dieselbe Auswahl wie Exe-Bau abschließen auf Exe-main.
+- Neue Kurzanleitung: Exe-Bau abschließen und in main überführen.

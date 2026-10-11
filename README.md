@@ -49,6 +49,10 @@ python main.py
 
 ## Änderungen
 
+### 1.1.25 (11.10.2026)
+
+- Fehlerbehebung beim Erstellen von Exe-Dateien für VokabelApp und Tagebuch
+
 ### 1.1.24 (11.10.2026)
 
 - Bezeichnungen von Build-Umgebungen unabhängig von Pfaden gestalten
@@ -56,19 +60,6 @@ python main.py
 ### 1.1.23 (10.10.2026)
 
 - Readme aktualisiert und Versionsnummern korrigiert
-
-### 1.1.22 (10.10.2026)
-
-- Version 1.1.22
-- Nacharbeit nach Überprüfung und Gesamttest
-- Hilfe mit Kurzanleitungen: F1, Suchen, KI fragen
-- ENTSCHEIDUNGEN: Satz zu Strg+F1 berichtigt
-- Schnellnavigation, Befehlssuche mit Strg+K, Tastenhinweise mit Strg+F1
-- Verlauf: Versionen mit Commits, Zu einer Version zurück, Hochladeverlauf
-- Filter über den Projekten, Pull Requests und Reviews in der Zeile, Zeichen für Offenes
-- KI schneller: Starttest, Budget je Aufgabe, Stufen im Menü KI
-- Konzept: Antworten des Nutzers auf die Fragen 2 bis 7
-- Hochladen: Versionsfrage nur auf main, README-Vorschlag mit Tab, Schritte, Töne
 
 ## Windows-Warnungen
 

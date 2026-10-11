@@ -10,7 +10,9 @@
    und das Gespräch auf. Weiter heißt "Exe erstellen".
 5. Der Bau mit Ausgabe.
 6. Ergebnis im selben Fenster. Bei einem Fehler: "Problem mit KI lösen" (nur mit KI), "Neuer
-   Versuch, Exe zu bauen", "Zurück", "Abbrechen". Bei Erfolg: "Erst testen …" (öffnet den Ordner
+   Versuch, Exe zu bauen", "Zurück", "Abbrechen". Ist die Exe gebaut, aber der Test nicht
+   bestanden oder von Windows blockiert, zuerst "Trotzdem behalten", mit KI auch "Mit KI
+   chatten". Bei Erfolg: "Erst testen …" (öffnet den Ordner
    der neuen Exe), "Jetzt in main überführen und Release veröffentlichen", "Jetzt in main
    überführen, später veröffentlichen".
 Jeder Schritt hat "Zurück" und "Abbrechen". Abbrechen löscht den Branch wieder, wenn dieser
@@ -281,54 +283,130 @@ class ProblemDialog(StepDialog):
 
 class WizardBuildDialog(BuildDialog):
     """Schritte 5 und 6: der Bau, danach im selben Fenster das Ergebnis mit den Knöpfen für den
-    nächsten Schritt."""
+    nächsten Schritt.
+    Besteht die Exe den Test nicht oder blockiert Windows ihn, ist sie trotzdem gebaut. Dann gibt
+    es "Trotzdem behalten" neben "Problem mit KI lösen", "Mit KI chatten" und "Neuer Versuch"
+    (Wunsch des Nutzers vom 11.10.2026: vorher ließ sich eine von Windows blockierte Exe hier
+    nicht behalten). Nach "Trotzdem behalten" folgen dieselben Knöpfe wie bei Erfolg."""
+
+    keep_failed = True
 
     def __init__(self, services, project: Project, settings: exe.BuildSettings, folder: Path,
                  with_ai: bool, parent: QWidget | None = None) -> None:
         self.choice = CANCEL
         self.with_ai = with_ai
+        self.pending: exe.BuildResult | None = None   # gebaut, Test nicht bestanden
+        self.build_settings = settings
+        self.hints = ""
+        self.chat = None
+        self.result_buttons: list[QPushButton] = []
         super().__init__(services, project, settings, parent, branch_dir=folder,
                          branch_name=exe_branch.BRANCH)
         self.setWindowTitle(step_title(project, 5, "Exe wird gebaut"))
         self.close_button.setVisible(False)
-        self.result_buttons: list[QPushButton] = []
 
-    def _button(self, text: str, choice: str) -> QPushButton:
+    def _button(self, text: str, choice: str | None = None, slot=None) -> QPushButton:
         button = QPushButton(text)
         button.setAutoDefault(False)
-        button.clicked.connect(lambda: self.finish(choice))
+        button.clicked.connect(slot or (lambda: self.finish(choice)))
         self.buttons.insertWidget(self.buttons.count() - 1, button)
         self.result_buttons.append(button)
         return button
 
     def finish(self, choice: str) -> None:
+        if self.chat is not None:
+            self.hints = self.chat.hints()
         self.choice = choice
         self.accept()
+
+    def finished_ok(self, result: exe.BuildResult) -> None:
+        if not result.untested:
+            super().finished_ok(result)
+            return
+        self.pending = result
+        self.failed_build = True
+        if result.test_error:
+            text = f"Die Exe ist gebaut, hat den Test aber nicht bestanden. {result.test_error}"
+            if result.test_details:
+                self.output.addItem(result.test_details)
+        else:
+            text = ("Die Exe ist gebaut, aber Windows hat den Test blockiert. Sie können sie "
+                    "trotzdem behalten und selbst starten.")
+        self.ended(text, urgent=True)
+        output = [self.output.item(r).text() for r in range(self.output.count())]
+        self.error_text = "\n".join(output[-60:])
 
     def after_build(self) -> None:
         self.setWindowTitle(step_title(self.project, 6, "Ergebnis"))
         if self.result is not None and not self.failed_build:
-            first = self._button(TEST_LATER_TEXT, TEST_LATER)
-            self._button(MERGE_PUBLISH_TEXT, MERGE_PUBLISH)
-            self._button(MERGE_ONLY_TEXT, MERGE_ONLY)
-            self.choice = TEST_LATER                  # Escape: nichts überführen, Branch bleibt
-        else:
-            first = self._button("Problem mit &KI lösen", FIX) if self.with_ai else None
-            retry = self._button("&Neuer Versuch, Exe zu bauen", RETRY)
-            self._button("&Zurück", BACK)
-            cancel = QPushButton("Abbrechen")
-            cancel.setAutoDefault(False)
-            cancel.clicked.connect(lambda: self.finish(CANCEL))
-            self.buttons.addWidget(cancel)
-            first = first or retry
-            self.choice = CANCEL
+            self._success_buttons()
+            return
+        first = None
+        if self.pending is not None:
+            first = self._button("Trotzdem &behalten", slot=self.keep)
+        fix = self._button("Problem mit &KI lösen", FIX) if self.with_ai else None
+        if self.with_ai:
+            self._button(CHAT_TEXT, slot=self.open_chat)
+        retry = self._button("&Neuer Versuch, Exe zu bauen", RETRY)
+        self._button("&Zurück", BACK)
+        cancel = self._button("Abbrechen", CANCEL)
+        self.buttons.removeWidget(cancel)
+        self.buttons.addWidget(cancel)                 # Abbrechen immer als letztes
+        self.choice = CANCEL
+        (first or fix or retry).setDefault(True)
+
+    def _success_buttons(self) -> None:
+        first = self._button(TEST_LATER_TEXT, TEST_LATER)
+        self._button(MERGE_PUBLISH_TEXT, MERGE_PUBLISH)
+        self._button(MERGE_ONLY_TEXT, MERGE_ONLY)
+        self.choice = TEST_LATER                      # Escape: nichts überführen, Branch bleibt
         first.setDefault(True)
+
+    def keep(self) -> None:
+        """Die nicht bestandene oder blockierte Exe als Exe des Branches behalten."""
+        pending, self.pending = self.pending, None
+        try:
+            result = exe.install_untested(self.project, pending, self.build_settings,
+                                          self.branch_dir)
+        except CockpitError as exc:
+            self.ended(f"Fehler: {exc.message}", urgent=True)
+            return
+        self.result, self.failed_build = result, False
+        for button in self.result_buttons:
+            self.buttons.removeWidget(button)
+            button.deleteLater()
+        self.result_buttons = []
+        if self.chat is not None:
+            self.chat.setVisible(False)
+        text = (f"Exe behalten, nicht geprüft: Ordner {result.exe.parent.parent.name}\\"
+                f"{result.exe.parent.name}. Bitte starten Sie sie selbst und prüfen Sie sie.")
+        self.ended(text)
+        self._success_buttons()
+        self.result_buttons[0].setFocus()
+
+    def open_chat(self) -> None:
+        from cockpit.ui.exe_chat import ExeChat
+        if self.chat is None:
+            self.chat = ExeChat(self.services, self.project.name, "Die Exe ist gebaut, hat den "
+                                "Test aber nicht bestanden oder Windows hat ihn blockiert. Die "
+                                "Ausgabe steht im Fenster.", self.error_text.splitlines, self)
+            self.layout_.insertWidget(self.layout_.count() - 1, self.chat, 1)
+        self.chat.setVisible(True)
+        self.chat.question.setFocus()
 
     def reject(self) -> None:
         if self.running:
             self.stop()
             return
         FocusDialog.reject(self)
+
+    def done(self, code: int) -> None:
+        if self.chat is not None:
+            self.chat.stop()
+        if self.pending is not None:                   # nicht behalten: aufräumen
+            exe.discard(self.pending)
+            self.pending = None
+        super().done(code)
 
 
 class ExeWizard:
@@ -553,7 +631,7 @@ class ExeWizard:
             return None
         if choice == FIX:
             self.error = dialog.error_text
-            self.hints = ""
+            self.hints = getattr(dialog, "hints", "")  # aus "Mit KI chatten", sonst leer
             return "setup"
         if choice == RETRY:
             return "build"
