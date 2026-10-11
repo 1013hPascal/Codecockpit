@@ -1170,3 +1170,12 @@ Rückmeldung des Nutzers: Windows-Sicherheit blockierte die neue Exe. Im Ergebni
 - Außerhalb des Assistenten bleibt es, wie es war: Ein nicht bestandener Test ist ein Fehler, bei einer Sperre fragt das Cockpit wie bisher.
 - Auf der Zeile Cockpit-exe-bauen unter Repository und auf Exe-Cockpit-exe-bauen unter Releases steht jetzt oben In main überführen oder verwerfen, Exe-Bau abschließen. Es öffnet dieselbe Auswahl wie Exe-Bau abschließen auf Exe-main.
 - Neue Kurzanleitung: Exe-Bau abschließen und in main überführen.
+
+## 11.10.2026: Neue Cockpit-Exe blieb in Release\_neu liegen
+
+Rückmeldung des Nutzers: Nach Neu starten lag ein Ordner _neu im Ordner Release, und es startete wieder die alte Version.
+
+- Ursache: Das Cockpit lief aus Release\CodeCockpit-v1.1.23. Das Austausch-Skript wollte auch diesen Ordner einer veröffentlichten Version in die Sicherheitskopien schieben. Das ging nicht, nach 30 Versuchen gab das Skript auf. Da war der Ordner CodeCockpit schon verschoben, die neue Exe lag noch in _neu, und nichts startete.
+- Versionsordner bleiben jetzt auch beim Neustart liegen, wie schon beim normalen Übernehmen (04.10.2026).
+- Gibt das Skript auf, kommt schon Verschobenes zurück. Es bleibt nichts halb getauscht.
+- Überführen eines Branches ohne eigene Commits braucht keinen sauberen Stand in main mehr. Vorher scheiterte es an Änderungen ohne Commit, obwohl es nichts zu überführen gab.

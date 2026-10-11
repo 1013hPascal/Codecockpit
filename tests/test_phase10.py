@@ -215,6 +215,23 @@ def test_own_exe_waits_for_restart(make_services, projects_root, tmp_path, monke
     assert not exe.read_record(project.code_dir).pending
 
 
+def test_restart_keeps_versions_and_rolls_back(make_services, projects_root, tmp_path,
+                                               monkeypatch):
+    """Rückmeldung vom 11.10.2026: Das Cockpit lief aus Rechner-v1.0.0. Das Skript wollte den
+    Ordner mit verschieben, gab auf, und die neue Exe blieb in Release\\_neu."""
+    services, project = project_with(make_services, projects_root)
+    (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
+    fake_exe(project.exe_dir / "Rechner", "Rechner.exe", "alt")
+    fake_exe(project.exe_dir / "Rechner-v1.0.0", "Rechner.exe", "veröffentlicht")
+    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    script = exe.restart_script(project).read_text(encoding="utf-8")
+    assert "Rechner-v1.0.0" not in script                          # Version bleibt liegen
+    rollback = script.split(":aufgeben", 1)[1]
+    assert f'if not exist "{project.exe_dir / "Rechner"}"' in rollback
+
+
 def test_find_python():
     assert exe.find_python() is not None
 

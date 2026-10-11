@@ -1070,7 +1070,11 @@ def restart_script(project: Project) -> Path:
     if not new_items:
         raise CockpitError("Es wartet keine neue Version.")
     folder = backups.new_backup_dir(project.name, "Exe vor dem Neustart ersetzt", exe_dir)
-    old_items = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)]
+    # Versionen bleiben, wie bei backup_current (Rückmeldung des Nutzers vom 11.10.2026: Das
+    # Cockpit lief aus CodeCockpit-v1.1.23, der Ordner ließ sich nicht verschieben, und die neue
+    # Exe blieb in Release\_neu liegen)
+    old_items = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)
+                 and not is_version_home(p)]
     new_exe = exe_in(new_items[0])
     script = swap_script(exe_dir, old_items, new_items, folder,
                          exe_dir / new_exe.relative_to(pending))
@@ -1113,7 +1117,12 @@ def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], bac
         lines.append(f'start "" "{start}"')
     lines.append('(goto) 2>nul & del "%~f0"')
     lines.append(":aufgeben")
-    # Klappt das Tauschen nicht, startet wenigstens die bisherige Exe wieder, falls sie noch da ist
+    # Klappt das Tauschen nicht, kommt schon Verschobenes zurück. So bleibt nichts halb getauscht,
+    # und die neue Exe wartet weiter in Release\_neu (Rückmeldung des Nutzers vom 11.10.2026)
+    for item in old_items:
+        lines.append(f'if exist "{backup / item.name}" if not exist "{item}" '
+                     f'move /Y "{backup / item.name}" "{item}" >nul 2>nul')
+    # Startet wenigstens die bisherige Exe wieder, falls sie noch da ist
     if start is not None:
         lines.append(f'if exist "{start}" start "" "{start}"')
     lines.append('(goto) 2>nul & del "%~f0"')
