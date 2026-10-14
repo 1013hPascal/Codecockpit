@@ -332,6 +332,9 @@ class WizardBuildDialog(BuildDialog):
         else:
             text = ("Die Exe ist gebaut, aber Windows hat den Test blockiert. Sie können sie "
                     "trotzdem behalten und selbst starten.")
+        # Bericht zum Bau: was geklappt hat, was die Exe meldete, was zu tun ist (14.10.2026)
+        for line in result.report:
+            self.output.addItem(line)
         self.ended(text, urgent=True)
         output = [self.output.item(r).text() for r in range(self.output.count())]
         self.error_text = "\n".join(output[-60:])
@@ -485,11 +488,19 @@ class ExeWizard:
                 exe_branch.commit(folder, ["cockpit.toml", settings.spec_name],
                                   "Exe-Einstellungen")
             saved = exe.read_settings(folder) or settings
+            # Fehlende Bibliotheken gleich im Branch eintragen, sonst fehlen sie in der Exe
+            # (Rückmeldung des Nutzers vom 14.10.2026)
+            added = setup_check.complete_requirements(folder)
+            first = []
+            if added:
+                exe_branch.commit(folder, ["requirements.txt"], "requirements.txt ergänzt")
+                first = [f"requirements.txt ergänzt: {', '.join(added)}. Der Code importiert "
+                         "sie, ohne diese Einträge fehlten sie in der Exe."]
             if ai is None:
-                return folder, None, setup_check.check_for(folder, saved,
-                                                           exe.current_exe(project))
+                return folder, None, first + setup_check.check_for(folder, saved,
+                                                                   exe.current_exe(project))
             return folder, ai_fix.ask(ai, project.name, folder, saved, wish, task.cancel_event,
-                                      progress=task.status.emit, error=error), []
+                                      progress=task.status.emit, error=error), first
 
         # Wunsch des Nutzers (04.10.2026): sagen, was an die KI ging
         handed = ("Fehler und Chat wurden an die KI übergeben" if self.hints

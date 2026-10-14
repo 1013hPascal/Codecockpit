@@ -9,6 +9,10 @@ Wichtige Regeln für Exe-Dateien:
 - input() und print() gehen in einer Exe ohne Konsolenfenster nicht.
 - Die Ordner unter "Ordner neben der Exe" legt das Cockpit beim Bau neben die Exe. Der Code muss sie über den Ort der Exe finden, wie oben beschrieben. Packe sie nicht in die Exe und erfinde keine anderen Orte.
 - Braucht der Code einen Ordner, den es noch nicht gibt, soll er ihn beim Start anlegen (mkdir mit parents=True und exist_ok=True).
+- sys._MEIPASS zeigt auf den Ordner _internal mit den Programmteilen. Dateien, die neben der Exe liegen, sind dort nicht. Steht im Fehler ein Pfad mit _internal, ersetze sys._MEIPASS durch Path(sys.executable).parent.
+- Lädt der Code eine Datei schon beim Import, oben im Modul außerhalb einer Funktion, stürzt die Exe ab, bevor ein Fenster einen Fehler zeigen kann. Verschiebe das Laden in die Funktion oder Klasse, die es braucht.
+- Fehlende Bibliotheken wie "No module named 'networkx'" löst du nicht im Code. Das Cockpit trägt sie selbst in requirements.txt ein.
+- Der "Bericht zum Bau" im Fehler sagt, welcher Schritt gescheitert ist und was die Exe gemeldet hat. Richte dich danach.
 
 Antworte nur in diesem Format, ohne weitere Erklärungen:
 

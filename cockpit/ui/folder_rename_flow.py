@@ -71,7 +71,24 @@ class FolderRenamer:
         if choice == 0:
             self.run(projects)
 
-    def run(self, projects: list[Project], back: bool = False) -> None:
+    def offer_one(self, project: Project, then) -> None:
+        """Beim Hinzufügen eines Projekts mit Code und Exe gleich fragen (Wunsch des Nutzers vom
+        14.10.2026). Danach then(Projekt), umbenannt oder nicht."""
+        plan = project_admin.folder_plan(project)
+        if not plan or project_admin.contains_program(project):
+            then(project)
+            return
+        names = " und ".join(f"{s.name} in {t.name}" for s, t in plan)
+        if not confirm(self.window, "Ordner umbenennen", f"Bei {project.name} heißen die Ordner "
+                       f"noch wie früher. Das Cockpit benennt {names} um. Nur die Namen ändern "
+                       "sich, der Inhalt bleibt." + VENV_NOTE + CLOSE_PROGRAMS + " Umbenennen?",
+                       yes=RENAME, no="So lassen"):
+            self._remember(SKIP_KEY, self._ids(SKIP_KEY) | {project.id})
+            then(project)
+            return
+        self.run([project], then=lambda changed: then(changed[0] if changed else project))
+
+    def run(self, projects: list[Project], back: bool = False, then=None) -> None:
         store = self.services.projects
         title = "Ordnernamen zurücksetzen" if back else "Ordner umbenennen"
 
@@ -109,6 +126,8 @@ class FolderRenamer:
                          "geöffnet. Es wurde dort nichts geändert.")
                 show_info(self.window, title, text + CLOSE_PROGRAMS.replace(" vorher", ""))
             announce(text)
+            if then is not None:
+                then(changed)
 
         announce(f"{title}.")
         self.controller.run_task("folder_rename", work, done, title, on_status=announce)

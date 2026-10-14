@@ -1179,3 +1179,26 @@ Rückmeldung des Nutzers: Nach Neu starten lag ein Ordner _neu im Ordner Release
 - Versionsordner bleiben jetzt auch beim Neustart liegen, wie schon beim normalen Übernehmen (04.10.2026).
 - Gibt das Skript auf, kommt schon Verschobenes zurück. Es bleibt nichts halb getauscht.
 - Überführen eines Branches ohne eigene Commits braucht keinen sauberen Stand in main mehr. Vorher scheiterte es an Änderungen ohne Commit, obwohl es nichts zu überführen gab.
+
+## 14.10.2026: Bericht zum Bau und fehlende Bibliotheken
+
+Rückmeldung des Nutzers: Beim Zug-um-Zug-Streckenfinder lief PyInstaller ohne Fehler durch, aber im Ordner Release kam keine Exe an. Warum, war nicht zu erkennen. Auch Mit KI chatten half nicht.
+
+Ursachen: Es gab keine requirements.txt. Die Bau-Umgebung bekam nur PyInstaller, PySide6 und networkx fehlten in der Exe. Die Exe stürzte beim Start mit No module named 'PySide6' ab. Danach suchte sie strecken.csv über sys._MEIPASS im Ordner _internal statt neben der Exe.
+
+- Im Schritt Einrichtung ergänzt das Cockpit im Branch Cockpit-exe-bauen fehlende Einträge in requirements.txt selbst und legt die Datei notfalls an. Main bleibt unverändert. Die Zusammenfassung nennt die ergänzten Namen.
+- Nach PyInstaller liest das Cockpit die Warnliste von PyInstaller. Fehlen Bibliotheken, die der Code oben in einer Datei importiert, steht das sofort in der Ausgabe.
+- Geht etwas schief, steht in der Ausgabe ein Bericht zum Bau: jeder Schritt mit Ergebnis, die Meldung der Exe, ob der Ordner Release da ist und ob die Exe dort abgelegt wurde, und warum nicht. Danach Zeilen mit Was tun, zum Beispiel für fehlende Bibliotheken, Dateien im Ordner _internal, zu lange Pfade, gesperrte Dateien und Sperren durch Windows. Der Bericht geht auch an die KI.
+- Die Einrichtungsprüfung meldet ein Problem, wenn der Code eine Datei, die neben die Exe kommt, über sys._MEIPASS sucht.
+- Die Anweisung an die KI kennt jetzt _MEIPASS, das Laden von Dateien beim Import und fehlende Bibliotheken.
+
+## 14.10.2026: Projekte einbinden, Töne, Fokus im KI-Chat
+
+Wünsche des Nutzers:
+
+- Projekt vom Rechner hinzufügen: Hat der gewählte Ordner Unterordner mit anderen Namen als Code und Exe, gibt es die neue Wahl Hier Repository und Release anlegen. Das Cockpit legt Repository\main und Release leer an, was schon im Ordner liegt, bleibt unverändert. Danach der Hinweis, den Code selbst nach Repository\main zu kopieren und das Projekt neu einzulesen.
+- Hat der Ordner noch Code und Exe, fragt das Cockpit gleich beim Hinzufügen, ob es sie in Repository und Release umbenennt. So lassen merkt sich das, beim Start wird dann nicht mehr gefragt. Danach prüft es den Aufbau wie bisher (Code nach Repository\main).
+- Liegt eine Exe direkt im Ordner Release, bietet das Cockpit beim Prüfen des Aufbaus an, sie mit allem, was dazugehört, in ihren eigenen Ordner zu verschieben. Dann steht sie als Exe-main unter Releases. Versionen, Branch-Exen und _neu bleiben.
+- Töne: Solange ein Ablauf den Nutzer etwas fragt (Branch, Art der Änderung, README-Vorschlag), schweigt der Warteton. Der Warteton ist jetzt ein weicher, leiser Klang statt des Pieptons. Das Cockpit erzeugt ihn selbst als WAV-Datei, ohne neue Bibliothek und ohne fremde Lizenz.
+- Neu: ein leiser Warteton aus zwei weichen Tönen, solange die KI schreibt. Erst nach 1,5 Sekunden, kurze Antworten bleiben still. Nicht während einer Frage an den Nutzer und nicht zusätzlich zum Ton beim Hochladen. Abschalten in den Grundeinstellungen: Töne, während die KI schreibt. Der Starttest der KI bleibt still.
+- Mit KI chatten: Ist die Antwort da, springt der Fokus in das Gespräch. Abweichung von der Regel, dass Hintergrundarbeit den Fokus nie verschiebt, auf ausdrücklichen Wunsch. Er springt nur, wenn der Fokus noch im Chat steht.

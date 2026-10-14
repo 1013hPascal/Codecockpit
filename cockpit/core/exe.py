@@ -288,6 +288,51 @@ def add_exe_dir(project: Project) -> Path:
     return project.exe_dir
 
 
+def loose_items(project: Project) -> list[Path]:
+    """Liegt eine Exe direkt im Ordner Release (alter Aufbau oder von Hand hineinkopiert), alles,
+    was zu ihr gehört: alles außer _neu, Branch-Exen, Versionen und dem Ordner der normalen Exe.
+    Sonst leer."""
+    if not project.has_exe_dir:
+        return []
+    items = list(project.exe_dir.iterdir())
+    if not any(p.is_file() and p.suffix.lower() == ".exe" for p in items):
+        return []
+    home = home_name(project).lower()
+    return sorted((p for p in items if p.name != PENDING and not is_branch_exe(p)
+                   and not is_version_home(p) and p.name.lower() != home
+                   and p.name.lower() != "desktop.ini"), key=lambda p: p.name.lower())
+
+
+def tidy_release(project: Project) -> Path:
+    """Die lose Exe mit allem, was dazugehört, in den Ordner der normalen Exe verschieben, also
+    nach "Exe-main" (Wunsch des Nutzers vom 14.10.2026). Nur der Ort ändert sich. Klappt ein Teil
+    nicht, kommt alles zurück."""
+    items = loose_items(project)
+    home = project.exe_dir / home_name(project)
+    if not items:
+        return home
+    if home.exists():
+        raise CockpitError(f"Den Ordner {home.name} gibt es schon.")
+    home.mkdir()
+    moved: list[Path] = []
+    try:
+        for item in items:
+            os.rename(item, home / item.name)
+            moved.append(item)
+    except OSError as exc:
+        for item in moved:
+            try:
+                os.rename(home / item.name, item)
+            except OSError:
+                log.exception("Zurückverschieben fehlgeschlagen: %s", item)
+        try:
+            home.rmdir()
+        except OSError:
+            pass
+        raise CockpitError(LOCKED, str(exc)) from None
+    return home
+
+
 def backup_current(project: Project, reason: str, keep: tuple[str, ...] = ()) -> Path | None:
     """Inhalt des Ordners Exe (ohne _neu) in eine Sicherheitskopie verschieben. Klappt ein Teil
     nicht, kommt alles zurück, und es gibt einen Fehler (zum Beispiel weil die Exe läuft).
@@ -782,6 +827,7 @@ class BuildResult:
     # bei untested mit keep_failed: Der Test ist nicht bestanden, Meldung und Details dazu
     test_error: str = ""
     test_details: str = ""
+    report: list[str] = field(default_factory=list)   # bei untested: Bericht zum Bau
 
 
 def pyinstaller_build(code_dir: Path, python: Path, spec: Path, work: Path, on_line=None,
@@ -1022,42 +1068,202 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
     vom 11.10.2026)."""
     code_dir = branch_dir or project.code_dir
     folder = (branch_name or branch_dir.name) if branch_dir is not None else ""
+    # Für den Bericht bei einem Fehler (Wunsch des Nutzers vom 14.10.2026)
+    facts = BuildFacts(project, folder)
+    output: list[str] = []
+
+    def line(text: str) -> None:
+        output.append(text)
+        del output[:-200]
+        on_line(text)
 
     def step(number: int) -> None:
+        facts.step = number
         on_status(f"Schritt {number} von {len(STEPS)}: {STEPS[number - 1]}")
+
+    def with_report(exc: CockpitError) -> CockpitError:
+        exc.details = "\n".join(p for p in [exc.details, *build_report(
+            facts, exc.message, exc.details, output)] if p)
+        return exc
 
     commit = head_commit(code_dir)
     step(1)
-    python = prepare_venv(code_dir, on_line, cancel, venv=build_venv(project, code_dir))
+    try:
+        python = prepare_venv(code_dir, line, cancel, venv=build_venv(project, code_dir))
+    except CockpitError as exc:
+        raise with_report(exc) from None
     spec = ensure_spec(code_dir, settings)
     work = Path(tempfile.mkdtemp(prefix="codecockpit-exe-", dir=paths.cache_dir()))
     keep = False
     try:
         step(2)
-        built = pyinstaller_build(code_dir, python, spec, work, on_line, cancel)
+        try:
+            built = pyinstaller_build(code_dir, python, spec, work, line, cancel)
+        except CockpitError as exc:
+            raise with_report(exc) from None
+        facts.built = exe_in(built)
+        facts.missing = missing_modules(work, code_dir)
+        if facts.missing:
+            line(f"Achtung: PyInstaller hat diese Bibliotheken nicht gefunden, der Code "
+                 f"importiert sie aber: {', '.join(facts.missing)}. Sie fehlen in der Exe.")
         step(3)
         try:
-            on_line(start_test(exe_in(built), settings.test_seconds, settings.self_test,
-                               cancel, settings.windowed))
-        except BlockedByWindows:
+            line(start_test(exe_in(built), settings.test_seconds, settings.self_test,
+                            cancel, settings.windowed))
+        except BlockedByWindows as exc:
             # Der Nutzer entscheidet in der Oberfläche, ob er selbst prüft (install_untested)
             keep = True
+            facts.blocked = True
             return BuildResult(exe_in(built), untested=True, built=built, work=work,
-                               commit=commit, branch=folder)
+                               commit=commit, branch=folder,
+                               report=build_report(facts, exc.message, exc.details, output))
         except CockpitError as exc:
             if not keep_failed:
-                raise
+                raise with_report(exc) from None
             keep = True
             return BuildResult(exe_in(built), untested=True, built=built, work=work,
                                commit=commit, branch=folder, test_error=exc.message,
-                               test_details=exc.details)
+                               test_details=exc.details,
+                               report=build_report(facts, exc.message, exc.details, output))
+        facts.tested = True
         step(4)
-        if folder:
-            return install_branch(project, built, folder, settings, code_dir)
-        return install(project, built, commit)
+        try:
+            if folder:
+                return install_branch(project, built, folder, settings, code_dir)
+            return install(project, built, commit)
+        except CockpitError as exc:
+            raise with_report(exc) from None
     finally:
         if not keep:
             backups.remove_tree(work)
+
+
+# -- Bericht bei Fehlern (Wunsch des Nutzers vom 14.10.2026) ------------------------------------
+# Beim Zug-um-Zug-Streckenfinder lief PyInstaller ohne Fehler durch, aber im Ordner Release kam
+# keine Exe an. Warum, stand nirgends. Der Bericht sagt jetzt für jeden Schritt, was geklappt hat,
+# was die Exe gemeldet hat und was zu tun ist. Er steht in der Ausgabe und geht an die KI.
+@dataclass
+class BuildFacts:
+    project: Project
+    folder: str = ""                    # Branch, sonst leer
+    step: int = 0                       # zuletzt begonnener Schritt
+    built: Path | None = None           # gebaute Exe im temporären Ordner
+    missing: list[str] = field(default_factory=list)
+    tested: bool = False
+    blocked: bool = False
+
+
+_MISSING_LINE = re.compile(r"^missing module named '?([\w.]+)'? - imported by (.*)$")
+
+
+def missing_modules(work: Path, code_dir: Path) -> list[str]:
+    """Bibliotheken, die PyInstaller nicht gefunden hat, obwohl der Code des Projekts sie oben in
+    einer Datei importiert. Aus der Warnliste build\\<Name>\\warn-<Name>.txt."""
+    own = {p.stem for p in code_dir.glob("*.py")}
+    found: list[str] = []
+    for warn in sorted((work / "build").rglob("warn-*.txt")):
+        try:
+            text = warn.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for row in text.splitlines():
+            match = _MISSING_LINE.match(row.strip())
+            if not match:
+                continue
+            top = match.group(1).split(".")[0]
+            for importer in match.group(2).split("),"):
+                name = importer.strip().split(" (")[0]
+                stem = Path(name).stem if name.endswith(".py") else name.split(".")[0]
+                if stem in own and "top-level" in importer and top not in found:
+                    found.append(top)
+    return found
+
+
+def _first_error_line(text: str) -> str:
+    """Die aussagekräftige Zeile einer Fehlermeldung, etwa "No module named 'PySide6'"."""
+    rows = [r.strip() for r in text.splitlines() if r.strip() and r.strip() != "Close"]
+    for row in reversed(rows):
+        if "unhandled exception:" in row:
+            return row.split("unhandled exception:", 1)[1].strip()
+        if re.match(r"^\w*(Error|Exception)\b", row):
+            return row
+    return rows[-1] if rows else ""
+
+
+def advice(text: str, facts: BuildFacts | None = None) -> list[str]:
+    """Was zu tun ist, aus Fehlermeldung und Ausgabe. Jede Zeile beginnt mit "Was tun:"."""
+    from cockpit.core import long_paths
+    tips: list[str] = []
+    module = re.search(r"No module named '([\w.]+)'", text)
+    missing = list(facts.missing) if facts else []
+    if module and module.group(1).split(".")[0] not in missing:
+        missing.insert(0, module.group(1).split(".")[0])
+    if missing:
+        tips.append(f"Was tun: {', '.join(missing)} in requirements.txt eintragen. Das Cockpit "
+                    "installiert in die Bau-Umgebung nur, was dort steht. Bei „Exe aus dem Code "
+                    "erstellen“ ergänzt es fehlende Einträge im Branch selbst.")
+    if "_internal" in text and re.search(r"nicht gefunden|No such file|FileNotFound|not found",
+                                         text, re.IGNORECASE):
+        tips.append("Was tun: Der Code sucht eine Datei im Ordner _internal der Exe. Dort liegen "
+                    "nur Programmteile, die Datei liegt neben der Exe. Im Code den Ordner über "
+                    "sys.executable bestimmen statt über sys._MEIPASS oder __file__. „Problem mit "
+                    "KI lösen“ kann das ändern.")
+    elif re.search(r"FileNotFoundError|nicht gefunden|No such file", text, re.IGNORECASE):
+        tips.append("Was tun: Eine Datei fehlt. Prüfen Sie in Schritt 1, ob sie neben die Exe "
+                    "kommt, und ob der Code sie neben der Exe sucht (sys.executable).")
+    if long_paths.is_long_path_error(text) or any(
+            len(p) > 250 for p in re.findall(r"[A-Za-z]:\\[^'\"\n]+", text)):
+        tips.append("Was tun: " + LONG_PATHS)
+    if re.search(r"PermissionError|Zugriff verweigert|Access is denied|nicht verschieben",
+                 text, re.IGNORECASE):
+        tips.append("Was tun: Eine Datei ist gesperrt. Schließen Sie die Exe und Explorer-Fenster "
+                    "im Ordner Release und versuchen Sie es noch einmal.")
+    if (facts is not None and facts.blocked) or "App-Steuerung" in text:
+        tips.append("Was tun: Windows hat die Exe blockiert. Mit „Trotzdem behalten“ kommt sie in "
+                    "den Ordner Release. Starten Sie sie dann selbst.")
+    if QUICK_EXIT in text:
+        tips.append("Was tun: Prüfen Sie die Startdatei in Schritt 1. Sie muss das Fenster öffnen.")
+    if not tips:
+        tips.append("Was tun: „Problem mit KI lösen“ gibt diesen Bericht an die KI. Oder fragen "
+                    "Sie mit „Mit KI chatten“ nach.")
+    return tips
+
+
+def build_report(facts: BuildFacts, message: str, details: str = "",
+                 output: list[str] | None = None) -> list[str]:
+    """Bericht für die Ausgabe und die KI: jeder Schritt mit Ergebnis, dann was zu tun ist."""
+    text = "\n".join([message, details, *(output or [])[-60:]])
+    report = ["Bericht zum Bau:"]
+    report.append("Schritt 1, Bibliotheken: " + ("vorbereitet." if facts.step > 1 else
+                                                 "nicht fertig. " + message))
+    if facts.step >= 2:
+        report.append(f"Schritt 2, PyInstaller: durchgelaufen, Exe gebaut: {facts.built.name}."
+                      if facts.built is not None else
+                      "Schritt 2, PyInstaller: nicht durchgelaufen. Die Ausgabe darüber nennt "
+                      "den Grund.")
+    if facts.missing:
+        report.append("PyInstaller hat Bibliotheken nicht gefunden, die der Code importiert: "
+                      f"{', '.join(facts.missing)}.")
+    if facts.step >= 3:
+        if facts.tested:
+            report.append("Schritt 3, Start-Test: bestanden.")
+        elif facts.blocked:
+            report.append("Schritt 3, Start-Test: von Windows blockiert.")
+        else:
+            shown = _first_error_line(details) or message
+            report.append(f"Schritt 3, Start-Test: nicht bestanden. Meldung der Exe: {shown}")
+    exe_dir = facts.project.exe_dir
+    where = f"Ordner {exe_dir.name}" if exe_dir is not None else "Ordner Release"
+    exists = exe_dir is not None and exe_dir.is_dir()
+    if facts.step >= 4 and facts.tested:
+        report.append(f"Schritt 4, Übernehmen in den {where}: nicht geklappt. {message}")
+    else:
+        reason = ("Windows den Test blockiert hat" if facts.blocked
+                  else "der Test nicht bestanden ist" if facts.step >= 3
+                  else "der Bau vorher abgebrochen ist")
+        report.append(f"{where}: {'vorhanden' if exists else 'fehlt'}. Neue Exe dort abgelegt: "
+                      f"nein, weil {reason}.")
+    return report + advice(text, facts)
 
 
 # -- Eigene Exe: Austausch beim Neustart ------------------------------------------------------------

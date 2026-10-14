@@ -40,6 +40,10 @@ IMPORT = "README aus Ordner hochladen …"
 WRITE = "README mit KI schreiben …"
 EDIT = "README bearbeiten …"
 SENT = "Auszüge aus Ihrem Code, Ihre Infos und die README"
+# Wunsch des Nutzers (14.10.2026): Die Felder sollen klar sagen, dass sie Hinweise an die KI sind
+WRITE_NOTES = "Hinweise an die KI: Was soll in der README &stehen?"
+WRITE_WISHES = "Hinweise an die &KI: Was soll sich am Text ändern?"
+EDIT_WISHES = "Hinweise an die KI: W&as soll sich an der README ändern?"
 
 
 class ReadmeTextDialog(FocusDialog):
@@ -179,7 +183,7 @@ class WriteDialog(ReadmeTextDialog):
 
     def __init__(self, services, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(services, project, "README mit KI schreiben",
-                         "Verbesserungsvorschläge für die &KI:", "Von KI &verfassen lassen",
+                         WRITE_WISHES, "Von KI &verfassen lassen",
                          "README ist &fertig so", parent)
         self.files = QListWidget()
         files_label = label_for(self.files, "&Dateien mit Infos zum Programm:")
@@ -191,7 +195,7 @@ class WriteDialog(ReadmeTextDialog):
         for button in (add, remove):
             button.setAutoDefault(False)
         self.notes = PlainEdit()
-        notes_label = label_for(self.notes, "&Infos für die README:")
+        notes_label = label_for(self.notes, WRITE_NOTES)
         self.notes.setMaximumHeight(120)
         for widget in (files_label, self.files):
             self.layout_.addWidget(widget)
@@ -247,7 +251,7 @@ class EditDialog(ReadmeTextDialog):
 
     def __init__(self, services, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(services, project, "README bearbeiten",
-                         "&Anweisungen an die KI zur Überarbeitung:",
+                         EDIT_WISHES,
                          "Von KI &überarbeiten lassen", "Die README ist &fertig so", parent)
         self.original = (project.code_dir / plan.MAIN_FILE).read_text(encoding="utf-8")
         self.text.setPlainText(self.original)
@@ -257,7 +261,7 @@ class EditDialog(ReadmeTextDialog):
     def ai_input(self) -> dict | None:
         values = super().ai_input()
         if not values["wishes"]:
-            announce("Bitte schreiben Sie zuerst Anweisungen an die KI.")
+            announce("Bitte schreiben Sie zuerst Hinweise an die KI.")
             return None
         if not values["current"]:
             announce("Die README ist leer.")

@@ -378,6 +378,8 @@ class BuildDialog(FocusDialog):
         """Windows ließ den Test nicht zu: Der Nutzer prüft selbst (Wunsch aus Phase 10)."""
         self.output.addItem("Das Cockpit kann die neue Exe nicht selbst prüfen, weil Windows den "
                             "Start aus dem Cockpit blockiert.")
+        for line in result.report:
+            self.output.addItem(line)
         text = ("Das Cockpit kann die neue Exe nicht selbst prüfen, weil Windows den Start "
                 "blockiert. Soll sie trotzdem übernommen werden? Die bisherige kommt in die "
                 "Sicherheitskopien. Bitte starten Sie die neue Exe danach selbst und prüfen Sie "

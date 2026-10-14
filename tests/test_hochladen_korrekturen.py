@@ -149,6 +149,91 @@ def test_transfer_sound_error_cancel_and_off(played):
     assert played == []
 
 
+def test_no_tick_while_the_user_should_answer(qtbot, played):
+    """Wunsch vom 14.10.2026: Beim Hochladen piepte es, während der Ablauf nach dem Branch und
+    der Art der Änderung fragte."""
+    sound = sounds.TransferSound(True)
+    sound.start()
+    with sounds.user_turn():
+        assert sounds.waiting_for_user()
+        sound.tick()
+    assert played == [sounds.START]
+    sound.tick()
+    assert played == [sounds.START, sounds.TICK]
+    sound.stop()
+    assert not sounds.waiting_for_user()
+
+
+def test_asker_question_counts_as_user_turn(monkeypatch):
+    from cockpit.core.flows.questions import ConfirmQuestion
+    from cockpit.ui import asker as asker_module
+    seen = []
+    monkeypatch.setattr(asker_module, "confirm", lambda *a, **kw:
+                        seen.append(sounds.waiting_for_user()) or True)
+    assert asker_module.QtAsker().ask(ConfirmQuestion("T", "Frage?")) is True
+    assert seen == [True] and not sounds.waiting_for_user()
+
+
+def test_ai_sound_plays_while_the_ai_writes(qtbot, played):
+    from cockpit.core import activity
+    now = [100.0]
+    enabled = [True]
+    sound = sounds.AISound(lambda: enabled[0], clock=lambda: now[0])
+    sound.timer.stop()
+    sound.check()
+    assert played == []                                          # KI arbeitet nicht
+    with activity.ai_working():
+        sound.check()
+        now[0] += 1.0
+        sound.check()
+        assert played == []                                      # kurze Antworten ohne Ton
+        now[0] += 0.6
+        sound.check()
+        assert played == [sounds.AI_TICK]
+        now[0] += 3.0
+        with sounds.user_turn():
+            sound.check()
+        assert played == [sounds.AI_TICK]                        # Frage offen: still
+        now[0] += 3.0
+        enabled[0] = False
+        sound.check()
+        assert played == [sounds.AI_TICK]                        # abgeschaltet
+    assert not activity.ai_busy()
+
+
+def test_soft_sounds_are_made_once(tmp_path, monkeypatch):
+    import wave
+    from cockpit.core import paths
+    monkeypatch.setattr(paths, "cache_dir", lambda: tmp_path)
+    for kind in (sounds.TICK, sounds.AI_TICK):
+        path = sounds.sound_file(kind)
+        with wave.open(str(path)) as data:
+            assert data.getframerate() == sounds.RATE and data.getnframes() > 0
+        assert sounds.sound_file(kind) == path
+
+
+@pytest.mark.parametrize("in_chat", [True, False])
+def test_chat_answer_takes_the_focus_only_from_the_chat(qtbot, in_chat):
+    """Wunsch vom 14.10.2026: Ist die Antwort der KI da, springt der Fokus ins Gespräch."""
+    from PySide6.QtWidgets import QLineEdit, QVBoxLayout, QWidget
+    from cockpit.ui.exe_chat import ExeChat
+    window = QWidget()
+    elsewhere = QLineEdit(window)
+    chat = ExeChat(None, "Rechner", "Schritt", lambda: [], window)
+    layout = QVBoxLayout(window)
+    layout.addWidget(elsewhere)
+    layout.addWidget(chat)
+    qtbot.addWidget(window)
+    window.show()
+    window.activateWindow()
+    qtbot.waitUntil(window.isActiveWindow, timeout=3000)
+    (chat.question if in_chat else elsewhere).setFocus()
+    qtbot.waitUntil(lambda: (chat.question if in_chat else elsewhere).hasFocus(), timeout=3000)
+    chat.show_answer("Warum?", "Weil es so ist.")
+    assert chat.answers.hasFocus() is in_chat
+    assert chat.answers.currentItem().text() == "KI: Weil es so ist."
+
+
 def test_run_task_plays_for_transfers_only(qtbot, make_services, played):
     from tests.test_phase10f import window
     services = make_services([])

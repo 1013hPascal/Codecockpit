@@ -198,6 +198,22 @@ class ProjectStore:
              datetime.now().isoformat(timespec="seconds")))
         return self.find_by_dir(project_dir)
 
+    def create_layout(self, project_dir: Path) -> Project:
+        """Im gewählten Ordner Repository\\main und Release leer anlegen und ihn als Projekt
+        aufnehmen (Wunsch des Nutzers vom 14.10.2026: Unterordner mit anderen Namen als Code und
+        Exe). Was schon im Ordner liegt, bleibt unverändert. Den Code kopiert der Nutzer selbst
+        nach Repository\\main."""
+        project_dir = project_dir.resolve()
+        if code_root_in(project_dir).is_dir():
+            raise CockpitError(f"Im Ordner {project_dir.name} gibt es schon den Ordner "
+                               f"{code_root_in(project_dir).name}.")
+        try:
+            (project_dir / CODE_DIR / MAIN_DIR).mkdir(parents=True)
+            (project_dir / EXE_DIR).mkdir(exist_ok=True)
+        except OSError as exc:
+            raise CockpitError("Die Ordner ließen sich nicht anlegen.", str(exc)) from None
+        return self.add(project_dir)
+
     def add_linked(self, code_dir: Path, exe_dir: Path | None = None) -> Project:
         """Nur verknüpfen (Konzept 7.4): Die Ordner bleiben, wo sie sind."""
         code_dir = code_dir.resolve()

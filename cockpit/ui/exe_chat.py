@@ -133,7 +133,12 @@ class ExeChat(QWidget):
         for number, line in enumerate(lines or ["Die KI hat nichts geantwortet."]):
             self.answers.addItem(f"KI: {line}" if number == 0 else line)
         self.answers.setCurrentRow(first)
+        # Wunsch des Nutzers (14.10.2026): Fokus auf die Antwort. Nur wenn er noch im Chat
+        # steht, sonst würde die Antwort aus anderer Arbeit herausreißen.
+        waiting = any(w.hasFocus() for w in (self.question, self.send_button, self.answers))
         self.question.clear()
+        if waiting:
+            self.answers.setFocus()
         announce("Antwort da.")
 
     def _finished(self) -> None:

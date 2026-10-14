@@ -166,7 +166,8 @@ def test_write_dialog_drafts_revises_and_finishes(qtbot, tmp_path, projects_root
     qtbot.waitUntil(lambda: dialog.task is None and bool(dialog.readme_text), timeout=10000)
     assert dialog.readme_text == DRAFT and dialog.text.isVisible() and dialog.wishes.isVisible()
     assert "Rechnet Brüche." in ai.prompts[0] and "Für blinde Nutzer." in ai.prompts[0]
-    assert dialog.wishes.accessibleName() == "Verbesserungsvorschläge für die KI"
+    assert dialog.wishes.accessibleName() == "Hinweise an die KI: Was soll sich am Text ändern?"
+    assert dialog.notes.accessibleName() == "Hinweise an die KI: Was soll in der README stehen?"
     dialog.wishes.setPlainText("Kürzer.")
     dialog.ai_button.click()
     qtbot.waitUntil(lambda: dialog.task is None and "Kürzer." in dialog.readme_text,
@@ -196,7 +197,8 @@ def test_edit_dialog_needs_instructions(qtbot, tmp_path, projects_root, make_ser
     dialog = readme_flow.EditDialog(services, project)
     qtbot.addWidget(dialog)
     assert dialog.readme_text == DRAFT and not dialog.changed()
-    assert dialog.wishes.accessibleName() == "Anweisungen an die KI zur Überarbeitung"
+    assert dialog.wishes.accessibleName() == \
+        "Hinweise an die KI: Was soll sich an der README ändern?"
     dialog.ai_button.click()
     assert dialog.task is None and ai.prompts == []      # ohne Anweisungen nichts gesendet
     dialog.wishes.setPlainText("Kürzer.")

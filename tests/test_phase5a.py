@@ -635,7 +635,13 @@ def test_add_existing_project_folder(live, qtbot, make_services, projects_root, 
     asked = []
     monkeypatch.setattr(project_actions, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or False)
+    # Seit dem 14.10.2026 fragt es auch, ob Code und Exe umbenannt werden: "So lassen"
+    from cockpit.ui import folder_rename_flow
+    renames = []
+    monkeypatch.setattr(folder_rename_flow, "confirm",
+                        lambda parent, title, text, **k: renames.append(text) or False)
     win.controller.add_local()
+    assert renames and "Das Cockpit benennt Code in Repository" in renames[0]
     assert said("Extern hinzugefügt.")
     assert asked and "liegt der Code direkt im Ordner Code" in asked[0]
     project = services.projects.find_by_dir(folder)
@@ -659,15 +665,16 @@ def test_add_other_folder_offers_convert_link_and_cancel(live, qtbot, make_servi
 
     monkeypatch.setattr(project_actions, "ask_buttons", buttons)
     monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
-    answers = [2]
+    answers = [3]
     win.controller.add_local()                              # Abbrechen
     assert services.projects.all() == [] and folder.exists()
     labels, default, escape, text = asked[0]
-    assert labels == ["In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
+    assert labels == ["Hier Repository und Release anlegen …",
+                      "In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
                       "Abbrechen"]
-    assert default == escape == 2                              # sichere Vorgabe
+    assert default == escape == 3                              # sichere Vorgabe
     assert text.startswith("Der Ordner Rechner hat keinen Unterordner Repository.")
-    answers = [0]
+    answers = [1]
     win.controller.add_local()                              # Umstellen
     assert (projects_root / "Rechner" / "Repository").is_dir() and not folder.exists()
     assert said("Rechner hinzugefügt.")
@@ -679,7 +686,7 @@ def test_link_without_exe(live, qtbot, make_services, tmp_path, monkeypatch):
     folder = tmp_path / "Firma"
     folder.mkdir()
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
-    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 1)
+    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 2)   # Am Ort lassen
     monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # ohne Exe-Ordner
     win.controller.add_local()
     project = services.projects.all()[0]

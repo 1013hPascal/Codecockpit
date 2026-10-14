@@ -9,8 +9,9 @@ Stichwörter: Ordner, hinzufügen, neues Projekt, aufnehmen
 Schritt 1: Drücken Sie Strg+1 und Pos1. Sie sind ganz oben in der Projektliste.
 Schritt 2: Drücken Sie einmal Pfeil runter auf „Projekt vom Rechner hinzufügen“ und dann Enter.
 Schritt 3: Wählen Sie im Fenster von Windows den Projektordner. Darin liegen Repository und Release oder einfach Ihr Code. Bestätigen Sie mit „Ordner auswählen“.
-Schritt 4: Passt der Aufbau nicht, fragt das Cockpit, ob es den Ordner umstellt. Lesen Sie die Rückfrage und wählen Sie mit Tab „Verschieben“ oder „Abbrechen“.
-Schritt 5: Das Projekt steht danach in der Liste und ist markiert.
+Schritt 4: Passt der Aufbau nicht, fragt das Cockpit, ob es den Ordner umstellt. Heißen die Ordner noch Code und Exe, bietet es „Umbenennen“ an. Liegt der Code direkt in Repository, verschiebt es ihn nach Repository\main. Eine Exe direkt in Release kommt in ihren eigenen Ordner. Lesen Sie jede Rückfrage und wählen Sie mit Tab.
+Schritt 5: Heißen die Unterordner ganz anders, wählen Sie „Hier Repository und Release anlegen …“. Kopieren Sie danach Ihren Code in Repository\main und wählen Sie auf der Projektzeile „Projekt neu einlesen“.
+Schritt 6: Das Projekt steht danach in der Liste und ist markiert.
 
 ## Verschobenen Ordner wieder in die Liste bringen
 Bereich: start

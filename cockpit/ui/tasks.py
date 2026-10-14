@@ -40,8 +40,14 @@ class Task(QThread):
         ein Test die Datenbank schloss, und der nächste Test brach ab)."""
         from PySide6.QtCore import QCoreApplication
         app = QCoreApplication.instance()
+        from shiboken6 import isValid
         for _round in range(10):
             for task in list(cls._running):
+                if not isValid(task):
+                    # Mit dem Fenster gelöscht, bevor "fertig" ankam (14.10.2026: brach sonst
+                    # das Aufräumen nach einem Test ab)
+                    cls._running.discard(task)
+                    continue
                 task.cancel()
                 task.wait(timeout_ms)
             # Ergebnisse und "fertig" noch zustellen, solange die Empfänger leben. Dabei kann

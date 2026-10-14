@@ -27,7 +27,7 @@ Ergebnis:
 
 [ ] 5. README mit KI schreiben, Aufbau
 Tasten: README.md im Ordner Code löschen. „README …“, „README mit KI schreiben …“. Dann Tab durch den Dialog.
-Ansage: Fokus in der Liste „Dateien mit Infos zum Programm“. Mit Tab: „Datei hinzufügen …“, „Datei entfernen“, „Infos für die README“, „Von KI verfassen lassen“, „README ist fertig so“, „Abbrechen“. Die Felder für den Text und die Vorschläge gibt es noch nicht.
+Ansage: Fokus in der Liste „Dateien mit Infos zum Programm“. Mit Tab: „Datei hinzufügen …“, „Datei entfernen“, „Hinweise an die KI: Was soll in der README stehen?“, „Von KI verfassen lassen“, „README ist fertig so“, „Abbrechen“. Die Felder für den Text und die Vorschläge gibt es noch nicht.
 Ergebnis:
 
 [ ] 6. Dateien hinzufügen und entfernen
@@ -41,12 +41,12 @@ Ansage: „Es gibt noch keinen Text für die README.“ Der Dialog bleibt offen.
 Ergebnis:
 
 [ ] 8. Von KI verfassen lassen
-Tasten: Etwas in „Infos für die README“ schreiben, dann „Von KI verfassen lassen“.
+Tasten: Etwas in „Hinweise an die KI: Was soll in der README stehen?“ schreiben, dann „Von KI verfassen lassen“.
 Ansage: „Die KI schreibt die README.“ Wenn sie fertig ist: Der Fokus steht im Feld „README-Text“ am Anfang, dann „Die README von der KI ist da.“ Die README nutzt Ihre Infos und den Inhalt Ihrer Dateien.
 Ergebnis:
 
 [ ] 9. Verbesserungsvorschläge
-Tasten: Tab vom Feld „README-Text“ in „Verbesserungsvorschläge für die KI“, einen Wunsch schreiben, dann „Von KI verfassen lassen“.
+Tasten: Tab vom Feld „README-Text“ in „Hinweise an die KI: Was soll sich am Text ändern?“, einen Wunsch schreiben, dann „Von KI verfassen lassen“.
 Ansage: „Die KI überarbeitet die README.“ Danach steht der überarbeitete Text im Feld, das Feld für die Vorschläge ist leer.
 Ergebnis:
 
@@ -67,7 +67,7 @@ Ergebnis:
 
 [ ] 13. README bearbeiten, Aufbau
 Tasten: „README …“, „README bearbeiten …“. Dann Tab durch den Dialog.
-Ansage: Fokus im Feld „README-Text“ mit der README. Mit Tab: „Anweisungen an die KI zur Überarbeitung“, „Von KI überarbeiten lassen“, „Die README ist fertig so“, „Abbrechen“.
+Ansage: Fokus im Feld „README-Text“ mit der README. Mit Tab: „Hinweise an die KI: Was soll sich an der README ändern?“, „Von KI überarbeiten lassen“, „Die README ist fertig so“, „Abbrechen“.
 Ergebnis:
 
 [ ] 14. Überarbeiten ohne Anweisungen

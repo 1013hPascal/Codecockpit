@@ -82,6 +82,34 @@ def third_party_imports(code_dir: Path, progress=None) -> set[str]:
     return {m for m in found if m not in stdlib and m not in local}
 
 
+def missing_requirements(code_dir: Path) -> list[str]:
+    """Pakete, die der Code importiert, die aber nicht in requirements.txt stehen. Namen so, wie
+    sie in requirements.txt gehören (PIL -> pillow), in der Schreibweise des Imports, wo gleich."""
+    required = requirements(code_dir)
+    names = []
+    for module in sorted(third_party_imports(code_dir), key=str.lower):
+        package = PACKAGE_NAMES.get(module.lower(), module)
+        if _normalize(package) not in required and package not in names:
+            names.append(package)
+    return names
+
+
+def complete_requirements(code_dir: Path) -> list[str]:
+    """Fehlende Pakete in requirements.txt eintragen, die Datei notfalls anlegen. Nur im Branch
+    Cockpit-exe-bauen benutzt, main bleibt unverändert (Rückmeldung des Nutzers vom 14.10.2026:
+    beim Zug-um-Zug-Streckenfinder fehlte requirements.txt, PyInstaller baute ohne PySide6 und
+    networkx, und die Exe stürzte beim Start ab). Gibt die ergänzten Namen zurück."""
+    added = missing_requirements(code_dir)
+    if not added:
+        return []
+    path = code_dir / "requirements.txt"
+    text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
+    path.write_text(text + "".join(f"{name}\n" for name in added), encoding="utf-8")
+    return added
+
+
 _ENTRY = re.compile(r"^[A-Za-z_][\w.]*\(", re.MULTILINE)       # Aufruf ohne Einrückung
 _BAT_PY = re.compile(r"([\w\-. ]+\.py)\b", re.IGNORECASE)
 _STRING = re.compile(r"""["']([^"'\\/\n]{2,80})["']""")
@@ -249,6 +277,17 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
             lines.append(f"{WARNING}: {filename} sucht {name} im Startordner. Gestartet aus "
                          "einem anderen Ordner, findet die Exe es nicht. Besser den Ort über "
                          "die Exe bestimmen (sys.executable).")
+        # _MEIPASS ist der Ordner _internal, was neben der Exe liegt, ist dort nicht (14.10.2026)
+        for path in python_files(code_dir):
+            text = _read(path)
+            if "_MEIPASS" not in text:
+                continue
+            for name in settings.beside:
+                if name in text and name not in known:
+                    lines.append(f"{PROBLEM}: {path.relative_to(code_dir).as_posix()} sucht "
+                                 f"{name} über sys._MEIPASS, also im Ordner _internal. {name} "
+                                 "liegt aber neben der Exe. Besser den Ort über sys.executable "
+                                 "bestimmen.")
         if settings.icon:
             lines.append(f"{OK}: Symbol {settings.icon} ist da." if (code_dir / settings.icon)
                          .is_file() else f"{PROBLEM}: Das Symbol {settings.icon} fehlt.")

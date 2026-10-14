@@ -418,7 +418,7 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
     monkeypatch.setattr(project_actions, "show_error", lambda *a: errors.append(a[2:]))
     monkeypatch.setattr(upload_flow, "show_error", lambda *a: errors.append(a[2:]))
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: source)
-    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 0)     # verschieben
+    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 1)     # verschieben
     monkeypatch.setattr(project_actions, "confirm",
                         lambda p, t, text, **k: asked.append((text, k)) or True)
     monkeypatch.setattr(upload_dialogs, "UploadDialog", FakeUploadDialog)
@@ -458,6 +458,8 @@ def test_upload_offer_defaults_to_later(live, qtbot, account, projects_root, tmp
     started = []
     monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
     monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # Escape: Später
+    from cockpit.ui import folder_rename_flow
+    monkeypatch.setattr(folder_rename_flow, "confirm", lambda *a, **k: False)
     monkeypatch.setattr(upload_flow.UploadRunner, "start", lambda self: started.append(1))
     win.controller.add_local()
     assert said("Spaeter hinzugefügt.") and started == []

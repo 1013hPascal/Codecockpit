@@ -35,6 +35,7 @@ def setting_fields() -> list[SettingField]:
         YesNo("branch_folders", "Neue Projekte mit einem Ordner pro Branch", True),
         YesNo("update_check", "Täglich nach Updates für CodeCockpit suchen", True),
         YesNo("transfer_sounds", "Töne beim Hoch- und Herunterladen", True),
+        YesNo("ai_sounds", "Töne, während die KI schreibt", True),
     ]
 
 
@@ -54,6 +55,7 @@ class Settings:
     branch_folders: bool = True                   # neue Projekte: Repository\main und Branch-Ordner
     update_check: bool = True                    # Exe: bei jedem Start nach Updates suchen
     transfer_sounds: bool = True                 # Töne beim Hoch- und Herunterladen (07.10.2026)
+    ai_sounds: bool = True                       # Töne, während die KI schreibt (14.10.2026)
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
     setup_done: bool = False                      # Einrichtungsassistent abgeschlossen

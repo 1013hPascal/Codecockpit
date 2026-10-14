@@ -102,6 +102,9 @@ class MainWindow(QMainWindow):
         self.services = services
         self.testdata = testdata
         self.asker = QtAsker(self)
+        # Leiser Warteton, solange die KI schreibt (Wunsch des Nutzers vom 14.10.2026)
+        from cockpit.ui.sounds import AISound
+        self.ai_sound = AISound(lambda: services.settings.load().ai_sounds, self)
         self.setWindowTitle(f"{APP_NAME} (Testdaten)" if testdata else APP_NAME)
 
         self.project_list = ProjectList()

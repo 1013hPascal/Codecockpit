@@ -206,8 +206,10 @@ class TextAI:
             max_tokens = max(20, int(max_tokens * self.answer_factor))
         extra = {"think": True} if self.think and getattr(self.provider, "supports_think",
                                                            False) else {}
-        answer = self.provider.complete([{"role": "user",
-                                          "content": limit_text(prompt, self.max_chars)}],
-                                        model=self.model, system=system, max_tokens=max_tokens,
-                                        cancel=cancel, **extra)
+        from cockpit.core import activity
+        with activity.ai_working():                  # für den Warteton (14.10.2026)
+            answer = self.provider.complete([{"role": "user",
+                                              "content": limit_text(prompt, self.max_chars)}],
+                                            model=self.model, system=system,
+                                            max_tokens=max_tokens, cancel=cancel, **extra)
         return str(answer).strip()

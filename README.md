@@ -49,6 +49,10 @@ python main.py
 
 ## Änderungen
 
+### 1.1.27 (14.10.2026)
+
+- Mehrere Module und UI Komponenten überarbeitet
+
 ### 1.1.26 (11.10.2026)
 
 - Logik für das Beibehalten alter Versionen bei Neustarts korrigiert
@@ -56,10 +60,6 @@ python main.py
 ### 1.1.25 (11.10.2026)
 
 - Fehlerbehebung beim Erstellen von Exe-Dateien für VokabelApp und Tagebuch
-
-### 1.1.24 (11.10.2026)
-
-- Bezeichnungen von Build-Umgebungen unabhängig von Pfaden gestalten
 
 ## Windows-Warnungen
 

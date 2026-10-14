@@ -36,6 +36,12 @@ class QtAsker(QObject):
         holder.append(self.show_question(question))
 
     def show_question(self, question: Question) -> Any:
+        # Solange der Nutzer antworten soll, kein Warteton (Wunsch des Nutzers vom 14.10.2026)
+        from cockpit.ui.sounds import user_turn
+        with user_turn():
+            return self._show_question(question)
+
+    def _show_question(self, question: Question) -> Any:
         parent = self.parent_widget
         if isinstance(question, ConfirmQuestion):
             return confirm(parent, question.title, question.text, question.yes, question.no,

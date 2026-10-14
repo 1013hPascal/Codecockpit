@@ -321,8 +321,31 @@ class ProjectController:
                     announce(f"Der Code liegt jetzt in {code_root.name}\\{MAIN_DIR}.")
                 except CockpitError as exc:
                     show_error(self.window, title, exc.message, exc.details)
+        self._tidy_release(project, title)
         then(self._exe_dir(project))
         return True
+
+    def _tidy_release(self, project: Project, title: str) -> None:
+        """Liegt die Exe direkt im Ordner Release, sie mit allem, was dazugehört, in den Ordner der
+        normalen Exe verschieben, also nach Exe-main (Wunsch des Nutzers vom 14.10.2026)."""
+        from cockpit.core import exe
+        items = exe.loose_items(project)
+        if not items:
+            return
+        home = exe.home_name(project)
+        names = ", ".join(p.name for p in items[:6]) + (" und weitere" if len(items) > 6 else "")
+        if not confirm(self.window, title, f"Bei {project.name} liegt die Exe direkt im Ordner "
+                       f"{project.exe_dir.name}: {names}. Richtig ist ein eigener Ordner, dann "
+                       f"steht sie unter Releases als Exe-main. Das Cockpit verschiebt alles nach "
+                       f"{project.exe_dir.name}\\{home}. Nur der Ort ändert sich. Verschieben?",
+                       yes="Verschieben", no="So lassen"):
+            return
+        try:
+            exe.tidy_release(project)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        announce(f"Die Exe liegt jetzt in {project.exe_dir.name}\\{home}.")
 
     def _exe_dir(self, project: Project) -> Project:
         """Neben Code gehört der Ordner Release. Fehlt er, legt ihn das Cockpit leer an."""
@@ -351,23 +374,59 @@ class ProjectController:
                 self.check_layout(existing, lambda project: self.window.reload_projects(
                     refresh=False))
                 return
-            self.check_layout(self.services.projects.add(project_dir), self._added)
+            # Code und Exe gleich in Repository und Release umbenennen, danach den Aufbau prüfen
+            # (Wunsch des Nutzers vom 14.10.2026)
+            self.folder_renamer.offer_one(self.services.projects.add(project_dir),
+                                          lambda project: self.check_layout(project,
+                                                                            self._added))
             return
         self._add_other(folder, Path(root))
 
     def _add_other(self, folder: Path, root: Path) -> None:
         text = (f"Der Ordner {folder.name} hat keinen Unterordner Repository. "
+                f"Hier Repository und Release anlegen: {folder.name} wird der Projektordner. "
+                f"Das Cockpit legt darin die leeren Ordner {CODE_DIR}\\{MAIN_DIR} und {EXE_DIR} "
+                "an. Ihren Code kopieren Sie danach selbst nach "
+                f"{CODE_DIR}\\{MAIN_DIR}. "
                 f"In den Projekte-Hauptordner verschieben: Das Cockpit legt den Projektordner "
                 f"{root / folder.name} an und verschiebt den gewählten Ordner dorthin als Code. "
                 f"Am Ort lassen: Der Ordner bleibt, wo er ist. Das Cockpit merkt sich nur, wo er "
                 f"liegt. Das passt auch für Repositories, deren Aufbau Sie nicht ändern dürfen.")
         choice = ask_buttons(self.window, "Projekt vom Rechner hinzufügen", text,
-                             ["In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
-                              "Abbrechen"], default=2, escape=2)
+                             ["Hier Repository und Release anlegen …",
+                              "In den Projekte-Hauptordner verschieben …", "Am Ort lassen …",
+                              "Abbrechen"], default=3, escape=3)
         if choice == 0:
-            self._convert(folder, root)
+            self._create_layout(folder)
         elif choice == 1:
+            self._convert(folder, root)
+        elif choice == 2:
             self._link(folder)
+
+    def _create_layout(self, folder: Path) -> None:
+        """Wunsch des Nutzers (14.10.2026): Unterordner mit anderen Namen als Code und Exe. Das
+        Cockpit legt Repository\\main und Release an, den Code kopiert der Nutzer selbst."""
+        title = "Repository und Release anlegen"
+        others = sorted(p.name for p in folder.iterdir() if not p.name.startswith("."))
+        if not confirm(self.window, title, f"Im Ordner {folder} entstehen die leeren Ordner "
+                       f"{CODE_DIR}\\{MAIN_DIR} und {EXE_DIR}. Was schon darin liegt, bleibt "
+                       "unverändert. Anlegen?", yes="Anlegen", no="Abbrechen"):
+            return
+        try:
+            project = self.services.projects.create_layout(folder)
+        except CockpitError as exc:
+            show_error(self.window, title, exc.message, exc.details)
+            return
+        self.window.reload_projects(refresh=False)
+        self.window.show_project(project.id)
+        self.window.refresh_status([project.id])
+        hint = (f"{project.name} ist in der Liste. Kopieren Sie jetzt Ihren Code in den Ordner "
+                f"{CODE_DIR}\\{MAIN_DIR}: {project.code_dir}. Danach wählen Sie auf der "
+                "Projektzeile „Projekt neu einlesen“.")
+        if others:
+            hint += f" Im Projektordner liegen schon: {', '.join(others[:8])}."
+        announce(f"{project.name} hinzugefügt.")
+        show_info(self.window, title, hint)
 
     def _convert(self, folder: Path, root: Path) -> None:
         from cockpit.core import worktrees
