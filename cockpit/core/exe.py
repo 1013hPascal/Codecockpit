@@ -1050,6 +1050,41 @@ def install_branch(project: Project, built: Path, folder: str,
     return BuildResult(target, backup=backup, branch=folder, placed=placed)
 
 
+def stage_beside(built: Path, names: list[str], source_dir: Path) -> list[Path]:
+    """Für den Start-Test: die Dateien und Ordner, die neben die Exe kommen, aus dem Ordner
+    Repository neben die gebaute Exe kopieren. Gibt die angelegten Pfade zurück.
+    Rückmeldung des Nutzers vom 14.10.2026: Der Streckenfinder sucht strecken.csv neben der Exe.
+    Die kam aber erst nach dem Test dorthin, also fehlte sie im Test immer."""
+    home = exe_in(built).parent
+    staged: list[Path] = []
+    for name in names:
+        source, target = source_dir / name, home / name
+        if target.exists() or not source.exists():
+            continue
+        try:
+            if source.is_dir():
+                shutil.copytree(source, target)
+            else:
+                shutil.copy2(source, target)
+        except OSError:
+            continue                          # dann fehlt sie im Test, wie bisher
+        staged.append(target)
+    return staged
+
+
+def unstage(staged: list[Path]) -> None:
+    """Die Kopien für den Test wieder entfernen. Neben die fertige Exe legt place_beside die
+    Ordner, mit den Daten der Nutzer aus der bisherigen Exe."""
+    for path in staged:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.exists():
+                path.unlink()
+        except OSError:
+            log.warning("Kopie für den Start-Test nicht entfernt: %s", path)
+
+
 def discard(result: BuildResult) -> None:
     if result.work is not None:
         backups.remove_tree(result.work)
@@ -1107,6 +1142,8 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
             line(f"Achtung: PyInstaller hat diese Bibliotheken nicht gefunden, der Code "
                  f"importiert sie aber: {', '.join(facts.missing)}. Sie fehlen in der Exe.")
         step(3)
+        staged = stage_beside(built, list(settings.beside) + [
+            n for n in doc_files(code_dir) if n not in settings.beside], code_dir)
         try:
             line(start_test(exe_in(built), settings.test_seconds, settings.self_test,
                             cancel, settings.windowed))
@@ -1125,6 +1162,8 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
                                commit=commit, branch=folder, test_error=exc.message,
                                test_details=exc.details,
                                report=build_report(facts, exc.message, exc.details, output))
+        finally:
+            unstage(staged)
         facts.tested = True
         step(4)
         try:

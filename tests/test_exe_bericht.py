@@ -148,3 +148,40 @@ def test_build_puts_the_report_into_the_result_and_the_error(tmp_path, monkeypat
     with pytest.raises(CockpitError) as raised:
         exe.build(proj, settings, lambda s: None, lambda s: None)
     assert CRASH in raised.value.details and "Bericht zum Bau:" in raised.value.details
+
+
+# -- Dateien neben der Exe schon beim Start-Test (Rückmeldung vom 14.10.2026) -----------------------
+def test_start_test_sees_the_files_beside_the_exe(tmp_path, monkeypatch):
+    """Der Streckenfinder sucht strecken.csv neben der Exe. Sie kam erst nach dem Test dorthin."""
+    proj = project(tmp_path)
+    folder = code(tmp_path)
+    (folder / "strecken.csv").write_text("a;b\n", encoding="utf-8")
+    (folder / "Daten").mkdir()
+    (folder / "Daten" / "x.txt").write_text("x", encoding="utf-8")
+    (folder / "README.md").write_text("# Strecken\n", encoding="utf-8")
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    (tmp_path / "cache").mkdir()
+    monkeypatch.setattr(exe, "head_commit", lambda code_dir: "abc")
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None: "py")
+
+    def fake_build(code_dir, python, spec, work, on_line, cancel):
+        target = work / "dist" / "Strecken.exe"           # eine einzelne Datei (one_file)
+        target.parent.mkdir(parents=True)
+        target.write_text("neu", encoding="utf-8")
+        return target
+
+    seen = []
+
+    def fake_test(path, *args, **kwargs):
+        seen.extend(sorted(p.name for p in path.parent.iterdir()))
+        seen.append((path.parent / "Daten" / "x.txt").is_file())
+        raise CockpitError("Die neue Exe zeigt beim Start eine Fehlermeldung.", "Fehler")
+
+    monkeypatch.setattr(exe, "pyinstaller_build", fake_build)
+    monkeypatch.setattr(exe, "start_test", fake_test)
+    settings = exe.BuildSettings("gui.py", "Strecken", beside=["strecken.csv", "Daten"])
+    result = exe.build(proj, settings, lambda s: None, lambda s: None, keep_failed=True)
+    assert seen == ["Daten", "README.md", "Strecken.exe", "strecken.csv", True]
+    # Nach dem Test sind die Kopien wieder weg, neben die fertige Exe legt sie place_beside
+    assert sorted(p.name for p in result.exe.parent.iterdir()) == ["Strecken.exe"]
+    exe.discard(result)

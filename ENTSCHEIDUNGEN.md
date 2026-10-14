@@ -1211,3 +1211,4 @@ Wünsche des Nutzers:
 - Vertrauliche Dateien gehen nie mit. Zeilen mit Geheimnissen werden entfernt.
 - Auch der Chat beim Exe-Bau bekommt den Code und das Ende der Ausgabe statt des Anfangs.
 - Nach "Problem mit KI lösen" nennt die Zusammenfassung zuerst "Problem beim letzten Versuch" und dann "So löst die KI es". Die KI liefert dazu die Zeile PROBLEM.
+- Dateien und Ordner, die neben die Exe kommen, liegen jetzt schon beim Start-Test neben der gebauten Exe (stage_beside). Grund: Der Streckenfinder sucht strecken.csv richtig neben der Exe, fand sie im Test aber nicht, weil sie erst nach dem Test dorthin kam. Nach dem Test werden die Kopien wieder entfernt. So bleiben die Daten der Nutzer aus der bisherigen Exe erhalten, die place_beside danach dorthin legt.
