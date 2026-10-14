@@ -1229,11 +1229,68 @@ def first_error(text: str) -> str:
     return rows[-1] if rows else ""
 
 
+# Bibliotheken, die es ab einer Python-Version nicht mehr als fertiges Paket (wheel) gibt, und
+# ihr gleichwertiger Ersatz mit demselben Import (Rückmeldung des Nutzers vom 14.10.2026: pygame
+# ließ sich unter Python 3.14 nicht installieren, pip wollte es selbst übersetzen und scheiterte).
+WHEEL_REPLACEMENTS = {"pygame": ("pygame-ce", (3, 14))}
+_FAILED_BUILD = re.compile(r"Failed to build '?([\w.\-]+)'?|Failed building wheel for ([\w.\-]+)"
+                           r"|Could not build wheels for ([\w.\-]+)")
+_NO_DISTRIBUTION = re.compile(r"No matching distribution found for ([\w.\-]+)")
+
+
+def python_version(command: list[str] | None = None) -> tuple[int, int] | None:
+    """Version des Pythons, mit dem das Cockpit baut, zum Beispiel (3, 14)."""
+    command = command or find_python()
+    if command is None:
+        return None
+    try:
+        result = subprocess.run([*command, "--version"], capture_output=True, text=True,
+                                timeout=20, creationflags=FLAGS)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r"Python (\d+)\.(\d+)", result.stdout + result.stderr)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def replacement_for(package: str, version: tuple[int, int] | None) -> str:
+    """Gleichwertiger Ersatz für ein Paket ohne fertige Version für dieses Python, sonst leer."""
+    found = WHEEL_REPLACEMENTS.get(package.lower())
+    if found is None or version is None or version < found[1]:
+        return ""
+    return found[0]
+
+
+def failed_package(text: str) -> str:
+    """Name des Pakets, das pip selbst übersetzen wollte und nicht konnte."""
+    match = _FAILED_BUILD.search(text)
+    return next((g for g in match.groups() if g), "") if match else ""
+
+
 def advice(text: str, facts: BuildFacts | None = None) -> list[str]:
     """Was zu tun ist, aus Fehlermeldung und Ausgabe. Jede Zeile beginnt mit "Was tun:"."""
     from cockpit.core import long_paths
     tips: list[str] = []
-    module = re.search(r"No module named '([\w.]+)'", text)
+    failed = failed_package(text)
+    if failed:
+        # Ein "No module named" stammt dann aus dem Übersetzen des Pakets, nicht aus dem Code
+        # (vorher riet der Bericht bei pygame, distutils in requirements.txt einzutragen)
+        replacement = WHEEL_REPLACEMENTS.get(failed.lower(), ("", None))[0]
+        if replacement:
+            tips.append(f"Was tun: {failed} gibt es für Ihre Python-Version nicht als fertiges "
+                        f"Paket. In requirements.txt {failed} durch {replacement} ersetzen, "
+                        "das wird genauso importiert. „Exe aus dem Code erstellen“ macht das im "
+                        "Branch selbst.")
+        else:
+            tips.append(f"Was tun: {failed} gibt es für Ihre Python-Version nicht als fertiges "
+                        "Paket, und pip konnte es nicht selbst übersetzen. Tragen Sie in "
+                        "requirements.txt eine neuere Version ein oder installieren Sie zusätzlich "
+                        "eine ältere Python-Version.")
+    unknown = _NO_DISTRIBUTION.search(text)
+    if unknown:
+        tips.append(f"Was tun: Ein Paket {unknown.group(1)} gibt es nicht. Prüfen Sie den Namen "
+                    "in requirements.txt. Der Name zum Importieren ist oft ein anderer als der "
+                    "des Pakets, zum Beispiel win32com aus dem Paket pywin32.")
+    module = None if failed else re.search(r"No module named '([\w.]+)'", text)
     missing = list(facts.missing) if facts else []
     if module and module.group(1).split(".")[0] not in missing:
         missing.insert(0, module.group(1).split(".")[0])

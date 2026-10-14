@@ -1212,3 +1212,10 @@ Wünsche des Nutzers:
 - Auch der Chat beim Exe-Bau bekommt den Code und das Ende der Ausgabe statt des Anfangs.
 - Nach "Problem mit KI lösen" nennt die Zusammenfassung zuerst "Problem beim letzten Versuch" und dann "So löst die KI es". Die KI liefert dazu die Zeile PROBLEM.
 - Dateien und Ordner, die neben die Exe kommen, liegen jetzt schon beim Start-Test neben der gebauten Exe (stage_beside). Grund: Der Streckenfinder sucht strecken.csv richtig neben der Exe, fand sie im Test aber nicht, weil sie erst nach dem Test dorthin kam. Nach dem Test werden die Kopien wieder entfernt. So bleiben die Daten der Nutzer aus der bisherigen Exe erhalten, die place_beside danach dorthin legt.
+
+## 14.10.2026: requirements.txt beim Exe-Bau berichtigen
+
+- Im Schritt Einrichtung berichtigt das Cockpit im Branch Einträge, die sich nicht installieren lassen (repair_requirements). Grund: Beim Waagenzähler standen pygame und win32com in requirements.txt. pygame gibt es für Python 3.14 nicht als fertiges Paket, pip scheiterte beim Übersetzen. win32com ist nur der Name zum Importieren, das Paket heißt pywin32.
+- Der Name zum Importieren wird durch den Paketnamen ersetzt (PACKAGE_NAMES, jetzt mit allen win32-Modulen). Für Pakete ohne fertige Version gibt es eine feste Liste mit gleichwertigem Ersatz und derselben Import-Zeile: pygame wird ab Python 3.14 zu pygame-ce. Die Zusammenfassung nennt jede Ersetzung mit Grund.
+- Der Bericht zum Bau erkennt ein gescheitertes Übersetzen ("Failed to build") und rät nicht mehr, ein Modul aus der Ausgabe von pip wie distutils einzutragen.
+- Ordner hinter einem Ordner der Anwendung, etwa BASE_DIR / "sound" oder Path(sys.executable).parent / "sound", gelten jetzt als nötig neben der Exe.

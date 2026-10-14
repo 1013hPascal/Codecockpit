@@ -185,3 +185,55 @@ def test_start_test_sees_the_files_beside_the_exe(tmp_path, monkeypatch):
     # Nach dem Test sind die Kopien wieder weg, neben die fertige Exe legt sie place_beside
     assert sorted(p.name for p in result.exe.parent.iterdir()) == ["Strecken.exe"]
     exe.discard(result)
+
+# -- Einträge, die sich nicht installieren lassen (Rückmeldung vom 14.10.2026, Waagenzähler) ------
+PIP_PYGAME = """Collecting pygame (from -r requirements.txt (line 1))
+  Getting requirements to build wheel: finished with status 'error'
+      ModuleNotFoundError: No module named 'setuptools._distutils.msvccompiler'
+ERROR: Failed to build 'pygame' when getting requirements to build wheel"""
+
+
+def test_repair_requirements_names_and_wheels(tmp_path):
+    folder = tmp_path / "code"
+    folder.mkdir()
+    (folder / "audio.py").write_text("import win32com.client\nimport pygame\n", encoding="utf-8")
+    (folder / "requirements.txt").write_text("pygame\nPySide6\nwin32com\n", encoding="utf-8")
+    notes = setup_check.repair_requirements(folder, (3, 14))
+    assert (folder / "requirements.txt").read_text(encoding="utf-8") == \
+        "pygame-ce\nPySide6\npywin32\n"
+    assert notes[0].startswith("requirements.txt: pygame durch pygame-ce ersetzt. pygame gibt "
+                               "es für Python 3.14 nicht als fertiges Paket.")
+    assert notes[1].startswith("requirements.txt: win32com durch pywin32 ersetzt.")
+    # pygame-ce deckt den Import pygame ab, nichts wird wieder ergänzt
+    assert setup_check.complete_requirements(folder) == []
+    assert setup_check.repair_requirements(folder, (3, 14)) == []
+
+
+def test_pygame_stays_on_older_python(tmp_path):
+    folder = tmp_path / "code"
+    folder.mkdir()
+    (folder / "requirements.txt").write_text("pygame==2.6.1\n", encoding="utf-8")
+    assert setup_check.repair_requirements(folder, (3, 13)) == []
+    assert setup_check.repair_requirements(folder, None) == []
+
+
+def test_advice_for_a_package_without_wheel():
+    tips = exe.advice(PIP_PYGAME)
+    assert exe.failed_package(PIP_PYGAME) == "pygame"
+    assert any("pygame durch pygame-ce ersetzen" in tip for tip in tips)
+    assert not any("distutils" in tip or "setuptools" in tip for tip in tips)
+    tips = exe.advice("ERROR: No matching distribution found for win32com")
+    assert any("Ein Paket win32com gibt es nicht" in tip for tip in tips)
+
+def test_folder_after_the_app_folder_is_required_beside(tmp_path):
+    """Waagenzähler: SOUND_DIR = BASE_DIR / "sound". Der Ordner fehlte neben der Exe."""
+    folder = tmp_path / "code"
+    (folder / "sound").mkdir(parents=True)
+    (folder / "bilder").mkdir()
+    (folder / "audio.py").write_text(
+        'import sys\nfrom pathlib import Path\nBASE_DIR = Path(sys.executable).parent\n'
+        'SOUND_DIR = BASE_DIR / "sound"\nX = Path(__file__).parent / "bilder"\n'
+        'Y = ergebnis / "sound"\n', encoding="utf-8")
+    assert setup_check.required_beside(folder) == ["bilder", "sound"]
+    (folder / "audio.py").write_text('Y = ergebnis / "sound"\n', encoding="utf-8")
+    assert setup_check.required_beside(folder) == []                # kein Ordner der Anwendung

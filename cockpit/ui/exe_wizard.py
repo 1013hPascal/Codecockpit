@@ -498,12 +498,14 @@ class ExeWizard:
             saved = exe.read_settings(folder) or settings
             # Fehlende Bibliotheken gleich im Branch eintragen, sonst fehlen sie in der Exe
             # (Rückmeldung des Nutzers vom 14.10.2026)
+            # Einträge, die sich nicht installieren lassen, vorher berichtigen (14.10.2026)
+            first = setup_check.repair_requirements(folder, exe.python_version())
             added = setup_check.complete_requirements(folder)
-            first = []
             if added:
+                first.append(f"requirements.txt ergänzt: {', '.join(added)}. Der Code importiert "
+                             "sie, ohne diese Einträge fehlten sie in der Exe.")
+            if first:
                 exe_branch.commit(folder, ["requirements.txt"], "requirements.txt ergänzt")
-                first = [f"requirements.txt ergänzt: {', '.join(added)}. Der Code importiert "
-                         "sie, ohne diese Einträge fehlten sie in der Exe."]
             if ai is None:
                 return folder, None, first + setup_check.check_for(folder, saved,
                                                                    exe.current_exe(project))

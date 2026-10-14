@@ -22,8 +22,14 @@ LIMIT_BYTES = 2 * 1024 * 1024 * 1024
 PACKAGE_NAMES = {"pil": "pillow", "cv2": "opencv-python", "sklearn": "scikit-learn",
                  "fitz": "pymupdf", "docx": "python-docx", "dotenv": "python-dotenv",
                  "yaml": "pyyaml", "win32api": "pywin32", "win32con": "pywin32",
+                 "win32com": "pywin32", "win32gui": "pywin32", "win32clipboard": "pywin32",
+                 "win32process": "pywin32", "win32file": "pywin32", "win32event": "pywin32",
+                 "win32ui": "pywin32", "pythoncom": "pywin32", "pywintypes": "pywin32",
+                 "serial": "pyserial", "dateutil": "python-dateutil",
                  "bs4": "beautifulsoup4", "tomli_w": "tomli-w", "pytestqt": "pytest-qt",
                  "faster_whisper": "faster-whisper"}
+# Ein Ersatz deckt denselben Import ab (pygame-ce wird als pygame importiert)
+SAME_IMPORT = {"pygame": {"pygame-ce"}}
 SKIP_DIRS = {".venv", "venv", "env", "build", "dist", "__pycache__", ".git", "tests", "test"}
 # Feste Pfade: Laufwerk wie "C:\..." oder Netzwerkpfad "\\\\server" bzw. r"\\server". Ein Text wie
 # "\\" (ein Backslash) ist kein Pfad (Fehlalarm beim Cockpit selbst, Rückmeldung zu 10g).
@@ -82,6 +88,13 @@ def third_party_imports(code_dir: Path, progress=None) -> set[str]:
     return {m for m in found if m not in stdlib and m not in local}
 
 
+def satisfied(module: str, required: dict[str, str]) -> bool:
+    """Steht ein Paket für diesen Import in requirements.txt (required aus requirements())?"""
+    package = PACKAGE_NAMES.get(module.lower(), module)
+    return _normalize(package) in required or bool(
+        SAME_IMPORT.get(_normalize(package), set()) & set(required))
+
+
 def missing_requirements(code_dir: Path) -> list[str]:
     """Pakete, die der Code importiert, die aber nicht in requirements.txt stehen. Namen so, wie
     sie in requirements.txt gehören (PIL -> pillow), in der Schreibweise des Imports, wo gleich."""
@@ -89,9 +102,46 @@ def missing_requirements(code_dir: Path) -> list[str]:
     names = []
     for module in sorted(third_party_imports(code_dir), key=str.lower):
         package = PACKAGE_NAMES.get(module.lower(), module)
-        if _normalize(package) not in required and package not in names:
+        if not satisfied(module, required) and package not in names:
             names.append(package)
     return names
+
+
+def repair_requirements(code_dir: Path, version: tuple[int, int] | None) -> list[str]:
+    """Einträge in requirements.txt berichtigen, die sich nicht installieren lassen. Nur im Branch
+    Cockpit-exe-bauen benutzt. Gibt pro Änderung einen Satz zurück.
+    - Name zum Importieren statt Name des Pakets: win32com -> pywin32.
+    - Kein fertiges Paket für dieses Python: pygame -> pygame-ce (gleicher Import).
+    Rückmeldung des Nutzers vom 14.10.2026 zum Zug-um-Zug-Waagenzähler."""
+    path = code_dir / "requirements.txt"
+    if not path.is_file():
+        return []
+    rows = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    present = set(requirements(code_dir))
+    kept: list[str] = []
+    notes: list[str] = []
+    for row in rows:
+        match = _REQUIREMENT.match(row.split("#", 1)[0])
+        name = match.group(1) if match and not row.lstrip().startswith("-") else ""
+        package = PACKAGE_NAMES.get(name.lower(), "")
+        new, why = "", ""
+        if package and _normalize(package) != _normalize(name):
+            new, why = package, (f"{name} ist der Name zum Importieren, das Paket dazu heißt "
+                                 f"{package}.")
+        elif name and exe.replacement_for(_normalize(name), version):
+            new = exe.replacement_for(_normalize(name), version)
+            why = (f"{name} gibt es für Python {version[0]}.{version[1]} nicht als fertiges "
+                   f"Paket. {new} ist gleichwertig und wird genauso importiert.")
+        if not new:
+            kept.append(row)
+            continue
+        if _normalize(new) not in present:
+            kept.append(new)
+            present.add(_normalize(new))
+        notes.append(f"requirements.txt: {name} durch {new} ersetzt. {why}")
+    if notes:
+        path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    return notes
 
 
 def complete_requirements(code_dir: Path) -> list[str]:
@@ -159,6 +209,11 @@ _PATH_CONTEXT = re.compile(
     re.IGNORECASE)
 
 
+_BASE_BEFORE = re.compile(r"(?:\b\w*(?:base|app|root|home|program|exe)\w*(?:dir|path|folder)\w*"
+                          r"|\b(?:here|ordner)|\.parent|\.absolute\(\)|\.resolve\(\))\s*/\s*$",
+                          re.IGNORECASE)
+
+
 def _names_in_path_context(text: str, names: set[str]) -> set[str]:
     found: set[str] = set()
     for line in text.splitlines():
@@ -166,7 +221,13 @@ def _names_in_path_context(text: str, names: set[str]) -> set[str]:
             if match.group(1) not in names:
                 continue
             before = line[:match.start()]
-            if re.search(r"/\s*$", before) or not _PATH_CONTEXT.search(before):
+            if re.search(r"/\s*$", before):
+                # Nur ein Ordner der Anwendung davor zählt, etwa BASE_DIR / "sound" oder
+                # Path(sys.executable).parent / "sound" (Rückmeldung vom 14.10.2026: beim
+                # Waagenzähler fehlte der Ordner sound neben der Exe)
+                if not _BASE_BEFORE.search(before):
+                    continue
+            elif not _PATH_CONTEXT.search(before):
                 continue
             found.add(match.group(1))
     return found
@@ -318,8 +379,7 @@ def check_for(code_dir: Path, settings: exe.BuildSettings | None,
     required = requirements(code_dir)
     if not (code_dir / "requirements.txt").is_file():
         lines.append(f"{WARNING}: Es gibt keine requirements.txt.")
-    missing = sorted(m for m in third_party_imports(code_dir)
-                     if _normalize(PACKAGE_NAMES.get(m.lower(), m)) not in required)
+    missing = sorted(m for m in third_party_imports(code_dir) if not satisfied(m, required))
     # Problem, nicht nur Warnung (10g): Das Cockpit installiert in die virtuelle Umgebung nur,
     # was in requirements.txt steht. Was fehlt, fehlt auch in der Exe.
     lines.append(f"{PROBLEM}: Diese Bibliotheken stehen nicht in requirements.txt und fehlen "

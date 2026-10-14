@@ -114,7 +114,7 @@ def missing_packages(code_dir: Path, progress=None) -> list[str]:
     names = []
     for module in sorted(setup_check.third_party_imports(code_dir, progress)):
         package = setup_check.PACKAGE_NAMES.get(module.lower(), module)
-        if setup_check._normalize(package) not in required and package not in names:
+        if not setup_check.satisfied(module, required) and package not in names:
             names.append(package)
     return names
 
