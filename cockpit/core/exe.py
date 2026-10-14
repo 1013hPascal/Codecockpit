@@ -1179,7 +1179,7 @@ def missing_modules(work: Path, code_dir: Path) -> list[str]:
     return found
 
 
-def _first_error_line(text: str) -> str:
+def first_error(text: str) -> str:
     """Die aussagekräftige Zeile einer Fehlermeldung, etwa "No module named 'PySide6'"."""
     rows = [r.strip() for r in text.splitlines() if r.strip() and r.strip() != "Close"]
     for row in reversed(rows):
@@ -1250,7 +1250,7 @@ def build_report(facts: BuildFacts, message: str, details: str = "",
         elif facts.blocked:
             report.append("Schritt 3, Start-Test: von Windows blockiert.")
         else:
-            shown = _first_error_line(details) or message
+            shown = first_error(details) or message
             report.append(f"Schritt 3, Start-Test: nicht bestanden. Meldung der Exe: {shown}")
     exe_dir = facts.project.exe_dir
     where = f"Ordner {exe_dir.name}" if exe_dir is not None else "Ordner Release"

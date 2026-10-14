@@ -62,6 +62,7 @@ MERGE_PUBLISH_TEXT = "Jetzt in main überführen und Release &veröffentlichen"
 MERGE_ONLY_TEXT = "Jetzt in &main überführen, später veröffentlichen"
 CHAT_TEXT = "Mit KI &chatten"                        # vorher "Mit KI schreiben" (04.10.2026)
 FIX_TEXT = "Problem mit &KI lösen"
+RETRY_TEXT = "&Neuer Versuch, Exe zu bauen"
 
 
 def step_title(project: Project, number: int, name: str) -> str:
@@ -138,11 +139,13 @@ class SummaryDialog(StepDialog):
 
     def __init__(self, project: Project, number: int, lines: list[str],
                  changes: list[ai_fix.Change | None], services=None, next_text: str = "",
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None, code_dir: Path | None = None,
+                 start_file: str = "", error: str = "") -> None:
         super().__init__(step_title(project, number, "Zusammenfassung"),
                          next_text or "Exe e&rstellen", parent)
         self.hints = ""
         self.changes = changes
+        self.error = error                # Fehler des letzten Versuchs, geht mit in den Chat
         self.list = QListWidget()
         label = label_for(self.list, "&Zusammenfassung:")
         self.list.setWordWrap(True)
@@ -159,7 +162,8 @@ class SummaryDialog(StepDialog):
             from cockpit.ui.exe_chat import REPEAT_TEXT, ExeChat
             self.chat = ExeChat(services, project.name, "Die Einrichtung ist fertig, die Exe ist "
                                 "noch nicht gebaut. Gebaut wird im Branch "
-                                f"{exe_branch.BRANCH}.", self.lines, self)
+                                f"{exe_branch.BRANCH}.", self.lines, self, code_dir,
+                                start_file)
             self.chat.setVisible(False)
             self.body.addWidget(self.chat, 1)
             self.chat_button = QPushButton(CHAT_TEXT)
@@ -181,6 +185,8 @@ class SummaryDialog(StepDialog):
             change = self.changes[row] if row < len(self.changes) else None
             if change is not None:
                 result += ["Bisher:", change.old or "(neue Datei)", "Neu:", change.new]
+        if self.error:
+            result += ["Fehler beim letzten Versuch:"] + self.error.splitlines()[-40:]
         return result
 
     def open_chat(self) -> None:
@@ -226,7 +232,8 @@ class ProblemDialog(StepDialog):
     Gespräch stehen danach in hints. Immer "Zurück" und als letztes "Abbrechen"."""
 
     def __init__(self, project: Project, number: int, message: str, details: str,
-                 services=None, parent: QWidget | None = None) -> None:
+                 services=None, parent: QWidget | None = None, code_dir: Path | None = None,
+                 start_file: str = "") -> None:
         super().__init__(step_title(project, number, "Fehler"), FIX_TEXT, parent)
         self.hints = ""
         self.text = "\n\n".join(p for p in (message.strip(), details.strip()) if p)
@@ -246,7 +253,7 @@ class ProblemDialog(StepDialog):
             from cockpit.ui.exe_chat import ExeChat
             self.chat = ExeChat(services, project.name, "Beim Erstellen der Exe ist ein Fehler "
                                 "aufgetreten. Die Ausgabe steht im Fenster.",
-                                lambda: self.text.splitlines(), self)
+                                lambda: self.text.splitlines(), self, code_dir, start_file)
             self.chat.setVisible(False)
             self.body.addWidget(self.chat, 1)
             self.chat_button = QPushButton(CHAT_TEXT)
@@ -350,7 +357,7 @@ class WizardBuildDialog(BuildDialog):
         fix = self._button("Problem mit &KI lösen", FIX) if self.with_ai else None
         if self.with_ai:
             self._button(CHAT_TEXT, slot=self.open_chat)
-        retry = self._button("&Neuer Versuch, Exe zu bauen", RETRY)
+        retry = self._button(RETRY_TEXT, RETRY)
         self._button("&Zurück", BACK)
         cancel = self._button("Abbrechen", CANCEL)
         self.buttons.removeWidget(cancel)
@@ -392,7 +399,8 @@ class WizardBuildDialog(BuildDialog):
         if self.chat is None:
             self.chat = ExeChat(self.services, self.project.name, "Die Exe ist gebaut, hat den "
                                 "Test aber nicht bestanden oder Windows hat ihn blockiert. Die "
-                                "Ausgabe steht im Fenster.", self.error_text.splitlines, self)
+                                "Ausgabe steht im Fenster.", self.error_text.splitlines, self,
+                                self.branch_dir, self.build_settings.start_file)
             self.layout_.insertWidget(self.layout_.count() - 1, self.chat, 1)
         self.chat.setVisible(True)
         self.chat.question.setFocus()
@@ -530,17 +538,25 @@ class ExeWizard:
             changes.append(change)
 
         proposal = self.proposal
+        if proposal is not None and self.error:
+            # Wunsch des Nutzers (14.10.2026): erst sagen, was beim letzten Versuch das Problem
+            # war, dann, wie die KI es jetzt löst
+            add(f"Problem beim letzten Versuch: {proposal.problem or exe.first_error(self.error)}")
         if proposal is not None:
+            solved = "So löst die KI es: " if self.error else ""
+            button = "„Neuer Versuch, Exe zu bauen“" if self.error else "„Exe erstellen“"
             if proposal.empty:
-                add("Die KI schlägt keine Änderung vor." + (f" {proposal.summary}"
-                                                            if proposal.summary else ""))
+                add(("Die KI findet keine Änderung, die das Problem löst." if solved else
+                     "Die KI schlägt keine Änderung vor.") + (
+                    f" {proposal.summary}" if proposal.summary else ""))
                 for change in proposal.changes:
                     add(change.line())
             else:
                 count = len(proposal.usable) + (1 if proposal.settings is not None else 0)
-                add(f"Die KI schlägt {count} {'Änderung' if count == 1 else 'Änderungen'} vor. "
-                    "Sie kommen mit „Exe erstellen“ in den Branch." + (
-                        f" {proposal.summary}" if proposal.summary else ""))
+                add(solved + (f"{proposal.summary} " if proposal.summary and solved else "")
+                    + f"Die KI schlägt {count} {'Änderung' if count == 1 else 'Änderungen'} "
+                    f"vor. Sie kommen mit {button} in den Branch." + (
+                        f" {proposal.summary}" if proposal.summary and not solved else ""))
                 for line in proposal.settings_lines:
                     add(f"Einstellung: {line}")
                 for change in proposal.changes:
@@ -562,11 +578,14 @@ class ExeWizard:
 
     def step_summary(self):
         lines, changes = self.summary_lines()
-        announce(lines[0])
+        # Nach "Problem mit KI lösen": Problem und Lösung zusammen ansagen
+        announce(" ".join(lines[:2]) if self.error and self.proposal is not None else lines[0])
         with_chat = self.use_ai and self.ai is not None
         dialog = SummaryDialog(self.project, self._number("summary"), lines, changes,
                                self.services if with_chat else None,
-                               "&Neuer Versuch, Exe zu bauen" if self.error else "", self.window)
+                               RETRY_TEXT if self.error else "", self.window,
+                               code_dir=self.folder, error=self.error,
+                               start_file=self.settings.start_file if self.settings else "")
         dialog.exec()
         if dialog.choice == BACK:
             self.error = ""
@@ -586,7 +605,9 @@ class ExeWizard:
         Einrichtung mit dem Fehler und den Hinweisen aus dem Gespräch."""
         with_ai = self.use_ai and self.ai is not None
         dialog = ProblemDialog(self.project, self._number("setup"), message, details,
-                               self.services if with_ai else None, self.window)
+                               self.services if with_ai else None, self.window,
+                               code_dir=self.folder or self.project.code_dir,
+                               start_file=self.settings.start_file if self.settings else "")
         dialog.exec()
         if dialog.choice in (FIX, NEXT):
             self.error = dialog.text

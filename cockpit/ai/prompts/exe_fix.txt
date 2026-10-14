@@ -11,5 +11,5 @@ Wunsch des Nutzers:
 Fehler beim letzten Bau oder Test der Exe:
 <<fehler>>
 
-Auszüge aus dem Code:
+Code des Projekts (ganze Dateien, bei großen Projekten Auszüge):
 <<code>>

@@ -43,6 +43,7 @@ class Change:
 @dataclass
 class Proposal:
     summary: str = ""
+    problem: str = ""                 # was beim letzten Versuch schiefging, laut KI
     changes: list[Change] = field(default_factory=list)
     settings: exe.BuildSettings | None = None     # geänderte Exe-Einstellungen, sonst None
     settings_lines: list[str] = field(default_factory=list)
@@ -168,6 +169,81 @@ def error_excerpts(code_dir: Path, error: str) -> list[tuple[str, str]]:
     return found
 
 
+_LITERAL = re.compile(r"""(["'])(.*?)\1""")
+MIN_FRAGMENT = 12                     # so lang muss ein Text sein, der in der Meldung gesucht wird
+
+
+def message_excerpts(code_dir: Path, error: str) -> list[tuple[str, str]]:
+    """Stellen, deren Text in der Fehlermeldung steht, zum Beispiel
+    raise FileNotFoundError(f"CSV-Datei nicht gefunden: {pfad}"). So findet die KI die Stelle
+    auch ohne Traceback (Rückmeldung des Nutzers vom 14.10.2026: die Meldung kam aus engine.py,
+    die KI sah nur gui.py)."""
+    found: list[tuple[str, str]] = []
+    if not error.strip():
+        return found
+    for path in setup_check.python_files(code_dir):
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for number, line in enumerate(lines):
+            texts = [m.group(2).split("{")[0].strip() for m in _LITERAL.finditer(line)]
+            if any(len(t) >= MIN_FRAGMENT and t in error for t in texts):
+                first, last = max(0, number - CONTEXT_LINES), number + CONTEXT_LINES + 1
+                found.append((path.relative_to(code_dir).as_posix(),
+                              "\n".join(lines[first:last])))
+    return found
+
+
+def code_for_ai(code_dir: Path, start_file: str, error: str, max_chars: int,
+                progress=None) -> tuple[str, list[str]]:
+    """Code für die KI und die Namen der Dateien darin. Ganze Dateien, solange sie passen: zuerst
+    die Startdatei, dann die Dateien aus der Fehlermeldung, dann der Rest. Was nicht mehr ganz
+    passt, kommt als Auszug (Rückmeldung des Nutzers vom 14.10.2026: vorher sah die KI nur die
+    Startdatei und fand den Fehler in einer anderen Datei nicht)."""
+    from cockpit.features.ai_assistant.context import confidential, redact
+    say = progress or (lambda text: None)
+    spots = error_excerpts(code_dir, error) + message_excerpts(code_dir, error)
+    named = [name for name, _text in spots]
+    files = sorted((p for p in setup_check.python_files(code_dir)
+                    if not confidential(p.relative_to(code_dir).as_posix())),
+                   key=lambda p: (p.relative_to(code_dir).as_posix() != start_file,
+                                  p.relative_to(code_dir).as_posix() not in named,
+                                  p.relative_to(code_dir).as_posix().lower()))
+    parts: list[str] = []
+    sent: list[str] = []
+    used = 0
+    left_out: list[str] = []
+    for path in files:
+        name = path.relative_to(code_dir).as_posix()
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        part = f"--- {name} ---\n{text}"
+        if used + len(part) + 2 > max_chars:
+            left_out.append(name)
+            continue
+        parts.append(part)
+        sent.append(name)
+        used += len(part) + 2
+    if left_out:
+        extra = [(n, t) for n, t in spots if n in left_out]
+        if start_file in left_out:
+            short = excerpts(code_dir, start_file, max_chars)
+            if short:
+                parts.append(short.split("\n\n--- ")[0])
+        for name, text in extra:
+            parts.append(f"--- {name}, Stelle aus der Fehlermeldung ---\n{text}")
+        for name in left_out:
+            if any(p.startswith(f"--- {name}") for p in parts):
+                sent.append(name)
+    for name in sent:
+        say(f"Für die KI gelesen: {name}")
+    # Zeilen mit Geheimnissen gehen nie an die KI
+    return redact("\n\n".join(parts))[:max_chars], sent
+
+
 def build_prompt(project_name: str, settings: exe.BuildSettings, check_lines: list[str],
                  wish: str, code: str, error: str = "") -> tuple[str, str]:
     from cockpit.ai import prompt_files
@@ -193,6 +269,9 @@ def parse(answer: str) -> Proposal:
     match = re.search(r"ZUSAMMENFASSUNG:\s*(.+)", text)
     if match:
         proposal.summary = match.group(1).strip()
+    match = re.search(r"PROBLEM:\s*(.+)", text)
+    if match:
+        proposal.problem = match.group(1).strip()
     for block in re.split(r"\n(?=AENDERUNG:)", text):
         if not block.lstrip().startswith("AENDERUNG:"):
             continue
@@ -241,15 +320,9 @@ def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish
     effective = proposal.settings or settings
     say("Die Einrichtung der Exe wird geprüft.")
     lines = setup_check.check_for(code_dir, effective)
-    code = excerpts(code_dir, effective.start_file, ai.max_chars // 2)
     if error:
         say("Die Fehlermeldung wird gelesen.")
-        for filename, text in error_excerpts(code_dir, error):
-            say(f"Stelle aus der Fehlermeldung gelesen: {filename}")
-            code += f"\n\n--- {filename}, Stelle aus der Fehlermeldung ---\n{text}"
-        code = code[:ai.max_chars // 2]
-    files = sorted({part.split(",")[0] for part in re.findall(r"^--- (.+?) ---$", code,
-                                                               re.MULTILINE)})
+    code, files = code_for_ai(code_dir, effective.start_file, error, ai.max_chars // 2, say)
     prompt, system = build_prompt(project_name, effective, lines, wish, code, error)
     name = getattr(ai, "name", "")
     say(f"An die KI gesendet: {len(code)} Zeichen aus {', '.join(files) or 'keiner Datei'}. "
@@ -257,6 +330,7 @@ def ask(ai, project_name: str, code_dir: Path, settings: exe.BuildSettings, wish
     answered = parse(ai.ask(prompt, system, cancel))
     say("Antwort der KI ist da.")
     proposal.summary = answered.summary
+    proposal.problem = answered.problem if error else ""
     proposal.changes += [c for c in answered.changes if c.file != "requirements.txt"]
     check_changes(code_dir, proposal)
     return proposal
@@ -274,12 +348,17 @@ def chat_hints(history: list[tuple[str, str]]) -> str:
 
 def ask_chat(ai, project_name: str, step: str, content: list[str],
              history: list[tuple[str, str]], question: str,
-             cancel: threading.Event | None = None) -> str:
-    """Frage zum gerade abgeschlossenen Schritt. Die KI antwortet nur, sie ändert nichts."""
+             cancel: threading.Event | None = None, code: str = "") -> str:
+    """Frage zum gerade abgeschlossenen Schritt. Die KI antwortet nur, sie ändert nichts.
+    code: der Code des Projekts aus code_for_ai (Rückmeldung des Nutzers vom 14.10.2026: vorher
+    sah die KI im Chat keinen Code)."""
     from cockpit.ai import prompt_files
+    shown = "\n".join(content)
+    if len(shown) > CHAT_CHARS:              # das Ende enthält die Meldung der Exe und den Bericht
+        shown = "...\n" + shown[-CHAT_CHARS:]
     prompt = prompt_files.fill(prompt_files.load("exe_chat"), projekt=project_name,
-                               schritt=step,
-                               inhalt="\n".join(content)[:CHAT_CHARS] or "nichts",
+                               schritt=step, inhalt=shown or "nichts",
+                               code=code or "nicht mitgeschickt",
                                gespraech=chat_hints(history) or "noch keins",
                                frage=question.strip())
     return ai.ask(prompt, prompt_files.load("exe_chat_system"), cancel)

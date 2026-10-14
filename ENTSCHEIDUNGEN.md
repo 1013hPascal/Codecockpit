@@ -1202,3 +1202,12 @@ Wünsche des Nutzers:
 - Töne: Solange ein Ablauf den Nutzer etwas fragt (Branch, Art der Änderung, README-Vorschlag), schweigt der Warteton. Der Warteton ist jetzt ein weicher, leiser Klang statt des Pieptons. Das Cockpit erzeugt ihn selbst als WAV-Datei, ohne neue Bibliothek und ohne fremde Lizenz.
 - Neu: ein leiser Warteton aus zwei weichen Tönen, solange die KI schreibt. Erst nach 1,5 Sekunden, kurze Antworten bleiben still. Nicht während einer Frage an den Nutzer und nicht zusätzlich zum Ton beim Hochladen. Abschalten in den Grundeinstellungen: Töne, während die KI schreibt. Der Starttest der KI bleibt still.
 - Mit KI chatten: Ist die Antwort da, springt der Fokus in das Gespräch. Abweichung von der Regel, dass Hintergrundarbeit den Fokus nie verschiebt, auf ausdrücklichen Wunsch. Er springt nur, wenn der Fokus noch im Chat steht.
+
+## 14.10.2026: Exe-Bau mit KI bekommt den ganzen Code
+
+- Ändert den Eintrag "Die KI bekommt nie den ganzen Code" für den Exe-Bau. Grund: Beim Streckenfinder kam die Fehlermeldung aus engine.py. Die KI sah nur gui.py und fand den Fehler nicht. Der Nutzer wünschte mehr Kontext.
+- Die KI bekommt ganze Python-Dateien, solange sie in die halbe Zeichengrenze passen: zuerst die Startdatei, dann die Dateien aus der Fehlermeldung, dann der Rest. Was nicht passt, kommt als Auszug um die Stellen aus der Fehlermeldung.
+- Die Stelle wird auch ohne Traceback gefunden: Steht ein fester Text aus dem Code, etwa "CSV-Datei nicht gefunden", in der Meldung, geht diese Stelle mit.
+- Vertrauliche Dateien gehen nie mit. Zeilen mit Geheimnissen werden entfernt.
+- Auch der Chat beim Exe-Bau bekommt den Code und das Ende der Ausgabe statt des Anfangs.
+- Nach "Problem mit KI lösen" nennt die Zusammenfassung zuerst "Problem beim letzten Versuch" und dann "So löst die KI es". Die KI liefert dazu die Zeile PROBLEM.

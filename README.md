@@ -49,6 +49,11 @@ python main.py
 
 ## Änderungen
 
+### 1.1.28 (14.10.2026)
+
+- Verbesserung der KI Prompts und Logik für den EXE Build Prozess
+- Exe-Einrichtung mit KI
+
 ### 1.1.27 (14.10.2026)
 
 - Mehrere Module und UI Komponenten überarbeitet
@@ -56,10 +61,6 @@ python main.py
 ### 1.1.26 (11.10.2026)
 
 - Logik für das Beibehalten alter Versionen bei Neustarts korrigiert
-
-### 1.1.25 (11.10.2026)
-
-- Fehlerbehebung beim Erstellen von Exe-Dateien für VokabelApp und Tagebuch
 
 ## Windows-Warnungen
 

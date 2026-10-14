@@ -8,9 +8,13 @@ Hinweisen wiederholen". Dann läuft der letzte Schritt noch einmal, mit dem Gesp
 
 Wunsch des Nutzers vom 03.10.2026: Die KI antwortet zuerst in verständlichen Sätzen und zeigt erst
 danach Code. Sätze stehen einzeln in der Liste, Code Zeile für Zeile nach der Zeile "Code:".
+
+Rückmeldung des Nutzers vom 14.10.2026: Die KI sagte im Chat, sie sehe den Code nicht. Jetzt geht
+mit jeder Frage der Code des Projekts mit (code_dir), bei kleinen Projekten ganz.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtWidgets import QLineEdit, QListWidget, QPushButton, QVBoxLayout, QWidget
@@ -51,12 +55,15 @@ def answer_lines(answer: str) -> list[str]:
 
 class ExeChat(QWidget):
     def __init__(self, services, project_name: str, step: str,
-                 content: Callable[[], list[str]], parent: QWidget | None = None) -> None:
+                 content: Callable[[], list[str]], parent: QWidget | None = None,
+                 code_dir: Path | None = None, start_file: str = "") -> None:
         super().__init__(parent)
         self.services = services
         self.project_name = project_name
         self.step = step
         self.content = content
+        self.code_dir = code_dir          # der Code geht mit jeder Frage an die KI (14.10.2026)
+        self.start_file = start_file
         self.history: list[tuple[str, str]] = []
         self.task: Task | None = None
         self.ai = None
@@ -90,7 +97,7 @@ class ExeChat(QWidget):
         from cockpit.ui import ai_ui
         if self.ai is None:
             ai = ai_ui.prepare(self.services, self.window(), "exe_fix",
-                               "Ihre Frage und was das Fenster zeigt")
+                               "Ihre Frage, was das Fenster zeigt, und den Code")
             if isinstance(ai, str):
                 if ai != ai_ui.DECLINED:
                     show_error(self.window(), "Frage an die KI", ai)
@@ -111,8 +118,17 @@ class ExeChat(QWidget):
             return
         name, step, content, history = self.project_name, self.step, self.content(), \
             list(self.history)
-        task = Task(lambda t: ai_fix.ask_chat(ai, name, step, content, history, question,
-                                              t.cancel_event), self)
+        code_dir, start_file = self.code_dir, self.start_file
+
+        def work(t: Task) -> str:
+            code = ""
+            if code_dir is not None and code_dir.is_dir():
+                code, _files = ai_fix.code_for_ai(code_dir, start_file, "\n".join(content),
+                                                  getattr(ai, "max_chars", 24000) // 2)
+            return ai_fix.ask_chat(ai, name, step, content, history, question, t.cancel_event,
+                                   code)
+
+        task = Task(work, self)
         self.task = task
         task.result.connect(lambda answer: self.show_answer(question, answer))
         task.error.connect(lambda message, details: show_error(self.window(), "Frage an die KI",

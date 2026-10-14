@@ -206,7 +206,7 @@ class Recorder:
 
         class Summary:
             def __init__(self, project, number, lines, changes, services=None, next_text="",
-                         parent=None):
+                         parent=None, **_code):
                 recorder.summaries.append(lines)
                 self.choice = recorder.summary_choices.pop(0)
                 self.hints = "Hinweis"
@@ -609,7 +609,8 @@ def test_fix_after_a_problem_hands_error_and_chat_to_the_ai(qtbot, tmp_path, pro
             return 1
 
     class Problem:
-        def __init__(self, project_, number, message, details, services_=None, parent=None):
+        def __init__(self, project_, number, message, details, services_=None, parent=None,
+                     **_code):
             self.choice, self.hints, self.text = exe_wizard.FIX, "Hinweis aus dem Chat", message
 
         def exec(self):
