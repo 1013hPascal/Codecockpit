@@ -15,8 +15,8 @@ Fehlt der Eintrag, wählen Sie auf der Projektzeile „Exe hinzufügen …“. D
 Es gibt drei Wege. Die Zeile Exe nennt, welcher es war.
 
 1. Vom Cockpit erstellt: „Exe aus main erstellen …“ baut die Exe mit PyInstaller. Dafür braucht es das Feature Exe-Erstellung und Python auf dem Rechner. Wie das geht, steht unten unter „Exe aus main erstellen“.
-2. Extern erstellt: „Release einlesen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Release.
-3. Aus dem Release: „Release einlesen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
+2. Extern erstellt: „Exe aus einem Release holen …“, dann „Exe-Datei wählen …“ übernimmt eine Exe, die Sie woanders gebaut oder bekommen haben. Das Cockpit kopiert sie in den Ordner Release.
+3. Aus dem Release: „Exe aus einem Release holen …“, dann „Exe aus einem Release wählen …“ lädt die Exe des neuesten Releases auf GitHub herunter. Praktisch bei Projekten anderer Personen.
 
 ## Exe aus main erstellen
 

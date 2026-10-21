@@ -59,6 +59,10 @@ def go_to(window: "MainWindow", project_id: int, target: Target, action_id: str)
     if not action_id:
         window.focus_actions()
         return
+    if action_id == "branches":
+        # Seit der Aufräumrunde vom 20.10.2026 keine eigene Aktion mehr, sondern in „Branches …“
+        window.controller.branches_action(window.action_context())
+        return
     entry = next((e for e in window.current_entries() if e.action.id == action_id), None)
     if entry is None:
         announce("Das geht bei diesem Projekt nicht, zum Beispiel ohne Repository auf GitHub.")

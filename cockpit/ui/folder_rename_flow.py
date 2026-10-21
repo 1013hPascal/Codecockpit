@@ -138,12 +138,12 @@ class FolderRenamer:
             Action("rename_folders", "Ordner in Repository und Release umbenennen …",
                    Target.PROJECT, lambda c: self.one(c, back=False),
                    visible=lambda c: c.project is not None
-                   and bool(project_admin.folder_plan(c.project)), order=97),
+                   and bool(project_admin.folder_plan(c.project)), order=97, more=True),
             Action("rename_folders_back", "Ordnernamen zurücksetzen …", Target.PROJECT,
                    lambda c: self.one(c, back=True),
                    visible=lambda c: c.project is not None
                    and c.project.id in self._ids(DONE_KEY)
-                   and bool(project_admin.folder_plan(c.project, back=True)), order=97),
+                   and bool(project_admin.folder_plan(c.project, back=True)), order=97, more=True),
         ]
 
     def one(self, context: ActionContext, back: bool) -> None:

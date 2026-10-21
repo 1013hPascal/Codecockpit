@@ -10,9 +10,10 @@ Grundsätze:
   Beispiel Release\\VokabelApp und Release\\VokabelApp_branch_Cockpit-exe-bauen. Darin liegen die Exe,
   README, Lizenz und die Ordner neben der Exe.
 - README und Lizenz liegen immer neben der Exe und sind immer die aktuellen aus dem Code.
-- Nach dem Veröffentlichen heißt der Ordner mit Version, zum Beispiel Release\\VokabelApp-v1.2.0, und
-  darin steht version.txt. Ältere veröffentlichte Versionen bleiben als eigene Ordner liegen
-  (Wunsch des Nutzers vom 04.10.2026). Neu gebaut wird in Release\\VokabelApp.
+- Die aktuelle Exe liegt immer im festen Ordner, zum Beispiel Release\\VokabelApp. Nach dem
+  Veröffentlichen steht darin version.txt. Ersetzt eine neue Exe eine veröffentlichte, heißt deren
+  Ordner danach VokabelApp-v1.2.0. Die letzten zwei alten Versionen bleiben so liegen, ältere kommen
+  in die Sicherheitskopien (Wünsche des Nutzers vom 04.10. und 20.10.2026).
 - Eine bisherige Exe kommt immer erst in eine Sicherheitskopie, bevor eine neue sie ersetzt.
 - Eine neu gebaute Exe ersetzt die alte erst, wenn sie den Test bestanden hat.
 - Das Cockpit selbst kann seine laufende Exe nicht ersetzen. Die neue Exe wartet dann in Release\\_neu
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import json
 import logging
 import os
 import re
@@ -102,6 +104,7 @@ class BuildSettings:
     # Ordner, die neben die Exe gehören, zum Beispiel "Meine-Vokabeln" (Phase 10g). Beim ersten
     # Bau kommen sie aus dem Ordner Repository dorthin, danach bleiben sie, wie die Nutzer sie haben.
     beside: list[str] = field(default_factory=list)
+    python: str = ""                    # "3.13" oder leer für automatisch (20.10.2026)
 
     @property
     def spec_name(self) -> str:
@@ -116,6 +119,68 @@ _VERSION_HOME = re.compile(r"-v\d+\.\d+\.\d+$")
 def is_version_home(path: Path) -> bool:
     """Ordner einer veröffentlichten Version, zum Beispiel VokabelApp-v1.2.0."""
     return path.is_dir() and bool(_VERSION_HOME.search(path.name))
+
+
+# Wunsch des Nutzers vom 20.10.2026: Die aktuelle Version liegt immer im festen Ordner, zum
+# Beispiel Release\CodeCockpit. Wird sie ersetzt und war sie veröffentlicht, heißt ihr Ordner
+# danach Name-vVersion. Die letzten KEEP_VERSIONS alten Versionen bleiben daneben, ältere kommen
+# in die Sicherheitskopien. Vorher hieß der Ordner schon beim Veröffentlichen Name-vVersion, und
+# im Ordner Release lagen am Ende nur noch Versionsordner.
+KEEP_VERSIONS = 2
+
+
+def _version_of(path: Path) -> tuple[int, ...]:
+    match = re.search(r"-v(\d+)\.(\d+)\.(\d+)$", path.name)
+    return tuple(int(x) for x in match.groups()) if match else ()
+
+
+def folder_version(folder: Path) -> str:
+    """Veröffentlichte Version aus version.txt im Ordner, sonst leer."""
+    try:
+        text = (folder / VERSION_FILE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    return text if re.fullmatch(r"\d+\.\d+\.\d+", text) else ""
+
+
+def retire_home(home: Path) -> Path | None:
+    """Den Ordner der bisherigen Version umbenennen in Name-vVersion, wenn sie veröffentlicht war
+    (version.txt). Gibt den neuen Ordner zurück, sonst None (dann kommt er wie bisher in die
+    Sicherheitskopien)."""
+    version = folder_version(home) if home.is_dir() else ""
+    if not version:
+        return None
+    target = home.parent / f"{home.name}-v{version}"
+    if target.exists() or running_from(home):
+        return None
+    try:
+        os.rename(home, target)
+    except OSError as exc:
+        log.warning("Ordner der bisherigen Version nicht umbenannt: %s (%s)", home, exc)
+        return None
+    return target
+
+
+def prune_versions(release: Path, name: str, project_name: str,
+                   keep: int = KEEP_VERSIONS) -> list[Path]:
+    """Nur die neuesten keep Versionsordner von name behalten, ältere in die Sicherheitskopien.
+    Ein Ordner, aus dem das Cockpit gerade läuft, bleibt. Gibt die verschobenen Ordner zurück."""
+    if not release.is_dir():
+        return []
+    folders = sorted((p for p in release.iterdir() if is_version_home(p)
+                      and p.name.lower().startswith(f"{name.lower()}-v")),
+                     key=_version_of, reverse=True)
+    moved: list[Path] = []
+    for folder in folders[keep:]:
+        if running_from(folder):
+            continue
+        try:
+            backup = backups.new_backup_dir(project_name, f"Alte Version {folder.name}", release)
+            shutil.move(str(folder), str(backup / folder.name))
+            moved.append(folder)
+        except OSError as exc:
+            log.warning("Alte Version nicht verschoben: %s (%s)", folder, exc)
+    return moved
 RECORD_KEYS = ("source", "date", "commit", "version", "pending", "tested")
 
 
@@ -184,7 +249,8 @@ def read_settings(code_dir: Path) -> BuildSettings | None:
         bool(build.get("one_file", True)), bool(build.get("windowed", True)),
         str(build.get("icon", "")), [list(map(str, d)) for d in build.get("datas", [])],
         [str(h) for h in build.get("hidden_imports", [])], bool(build.get("self_test", False)),
-        int(build.get("test_seconds", 10)), [str(b) for b in build.get("beside", [])])
+        int(build.get("test_seconds", 10)), [str(b) for b in build.get("beside", [])],
+        str(build.get("python", "")))
 
 
 def write_settings(code_dir: Path, settings: BuildSettings) -> None:
@@ -196,6 +262,8 @@ def write_settings(code_dir: Path, settings: BuildSettings) -> None:
                         "hidden_imports": settings.hidden_imports,
                         "self_test": settings.self_test, "test_seconds": settings.test_seconds,
                         "beside": settings.beside}
+    if settings.python:
+        section["build"]["python"] = settings.python
     data[SECTION] = section
     write_config(code_dir, data)
 
@@ -218,7 +286,10 @@ def current_exe(project: Project) -> Path | None:
     found = [p for p in project.exe_dir.rglob("*.exe")
              if p.is_file() and PENDING not in p.relative_to(project.exe_dir).parts
              and not any(BRANCH_MARK in part for part in p.relative_to(project.exe_dir).parts)]
-    return max(found, key=lambda p: p.stat().st_mtime) if found else None
+    # Die im festen Ordner gilt, alte Versionen daneben nicht (20.10.2026)
+    home = (project.exe_dir / home_name(project)).resolve()
+    fixed = [p for p in found if p.parent.resolve() == home]
+    return max(fixed or found, key=lambda p: p.stat().st_mtime) if found else None
 
 
 def _day(iso: str) -> str:
@@ -385,15 +456,15 @@ def adopt(project: Project, source: Path, kind: str = "extern", version: str = "
     if source.resolve().is_relative_to(exe_dir.resolve()):
         raise CockpitError("Diese Exe liegt schon im Ordner Release.")
     names = beside_names(project)
-    old_home = _home_of(project)
     home = exe_dir / home_name(project, source)
-    backup = backup_current(project, "Exe ersetzt")
+    old_home, backup = _make_room(project, home)
     try:
         target = _into_home(source, home, move)
     except OSError as exc:
         raise CockpitError("Die Exe ließ sich nicht übernehmen.", str(exc)) from None
     place_beside(project, names, home, _previous(project, backup, old_home), old_home)
     write_record(project.code_dir, ExeRecord(kind, now(), "", version))
+    prune_versions(exe_dir, home.name, project.name)
     return target
 
 
@@ -697,21 +768,172 @@ def _works(python: Path) -> bool:
         return False
 
 
-def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = None) -> Path:
+# -- Python für den Bau wählen (Wunsch des Nutzers vom 20.10.2026) ---------------------------------
+# Python 3.14 war beim Waagenzähler zu neu: pygame gab es dafür nicht fertig, und pip scheiterte
+# erst nach Minuten beim Übersetzen. Jetzt prüft das Cockpit vorher in Sekunden, ob es jede
+# Bibliothek fertig gibt, und nimmt automatisch ein älteres installiertes Python, wenn das hilft.
+NO_PYTHON = ("Python wurde nicht gefunden. Zum Erstellen einer Exe braucht das Cockpit Python. "
+             "Die Anleitung steht im Menü Hilfe unter Python installieren.")
+_PY_LIST = re.compile(r"-V:(\d+)\.(\d+)(\S*)\s+\*?\s*(\S.*\.exe)\s*$", re.IGNORECASE)
+_NO_MATCH = re.compile(r"(?:No matching distribution found for|Could not find a version that "
+                       r"satisfies the requirement)\s+([A-Za-z0-9_.\-]+)")
+
+
+@dataclass
+class PythonInstall:
+    version: tuple[int, int]
+    command: list[str]
+
+    @property
+    def label(self) -> str:
+        return f"{self.version[0]}.{self.version[1]}"
+
+
+def find_pythons() -> list[PythonInstall]:
+    """Installierte Pythons, das neueste zuerst. Über den Python-Starter py, sonst das eine, das
+    find_python findet."""
+    found: dict[tuple[int, int], PythonInstall] = {}
+    if shutil.which("py") is not None:
+        try:
+            result = subprocess.run(["py", "-0p"], capture_output=True, text=True, timeout=20,
+                                    creationflags=FLAGS)
+            for row in (result.stdout + result.stderr).splitlines():
+                match = _PY_LIST.search(row.strip())
+                # 32-Bit-Versionen (-32) nur, wenn es keine 64-Bit-Version gibt
+                if match and Path(match.group(4)).is_file():
+                    version = (int(match.group(1)), int(match.group(2)))
+                    if version not in found or not match.group(3):
+                        found[version] = PythonInstall(version, [match.group(4)])
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if not found:
+        command = find_python()
+        version = python_version(command) if command is not None else None
+        if command is not None and version is not None:
+            found[version] = PythonInstall(version, command)
+    return [found[v] for v in sorted(found, reverse=True)]
+
+
+def missing_wheels(python: PythonInstall, code_dir: Path, cancel=None) -> list[str] | None:
+    """Bibliotheken aus requirements.txt, die es für dieses Python nicht als fertiges Paket gibt.
+    pip prüft das, ohne etwas zu installieren. None, wenn die Prüfung nicht ging, zum Beispiel
+    ohne Internet. Das Ergebnis wird je Python und requirements.txt gemerkt."""
+    path = code_dir / "requirements.txt"
+    if not path.is_file():
+        return []
+    text = path.read_text(encoding="utf-8", errors="replace")
+    key = f"{python.label}|{hashlib.sha1(text.encode('utf-8')).hexdigest()}"
+    cache = paths.cache_dir() / "wheel-check.json"
+    try:
+        known = json.loads(cache.read_text(encoding="utf-8")) if cache.is_file() else {}
+    except (OSError, ValueError):
+        known = {}
+    if isinstance(known.get(key), list):
+        return known[key]
+    try:
+        result = subprocess.run([*python.command, "-m", "pip", "install", "--dry-run",
+                                 "--ignore-installed", "--only-binary=:all:", "--quiet",
+                                 "--disable-pip-version-check", "-r", str(path)],
+                                capture_output=True, text=True, encoding="utf-8",
+                                errors="replace", timeout=300, cwd=code_dir,
+                                env=_environment(), creationflags=FLAGS)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if cancel is not None and cancel.is_set():
+        raise Cancelled()
+    if result.returncode == 0:
+        missing: list[str] = []
+    else:
+        missing = sorted(set(_NO_MATCH.findall(result.stdout + result.stderr)), key=str.lower)
+        if not missing:
+            return None                          # anderer Fehler, etwa keine Verbindung
+    known[key] = missing
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(known, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+    return missing
+
+
+wheel_check = missing_wheels                    # in Tests ersetzbar, dort ohne Internet
+
+
+def choose_python(code_dir: Path, wanted: str = "", on_line=None,
+                  cancel=None) -> PythonInstall:
+    """Das Python für den Bau. wanted: "3.13" aus den Exe-Einstellungen, leer für automatisch.
+    Automatisch: das neueste installierte, für das es alle Bibliotheken fertig gibt. Gibt es das
+    nicht, das neueste, mit einem Hinweis, was fehlt."""
+    say = on_line or (lambda text: None)
+    installs = find_pythons()
+    if not installs:
+        raise CockpitError(NO_PYTHON)
+    if wanted:
+        chosen = next((p for p in installs if p.label == wanted), None)
+        if chosen is not None:
+            say(f"Python {chosen.label} wird benutzt, wie in den Exe-Einstellungen gewählt.")
+            return chosen
+        say(f"Python {wanted} ist nicht installiert. Das Cockpit wählt selbst.")
+    say("Es wird geprüft, ob es alle Bibliotheken fertig für Python gibt.")
+    first_missing: list[str] | None = None
+    for python in installs:
+        missing = wheel_check(python, code_dir, cancel)
+        if missing is None or not missing:
+            if python is not installs[0] and first_missing:
+                say(f"Python {python.label} wird benutzt, weil es für Python "
+                    f"{installs[0].label} diese Bibliotheken nicht fertig gibt: "
+                    f"{', '.join(first_missing)}.")
+            elif missing == []:
+                say(f"Alle Bibliotheken gibt es fertig für Python {python.label}.")
+            return python
+        if first_missing is None:
+            first_missing = missing
+    newest = installs[0]
+    replaced = [f"{m} durch {WHEEL_REPLACEMENTS[m.lower()][0]}" for m in first_missing or []
+                if m.lower() in WHEEL_REPLACEMENTS]
+    say(f"Achtung: Für Python {newest.label} gibt es diese Bibliotheken nicht fertig: "
+        f"{', '.join(first_missing or [])}. pip versucht, sie selbst zu übersetzen, das scheitert "
+        "oft." + (f" Abhilfe: in requirements.txt {', '.join(replaced)} ersetzen."
+                  if replaced else " Abhilfe: eine ältere Python-Version zusätzlich "
+                                   "installieren, zum Beispiel 3.13. Das Cockpit nimmt sie dann "
+                                   "selbst."))
+    return newest
+
+
+def venv_version(venv: Path) -> tuple[int, int] | None:
+    """Python-Version einer virtuellen Umgebung aus pyvenv.cfg."""
+    try:
+        text = (venv / "pyvenv.cfg").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    match = re.search(r"^version(?:_info)?\s*=\s*(\d+)\.(\d+)", text, re.MULTILINE)
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def prepare_venv(code_dir: Path, on_line=None, cancel=None, venv: Path | None = None,
+                 python_wanted: str | None = None) -> Path:
     """Virtuelle Umgebung anlegen, requirements.txt und PyInstaller installieren. venv: Ort der
-    Umgebung, sonst .venv im Ordner Repository. Eine kaputte Umgebung wird neu angelegt."""
+    Umgebung, sonst .venv im Ordner Repository. Eine kaputte Umgebung wird neu angelegt.
+    python_wanted: None wie bisher (irgendein Python), sonst die Wahl aus den Exe-Einstellungen
+    ("" für automatisch). Passt die Version der Umgebung nicht, wird sie neu angelegt."""
     from cockpit.core import long_paths, safety_check
     venv = venv or code_dir / ".venv"
     python = python_in(venv)
     env = _environment()
+    base: list[str] | None = None
+    if python_wanted is not None:
+        chosen = choose_python(code_dir, python_wanted, on_line, cancel)
+        base = chosen.command
+        if python.is_file() and venv_version(venv) not in (None, chosen.version):
+            if on_line is not None:
+                on_line(f"Die Bau-Umgebung wird für Python {chosen.label} neu angelegt.")
+            shutil.rmtree(venv, ignore_errors=True)
     if python.is_file() and not _works(python):
         shutil.rmtree(venv, ignore_errors=True)
     if not python.is_file():
-        base = find_python()
+        base = base or find_python()
         if base is None:
-            raise CockpitError("Python wurde nicht gefunden. Zum Erstellen einer Exe braucht das "
-                               "Cockpit Python. Die Anleitung steht im Menü Hilfe unter Python "
-                               "installieren.")
+            raise CockpitError(NO_PYTHON)
         venv.parent.mkdir(parents=True, exist_ok=True)
         if run_process([*base, "-m", "venv", str(venv)], code_dir, on_line, cancel, env):
             raise CockpitError("Die virtuelle Umgebung ließ sich nicht anlegen.")
@@ -949,8 +1171,7 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
         write_record(project.code_dir, ExeRecord("cockpit", now(), commit, pending=True,
                                                  tested=tested))
         return BuildResult(target, pending=True)
-    old_home = _home_of(project)
-    backup = backup_current(project, "Exe ersetzt")
+    old_home, backup = _make_room(project, home)
     try:
         target = _into_home(built, home)
     except OSError as exc:
@@ -958,7 +1179,20 @@ def install(project: Project, built: Path, commit: str, tested: bool = True) -> 
                            "bisherige steht in den Sicherheitskopien.", str(exc)) from None
     placed = place_beside(project, names, home, _previous(project, backup, old_home), old_home)
     write_record(project.code_dir, ExeRecord("cockpit", now(), commit, tested=tested))
+    prune_versions(exe_dir, home.name, project.name)
     return BuildResult(target, backup=backup, placed=placed)
+
+
+def _make_room(project: Project, home: Path, reason: str = "Exe ersetzt"
+               ) -> tuple[Path | None, Path | None]:
+    """Platz für die neue Exe im festen Ordner home. War die bisherige veröffentlicht, heißt ihr
+    Ordner danach Name-vVersion, sonst kommt sie in die Sicherheitskopien. Gibt den Ort der
+    bisherigen Exe relativ zu Release (für ihre Daten) und die Sicherheitskopie zurück."""
+    old_home = _home_of(project)
+    retired = retire_home(home)
+    if retired is not None:
+        old_home = Path(retired.name)
+    return old_home, backup_current(project, reason)
 
 
 def branch_home(project: Project, folder: str) -> Path | None:
@@ -1124,7 +1358,8 @@ def build(project: Project, settings: BuildSettings, on_status: Callable[[str], 
     commit = head_commit(code_dir)
     step(1)
     try:
-        python = prepare_venv(code_dir, line, cancel, venv=build_venv(project, code_dir))
+        python = prepare_venv(code_dir, line, cancel, venv=build_venv(project, code_dir),
+                              python_wanted=settings.python)
     except CockpitError as exc:
         raise with_report(exc) from None
     spec = ensure_spec(code_dir, settings)
@@ -1375,8 +1610,14 @@ def restart_script(project: Project) -> Path:
     # Versionen bleiben, wie bei backup_current (Rückmeldung des Nutzers vom 11.10.2026: Das
     # Cockpit lief aus CodeCockpit-v1.1.23, der Ordner ließ sich nicht verschieben, und die neue
     # Exe blieb in Release\_neu liegen)
-    old_items = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)
-                 and not is_version_home(p)]
+    old_items: list = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)
+                       and not is_version_home(p)]
+    # Eine veröffentlichte bisherige Version bleibt als Name-vVersion daneben (20.10.2026)
+    for number, item in enumerate(old_items):
+        version = folder_version(item) if item.is_dir() else ""
+        target = exe_dir / f"{item.name}-v{version}"
+        if version and not target.exists():
+            old_items[number] = (item, target)
     new_exe = exe_in(new_items[0])
     script = swap_script(exe_dir, old_items, new_items, folder,
                          exe_dir / new_exe.relative_to(pending))
@@ -1387,12 +1628,17 @@ def restart_script(project: Project) -> Path:
     return script
 
 
-def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], backup: Path,
-                start: Path | None, pid: int | None = None) -> Path:
+def swap_script(exe_dir: Path, old_items: list, new_items: list[Path], backup: Path,
+                start: Path | None, pid: int | None = None, new_dir: Path | None = None) -> Path:
     """Skript, das auf das Ende des Cockpits wartet, old_items in die Sicherheitskopie backup
-    verschiebt, new_items aus Release\\_neu nach exe_dir holt und start startet (None: nicht starten).
+    verschiebt, new_items aus Release\\_neu nach new_dir (sonst exe_dir) holt und start startet
+    (None: nicht starten). Ein Eintrag (Quelle, Ziel) in old_items kommt nicht in die
+    Sicherheitskopie, sondern nach Ziel, zum Beispiel Release\\CodeCockpit-v1.1.30 (20.10.2026).
     Genutzt vom Neustart nach dem Bauen und von der Selbst-Aktualisierung (update.py)."""
     pending = exe_dir / PENDING
+    new_dir = new_dir or exe_dir
+    old_moves = [item if isinstance(item, tuple) else (item, backup / item.name)
+                 for item in old_items]
     pid = pid or os.getpid()                  # auf das Ende dieses Prozesses warten
     # Befehle mit vollem Pfad (kein anderes find aus dem Suchpfad). Beim Test des Nutzers kam
     # das Skript nicht aus der Warteschleife, und die neue Exe blieb in Release\_neu liegen.
@@ -1403,9 +1649,11 @@ def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], bac
              f'" {pid} " >nul',
              "if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto warten)"]
     # Kurz nach dem Beenden kann Windows die alte Exe noch sperren: bis zu 30 Versuche
-    moves = [(item, backup / item.name) for item in old_items] + \
-            [(item, exe_dir / item.name) for item in new_items]
+    moves = old_moves + [(item, new_dir / item.name) for item in new_items]
     for number, (source, target) in enumerate(moves, start=1):
+        if number == len(old_moves) + 1 and new_dir != exe_dir:
+            # Der feste Ordner entsteht erst, wenn der bisherige umbenannt ist
+            lines.append(f'if not exist "{new_dir}" mkdir "{new_dir}"')
         lines += [f":schieben{number}",
                   f'move /Y "{source}" "{target}" >nul 2>nul',
                   f"if not errorlevel 1 goto fertig{number}",
@@ -1421,9 +1669,9 @@ def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], bac
     lines.append(":aufgeben")
     # Klappt das Tauschen nicht, kommt schon Verschobenes zurück. So bleibt nichts halb getauscht,
     # und die neue Exe wartet weiter in Release\_neu (Rückmeldung des Nutzers vom 11.10.2026)
-    for item in old_items:
-        lines.append(f'if exist "{backup / item.name}" if not exist "{item}" '
-                     f'move /Y "{backup / item.name}" "{item}" >nul 2>nul')
+    for item, target in old_moves:
+        lines.append(f'if exist "{target}" if not exist "{item}" '
+                     f'move /Y "{target}" "{item}" >nul 2>nul')
     # Startet wenigstens die bisherige Exe wieder, falls sie noch da ist
     if start is not None:
         lines.append(f'if exist "{start}" start "" "{start}"')
@@ -1438,9 +1686,20 @@ def swap_script(exe_dir: Path, old_items: list[Path], new_items: list[Path], bac
 def launch_restart(script: Path) -> None:
     """Skript unsichtbar starten. Ohne DETACHED_PROCESS: Damit bekam jeder Befehl im Skript ein
     eigenes Konsolenfenster, beim Test des Nutzers das leere Fenster "find". Die neue
-    Prozessgruppe lässt das Skript weiterlaufen, wenn das Cockpit sich beendet."""
-    subprocess.Popen(["cmd.exe", "/c", str(script)], close_fds=True,
+    Prozessgruppe lässt das Skript weiterlaufen, wenn das Cockpit sich beendet.
+    Ohne die Variablen von PyInstaller (20.10.2026): Eine Exe, die das Skript startet, hielt sich
+    sonst für einen Teil der alten Exe und meldete beim Start einen Fehler."""
+    subprocess.Popen(["cmd.exe", "/c", str(script)], close_fds=True, env=clean_environment(),
                      creationflags=FLAGS | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+
+
+def clean_environment() -> dict[str, str]:
+    """Umgebung ohne die Variablen, die eine Exe von PyInstaller für sich selbst setzt.
+    PYINSTALLER_RESET_ENVIRONMENT sagt einer neu gestarteten Exe, dass sie eigenständig ist."""
+    env = {k: v for k, v in os.environ.items()
+           if not k.upper().startswith(("_PYI_", "_MEIPASS"))}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
 
 
 # -- Versionen und Veröffentlichen ------------------------------------------------------------------
@@ -1501,26 +1760,28 @@ def asset_for_upload(project: Project, exe: Path, work: Path, version: str) -> P
 
 
 def mark_published(project: Project, exe: Path, version: str, rename: bool = True) -> Path:
-    """Nach dem Veröffentlichen: version.txt neben die Exe legen und ihren Ordner mit der
-    Version benennen, zum Beispiel Release\\VokabelApp-v1.2.0. So merkt die Exe, welche Version
-    sie ist, und ältere Versionen bleiben nebeneinander liegen (Wunsch des Nutzers vom
-    04.10.2026). Läuft die Exe gerade, bleibt der Name, bis sie das nächste Mal veröffentlicht
-    oder neu gebaut wird. Gibt die Exe an ihrem neuen Ort zurück."""
-    home = exe.parent
-    if home.resolve() == project.exe_dir.resolve():
+    """Nach dem Veröffentlichen: version.txt neben die Exe legen. So merkt die Exe, welche
+    Version sie ist (04.10.2026). Der Ordner bleibt der feste Ordner, zum Beispiel
+    Release\\VokabelApp. Erst wenn eine neue Exe sie ersetzt, heißt er VokabelApp-v1.2.0
+    (retire_home, Wunsch des Nutzers vom 20.10.2026). Gibt die Exe an ihrem Ort zurück."""
+    folder = exe.parent
+    if folder.resolve() == project.exe_dir.resolve():
         return exe                                  # alte Ablage ohne eigenen Ordner
-    (home / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
+    (folder / VERSION_FILE).write_text(version + "\n", encoding="utf-8")
     if not rename:
         return exe                                  # Release eines Branches (06.10.2026)
-    target = project.exe_dir / f"{home_name(project, exe)}-v{version}"
-    if target.exists() or target == home or running_from(home):
-        return exe
-    try:
-        os.rename(home, target)
-    except OSError as exc:
-        log.warning("Ordner der Exe nicht umbenannt: %s (%s)", home, exc)
-        return exe
-    return target / exe.name
+    # Seit dem 20.10.2026 bleibt der feste Ordner. Eine Exe aus einem Branch oder einem alten
+    # Versionsordner kommt dorthin.
+    home = project.exe_dir / home_name(project, exe)
+    if folder.resolve() != home.resolve() and not running_from(folder):
+        _make_room(project, home, "Exe durch die veröffentlichte ersetzt")
+        try:
+            os.rename(folder, home)
+            exe = home / exe.name
+        except OSError as exc:
+            log.warning("Exe nicht in den festen Ordner verschoben: %s (%s)", folder, exc)
+    prune_versions(project.exe_dir, home.name, project.name)
+    return exe
 
 
 def pick_asset(assets) -> object | None:

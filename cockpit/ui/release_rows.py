@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from cockpit.core import git, local_releases, repo_admin
-from cockpit.core.actions import Action, ActionContext, Target
+from cockpit.core.actions import TERMINAL_ORDER, Action, ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.local_releases import LocalRelease
 from cockpit.ui.announcer import announce
@@ -109,12 +109,12 @@ class ReleaseRowActions:
         has_exe_dir = lambda c: c.project is not None and c.project.has_exe_dir  # noqa: E731
         return [
             Action("terminal_releases", "Terminal …", Target.RELEASES, self._terminal,
-                   visible=has_exe_dir, order=5),
+                   visible=has_exe_dir, order=TERMINAL_ORDER),
             Action("terminal_exe", "Terminal …", Target.EXE, self._terminal,
-                   visible=has_exe_dir, order=5),
+                   visible=has_exe_dir, order=TERMINAL_ORDER),
             Action("terminal_release", "Terminal …", Target.RELEASE, self._terminal,
-                   visible=has_exe_dir, order=5),
-            Action("create_release", "Release für Branch aus Repository erstellen …",
+                   visible=has_exe_dir, order=TERMINAL_ORDER),
+            Action("create_release", "Exe für einen Branch erstellen …",
                    Target.RELEASES, self.create_action, visible=has_exe_dir, order=10),
             Action("publish_release", "Release veröffentlichen …", Target.RELEASES,
                    self.publish_action, availability=self.controller._account_availability,
@@ -126,7 +126,7 @@ class ReleaseRowActions:
                    visible=self.controller.exe._branch_building, order=20,
                    title=lambda c: f"Exe aus {c.worktree.branch or c.release.folder} "
                                    "erstellen …"),
-            Action("remove_this_release", "Release entfernen …", Target.RELEASE,
+            Action("remove_this_release", "Dieses Release entfernen …", Target.RELEASE,
                    lambda c: self.remove(c, c.release), order=90),
         ]
 

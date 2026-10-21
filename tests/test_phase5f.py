@@ -394,8 +394,8 @@ def test_branches_from_the_window(live, qtbot, make_services, projects_root, tmp
     monkeypatch.setattr(branch_dialogs, "BranchesDialog", FakeBranches)
     project_id = win.action_context().project.id
     assert win.project_list.select(Target.REPOSITORY, project_id)
-    entry = next(e for e in win.current_entries() if e.action.id == "branches")
-    win.run_entry(entry)
+    # Seit dem 20.10.2026 in der Auswahl "Branches …"
+    win.controller.branches_action(win.action_context())
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)
     assert shown[0][0] == "main" and "design" in shown[0]
     wait_idle(qtbot, win)

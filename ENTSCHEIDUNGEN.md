@@ -1219,3 +1219,42 @@ Wünsche des Nutzers:
 - Der Name zum Importieren wird durch den Paketnamen ersetzt (PACKAGE_NAMES, jetzt mit allen win32-Modulen). Für Pakete ohne fertige Version gibt es eine feste Liste mit gleichwertigem Ersatz und derselben Import-Zeile: pygame wird ab Python 3.14 zu pygame-ce. Die Zusammenfassung nennt jede Ersetzung mit Grund.
 - Der Bericht zum Bau erkennt ein gescheitertes Übersetzen ("Failed to build") und rät nicht mehr, ein Modul aus der Ausgabe von pip wie distutils einzutragen.
 - Ordner hinter einem Ordner der Anwendung, etwa BASE_DIR / "sound" oder Path(sys.executable).parent / "sound", gelten jetzt als nötig neben der Exe.
+
+## 20.10.2026: Nach einem Update schließt sich CodeCockpit nur
+
+- Nach dem Herunterladen eines Updates fragt das Cockpit jetzt: Zum Übernehmen schließen Sie CodeCockpit und starten es danach selbst wieder. Jetzt schließen? Die Knöpfe heißen CodeCockpit schließen und Später. Beim Beenden wird die neue Version übernommen, sie startet aber nicht von selbst. Grund: Nach Neu starten kam beim Nutzer immer eine Fehlermeldung. Er wünschte, das Programm selbst zu starten.
+- Vermutliche Ursache: Das Austausch-Skript erbte die Variablen der laufenden Exe von PyInstaller (_PYI_...). Die neu gestartete Exe hielt sich dann für einen Teil der alten. launch_restart startet das Skript jetzt mit einer bereinigten Umgebung und PYINSTALLER_RESET_ENVIRONMENT=1. Das hilft auch beim Neustart nach dem Bau der Cockpit-Exe.
+
+## 20.10.2026: Warteton beim Exe-Bau und Pling am Ende
+
+- Das Fenster für den Exe-Bau spielt denselben Warteton wie das Hochladen, nicht den Ton der KI. Er hängt an der Einstellung „Töne beim Hoch- und Herunterladen und beim Exe-Bau“. Besteht die Exe den Test nicht, kommt der Fehlerton.
+- Ist etwas erfolgreich fertig, kommt statt des Windows-Tons ein kurzes, helles Pling (selbst erzeugt, g'' und c'''). Das gilt für Übertragungen, den Exe-Bau und die KI. Bei der KI nur, wenn vorher ein Warteton kam und die Anfrage nicht gescheitert ist. Grund: Wunsch des Nutzers, zu hören, dass etwas erfolgreich durchgelaufen ist.
+
+## 20.10.2026: Fester Ordner für die aktuelle Exe
+
+- Ersetzt den Eintrag vom 04.10.2026, nach dem der Ordner schon beim Veröffentlichen Name-vVersion hieß. Grund: Im Ordner Release des Cockpits lagen am Ende nur noch CodeCockpit-v1.1.27 bis v1.1.30. Das Update tauschte die Exe in dem Ordner, aus dem sie lief, der Name stimmte also nicht mehr. Welchen Ordner man starten soll, war unklar.
+- Die aktuelle Exe liegt immer im festen Ordner, zum Beispiel Release\CodeCockpit. Beim Veröffentlichen kommt nur version.txt dazu.
+- Ersetzt eine neue Exe eine veröffentlichte, heißt deren Ordner danach Name-vVersion (retire_home). Eine nicht veröffentlichte kommt wie bisher in die Sicherheitskopien.
+- Die letzten zwei alten Versionen bleiben im Ordner Release, ältere kommen in die Sicherheitskopien (prune_versions). Ein Ordner, aus dem das Cockpit gerade läuft, bleibt. Das Cockpit räumt beim Start der Exe auf.
+- Das Update lädt die neue Version nach Release\_neu und legt sie in Release\CodeCockpit, auch wenn das Cockpit noch aus einem alten Versionsordner läuft. Die Rückfrage nennt den Ordner, aus dem man danach startet.
+- Als aktuelle Exe gilt die im festen Ordner, die Versionsordner daneben nicht.
+
+## 20.10.2026: Python für den Bau wählen, Bibliotheken vorher prüfen
+
+- Neue Exe-Einstellung „Python für den Bau“: „Automatisch (empfohlen)“ oder eine installierte Version. Gefunden werden die Versionen über den Python-Starter (py -0p).
+- Vor dem Installieren prüft das Cockpit mit pip install --dry-run --only-binary=:all:, ob es alle Bibliotheken aus requirements.txt fertig gibt. Das dauert wenige Sekunden und installiert nichts. Das Ergebnis wird je Python und requirements.txt gemerkt. Ohne Internet gilt die Prüfung als nicht möglich, und es geht weiter wie bisher.
+- Automatisch nimmt das Cockpit das neueste Python, für das es alle Bibliotheken fertig gibt. Gibt es keins, das neueste, mit einem Hinweis, was fehlt und was hilft. Passt die Bau-Umgebung nicht zur gewählten Version, wird sie neu angelegt.
+- Der Assistent macht die Prüfung schon im Schritt Einrichtung. Die Zusammenfassung nennt die Python-Version. Die Berichtigung von requirements.txt richtet sich nach dieser Version.
+- Grund: Beim Waagenzähler scheiterte pip erst nach Minuten, weil es pygame für Python 3.14 nicht fertig gab.
+
+## 20.10.2026: Ansagen in Dialogen gelten als gelöst
+
+- Der Punkt „Sprachausgabe in Dialogen“ aus Phase 3 ist aus TODO.md gestrichen. Grund: Der Nutzer hört Ansagen in Dialogen heute meistens. Geholfen haben die verzögerte Ansage (AFTER_FOCUS_MS) und das Senden an das Steuerelement mit dem Fokus. Fehlt eine einzelne Ansage, wird sie als eigener Fehler gemeldet.
+
+## 20.10.2026: Aufräumrunde der Aktionen
+
+Grundlage ist die Liste des Nutzers in checklisten\aktionen-aufraeumen.md.
+- „Terminal …“ steht auf jeder Zeile ganz unten (TERMINAL_ORDER) und nie unter „Weitere“. Strg+T öffnet es direkt im Ordner der markierten Zeile, das Kürzel steht im Menü Datei. Grund: Der Nutzer sieht das Terminal als Kern des Cockpits. Wer lieber selbst Befehle eingibt, soll es überall an derselben Stelle finden.
+- Seltene Aktionen stehen im Untermenü „Weitere …“ direkt über dem Terminal (Action.more): Features dieses Projekts, Ordner umbenennen und zurücksetzen, Git-Name und E-Mail, Hochladeverlauf, Änderungen beiseitelegen, Beiseitegelegte Änderungen, Mit vorhandenem Repository verbinden, Virtuelle Umgebung neu anlegen, Wie funktioniert die Exe?.
+- „Branches anzeigen …“ heißt „Branches …“. Die Auswahl hat ganz unten „Branches verwalten …“. Die eigene Aktion „Branches verwalten …“ entfällt, die Schnellnavigation öffnet das Fenster weiter direkt.
+- Umbenannt: „Pull-Requests-Übersicht …“ in „Pull Requests …“, „Repository-Identität …“ in „Git-Name und E-Mail …“, „Release einlesen …“ in „Exe aus einem Release holen …“, „Release für Branch aus Repository erstellen …“ in „Exe für einen Branch erstellen …“, „Release entfernen …“ beim einzelnen Release in „Dieses Release entfernen …“, „Anzeigen …“ in „Liste filtern …“. „Exe aus diesem Branch erstellen …“ heißt wie auf der Release-Zeile „Exe aus <Branch> erstellen …“.

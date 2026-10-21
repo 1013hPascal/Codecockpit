@@ -83,15 +83,23 @@ class Action:
     # Name, der von der Zeile abhängt, zum Beispiel "Exe aus neue-funktion erstellen …"
     # (Wunsch des Nutzers vom 06.10.2026). Sonst gilt text.
     title: Callable[[ActionContext], str] | None = None
+    # Seltene Aktion: steht im Untermenü "Weitere …" (Aufräumrunde vom 20.10.2026)
+    more: bool = False
+
+
+# Aufräumrunde vom 20.10.2026: "Terminal …" steht auf jeder Zeile ganz unten, darüber "Weitere …"
+TERMINAL_ORDER = 1000
+MORE_TEXT = "Weitere …"
 
 
 @dataclass(frozen=True)
 class ActionEntry:
-    """Eine Zeile der Aktionsliste."""
+    """Eine Zeile der Aktionsliste. children: die Aktionen unter "Weitere …"."""
     action: Action
     availability: Availability
     detail: str = ""
     title: str = ""
+    children: tuple["ActionEntry", ...] = ()
 
     @property
     def text(self) -> str:
@@ -127,6 +135,30 @@ def _detail(action: Action, context: ActionContext) -> str:
     except Exception:                      # noqa: BLE001 (nur Zusatzinfo)
         log.exception("Stand für die Aktion %s nicht ermittelt", action.id)
         return ""
+
+
+def shown_entries(entries: list[ActionEntry]) -> list[ActionEntry]:
+    """So stehen die Aktionen in der Liste: die häufigen, dann "Weitere …" mit den seltenen,
+    zuletzt "Terminal …"."""
+    more = tuple(e for e in entries if e.action.more)
+    top = [e for e in entries if not e.action.more and e.action.order < TERMINAL_ORDER]
+    last = [e for e in entries if not e.action.more and e.action.order >= TERMINAL_ORDER]
+    if more:
+        action = Action("more", MORE_TEXT, entries[0].action.target, lambda context: None,
+                        order=TERMINAL_ORDER - 1)
+        top.append(ActionEntry(action, Availability.yes(), children=more))
+    return top + last
+
+
+def find_entry(entries: list[ActionEntry], action_id: str) -> ActionEntry | None:
+    """Eine Aktion, auch unter "Weitere …"."""
+    for entry in entries:
+        if entry.action.id == action_id:
+            return entry
+        found = find_entry(list(entry.children), action_id)
+        if found is not None:
+            return found
+    return None
 
 
 def default_entry(entries: list[ActionEntry]) -> ActionEntry | None:

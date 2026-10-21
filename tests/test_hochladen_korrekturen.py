@@ -252,3 +252,67 @@ def test_run_task_plays_for_transfers_only(qtbot, make_services, played):
     win.controller.run_task("t3", lambda task: 3, done.append, "Test", transfer=True)
     qtbot.waitUntil(lambda: done == [1, 2, 3], timeout=5000)
     assert played == []
+
+
+# -- Exe-Bau mit Warteton, Pling am Ende (Wunsch des Nutzers vom 20.10.2026) -----------------------
+def test_ai_plays_pling_after_its_ticks(qtbot, played):
+    from cockpit.core import activity
+    now = [100.0]
+    sound = sounds.AISound(lambda: True, clock=lambda: now[0])
+    sound.timer.stop()
+    with activity.ai_working():
+        sound.check()
+        now[0] += 2.0
+        sound.check()
+    sound.check()
+    assert played == [sounds.AI_TICK, sounds.DONE]
+    played.clear()
+    with activity.ai_working():                                  # kurz: kein Ton, kein Pling
+        sound.check()
+    sound.check()
+    assert played == []
+
+
+def test_ai_failure_has_no_pling(qtbot, played):
+    from cockpit.core import activity
+    now = [100.0]
+    sound = sounds.AISound(lambda: True, clock=lambda: now[0])
+    sound.timer.stop()
+    with pytest.raises(RuntimeError):
+        with activity.ai_working():
+            sound.check()
+            now[0] += 2.0
+            sound.check()
+            raise RuntimeError("KI weg")
+    sound.check()
+    assert played == [sounds.AI_TICK]
+
+
+def test_done_is_a_soft_pling(tmp_path, monkeypatch):
+    import wave
+    from cockpit.core import paths
+    monkeypatch.setattr(paths, "cache_dir", lambda: tmp_path)
+    with wave.open(str(sounds.sound_file(sounds.DONE))) as data:
+        assert 0 < data.getnframes() < sounds.RATE                 # kürzer als eine Sekunde
+
+
+def test_exe_build_plays_the_transfer_sound(qtbot, played, make_services, monkeypatch, tmp_path):
+    from cockpit.core import exe
+    from cockpit.core.projects import Project
+    from cockpit.ui import exe_flow
+    gate = threading.Event()
+
+    def fake_build(project, settings, on_status, on_line, cancel, branch_dir=None,
+                   branch_name=""):
+        gate.wait(5)
+        return exe.BuildResult(tmp_path / "Rechner.exe")
+
+    monkeypatch.setattr(exe, "build", fake_build)
+    project = Project(1, "Rechner", tmp_path, tmp_path / "Code", None)
+    dialog = exe_flow.BuildDialog(make_services([]), project, exe.BuildSettings("gui.py", "R"))
+    qtbot.addWidget(dialog)
+    dialog.sound.timer.setInterval(20)
+    qtbot.waitUntil(lambda: sounds.TICK in played, timeout=3000)
+    gate.set()
+    qtbot.waitUntil(lambda: not dialog.running, timeout=5000)
+    assert played[0] == sounds.START and played[-1] == sounds.DONE

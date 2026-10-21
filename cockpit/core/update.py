@@ -164,7 +164,7 @@ def check(exe_path: Path, skipped: str = "",
 def download(update: Update, exe_path: Path, cancel: threading.Event | None = None,
              transport: httpx.BaseTransport | None = None) -> Path:
     """Neue Exe nach Release\\_neu laden, unter dem Namen der laufenden Exe. Prüft die Prüfsumme."""
-    pending = exe_path.parent / exe.PENDING
+    pending = pending_dir(exe_path)
     backups.remove_tree(pending)
     pending.mkdir()
     target = pending / (update.asset_name if update.is_zip else exe_path.name)
@@ -234,19 +234,58 @@ def _exe_from_zip(archive: Path, target: Path) -> Path:
     return target
 
 
+def fixed_home(exe_path: Path) -> Path | None:
+    """Der feste Ordner der Exe, zum Beispiel Release\\CodeCockpit (Wunsch des Nutzers vom
+    20.10.2026). Läuft die Exe aus Release\\CodeCockpit oder aus einem alten Versionsordner wie
+    Release\\CodeCockpit-v1.1.28, ist es Release\\CodeCockpit. Sonst None, dann wird die Exe an
+    ihrem Ort getauscht wie bisher."""
+    folder, stem = exe_path.parent, exe_path.stem.lower()
+    if folder.name.lower() == stem or (exe._VERSION_HOME.search(folder.name)
+                                       and folder.name.lower().startswith(f"{stem}-v")):
+        return folder.parent / exe_path.stem
+    return None
+
+
+def pending_dir(exe_path: Path) -> Path:
+    """Wo die neue Version wartet. Beim festen Ordner daneben im Ordner Release, damit sie nicht
+    mit dem bisherigen Ordner umbenannt wird."""
+    home = fixed_home(exe_path)
+    return (home.parent if home is not None else exe_path.parent) / exe.PENDING
+
+
 def is_waiting(exe_path: Path) -> bool:
-    return (exe_path.parent / exe.PENDING / exe_path.name).is_file()
+    return (pending_dir(exe_path) / exe_path.name).is_file()
 
 
 def swap(exe_path: Path, version: str, start: bool) -> Path:
-    """Austausch-Skript für die wartende Exe. Die bisherige kommt in die Sicherheitskopien."""
-    new = exe_path.parent / exe.PENDING / exe_path.name
+    """Austausch-Skript für die wartende Exe. Beim festen Ordner: War die bisherige Version
+    veröffentlicht (version.txt), heißt ihr Ordner danach Name-vVersion, sonst kommt sie in die
+    Sicherheitskopien. Die neue kommt in den festen Ordner."""
+    new = pending_dir(exe_path) / exe_path.name
     if not new.is_file():
         raise CockpitError("Es wartet keine neue Version.")
+    home = fixed_home(exe_path)
+    release = home.parent if home is not None else exe_path.parent
     folder = backups.new_backup_dir("CodeCockpit", f"Exe vor dem Update auf {version} ersetzt",
-                                    exe_path.parent)
+                                    release)
     docs = sorted(p for p in new.parent.iterdir() if p.is_file() and _beside(p.name))
-    old = [exe_path] + [exe_path.parent / d.name for d in docs
-                        if (exe_path.parent / d.name).is_file()]
-    return exe.swap_script(exe_path.parent, old, [new] + docs, folder,
-                           exe_path if start else None)
+    if home is None:
+        old = [exe_path] + [exe_path.parent / d.name for d in docs
+                            if (exe_path.parent / d.name).is_file()]
+        return exe.swap_script(exe_path.parent, old, [new] + docs, folder,
+                               exe_path if start else None)
+    old: list = []
+    if home.exists():
+        before = exe.folder_version(home)
+        target = release / f"{home.name}-v{before}"
+        old = [(home, target) if before and not target.exists() else home]
+    return exe.swap_script(release, old, [new] + docs, folder,
+                           home / exe_path.name if start else None, new_dir=home)
+
+
+def tidy(exe_path: Path) -> list[Path]:
+    """Beim Start: Nur die letzten alten Versionen behalten, ältere in die Sicherheitskopien."""
+    home = fixed_home(exe_path)
+    if home is None:
+        return []
+    return exe.prune_versions(home.parent, home.name, "CodeCockpit")

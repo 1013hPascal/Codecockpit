@@ -413,7 +413,7 @@ def test_build_window_discards_an_exe_not_kept(qtbot, tmp_path, monkeypatch):
 def test_build_keeps_a_failed_exe_only_when_asked(tmp_path, projects_root, make_services,
                                                   monkeypatch):
     services, project = folders_project(tmp_path, projects_root, make_services)
-    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None: "py")
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None, **kw: "py")
     monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,
                         cancel: fake_exe(work / "dist" / "Tagebuch", "Tagebuch.exe"))
 
@@ -709,11 +709,11 @@ def test_finish_is_offered_for_the_leftover_branch_exe(qtbot, tmp_path, projects
 def test_branch_exe_can_be_published(qtbot, tmp_path, projects_root, make_services,
                                      monkeypatch):
     """Release und Repository sind getrennt: Veröffentlichen geht auch mit der Exe aus dem
-    Branch. Danach heißt ihr Ordner mit Version und gilt als normale Exe."""
+    Branch. Danach liegt sie im festen Ordner und gilt als normale Exe."""
     services, project, branch_exe = orphan_branch_exe(tmp_path, projects_root, make_services,
                                                       monkeypatch)
     win = window(qtbot, services)
     assert win.controller.exe._publishable(project) == [branch_exe]
     moved = exe.mark_published(project, branch_exe, "1.0.0")
-    assert moved == project.exe_dir / "Tagebuch-v1.0.0" / "Tagebuch.exe"
+    assert moved == project.exe_dir / "Tagebuch" / "Tagebuch.exe"     # fester Ordner (20.10.)
     assert exe.current_exe(project) == moved and exe.branch_home(project, "x") is None

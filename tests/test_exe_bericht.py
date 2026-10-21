@@ -123,7 +123,7 @@ def test_build_puts_the_report_into_the_result_and_the_error(tmp_path, monkeypat
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir()
     monkeypatch.setattr(exe, "head_commit", lambda code_dir: "abc")
-    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None: "py")
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None, **kw: "py")
 
     def fake_build(code_dir, python, spec, work, on_line, cancel):
         warn = work / "build" / "Strecken" / "warn-Strecken.txt"
@@ -162,7 +162,7 @@ def test_start_test_sees_the_files_beside_the_exe(tmp_path, monkeypatch):
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir()
     monkeypatch.setattr(exe, "head_commit", lambda code_dir: "abc")
-    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None: "py")
+    monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None, **kw: "py")
 
     def fake_build(code_dir, python, spec, work, on_line, cancel):
         target = work / "dist" / "Strecken.exe"           # eine einzelne Datei (one_file)

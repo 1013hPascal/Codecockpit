@@ -138,7 +138,8 @@ def test_show_choice_changes_rows_and_is_kept(qtbot, tmp_path, projects_root, ma
     assert any(t.startswith("Branch suche") for t in win.project_list.texts())
     offered = []
     monkeypatch.setattr(listing, "pick_show",
-                        lambda widget, names, current: offered.append((names, current)) or "main")
+                        lambda widget, names, current, extra=None: offered.append((names, current))
+                        or "main")
     entry = next(e for e in win.current_entries() if e.action.id == "branch_show")
     win.run_entry(entry)
     names, current = offered[0]
@@ -160,7 +161,7 @@ def test_enter_on_repository_opens_the_choice(qtbot, tmp_path, projects_root, ma
     win.project_list.select(Target.REPOSITORY, project.id)
     opened = []
     monkeypatch.setattr(listing, "pick_show",
-                        lambda widget, names, current: opened.append(current) or None)
+                        lambda widget, names, current, extra=None: opened.append(current) or None)
     win.project_list.setFocus()
     qtbot.keyClick(win.project_list, Qt.Key.Key_Return)
     assert opened == ["local"]                                      # Escape: nichts geändert
@@ -257,13 +258,12 @@ def test_rows_and_actions_of_the_releases(qtbot, tmp_path, projects_root, make_s
     assert texts[start + 2] == "Exe-suche, noch keine Exe-Datei"
     assert win.project_list.select(Target.RELEASES, project.id)
     labels = [e.label for e in win.current_entries()]
-    assert labels[:4] == ["Releases neu einlesen", "Terminal …",
-                          "Release für Branch aus Repository erstellen …",
+    assert labels[:3] == ["Releases neu einlesen", "Exe für einen Branch erstellen …",
                           "Release entfernen …"]
-    assert labels[-1] == "Release-Ordner öffnen"
+    assert labels[-2:] == ["Release-Ordner öffnen", "Terminal …"]      # Terminal ganz unten
     assert win.project_list.select(Target.EXE, project.id)
     labels = [e.label for e in win.current_entries()]
-    assert "Release einlesen …" in labels and labels[-1] == "Exe-main-Ordner öffnen"
+    assert "Exe aus einem Release holen …" in labels and labels[-1] == "Terminal …"
     assert "Terminal …" in labels
     assert win.project_list.select(Target.RELEASE, project.id, "suche")
     context = win.action_context()
@@ -271,7 +271,7 @@ def test_rows_and_actions_of_the_releases(qtbot, tmp_path, projects_root, make_s
     labels = [e.label for e in win.current_entries()]
     assert labels[0] == "Releases neu einlesen"
     assert "Exe starten, nicht verfügbar: In diesem Release liegt noch keine Exe." in labels
-    assert labels[-1] == "Exe-suche-Ordner öffnen"
+    assert labels[-2:] == ["Exe-suche-Ordner öffnen", "Terminal …"]
 
 
 def test_create_release_for_a_local_branch(qtbot, tmp_path, projects_root, make_services,

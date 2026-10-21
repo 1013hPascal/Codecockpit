@@ -117,14 +117,17 @@ def test_published_folder_gets_the_version_and_stays(make_services, projects_roo
     project = vokabel_project(make_services, projects_root)
     first = exe.install(project, built(tmp_path, "1"), "abc")
     (first.exe.parent / "Meine-Vokabeln" / "eigene.csv").write_text("gato\n", encoding="utf-8")
+    # Seit dem 20.10.2026 bleibt der feste Ordner, erst beim Ersetzen kommt die Version dazu
     moved = exe.mark_published(project, first.exe, "1.2.0")
-    folder = project.exe_dir / "VokabelApp-v1.2.0"
-    assert moved == folder / "VokabelApp.exe" and not (project.exe_dir / "VokabelApp").exists()
-    assert (folder / exe.VERSION_FILE).read_text(encoding="utf-8") == "1.2.0\n"
+    assert moved == first.exe == project.exe_dir / "VokabelApp" / "VokabelApp.exe"
+    assert (first.exe.parent / exe.VERSION_FILE).read_text(encoding="utf-8") == "1.2.0\n"
     second = exe.install(project, built(tmp_path, "2"), "def")
+    folder = project.exe_dir / "VokabelApp-v1.2.0"
     assert second.exe == project.exe_dir / "VokabelApp" / "VokabelApp.exe"
-    assert folder.is_dir()                                   # die Version bleibt liegen
+    assert (folder / exe.VERSION_FILE).is_file()             # die Version bleibt liegen
+    assert (folder / "VokabelApp.exe").read_text(encoding="utf-8") == "1"
     assert (second.exe.parent / "Meine-Vokabeln" / "eigene.csv").is_file()   # Daten kommen mit
+    assert not (second.exe.parent / exe.VERSION_FILE).exists()   # neu gebaut, nicht veröffentlicht
     assert exe.current_exe(project) == second.exe
 
 

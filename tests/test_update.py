@@ -303,3 +303,29 @@ def test_changed_zip_is_deleted(own):
     with pytest.raises(CockpitError, match="beschädigt oder verändert"):
         update.download(found, own, transport=transport(data, b"untergeschoben"))
     assert not (own.parent / exe.PENDING).exists()
+
+
+# -- Schließen statt Neustart (Wunsch des Nutzers vom 20.10.2026) -----------------------------------
+def test_close_takes_the_update_without_starting(qtbot, make_services, own, monkeypatch):
+    """Nach "Neu starten" kam immer eine Fehlermeldung. Jetzt schließt sich das Cockpit nur."""
+    from cockpit.ui import update_ui
+    services, win = window_with_exe(qtbot, make_services, own)
+    found = update.check(own, transport=transport(release()))
+    update.download(found, own, transport=transport(release()))
+    launched, asked, closed = [], [], []
+    monkeypatch.setattr(exe, "launch_restart", launched.append)
+    monkeypatch.setattr(update_ui, "confirm", lambda *a, **k: asked.append((a, k)) or True)
+    monkeypatch.setattr(win, "close", lambda: closed.append(True) or win.updater.shutdown())
+    win.updater.downloaded(found)
+    (_parent, _title, text), options = asked[0]
+    assert "starten es danach selbst wieder" in text and options["yes"] == "CodeCockpit &schließen"
+    assert closed == [True] and len(launched) == 1
+    assert 'start ""' not in launched[0].read_text(encoding="utf-8")
+
+
+def test_restart_environment_drops_pyinstaller_variables(monkeypatch):
+    monkeypatch.setenv("_PYI_APPLICATION_HOME_DIR", r"C:\Temp\_MEI123")
+    monkeypatch.setenv("_MEIPASS2", r"C:\Temp\_MEI123")
+    env = exe.clean_environment()
+    assert "_PYI_APPLICATION_HOME_DIR" not in env and "_MEIPASS2" not in env
+    assert env["PYINSTALLER_RESET_ENVIRONMENT"] == "1" and "PATH" in {k.upper() for k in env}

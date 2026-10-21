@@ -21,8 +21,8 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow, Q
 
 from cockpit import APP_NAME, __version__
 from cockpit.core import backups, core_actions, git, paths, project_status
-from cockpit.core.actions import (ActionContext, ActionEntry, Target, default_entry,
-                                  entries_for)
+from cockpit.core.actions import (MORE_TEXT, ActionContext, ActionEntry, Target, default_entry,
+                                  entries_for, find_entry, shown_entries)
 from cockpit.core.errors import CockpitError
 from cockpit.core.services import Services
 from cockpit.core.text import count
@@ -83,6 +83,7 @@ SHORTCUTS = [
     "Einstellungen, Alt+E",
     "Hilfe, Alt+H",
     "Projekte neu einlesen und Stand abfragen, Strg+R",
+    "Terminal im Ordner der markierten Zeile öffnen, Strg+T",
     "Beenden, Strg+Q",
     "Spracheingabe",
     "Diktieren starten und beenden, in einem Textfeld, Strg+D",
@@ -204,6 +205,8 @@ class MainWindow(QMainWindow):
         file_menu.aboutToShow.connect(self.update_file_menu)
         self._action(file_menu, "Projekte &neu einlesen", self.rescan, "Ctrl+R")
         self._action(file_menu, "&Sicherheitskopien …", self.open_backups)
+        # Aufräumrunde vom 20.10.2026: Terminal im Ordner der markierten Zeile
+        self._action(file_menu, "&Terminal hier öffnen", self.open_terminal_here, "Ctrl+T")
         file_menu.addSeparator()
         self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
 
@@ -582,6 +585,9 @@ class MainWindow(QMainWindow):
         self.actions_list.set_entries(self.current_entries(), keep_selection)
 
     def run_entry(self, entry: ActionEntry) -> None:
+        if entry.children:
+            self.show_more(entry)
+            return
         if not entry.availability.available:
             announce(f"{entry.text} ist nicht verfügbar. {entry.availability.reason}")
             return
@@ -625,12 +631,43 @@ class MainWindow(QMainWindow):
             menu.addMenu(quick_menu(self, expanded))
             menu.addSeparator()
         chosen: dict[QAction, ActionEntry] = {}
-        for entry in entries:
+        for entry in shown_entries(entries):
+            if entry.children:
+                more = menu.addMenu(entry.label.replace("&", "&&"))
+                for child in entry.children:
+                    chosen[more.addAction(child.label.replace("&", "&&"))] = child
+                continue
             chosen[menu.addAction(entry.label.replace("&", "&&"))] = entry
         picked = menu.exec(position)
         self.project_list.setFocus()
         if picked is not None:
             self.run_entry(chosen[picked])
+
+    def show_more(self, entry: ActionEntry) -> None:
+        """Untermenü "Weitere …" unter der markierten Aktion. Escape führt zurück in die
+        Aktionsliste (Aufräumrunde vom 20.10.2026)."""
+        menu = AccessibleMenu(MORE_TEXT.removesuffix(" …"), self)
+        chosen: dict[QAction, ActionEntry] = {}
+        for child in entry.children:
+            chosen[menu.addAction(child.label.replace("&", "&&"))] = child
+        listing = self.actions_list
+        item = listing.currentItem()
+        rect = listing.visualItemRect(item) if item is not None else listing.rect()
+        first = next(iter(chosen), None)
+        picked = menu.exec(listing.viewport().mapToGlobal(rect.bottomLeft()), first)
+        if picked is None:
+            listing.setFocus()
+            return
+        self.run_entry(chosen[picked])
+
+    def open_terminal_here(self) -> None:
+        """Strg+T: das Terminal der markierten Zeile, ohne Menü (20.10.2026)."""
+        entry = next((e for e in self.current_entries()
+                      if e.action.id.startswith("terminal_")), None)
+        if entry is None:
+            announce("Hier gibt es kein Terminal.")
+            return
+        self.run_entry(entry)
 
     # -- Bereiche -------------------------------------------------------------------------
     def focus_project_list(self) -> None:
@@ -648,6 +685,9 @@ class MainWindow(QMainWindow):
         self.refresh_actions()
         entries = self.actions_list.entries
         row = next((i for i, e in enumerate(entries) if e.action.id == action_id), None)
+        if row is None:                            # vielleicht unter "Weitere …"
+            row = next((i for i, e in enumerate(entries)
+                        if find_entry(list(e.children), action_id) is not None), None)
         if row is None:
             self.project_list.setFocus()
             return False

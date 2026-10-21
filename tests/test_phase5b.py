@@ -505,8 +505,8 @@ def test_upload_existing_project_is_offered_only_when_not_on_platform(live, qtbo
     project = services.projects.all()[0]
     from cockpit.core.actions import Target
     win.project_list.select(Target.CODE, project.id)
-    # oben: Projekt neu einlesen und Terminal (Reihenfolge vom 30.09.2026)
-    entry = win.current_entries()[2]
+    # oben: Projekt neu einlesen, das Terminal steht seit dem 20.10.2026 ganz unten
+    entry = win.current_entries()[1]
     assert entry.label == "Auf GitHub hochladen …" and entry.action.is_default
 
 

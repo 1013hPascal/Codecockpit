@@ -96,9 +96,10 @@ def pick_filter(listing: QListWidget, names: dict[str, str], current: str) -> st
 
 
 def pick_show(listing: QListWidget, names: dict[str, str], current: str,
-              title: str = "Branches anzeigen") -> str | None:
+              title: str = "Branches", extra: dict[str, str] | None = None) -> str | None:
     """Menü mit der Auswahl unter der markierten Zeile, wie "Branches anzeigen" in "Branches
-    verwalten". None bei Escape."""
+    verwalten". extra: weitere Einträge unter einem Trennstrich, ohne Häkchen, zum Beispiel
+    "Branches verwalten …" (20.10.2026). None bei Escape."""
     from PySide6.QtGui import QActionGroup
     from PySide6.QtWidgets import QMenu
     menu = QMenu(listing)
@@ -111,6 +112,10 @@ def pick_show(listing: QListWidget, names: dict[str, str], current: str,
         action.setChecked(key == current)
         group.addAction(action)
         chosen[action] = key
+    if extra:
+        menu.addSeparator()
+        for key, label in extra.items():
+            chosen[menu.addAction(label.replace("&", "&&"))] = key
     active = next((a for a, k in chosen.items() if k == current), None)
     menu.setActiveAction(active)
     item = listing.currentItem()

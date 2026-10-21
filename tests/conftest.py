@@ -299,6 +299,23 @@ def played(monkeypatch) -> list[str]:
 
 
 @pytest.fixture(autouse=True)
+def menus_close_at_once(monkeypatch) -> list:
+    """Ein Menü, das ein Test öffnet, schließt sofort wie mit Escape. Ohne das wartete der
+    Gesamttest vom 20.10.2026 endlos auf ein Menü "Weitere …". Die Liste nennt die Menüs."""
+    from PySide6.QtWidgets import QMenu
+    opened: list = []
+    monkeypatch.setattr(QMenu, "exec", lambda self, *args: opened.append(self) or None)
+    return opened
+
+
+@pytest.fixture(autouse=True)
+def offline_wheel_check(monkeypatch):
+    """Kein Test fragt pip im Internet, ob es Bibliotheken fertig gibt. Alles gibt es."""
+    from cockpit.core import exe
+    monkeypatch.setattr(exe, "wheel_check", lambda python, code_dir, cancel=None: [])
+
+
+@pytest.fixture(autouse=True)
 def fast_vault_file(monkeypatch):
     """Schnelle Schlüsselableitung für neue Tresordateien in Tests."""
     from cockpit.vault import vault_file

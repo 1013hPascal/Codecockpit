@@ -811,7 +811,7 @@ def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, pro
     win = live(services)
     project = services.projects.all()[0]
     win.project_list.select(Target.REPOSITORY, project.id)
-    entry = next(e for e in win.current_entries() if e.label == "Repository-Identität …")
+    entry = next(e for e in win.current_entries() if e.label == "Git-Name und E-Mail …")
     asked = []
     monkeypatch.setattr(project_actions, "confirm",
                         lambda parent, title, text, **k: asked.append((text, k)) or True)
@@ -831,4 +831,4 @@ def test_identity_action_only_for_repositories(live, qtbot, make_services, proje
     services = make_services()
     win = live(services)
     win.project_list.select(Target.REPOSITORY, services.projects.all()[0].id)
-    assert "Repository-Identität …" not in [e.label for e in win.current_entries()]
+    assert "Git-Name und E-Mail …" not in [e.label for e in win.current_entries()]

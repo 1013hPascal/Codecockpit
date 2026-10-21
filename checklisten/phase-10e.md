@@ -36,10 +36,10 @@ Ansage: Nichts weiter. Heute wird nicht noch einmal gefragt. Alt+H, U fragt sofo
 Fokus: Zurück im Hauptfenster.
 Ergebnis:
 
-[ ] 5. Aktualisieren und neu starten
-Tasten: Alt+H, U, dann Alt+A, später Enter auf „Neu starten“.
-Ansage: „Update wird heruntergeladen.“, dann „Version … ist heruntergeladen und geprüft. … Jetzt neu starten?“. Danach schließt sich das Cockpit und startet mit der neuen Version.
-Fokus: Nach dem Neustart in der Projektliste. Ihre Konten und Projekte sind noch da.
+[ ] 5. Aktualisieren, schließen und selbst starten
+Tasten: Alt+H, U, dann Alt+A, später Enter auf „CodeCockpit schließen“. Nach ein paar Sekunden CodeCockpit selbst starten.
+Ansage: „Update wird heruntergeladen.“, dann „Version … ist heruntergeladen und geprüft. Zum Übernehmen schließen Sie CodeCockpit und starten es danach selbst wieder. … Jetzt schließen?“. Danach schließt sich das Cockpit ohne Fehlermeldung. Beim nächsten Start läuft die neue Version.
+Fokus: Nach dem Start in der Projektliste. Ihre Konten und Projekte sind noch da.
 Ergebnis:
 
 [ ] 6. Sicherheitskopie der alten Exe
@@ -49,7 +49,7 @@ Fokus: In der Liste der Sicherheitskopien.
 Ergebnis:
 
 [ ] 7. Später übernimmt beim Beenden
-Tasten: Wie Punkt 5, aber bei „Jetzt neu starten?“ Escape. Dann Strg+Q.
+Tasten: Wie Punkt 5, aber bei „Jetzt schließen?“ Escape. Dann Strg+Q.
 Ansage: „Das Update wird beim Beenden übernommen.“ Nach dem Beenden liegt im Ordner die neue Exe. Sie startet nicht von selbst.
 Fokus: Kein Fokus, das Cockpit ist beendet.
 Ergebnis:

@@ -9,7 +9,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
-from cockpit.core.actions import ActionEntry
+from cockpit.core.actions import ActionEntry, shown_entries
 from cockpit.ui.common import name_widget
 
 EMPTY_TEXT = "Keine Aktionen"
@@ -26,7 +26,9 @@ class ActionList(QListWidget):
 
     def set_entries(self, entries: list[ActionEntry], keep_selection: bool = False) -> None:
         """Liste neu füllen. keep_selection: nur neu füllen, wenn sich etwas geändert hat, und
-        die markierte Aktion behalten (für Änderungen aus dem Hintergrund)."""
+        die markierte Aktion behalten (für Änderungen aus dem Hintergrund). Seltene Aktionen
+        stehen unter "Weitere …", "Terminal …" zuletzt (20.10.2026)."""
+        entries = shown_entries(entries)
         labels = [e.label for e in entries] or [EMPTY_TEXT]
         if keep_selection and labels == self.texts():
             self.entries = list(entries)

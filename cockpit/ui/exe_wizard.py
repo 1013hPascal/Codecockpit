@@ -330,6 +330,7 @@ class WizardBuildDialog(BuildDialog):
         if not result.untested:
             super().finished_ok(result)
             return
+        self._sound(False)                            # gebaut, Test nicht bestanden
         self.pending = result
         self.failed_build = True
         if result.test_error:
@@ -498,14 +499,24 @@ class ExeWizard:
             saved = exe.read_settings(folder) or settings
             # Fehlende Bibliotheken gleich im Branch eintragen, sonst fehlen sie in der Exe
             # (Rückmeldung des Nutzers vom 14.10.2026)
-            # Einträge, die sich nicht installieren lassen, vorher berichtigen (14.10.2026)
-            first = setup_check.repair_requirements(folder, exe.python_version())
+            first = []
             added = setup_check.complete_requirements(folder)
             if added:
                 first.append(f"requirements.txt ergänzt: {', '.join(added)}. Der Code importiert "
                              "sie, ohne diese Einträge fehlten sie in der Exe.")
+            # Python wählen und vorher prüfen, ob es alle Bibliotheken fertig gibt (20.10.2026).
+            # Dann Einträge berichtigen, die sich so nicht installieren lassen (14.10.2026).
+            notes: list[str] = []
+            python = exe.choose_python(folder, saved.python, notes.append, task.cancel_event)
+            for note in notes:
+                task.status.emit(note)
+            first = setup_check.repair_requirements(folder, python.version) + first
             if first:
                 exe_branch.commit(folder, ["requirements.txt"], "requirements.txt ergänzt")
+            told = [n for n in notes if not n.startswith("Es wird geprüft")]
+            if not any(n.startswith("Python ") for n in told):
+                told.insert(0, f"Gebaut wird mit Python {python.label}.")
+            first.append(" ".join(told))
             if ai is None:
                 return folder, None, first + setup_check.check_for(folder, saved,
                                                                    exe.current_exe(project))

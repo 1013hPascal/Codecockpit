@@ -52,6 +52,11 @@ class Updater(QObject):
         """Nur in der Exe und nicht mit Testdaten."""
         if self.exe_path is None or self.window.testdata:
             return
+        try:
+            for folder in update.tidy(self.exe_path):   # nur die letzten alten Versionen (20.10.)
+                log.info("Alte Version in die Sicherheitskopien: %s", folder)
+        except OSError as exc:
+            log.warning("Alte Versionen nicht aufgeräumt: %s", exc)
         QTimer.singleShot(FIRST_CHECK_MS, self.check_at_start)
 
     def check_at_start(self) -> None:
@@ -143,13 +148,18 @@ class Updater(QObject):
         self.offer_restart(found)
 
     def offer_restart(self, found: update.Update) -> None:
+        """Wunsch des Nutzers vom 20.10.2026: Nach "Neu starten" kam immer eine Fehlermeldung.
+        Jetzt schließt sich CodeCockpit nur. Beim Beenden wird die neue Version übernommen, und
+        der Nutzer startet sie selbst."""
+        home = update.fixed_home(self.exe_path) if self.exe_path is not None else None
+        where = f" aus dem Ordner {home.parent.name}\\{home.name}" if home is not None else ""
         if not confirm(self.window, TITLE, f"Version {found.version} ist heruntergeladen und "
-                       "geprüft. Zum Übernehmen startet CodeCockpit neu. Jetzt neu starten?",
-                       yes="Neu starten", no="Später"):
+                       "geprüft. Zum Übernehmen schließen Sie CodeCockpit und starten es danach "
+                       f"selbst wieder{where}. Dann läuft die neue Version. Jetzt schließen?",
+                       yes="CodeCockpit &schließen", no="Später"):
             announce("Das Update wird beim Beenden übernommen.")
             return
-        if self._swap(start=True):
-            self.window.close()
+        self.window.close()                 # shutdown() übernimmt das Update, ohne zu starten
 
     # -- Austausch --------------------------------------------------------------------------
     def _swap(self, start: bool) -> bool:
@@ -170,7 +180,8 @@ class Updater(QObject):
 
     def _remember(self, found: update.Update) -> None:
         """Ist die laufende Exe die des Cockpit-Projekts, steht sie danach als Release da."""
-        folder = self.exe_path.parent.resolve()
+        home = update.fixed_home(self.exe_path)
+        folder = (home.parent if home is not None else self.exe_path.parent).resolve()
         for project in self.services.projects.all():
             try:
                 if project.exe_dir is not None and exe.is_cockpit(project) and \

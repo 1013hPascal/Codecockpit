@@ -169,7 +169,7 @@ def test_build_replaces_only_after_the_test(make_services, projects_root, tmp_pa
     services, project = project_with(make_services, projects_root)
     fake_exe(project.exe_dir, "Rechner.exe", "alt")
     monkeypatch.setattr(exe, "prepare_venv",
-                        lambda code_dir, on_line, cancel, venv=None: Path("py.exe"))
+                        lambda code_dir, on_line, cancel, venv=None, **kw: Path("py.exe"))
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir()
 
@@ -399,7 +399,7 @@ def test_actions_follow_the_state(qtbot, make_services, projects_root):
     # Seit dem 06.10.2026 "Exe aus main erstellen …" und "Release einlesen …"
     assert "Exe aus main erstellen …, noch keine Exe" in labels(win)
     # Zusammengefasst am 30.09.2026: Erstellen mit Einrichten, Exe einlesen
-    assert "Exe aus dem Code erstellen …" in entries and "Release einlesen …" in entries
+    assert "Exe aus dem Code erstellen …" in entries and "Exe aus einem Release holen …" in entries
     assert "Wie funktioniert die Exe? …" in entries
     assert "Exe veröffentlichen …" not in entries             # kein Repository auf GitHub
     fake_exe(project.exe_dir)
@@ -511,7 +511,7 @@ def blocked_build(make_services, projects_root, tmp_path, monkeypatch):
     services, project = project_with(make_services, projects_root)
     fake_exe(project.exe_dir, "Rechner.exe", "alt")
     monkeypatch.setattr(exe, "prepare_venv",
-                        lambda code_dir, on_line, cancel, venv=None: Path("py.exe"))
+                        lambda code_dir, on_line, cancel, venv=None, **kw: Path("py.exe"))
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     (tmp_path / "cache").mkdir(exist_ok=True)
     monkeypatch.setattr(exe, "pyinstaller_build", lambda code_dir, python, spec, work, on_line,
@@ -554,3 +554,18 @@ def test_build_dialog_asks_when_blocked(qtbot, make_services, projects_root, tmp
     else:
         assert last == "Die neue Exe wurde verworfen. Die bisherige bleibt."
         assert (project.exe_dir / "Rechner.exe").read_text() == "alt"
+
+
+def test_restart_names_a_published_home_with_its_version(make_services, projects_root, tmp_path,
+                                                         monkeypatch):
+    """Wunsch vom 20.10.2026: Die veröffentlichte bisherige Version bleibt als Name-vVersion."""
+    services, project = project_with(make_services, projects_root)
+    (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
+    fake_exe(project.exe_dir / "Rechner", "Rechner.exe", "alt")
+    (project.exe_dir / "Rechner" / exe.VERSION_FILE).write_text("1.3.0\n", encoding="utf-8")
+    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    script = exe.restart_script(project).read_text(encoding="utf-8")
+    assert (f'move /Y "{project.exe_dir / "Rechner"}" "{project.exe_dir / "Rechner-v1.3.0"}"'
+            in script)

@@ -100,7 +100,7 @@ def test_filter_row_sits_above_the_projects(qtbot, make_services, projects_root)
     assert texts[:4] == ["Neue Projektsammlung", "Projekt vom Rechner hinzufügen",
                          "Projekt von GitHub herunterladen", "Anzeigen: Alle Projekte"]
     assert win.project_list.select(Target.LIST_FILTER, None)
-    assert [e.label for e in win.current_entries()] == ["Anzeigen …, Alle Projekte"]
+    assert [e.label for e in win.current_entries()] == ["Liste filtern …, Alle Projekte"]
 
 
 def test_open_filter_hides_the_rest_and_counts_in_collections(qtbot, make_services,

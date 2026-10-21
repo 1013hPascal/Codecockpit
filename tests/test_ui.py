@@ -306,17 +306,20 @@ def test_actions_follow_the_tree_selection(window):
         "Projekt von GitHub herunterladen …, nicht verfügbar: Es ist noch kein Konto bei einer "
         "Plattform eingerichtet."]
     select_project(win, "PDF-Chat")
+    # Aufräumrunde vom 20.10.2026: Seltenes unter "Weitere …", "Terminal …" ganz unten
     assert win.actions_list.texts() == [
-        "Projekt neu einlesen", "Terminal …", "Projekt verwalten …",
+        "Projekt neu einlesen", "Projekt verwalten …", "Projektordner öffnen", "Weitere …",
+        "Terminal …"]
+    assert [c.label for c in win.actions_list.entries[3].children] == [
         "Features dieses Projekts …, nicht verfügbar: Es ist kein Feature eingeschaltet. Das "
-        "geht im Menü Features.", "Projektordner öffnen",
+        "geht im Menü Features.",
         "Ordner in Repository und Release umbenennen …"]          # alte Ordner Code und Exe
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     win.project_list.select(Target.EXE, project.id)
     assert win.actions_list.texts() == [
-        "Releases neu einlesen", "Terminal …",
+        "Releases neu einlesen",
         "Exe starten, nicht verfügbar: Im Ordner Release liegt keine Exe.",
-        "Release einlesen …", "Wie funktioniert die Exe? …", "Exe-main-Ordner öffnen"]
+        "Exe aus einem Release holen …", "Exe-main-Ordner öffnen", "Weitere …", "Terminal …"]
 
 
 def test_unavailable_action_announces_reason(window, qtbot):
@@ -334,9 +337,9 @@ def test_enter_and_space_run_actions(window, qtbot, monkeypatch):
     win = window()
     select_project(win, "PDF-Chat")
     win.focus_actions()
-    # Reihenfolge vom 06.10.2026: Projekt neu einlesen, Terminal, Projekt verwalten, Features,
-    # Projektordner öffnen
-    for _ in range(4):
+    # Reihenfolge seit dem 20.10.2026: Projekt neu einlesen, Projekt verwalten,
+    # Projektordner öffnen, Weitere, Terminal
+    for _ in range(2):
         press(qtbot, win.actions_list, Qt.Key.Key_Down)
     press(qtbot, win.actions_list, Qt.Key.Key_Return)
     press(qtbot, win.actions_list, Qt.Key.Key_Space)

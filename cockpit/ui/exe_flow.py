@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 
 FEATURE_ID = "exe_build"
 ONE_FILE, FOLDER = "Eine Exe-Datei", "Programmordner"
+AUTO_PYTHON = "Automatisch (empfohlen)"
 
 
 def _size(path: Path) -> str:
@@ -122,6 +123,14 @@ class BuildSettingsDialog(FocusDialog):
                            current.windowed),
                   sf.Text("icon", "Symbol, freiwillig, eine .ico-Datei im Ordner Repository",
                           current.icon)]
+        # Wunsch des Nutzers vom 20.10.2026: Python für den Bau wählen. Automatisch nimmt das
+        # neueste, für das es alle Bibliotheken fertig gibt.
+        self.pythons = [AUTO_PYTHON] + [f"Python {p.label}" for p in exe.find_pythons()]
+        wanted = f"Python {current.python}" if current.python else AUTO_PYTHON
+        if wanted not in self.pythons:
+            self.pythons.append(wanted)
+        fields.append(sf.Choice("python", "Python für den Bau", wanted,
+                                options=tuple(self.pythons)))
         self.form = SettingsForm(fields)
         self.handmade = self.current is not None and \
             not exe.own_spec(code_dir / self.current.spec_name)
@@ -220,7 +229,9 @@ class BuildSettingsDialog(FocusDialog):
         self.settings = exe.BuildSettings(values["start_file"], values["name"],
                                           values["mode"] == ONE_FILE, values["windowed"],
                                           values["icon"], keep.datas, keep.hidden_imports,
-                                          keep.self_test, keep.test_seconds, beside)
+                                          keep.self_test, keep.test_seconds, beside,
+                                          "" if values["python"] == AUTO_PYTHON
+                                          else values["python"].removeprefix("Python "))
         self.accept()
 
     def _add_beside(self, name: str, checked: bool, used: bool, missing: bool) -> None:
@@ -333,7 +344,12 @@ class BuildDialog(FocusDialog):
         self.task.error.connect(self.failed)
         self.task.cancelled.connect(self.cancelled)
         self.task.finished.connect(self._done)
+        # Wunsch des Nutzers vom 20.10.2026: beim Bau derselbe Warteton wie beim Hochladen
+        from cockpit.ui.sounds import TransferSound
+        self.sound = TransferSound(services is not None and
+                                   services.settings.load().transfer_sounds, self)
         self.add_line("Der Bau läuft. Beim ersten Mal dauert er einige Minuten.")
+        self.sound.start()
         self.task.start()
 
     def keyPressEvent(self, event) -> None:
@@ -349,6 +365,7 @@ class BuildDialog(FocusDialog):
                                       QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     def finished_ok(self, result: exe.BuildResult) -> None:
+        self._sound(not result.untested)              # nicht bestanden: Fehlerton
         if result.untested:
             result = self.ask_untested(result)
             if result is None:
@@ -397,6 +414,7 @@ class BuildDialog(FocusDialog):
             return None
 
     def failed(self, message: str, details: str) -> None:
+        self._sound(False)
         self.failed_build = True
         if details:
             self.output.addItem(details)
@@ -407,7 +425,18 @@ class BuildDialog(FocusDialog):
         output = [self.output.item(r).text() for r in range(self.output.count())]
         self.error_text = "\n".join([message, details] + output[-60:])
 
+    def _sound(self, ok: bool | None) -> None:
+        """Warteton beenden: mit Pling (ok), Fehlerton (False) oder still (None)."""
+        sound = getattr(self, "sound", None)
+        if sound is None:
+            return
+        if ok is None:
+            sound.stop()
+        else:
+            sound.finish(ok)
+
     def cancelled(self) -> None:
+        self._sound(None)
         self.failed_build = True
         self.ended("Abgebrochen. Die bisherige Exe bleibt.")
 
@@ -444,6 +473,7 @@ class BuildDialog(FocusDialog):
         super().reject()
 
     def done(self, code: int) -> None:
+        self._sound(None)
         if self.task is not None:
             self.task.cancel()
             self.task.wait(10000)
@@ -614,7 +644,7 @@ class ExeActions:
                    detail=self._publish_detail,
                    visible=lambda c: self._building(c) and has_exe(c)
                    and c.project.remote is not None, order=40),
-            Action("import_exe", "Release einlesen …", Target.EXE, self.import_exe,
+            Action("import_exe", "Exe aus einem Release holen …", Target.EXE, self.import_exe,
                    visible=lambda c: c.project is not None and c.project.has_exe_dir, order=45),
             Action("exe_settings", "Exe-Einstellungen …", Target.EXE, self.edit_settings,
                    visible=lambda c: self._building(c)
@@ -625,9 +655,10 @@ class ExeActions:
                    and c.project.remote is not None, order=55),
             Action("exe_guide", "Wie funktioniert die Exe? …", Target.EXE,
                    lambda c: self.window.show_guide(exe.EXE_GUIDE, "Wie funktioniert die Exe?"),
-                   visible=lambda c: c.project is not None, order=95),
-            Action("build_branch_exe", "Exe aus diesem Branch erstellen …", Target.CODE,
-                   self.build_branch, visible=self._branch_building, order=92),
+                   visible=lambda c: c.project is not None, order=95, more=True),
+            Action("build_branch_exe", "Exe aus dem Branch erstellen …", Target.CODE,
+                   self.build_branch, visible=self._branch_building, order=92,
+                   title=lambda c: f"Exe aus {c.worktree.branch} erstellen …"),
             # Wunsch des Nutzers (11.10.2026): auch dort, wo der Branch Cockpit-exe-bauen und
             # seine Exe stehen, nicht nur bei Exe-main
             Action("finish_exe_branch", FINISH_HERE, Target.CODE, self.finish_here,

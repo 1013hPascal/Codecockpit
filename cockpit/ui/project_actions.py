@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Callable
 
 from cockpit.core import (core_actions, git, history, identity, list_filter, project_setup,
                           repo_admin, venv_repair)
-from cockpit.core.actions import Action, ActionContext, Target
+from cockpit.core.actions import TERMINAL_ORDER, Action, ActionContext, Target
 from cockpit.core.availability import Availability
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import (CODE_DIR, EXE_DIR, FLAT, GIT_OUTSIDE, MAIN_DIR, Project,
@@ -56,6 +56,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 ENTER_ADDRESS = "Adresse eingeben …"
+MANAGE_BRANCHES, MANAGE_BRANCHES_TEXT = "manage", "Branches verwalten …"
 
 
 class ProjectController:
@@ -104,17 +105,17 @@ class ProjectController:
         on_main = lambda c: c.worktree is None                          # noqa: E731
         found = lambda c: c.project is not None and c.project.folder_found  # noqa: E731
         return reread + [
-            Action("branch_show", "Branches anzeigen …", Target.REPOSITORY,
+            Action("branch_show", "Branches …", Target.REPOSITORY,
                    self.branch_show_action, detail=self._branch_show_detail, is_default=True,
                    order=0),
             # Wunsch des Nutzers (07.10.2026): Filter über den Projekten
-            Action("list_filter", "Anzeigen …", Target.LIST_FILTER, self.list_filter_action,
+            Action("list_filter", "Liste filtern …", Target.LIST_FILTER, self.list_filter_action,
                    detail=lambda c: list_filter.names(platform_name)[
                        self.window.project_list.filter_kind],
                    is_default=True, order=0),
             Action("terminal_repository", "Terminal …", Target.REPOSITORY,
                    lambda c: self.terminal_action(c, c.project.code_root, "Repository"),
-                   visible=found, order=5),
+                   visible=found, order=TERMINAL_ORDER),
             Action("manage_project", "Projekt verwalten …", Target.PROJECT,
                    self.project_manager.manage, visible=lambda c: c.project is not None,
                    order=20),
@@ -147,44 +148,41 @@ class ProjectController:
             Action("pull_changes", f"Änderungen von {platform_name} holen …", Target.CODE,
                    self.pull_action, availability=_git_availability, detail=_pull_detail,
                    visible=lambda c: _on_platform(c) and not _branch_unpublished(c), order=20),
-            # Seit dem 06.10.2026 eine Aktion des Repositorys (Wunsch des Nutzers)
-            Action("branches", "Branches verwalten …", Target.REPOSITORY,
-                   self.branches_action, availability=_git_availability,
-                   visible=_has_commits, order=25),
+            # "Branches verwalten …" steht seit der Aufräumrunde vom 20.10.2026 in "Branches …"
             Action("create_pull", "Pull Request erstellen …", Target.CODE,
                    self.create_pull_action, availability=self._account_availability,
                    visible=_on_other_branch, order=26),
             Action("pull_requests", "Pull Requests …", Target.CODE, self.pull_requests_action,
                    availability=self._account_availability, detail=self._all_pulls_detail,
                    visible=lambda c: _has_remote(c) and on_main(c), order=27),
-            Action("pull_requests_branch", "Pull-Requests-Übersicht …", Target.CODE,
+            Action("pull_requests_branch", "Pull Requests …", Target.CODE,
                    self.pull_requests_action, availability=self._account_availability,
                    detail=_branch_pulls_detail,
                    visible=lambda c: _has_remote(c) and not on_main(c), order=27),
             Action("stash_push", "Änderungen beiseitelegen …", Target.CODE, self.stash_push_action,
                    availability=_discard_availability, visible=_has_commits, order=36,
-                   detail=_changed_detail),
+                   detail=_changed_detail, more=True),
             Action("stashes", "Beiseitegelegte Änderungen …", Target.CODE, self.stashes_action,
-                   visible=_has_stashes, order=37),
+                   visible=_has_stashes, order=37, more=True),
             Action("history", "Verlauf …", Target.CODE, self.history_action,
                    availability=_git_availability, visible=_is_repo, order=30),
             # Wunsch des Nutzers (07.10.2026): wer wann in diesen Branch hochgeladen hat
             Action("upload_history", "Hochladeverlauf …", Target.CODE,
                    self.upload_history_action, availability=_git_availability,
-                   visible=_on_platform, order=31),
+                   visible=_on_platform, order=31, more=True),
             Action("discard", "Änderungen verwerfen …", Target.CODE, self.discard_action,
                    availability=_discard_availability, visible=_is_repo, order=35,
                    detail=_changed_detail),
             Action("project_features", "Features dieses Projekts …", Target.PROJECT,
                    self.project_features_action, availability=self._features_availability,
-                   visible=found, order=30),
+                   visible=found, order=30, more=True),
             Action("terminal_project", "Terminal …", Target.PROJECT,
                    lambda c: self.terminal_action(c, c.project.project_dir, ""),
-                   visible=found, order=10),
+                   visible=found, order=TERMINAL_ORDER),
             Action("terminal_code", "Terminal …", Target.CODE,
                    lambda c: self.terminal_action(c, c.project.code_dir,
                                                   c.worktree.branch if c.worktree else "Code"),
-                   visible=found, order=5),
+                   visible=found, order=TERMINAL_ORDER),
             Action("links", "Links …", Target.REPOSITORY, self.links_action,
                    availability=self._account_availability, visible=_has_remote, order=30),
             # "Projekt verwalten …" hieß bis zum 06.10.2026 das, was jetzt beim Repository steht
@@ -201,11 +199,11 @@ class ProjectController:
                    visible=lambda c: c.project is not None and not c.project.folder_found,
                    order=5),
             Action("connect_repo", "Mit vorhandenem Repository verbinden …", Target.CODE,
-                   self.connect_action, visible=_git_missing, order=40),
-            Action("git_identity", "Repository-Identität …", Target.REPOSITORY,
-                   self.identity_action, visible=_is_repo, order=85),
+                   self.connect_action, visible=_git_missing, order=40, more=True),
+            Action("git_identity", "Git-Name und E-Mail …", Target.REPOSITORY,
+                   self.identity_action, visible=_is_repo, order=85, more=True),
             Action("repair_venv", "Virtuelle Umgebung neu anlegen …", Target.CODE,
-                   self.repair_venv_action, visible=_venv_broken, order=45),
+                   self.repair_venv_action, visible=_venv_broken, order=45, more=True),
             Action("download", "Herunterladen", Target.REMOTE_REPO, self.download_action,
                    availability=self._download_availability, is_default=True, order=10),
             Action("open_remote", f"Auf {platform_name} öffnen",
@@ -858,8 +856,16 @@ class ProjectController:
         project = context.project
         names = listing.show_names(listing.main_name(project, context.status),
                                    project_list.platform_name)
-        show = listing.pick_show(project_list, names, project_list.show_of(project.id))
+        # Aufräumrunde vom 20.10.2026: "Branches verwalten …" steht hier mit drin
+        extra = {}
+        if _has_commits(context) and _git_availability(context).available:
+            extra[MANAGE_BRANCHES] = MANAGE_BRANCHES_TEXT
+        show = listing.pick_show(project_list, names, project_list.show_of(project.id),
+                                 extra=extra)
         project_list.setFocus()
+        if show == MANAGE_BRANCHES:
+            self.branches_action(context)
+            return
         if show is None:
             return
         project_list.set_show(project.id, show)

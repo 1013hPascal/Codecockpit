@@ -78,18 +78,18 @@ Schritt 3: Das Cockpit sagt, was neu ist, und fragt, ob es zusammenführen soll.
 
 ## Branch erstellen
 Bereich: repository
-Aktionen: branches
+Aktionen: branch_show
 Stichwörter: Branch, neuer Branch, abzweigen, Zweig
 Schritt 1: Klappen Sie das Projekt mit Pfeil rechts auf. Pfeil runter führt auf die Zeile Repository.
-Schritt 2: Drücken Sie Tab und wählen Sie „Branches verwalten …“, dann Enter.
+Schritt 2: Drücken Sie Enter. Es öffnet sich die Auswahl „Branches“. Wählen Sie ganz unten „Branches verwalten …“.
 Schritt 3: Drücken Sie Tab bis „Neuer Branch …“ und Enter.
 Schritt 4: Geben Sie den Namen ein, zum Beispiel neue-funktion, und drücken Sie Enter. Der Branch bekommt einen eigenen Ordner und steht in der Liste.
 
 ## Branch in main übernehmen
 Bereich: repository
-Aktionen: branches
+Aktionen: branch_show
 Stichwörter: übernehmen, merge, zusammenführen, in main, fertig
-Schritt 1: Gehen Sie auf die Zeile Repository und öffnen Sie mit Tab „Branches verwalten …“.
+Schritt 1: Gehen Sie auf die Zeile Repository, drücken Sie Enter und wählen Sie ganz unten „Branches verwalten …“.
 Schritt 2: Wählen Sie den Branch mit den Pfeiltasten.
 Schritt 3: Drücken Sie Tab bis „In main übernehmen …“ und Enter. Lesen Sie die Rückfrage und bestätigen Sie mit „Übernehmen“.
 Schritt 4: Danach ist main noch nicht hochgeladen. Laden Sie main wie gewohnt hoch. Dabei fragt das Cockpit nach einer neuen Version.
@@ -198,9 +198,9 @@ Schritt 3: Beim Löschen fragt das Cockpit zweimal, und Sie tippen den Namen ein
 
 ## Branch umbenennen oder löschen
 Bereich: repository
-Aktionen: branches
+Aktionen: branch_show
 Stichwörter: Branch löschen, umbenennen, entfernen
-Schritt 1: Gehen Sie auf die Zeile Repository und öffnen Sie „Branches verwalten …“.
+Schritt 1: Gehen Sie auf die Zeile Repository, drücken Sie Enter und wählen Sie ganz unten „Branches verwalten …“.
 Schritt 2: Wählen Sie den Branch und drücken Sie Tab bis „Umbenennen …“ oder „Löschen …“.
 Schritt 3: Beim Löschen wählen Sie: nur hier, nur auf GitHub oder beides. main lässt sich nicht löschen.
 
@@ -234,7 +234,7 @@ Schritt 4: Das Cockpit überführt den Branch in main, macht seine Exe zur norma
 Bereich: releases
 Aktionen: create_release
 Stichwörter: Release, Branch, Exe für Branch, anlegen
-Schritt 1: Gehen Sie auf die Zeile Releases, drücken Sie Tab und wählen Sie „Release für Branch aus Repository erstellen …“.
+Schritt 1: Gehen Sie auf die Zeile Releases, drücken Sie Tab und wählen Sie „Exe für einen Branch erstellen …“.
 Schritt 2: Wählen Sie den lokalen Branch, drücken Sie Tab bis „Release-Ordner lokal anlegen“ und Enter.
 Schritt 3: Auf der neuen Zeile, zum Beispiel „Exe-neue-funktion“, wählen Sie „Exe aus neue-funktion erstellen …“.
 

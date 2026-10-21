@@ -76,6 +76,9 @@ def _chime(notes: list[tuple[float, float]], volume: float = 0.16) -> bytes:
 SOUNDS: dict[str, Callable[[], bytes]] = {
     TICK: lambda: _chime([(659.3, 0.0)]),                         # e'' allein
     AI_TICK: lambda: _chime([(523.3, 0.0), (659.3, 0.16)], 0.13),  # c'' und e'', leiser
+    # Wunsch des Nutzers vom 20.10.2026: am Ende ein kurzes, helles Pling für erfolgreich,
+    # g'' und c''' schnell nacheinander, statt des Windows-Tons
+    DONE: lambda: _chime([(784.0, 0.0), (1046.5, 0.08)], 0.2),
 }
 
 
@@ -99,8 +102,7 @@ def _windows_sound(kind: str) -> None:
         winsound.PlaySound(str(sound_file(kind)), winsound.SND_FILENAME | winsound.SND_ASYNC
                            | winsound.SND_NODEFAULT)
         return
-    flags = {START: winsound.MB_ICONASTERISK, DONE: winsound.MB_ICONASTERISK,
-             ERROR: winsound.MB_ICONHAND}
+    flags = {START: winsound.MB_ICONASTERISK, ERROR: winsound.MB_ICONHAND}
     winsound.MessageBeep(flags[kind])
 
 
@@ -169,6 +171,8 @@ class AISound(QObject):
         self.clock = clock
         self.since: float | None = None
         self.last = 0.0
+        self.ticked = False            # schon ein Warteton gespielt, dann am Ende das Pling
+        self.failures = 0
         self.timer = QTimer(self)
         self.timer.setInterval(500)
         self.timer.timeout.connect(self.check)
@@ -177,17 +181,25 @@ class AISound(QObject):
     def check(self) -> None:
         from cockpit.core import activity
         if not activity.ai_busy():
-            self.since = None
+            # Wunsch des Nutzers vom 20.10.2026: Nach dem Warteton ein Pling, wenn die KI fertig
+            # ist. Nur wenn vorher ein Warteton kam und keine Anfrage gescheitert ist.
+            if self.ticked and activity.ai_failures() == self.failures and self._wanted():
+                play(DONE)
+            self.since, self.ticked = None, False
             return
         now = self.clock()
         if self.since is None:
             self.since, self.last = now, now - TICK_MS / 1000 + AI_FIRST_MS / 1000
+            self.failures = activity.ai_failures()
         if now - self.last < TICK_MS / 1000 or waiting_for_user() or _transfers:
             return
         self.last = now
-        try:
-            wanted = self.enabled()
-        except Exception:                              # noqa: BLE001 (Ton ist nur Zusatz)
-            wanted = True
-        if wanted:
+        if self._wanted():
             play(AI_TICK)
+            self.ticked = True
+
+    def _wanted(self) -> bool:
+        try:
+            return bool(self.enabled())
+        except Exception:                              # noqa: BLE001 (Ton ist nur Zusatz)
+            return True

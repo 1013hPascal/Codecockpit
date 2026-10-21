@@ -59,9 +59,9 @@ def test_repository_then_main_then_branches(qtbot, tmp_path, projects_root, make
     assert "Branches verwalten" not in rows
     assert win.project_list.select(Target.REPOSITORY, project.id)
     entries_now = win.current_entries()
-    assert entries_now[0].action.text == "Branches anzeigen …"
+    assert entries_now[0].action.text == "Branches …"
     assert entries_now[0].action.is_default
-    assert entries_now[0].label == "Branches anzeigen …, main & die Sie lokal haben"
+    assert entries_now[0].label == "Branches …, main & die Sie lokal haben"
 
 
 def test_repository_row_without_branch_folders(tmp_path, projects_root):
@@ -84,9 +84,10 @@ def test_repository_row_without_commits(tmp_path, projects_root):
 
 
 # -- Aktionsmenüs ---------------------------------------------------------------------------
-MAIN_ORDER = ["Repository neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
+MAIN_ORDER = ["Repository neu einlesen", "Änderungen auf GitHub hochladen …",
               "Änderungen von GitHub holen …", "Pull Requests …", "Verlauf …",
-              "Änderungen verwerfen …", "Änderungen beiseitelegen …", "Branch-Ordner öffnen"]
+              "Änderungen verwerfen …", "Änderungen beiseitelegen …", "Branch-Ordner öffnen",
+              "Terminal …"]                    # Terminal ganz unten seit dem 20.10.2026
 
 
 def test_main_branch_menu(qtbot, tmp_path, projects_root, make_services):
@@ -96,7 +97,7 @@ def test_main_branch_menu(qtbot, tmp_path, projects_root, make_services):
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.CODE, status))
     assert in_order(found, MAIN_ORDER), found
     assert found[:3] == MAIN_ORDER[:3]
-    assert found[-1] == "Branch-Ordner öffnen"
+    assert found[-1] == "Terminal …"
     for gone in ("Branches …", "Neuer Branch …", "Pull-Requests-Übersicht …", "Git-Identität …",
                  "Repository-Identität …", "Code-Ordner öffnen", "Projekt neu einlesen"):
         assert gone not in found
@@ -109,14 +110,14 @@ def test_branch_menu(qtbot, tmp_path, projects_root, make_services):
     status = project_status.for_folder(project_status.compute(project), "suche")
     branch = dataclasses.replace(project, code_dir=tree.path, remote=REMOTE)
     found = texts(entries(win, branch, Target.CODE, status, tree, project))
-    expected = ["Repository neu einlesen", "Terminal …", "Änderungen auf GitHub hochladen …",
+    expected = ["Repository neu einlesen", "Änderungen auf GitHub hochladen …",
                 "Änderungen von GitHub holen …", "Pull Request erstellen …",
-                "Pull-Requests-Übersicht …", "Verlauf …", "Änderungen verwerfen …",
-                "Änderungen beiseitelegen …", "Branch-Ordner öffnen"]
+                "Pull Requests …", "Verlauf …", "Änderungen verwerfen …",
+                "Änderungen beiseitelegen …", "Branch-Ordner öffnen", "Terminal …"]
     assert in_order(found, expected), found
-    assert found[-1] == "Branch-Ordner öffnen"
+    assert found[-1] == "Terminal …"
     for gone in ("Branch-Ordner entfernen …", "suche verwalten …", "Neuer Branch …",
-                 "Pull Requests …", "Git-Identität …"):
+                 "Pull-Requests-Übersicht …", "Git-Identität …"):
         assert gone not in found
 
 
@@ -126,12 +127,13 @@ def test_project_menu(qtbot, tmp_path, projects_root, make_services):
     services, project, _other = structured(tmp_path, projects_root, make_services)
     win = window(qtbot, services)
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.PROJECT))
-    expected = ["Projekt neu einlesen", "Terminal …", "Projekt verwalten …",
-                "Features dieses Projekts …", "Projektordner öffnen"]
+    expected = ["Projekt neu einlesen", "Projekt verwalten …",
+                "Features dieses Projekts …", "Projektordner öffnen", "Terminal …"]
     assert in_order(found, expected), found
     # Das Testprojekt hat noch die alten Ordner Code und Exe, deshalb ganz unten das Umbenennen
     assert found[0] == "Projekt neu einlesen"
-    assert found[-2:] == ["Projektordner öffnen", "Ordner in Repository und Release umbenennen …"]
+    assert found[-3:] == ["Projektordner öffnen", "Ordner in Repository und Release umbenennen …",
+                          "Terminal …"]
     for gone in ("Repository verwalten …", "Links …", "Aus der Liste entfernen …", "Lizenz …",
                  "README …", "Releases …", "GitHub Actions …"):
         assert gone not in found
@@ -143,11 +145,12 @@ def test_repository_menu(qtbot, tmp_path, projects_root, make_services):
     status = project_status.compute(project)
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.REPOSITORY,
                           status))
-    expected = ["Branches anzeigen …", "Repository neu einlesen", "Terminal …",
-                "Repository verwalten …", "Branches verwalten …", "Links …", "Lizenz …",
-                "Repository-Identität …", "Auf GitHub öffnen", "Repository-Ordner öffnen"]
+    expected = ["Branches …", "Repository neu einlesen", "Repository verwalten …", "Links …",
+                "Lizenz …", "Git-Name und E-Mail …", "Auf GitHub öffnen",
+                "Repository-Ordner öffnen", "Terminal …"]
     assert in_order(found, expected), found
-    assert found[0] == "Branches anzeigen …" and found[-1] == "Repository-Ordner öffnen"
+    assert found[0] == "Branches …" and found[-1] == "Terminal …"
+    assert "Branches verwalten …" not in found          # steht in "Branches …" (20.10.2026)
 
 
 def exe_services(make_services, projects_root):
@@ -163,9 +166,10 @@ def test_exe_menu(qtbot, make_services, projects_root):
     win = window(qtbot, services)
     found = texts(entries(win, dataclasses.replace(project, remote=REMOTE), Target.EXE))
     # Seit dem 06.10.2026 Release-Zeile Exe-main mit Terminal, Ordner ganz unten
-    expected = ["Releases neu einlesen", "Terminal …", "Exe starten",
-                "Exe aus dem Code erstellen …", "Release einlesen …", "Links der Exe …",
-                "Wie funktioniert die Exe? …", "Exe-Ordner öffnen"]
+    expected = ["Releases neu einlesen", "Exe starten",
+                "Exe aus dem Code erstellen …", "Exe aus einem Release holen …",
+                "Links der Exe …", "Wie funktioniert die Exe? …", "Exe-Ordner öffnen",
+                "Terminal …"]
     assert in_order(found, expected), found
     for gone in ("Exe-Einrichtung prüfen", "Exe mit KI einrichten …", "Exe-Datei wählen …",
                  "Exe aus dem Release holen …", "Exe aus dem Code aktualisieren …"):

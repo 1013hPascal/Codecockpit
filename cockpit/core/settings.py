@@ -34,7 +34,7 @@ def setting_fields() -> list[SettingField]:
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
         YesNo("branch_folders", "Neue Projekte mit einem Ordner pro Branch", True),
         YesNo("update_check", "Täglich nach Updates für CodeCockpit suchen", True),
-        YesNo("transfer_sounds", "Töne beim Hoch- und Herunterladen", True),
+        YesNo("transfer_sounds", "Töne beim Hoch- und Herunterladen und beim Exe-Bau", True),
         YesNo("ai_sounds", "Töne, während die KI schreibt", True),
     ]
 
