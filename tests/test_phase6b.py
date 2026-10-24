@@ -19,6 +19,7 @@ from tests.test_phase5a import sh
 from tests.test_phase5b import write
 from tests.test_phase5c import setup_repo
 from tests.test_phase6a import ADDRESS, REF, PullFake, idle, pr_json, pull
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -192,7 +193,7 @@ def test_review_from_the_list(qtbot, make_services, monkeypatch):
         def exec(self):
             return 1
 
-    monkeypatch.setattr(pull_request_dialogs, "ReviewDialog", Approve)
+    patch_split(monkeypatch, pull_request_dialogs, "ReviewDialog", Approve)
     dialog.review_current()
     idle(qtbot, dialog)
     qtbot.waitUntil(lambda: said("Nr. 12 genehmigt."), timeout=5000)
@@ -201,7 +202,7 @@ def test_review_from_the_list(qtbot, make_services, monkeypatch):
 
 def test_review_dialog(qtbot, monkeypatch):
     errors = []
-    monkeypatch.setattr(pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = pull_request_dialogs.ReviewDialog(pull(), own=False)
     qtbot.addWidget(dialog)
     assert [dialog.choice.itemText(i) for i in range(3)] == [
@@ -242,7 +243,7 @@ def test_merge_and_clean_up_from_the_list(qtbot, make_services, tmp_path, projec
     questions = []
 
     class Squash:
-        def __init__(self, pull_, methods, reviews, parent=None):
+        def __init__(self, pull_, methods, reviews, parent=None, checks=""):
             assert methods == ["merge", "squash", "rebase"] and reviews == "1 Genehmigung"
             self.method = "squash"
 
@@ -253,8 +254,8 @@ def test_merge_and_clean_up_from_the_list(qtbot, make_services, tmp_path, projec
         questions.append((text, buttons, default))
         return 0
 
-    monkeypatch.setattr(pull_request_dialogs, "MergeDialog", Squash)
-    monkeypatch.setattr(pull_request_dialogs, "ask_buttons", ask_buttons)
+    patch_split(monkeypatch, pull_request_dialogs, "MergeDialog", Squash)
+    patch_split(monkeypatch, pull_request_dialogs, "ask_buttons", ask_buttons)
     dialog = list_dialog(qtbot, make_services, fake, project=project)
     dialog.merge_current()
     qtbot.waitUntil(lambda: said("Sie sind auf main. Die Änderungen von main sind geholt. Der "
@@ -282,8 +283,8 @@ def test_merge_later_keeps_the_branch(qtbot, make_services, tmp_path, projects_r
         def exec(self):
             return 1
 
-    monkeypatch.setattr(pull_request_dialogs, "MergeDialog", Merge)
-    monkeypatch.setattr(pull_request_dialogs, "ask_buttons", lambda *a, **k: 1)   # Später
+    patch_split(monkeypatch, pull_request_dialogs, "MergeDialog", Merge)
+    patch_split(monkeypatch, pull_request_dialogs, "ask_buttons", lambda *a, **k: 1)   # Später
     dialog = list_dialog(qtbot, make_services, fake, project=project)
     dialog.merge_current()
     qtbot.waitUntil(lambda: said("Nr. 12 ist in main übernommen."), timeout=10000)
@@ -344,7 +345,7 @@ def test_clean_up_later_from_the_list(qtbot, make_services, tmp_path, projects_r
         answers.append(text)
         return 0
 
-    monkeypatch.setattr(pull_request_dialogs, "ask_buttons", ask_buttons)
+    patch_split(monkeypatch, pull_request_dialogs, "ask_buttons", ask_buttons)
     dialog = list_dialog(qtbot, make_services, fake, project=project)
     dialog.show()
     dialog.filter.setCurrentIndex(2)                               # alle

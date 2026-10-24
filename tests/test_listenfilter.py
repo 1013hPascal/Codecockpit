@@ -12,7 +12,7 @@ from cockpit.core.actions import Target
 from cockpit.core.git import RemoteAddress, RepoStatus
 from cockpit.core.project_status import ProjectStatus, project_line
 from cockpit.core.worktrees import Worktree
-from tests.conftest import make_project, said
+from tests.conftest import make_project, patch_split, said
 
 REMOTE_URL = "https://github.com/tester/Tagebuch.git"
 
@@ -159,7 +159,7 @@ def test_enter_on_the_filter_row_opens_the_choice(qtbot, make_services, projects
     from cockpit.ui import project_list as listing_module
     _services, win, _projects = three_projects(qtbot, make_services, projects_root)
     offered = []
-    monkeypatch.setattr(listing_module, "pick_filter", lambda widget, names, current:
+    patch_split(monkeypatch, listing_module, "pick_filter", lambda widget, names, current:
                         offered.append((list(names.values()), current)) or list_filter.LOCAL)
     win.project_list.select(Target.LIST_FILTER, None)
     win.project_list.setFocus()

@@ -23,7 +23,7 @@ from cockpit.core.projects import classify_folder
 from cockpit.platforms.base import RemoteRepo, RepoRef
 from cockpit.ui import common, project_actions
 from cockpit.ui.main_window import MainWindow
-from tests.conftest import FakePlatform, make_project, said
+from tests.conftest import FakePlatform, make_project, said, patch_controller
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -630,10 +630,10 @@ def test_add_existing_project_folder(live, qtbot, make_services, projects_root, 
     services.settings.update(projects_root=str(tmp_path / "leer"))
     win = live(services)
     folder = make_project(tmp_path, "Extern")
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder / "Code")
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder / "Code")
     # Seit dem 04.10.2026 fragt das Cockpit, ob der Code nach Code\main soll: "So lassen"
     asked = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or False)
     # Seit dem 14.10.2026 fragt es auch, ob Code und Exe umbenannt werden: "So lassen"
     from cockpit.ui import folder_rename_flow
@@ -656,15 +656,15 @@ def test_add_other_folder_offers_convert_link_and_cancel(live, qtbot, make_servi
     win = live(services)
     folder = tmp_path / "irgendwo" / "Rechner"
     folder.mkdir(parents=True)
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder)
     asked = []
 
     def buttons(parent, title, text, labels, default, escape):
         asked.append((labels, default, escape, text))
         return answers.pop(0)
 
-    monkeypatch.setattr(project_actions, "ask_buttons", buttons)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
+    patch_controller(monkeypatch, "ask_buttons", buttons)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: True)
     answers = [3]
     win.controller.add_local()                              # Abbrechen
     assert services.projects.all() == [] and folder.exists()
@@ -685,9 +685,9 @@ def test_link_without_exe(live, qtbot, make_services, tmp_path, monkeypatch):
     win = live(services)
     folder = tmp_path / "Firma"
     folder.mkdir()
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
-    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 2)   # Am Ort lassen
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # ohne Exe-Ordner
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder)
+    patch_controller(monkeypatch, "ask_buttons", lambda *a, **k: 2)   # Am Ort lassen
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: False)   # ohne Exe-Ordner
     win.controller.add_local()
     project = services.projects.all()[0]
     assert project.linked and project.exe_dir is None and project.code_dir == folder
@@ -710,7 +710,7 @@ def test_relocate_only_for_missing_folder(live, qtbot, make_services, projects_r
     entries = win.current_entries()
     assert entries[0].label == "Projekt neu einlesen"
     assert entries[1].label == "Neuen Ort angeben …"
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: new_place / "Notizen")
+    patch_controller(monkeypatch, "pick_folder", lambda *a: new_place / "Notizen")
     win.run_entry(entries[1])
     assert said("Neuer Ort für Notizen gespeichert.")
     assert services.projects.get(project.id).folder_found
@@ -745,10 +745,10 @@ def test_connect_action_runs_in_background(live, qtbot, account, projects_root, 
     entry = next(e for e in win.current_entries()
                  if e.label == "Mit vorhandenem Repository verbinden …")
     chosen = []
-    monkeypatch.setattr(project_actions, "choose_from_list",
+    patch_controller(monkeypatch, "choose_from_list",
                         lambda parent, title, name, items, current: chosen.append(
                             (items, current)) or current)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: True)
     win.run_entry(entry)
     wait_idle(qtbot, win)
     qtbot.waitUntil(lambda: said("OhneGit ist verbunden, Branch main."), timeout=10000)
@@ -813,7 +813,7 @@ def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, pro
     win.project_list.select(Target.REPOSITORY, project.id)
     entry = next(e for e in win.current_entries() if e.label == "Git-Name und E-Mail …")
     asked = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda parent, title, text, **k: asked.append((text, k)) or True)
     win.run_entry(entry)
     text, buttons = asked[0]
@@ -821,7 +821,7 @@ def test_identity_action_shows_and_sets_identity(live, qtbot, make_services, pro
     assert buttons["no"] == "Vorhandene behalten"
     assert git.identity(code) == (NAME, EMAIL)
     shown = []
-    monkeypatch.setattr(project_actions, "show_info", lambda p, t, text: shown.append(text))
+    patch_controller(monkeypatch, "show_info", lambda p, t, text: shown.append(text))
     win.run_entry(entry)
     assert shown == [f"{NAME}, {EMAIL}. Das ist die Identität aus den Grundeinstellungen."]
 

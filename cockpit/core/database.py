@@ -114,6 +114,61 @@ MIGRATIONS: list[str] = [
         collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE
     );
     """,
+    # Paketübersicht (21.10.2026): Versionen vor jedem Ändern, für "Zurück zur vorherigen
+    # Version", und festgehaltene Pakete, die "Alle aktualisieren" auslässt
+    """
+    CREATE TABLE package_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        place TEXT NOT NULL,
+        key TEXT NOT NULL,
+        name TEXT NOT NULL,
+        old_version TEXT NOT NULL,
+        new_version TEXT NOT NULL,
+        changed_at TEXT NOT NULL
+    );
+    CREATE TABLE package_pins (
+        source TEXT NOT NULL,
+        place TEXT NOT NULL,
+        key TEXT NOT NULL,
+        version TEXT NOT NULL,
+        PRIMARY KEY (source, place, key)
+    );
+    """,
+    # Neuigkeiten und Aktivität (22.10.2026): Neuigkeiten der letzten 30 Tage, Aufrufe und Klone
+    # pro Tag (GitHub gibt nur 14 Tage) und Sterne, Forks und Downloads pro Tag
+    """
+    CREATE TABLE news (
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        key TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        created TEXT NOT NULL,
+        author TEXT NOT NULL DEFAULT '',
+        number INTEGER NOT NULL DEFAULT 0,
+        title TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL DEFAULT '',
+        on_pull INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (project_id, key)
+    );
+    CREATE TABLE activity_daily (
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        day TEXT NOT NULL,
+        views INTEGER NOT NULL DEFAULT 0,
+        visitors INTEGER NOT NULL DEFAULT 0,
+        clones INTEGER NOT NULL DEFAULT 0,
+        cloners INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (project_id, day)
+    );
+    CREATE TABLE activity_snapshot (
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        day TEXT NOT NULL,
+        stars INTEGER NOT NULL DEFAULT 0,
+        forks INTEGER NOT NULL DEFAULT 0,
+        watchers INTEGER NOT NULL DEFAULT 0,
+        downloads INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (project_id, day)
+    );
+    """,
 ]
 
 

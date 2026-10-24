@@ -7,6 +7,7 @@ from __future__ import annotations
 from cockpit.core.accounts import find_type
 from cockpit.core.secret import Secret
 from tests.conftest import FAKE_TOKEN, FakeVault, said
+from tests.conftest import patch_split
 
 
 def platform_account(services, account_adapter):
@@ -67,9 +68,9 @@ def test_new_platform_account_offers_the_identity(qtbot, make_services, account_
             return 0
 
     account_obj = account
-    monkeypatch.setattr(accounts_dialog, "AccountEditDialog", FakeEdit)
+    patch_split(monkeypatch, accounts_dialog, "AccountEditDialog", FakeEdit)
     monkeypatch.setattr(identity_dialog, "GitIdentityDialog", FakeIdentity)
-    monkeypatch.setattr(accounts_dialog, "account_types",
+    patch_split(monkeypatch, accounts_dialog, "account_types",
                         lambda: [find_type("platform", account_adapter.kind)])
     dialog = accounts_dialog.AccountsDialog(services)
     qtbot.addWidget(dialog)

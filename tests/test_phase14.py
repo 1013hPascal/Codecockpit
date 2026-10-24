@@ -161,6 +161,58 @@ def test_release_after_new_version(qtbot, make_services, projects_root, monkeypa
     assert flow.offer_after_version(project, "1.4.0") and published == ["1.4.0"]
 
 
+@pytest.mark.parametrize("choice, called", [(0, "build"), (1, "import"), (2, "source"),
+                                            (3, None)])
+def test_release_without_exe_offers_to_add_one(qtbot, make_services, projects_root, monkeypatch,
+                                               choice, called):
+    """Rückmeldung vom 21.10.2026: Ohne Exe nicht nach dem Veröffentlichen fragen, sondern
+    anbieten, eine Exe zu erstellen oder zu wählen. Vorgabe und Escape: Später."""
+    from cockpit.ui import releases_flow
+    from tests.test_phase10f import window
+    services = make_services([MANIFEST])
+    services.projects.add(make_project(projects_root, "Rechner"))
+    win = window(qtbot, services)
+    flow, exe_actions = win.controller.releases, win.controller.exe
+    project = services.projects.all()[0]
+    monkeypatch.setattr(flow, "active", lambda p: True)
+    monkeypatch.setattr(exe_actions, "_building", lambda c: True)
+    monkeypatch.setattr(exe_actions, "_publishable", lambda p: [])
+    calls, asked = [], []
+    monkeypatch.setattr(exe_actions, "build_menu", lambda c: calls.append("build"))
+    monkeypatch.setattr(exe_actions, "import_exe", lambda c: calls.append("import"))
+    monkeypatch.setattr(exe_actions, "publish", lambda c: calls.append("publish"))
+    monkeypatch.setattr(flow, "publish_source", lambda p, v: calls.append("source"))
+    monkeypatch.setattr(releases_flow, "ask_buttons", lambda parent, title, text, buttons, **kw:
+                        asked.append((text, buttons, kw)) or choice)
+    assert flow.offer_after_version(project, "1.4.0") is (called is not None)
+    assert calls == ([called] if called else [])
+    text, buttons, kw = asked[0]
+    assert "Es gibt noch keine Exe" in text and "veröffentlichen" not in text
+    assert buttons == [releases_flow.BUILD_EXE, releases_flow.CHOOSE_EXE,
+                       releases_flow.SOURCE_ONLY, "Später"]
+    assert kw == {"default": 3, "escape": 3}
+
+
+def test_release_with_exe_publishes_it(qtbot, make_services, projects_root, monkeypatch):
+    from pathlib import Path
+    from cockpit.ui import releases_flow
+    from tests.test_phase10f import window
+    services = make_services([MANIFEST])
+    services.projects.add(make_project(projects_root, "Rechner"))
+    win = window(qtbot, services)
+    flow, exe_actions = win.controller.releases, win.controller.exe
+    project = services.projects.all()[0]
+    monkeypatch.setattr(flow, "active", lambda p: True)
+    monkeypatch.setattr(exe_actions, "_building", lambda c: True)
+    monkeypatch.setattr(exe_actions, "_publishable", lambda p: [Path("Rechner.exe")])
+    calls, asked = [], []
+    monkeypatch.setattr(exe_actions, "publish", lambda c: calls.append("publish"))
+    monkeypatch.setattr(releases_flow, "confirm", lambda parent, title, text, **kw:
+                        asked.append(text) or True)
+    assert flow.offer_after_version(project, "1.4.0") and calls == ["publish"]
+    assert asked == ["Für Version 1.4.0 ein Release mit der Exe auf GitHub anlegen?"]
+
+
 def test_actions_entry_only_with_workflows(tmp_path, make_services, projects_root):
     from cockpit.ui.releases_flow import ReleasesActions
     services = make_services([MANIFEST])

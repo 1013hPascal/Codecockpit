@@ -13,6 +13,7 @@ from cockpit.core.actions import (MORE_TEXT, TERMINAL_ORDER, Action, ActionEntry
 from cockpit.core.availability import Availability
 from tests.test_phase10f import structured, window
 from tests.test_projektuebersichten import REMOTE
+from tests.conftest import patch_split
 
 
 def entry(action_id, text, order=100, more=False):
@@ -69,7 +70,7 @@ def test_branches_choice_offers_manage(qtbot, tmp_path, projects_root, make_serv
     win.project_list.expand(project.id, speak=False)
     assert win.project_list.select(Target.REPOSITORY, project.id)
     offered, managed = [], []
-    monkeypatch.setattr(project_list, "pick_show", lambda listing, names, current, extra=None:
+    patch_split(monkeypatch, project_list, "pick_show", lambda listing, names, current, extra=None:
                         offered.append(extra) or project_actions.MANAGE_BRANCHES)
     monkeypatch.setattr(win.controller, "branches_action", managed.append)
     context = win.action_context()

@@ -1,0 +1,7 @@
+Fassen Sie das Issue zusammen und schlagen Sie einen Namen für einen Branch vor, in dem es bearbeitet wird.
+
+Zeile 1: der Branch-Name. Nur Kleinbuchstaben, Ziffern und Bindestriche, höchstens 40 Zeichen. Er beginnt mit der Nummer des Issues, zum Beispiel 12-suche-in-pdfs.
+Dann eine Leerzeile.
+Danach zwei bis vier kurze Sätze: worum es geht, was zu tun ist und was in den Kommentaren schon entschieden wurde.
+
+<<issue>>

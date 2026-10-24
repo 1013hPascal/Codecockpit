@@ -7,6 +7,7 @@ import pytest
 from cockpit.core import exe, projects
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.projects import FLAT, GIT_OUTSIDE
+from tests.conftest import patch_running_from, patch_controller
 
 
 def files(folder, names):
@@ -70,7 +71,7 @@ def test_check_layout_offers_the_fix_and_adds_exe(qtbot, make_services, projects
     project = services.projects.add(code.parent)
     win = window(qtbot, services)
     asked = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or True)
     got = []
     assert win.controller.check_layout(project, got.append)
@@ -87,7 +88,7 @@ def test_check_layout_keeps_it_when_declined(qtbot, make_services, projects_root
     services = make_services([])
     project = services.projects.add(code.parent)
     win = window(qtbot, services)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: False)
     got = []
     win.controller.check_layout(project, got.append)
     assert got[0].code_dir == code and (code / "main.py").is_file()
@@ -134,7 +135,7 @@ def test_published_folder_gets_the_version_and_stays(make_services, projects_roo
 def test_running_exe_keeps_its_folder_name(make_services, projects_root, tmp_path, monkeypatch):
     project = vokabel_project(make_services, projects_root)
     first = exe.install(project, built(tmp_path, "1"), "abc")
-    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    patch_running_from(monkeypatch, lambda folder: True)
     assert exe.mark_published(project, first.exe, "1.2.0") == first.exe
     assert (first.exe.parent / exe.VERSION_FILE).is_file()
 

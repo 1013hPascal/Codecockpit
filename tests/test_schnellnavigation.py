@@ -7,7 +7,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QCheckBox, QLineEdit, QPlainTextEdit, QPushButton
 
 from cockpit.core.actions import Target
-from cockpit.ui import main_window as main_window_module
+from cockpit.ui import window_actions
 from cockpit.ui import quick_nav
 from cockpit.ui.menus import AccessibleMenu
 from tests.conftest import make_project, said
@@ -42,7 +42,7 @@ def test_context_menu_starts_with_quick_navigation_when_expanded(qtbot, make_ser
             shown.append([a.text() for a in self.actions()])
             return None
 
-    monkeypatch.setattr(main_window_module, "AccessibleMenu", Recorder)
+    monkeypatch.setattr(window_actions, "AccessibleMenu", Recorder)
     win.project_list.select(Target.PROJECT, project.id)
     win.show_context_menu(QPoint(0, 0))
     assert not shown[-1][0].startswith("&Schnellnavigation")         # zugeklappt

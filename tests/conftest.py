@@ -311,8 +311,53 @@ def menus_close_at_once(monkeypatch) -> list:
 @pytest.fixture(autouse=True)
 def offline_wheel_check(monkeypatch):
     """Kein Test fragt pip im Internet, ob es Bibliotheken fertig gibt. Alles gibt es."""
-    from cockpit.core import exe
-    monkeypatch.setattr(exe, "wheel_check", lambda python, code_dir, cancel=None: [])
+    from cockpit.core import exe_python
+    monkeypatch.setattr(exe_python, "wheel_check", lambda python, code_dir, cancel=None: [])
+
+
+def patch_running_from(monkeypatch, fake) -> None:
+    """running_from ersetzen. Seit dem Aufteilen von exe.py (22.10.2026) rufen es mehrere Dateien."""
+    from cockpit.core import exe, exe_folders, exe_install, exe_state
+    for module in (exe, exe_state, exe_folders, exe_install):
+        monkeypatch.setattr(module, "running_from", fake)
+
+
+def patch_controller(monkeypatch, name: str, fake) -> None:
+    """Rückfrage oder Fenster in ProjectController ersetzen, zum Beispiel "confirm". Seit dem
+    Aufteilen (22.10.2026) stehen die Aktionen in mehreren Dateien."""
+    from cockpit.ui import (project_actions, project_add_actions, project_git_actions,
+                            project_manage_actions, project_remote_actions)
+    for module in (project_actions, project_add_actions, project_remote_actions,
+                   project_git_actions, project_manage_actions):
+        if hasattr(module, name):
+            monkeypatch.setattr(module, name, fake)
+
+
+# Seit dem Aufteilen (22.10.2026) stehen Teile dieser Module in eigenen Dateien.
+SPLIT_PARTS = {
+    "cockpit.ui.repo_dialogs": ("repo_dialog_parts", "repo_people_dialogs", "repo_delete"),
+    "cockpit.ui.project_list": ("project_labels",),
+    "cockpit.ui.ai_dialogs": ("ai_model_dialogs", "ai_speech_dialogs"),
+    "cockpit.ui.branch_dialogs": ("stash_dialogs",),
+    "cockpit.ui.pull_request_dialogs": ("pull_request_forms",),
+    "cockpit.ui.exe_wizard": ("exe_wizard_steps",),
+    "cockpit.ui.history_dialogs": ("history_edit_dialogs",),
+    "cockpit.ui.accounts_dialog": ("account_edit_dialog",),
+    "cockpit.ui.setup_wizard": ("setup_pages",),
+    "cockpit.ui.readme_flow": ("readme_dialogs",),
+}
+
+
+def patch_split(monkeypatch, module, name: str, fake) -> None:
+    """Namen wie "confirm" in einem Modul ersetzen und in den Dateien, die davon abgeteilt sind."""
+    import importlib
+    parts = [importlib.import_module(f"cockpit.ui.{part}")
+             for part in SPLIT_PARTS.get(module.__name__, ())]
+    found = [m for m in [module, *parts] if hasattr(m, name)]
+    if not found:
+        raise AttributeError(f"{module.__name__} und seine Teile haben kein {name}")
+    for other in found:
+        monkeypatch.setattr(other, name, fake)
 
 
 @pytest.fixture(autouse=True)

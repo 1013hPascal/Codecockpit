@@ -20,6 +20,7 @@ from tests.test_phase5a import account, live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import head, labels, run_push, select_code, setup_repo
 from tests.test_phase5e import info, manage_dialog
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -149,7 +150,7 @@ def test_upload_asks_for_a_branch_and_offers_a_pull_request(live, qtbot, pr_proj
     lists, questions = [], []
 
     class Message:
-        def __init__(self, title, changes, parent=None, source=None):
+        def __init__(self, title, changes, parent=None, source=None, **_kw):
             self.message = "Suche in PDFs"
 
         def exec(self):
@@ -168,7 +169,7 @@ def test_upload_asks_for_a_branch_and_offers_a_pull_request(live, qtbot, pr_proj
         return 0
 
     monkeypatch.setattr(sync_dialogs, "CommitDialog", Message)
-    monkeypatch.setattr(branch_dialogs, "BranchNameDialog", Name)
+    patch_split(monkeypatch, branch_dialogs, "BranchNameDialog", Name)
     monkeypatch.setattr(sync_flow, "choose_from_list", choose)
     monkeypatch.setattr(sync_flow, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or False)
@@ -194,7 +195,7 @@ def test_upload_directly_into_main(live, qtbot, pr_project, monkeypatch):
     select_code(win, services, code)
 
     class Message:
-        def __init__(self, title, changes, parent=None, source=None):
+        def __init__(self, title, changes, parent=None, source=None, **_kw):
             self.message = "Direkt"
 
         def exec(self):
@@ -223,7 +224,7 @@ def test_protected_main_offers_a_new_branch(live, qtbot, account, tmp_path, proj
     asked, created = [], []
 
     class Message:
-        def __init__(self, title, changes, parent=None, source=None):
+        def __init__(self, title, changes, parent=None, source=None, **_kw):
             self.message = "Suche in PDFs"
 
         def exec(self):
@@ -241,7 +242,7 @@ def test_protected_main_offers_a_new_branch(live, qtbot, account, tmp_path, proj
         return 0
 
     monkeypatch.setattr(sync_dialogs, "CommitDialog", Message)
-    monkeypatch.setattr(branch_dialogs, "BranchNameDialog", Name)
+    patch_split(monkeypatch, branch_dialogs, "BranchNameDialog", Name)
     monkeypatch.setattr(sync_flow, "ask_buttons", ask_buttons)
     monkeypatch.setattr(sync_flow, "show_error", lambda *a: pytest.fail(a[2]))
     monkeypatch.setattr(pull_request_flow.PullRequestRunner, "create",
@@ -298,7 +299,7 @@ def test_protection_from_manage_dialog(qtbot, make_services, tmp_path, projects_
     project = connected_project(services, code)
     fake = ProtectFake()
     questions = []
-    monkeypatch.setattr(repo_dialogs, "confirm",
+    patch_split(monkeypatch, repo_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
 
     class Rules:
@@ -309,7 +310,7 @@ def test_protection_from_manage_dialog(qtbot, make_services, tmp_path, projects_
         def exec(self):
             return 1
 
-    monkeypatch.setattr(repo_dialogs, "ProtectionDialog", Rules)
+    patch_split(monkeypatch, repo_dialogs, "ProtectionDialog", Rules)
     dialog = manage_dialog(qtbot, services, project, fake)
     assert dialog.rules_button.text() == "&Schutzregeln für main …"
     dialog.show_protection()
@@ -327,7 +328,7 @@ def test_protection_needs_the_capability(qtbot, make_services, tmp_path, project
     _, code, _ = setup_repo(tmp_path, projects_root)
     project = connected_project(services, code)
     errors = []
-    monkeypatch.setattr(repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = manage_dialog(qtbot, services, project, FakePlatform())
     dialog.show_protection()
     assert errors == ["GitHub kennt keine Schutzregeln."]

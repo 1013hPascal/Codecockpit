@@ -9,7 +9,7 @@ import subprocess
 
 import pytest
 
-from cockpit.core import exe
+from cockpit.core import exe, exe_python
 from cockpit.core.errors import CockpitError
 
 PY314 = exe.PythonInstall((3, 14), [r"C:\Python314\python.exe"])
@@ -24,12 +24,12 @@ def code(tmp_path, text="pygame\nPySide6\n"):
 
 
 def checks(monkeypatch, results):
-    monkeypatch.setattr(exe, "wheel_check",
+    monkeypatch.setattr(exe_python, "wheel_check",
                         lambda python, code_dir, cancel=None: results[python.label])
 
 
 def test_newest_python_when_everything_is_there(tmp_path, monkeypatch):
-    monkeypatch.setattr(exe, "find_pythons", lambda: [PY314, PY313])
+    monkeypatch.setattr(exe_python, "find_pythons", lambda: [PY314, PY313])
     checks(monkeypatch, {"3.14": [], "3.13": []})
     lines = []
     assert exe.choose_python(code(tmp_path), "", lines.append) is PY314
@@ -37,7 +37,7 @@ def test_newest_python_when_everything_is_there(tmp_path, monkeypatch):
 
 
 def test_older_python_when_a_wheel_is_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(exe, "find_pythons", lambda: [PY314, PY313])
+    monkeypatch.setattr(exe_python, "find_pythons", lambda: [PY314, PY313])
     checks(monkeypatch, {"3.14": ["pygame"], "3.13": []})
     lines = []
     assert exe.choose_python(code(tmp_path), "", lines.append) is PY313
@@ -46,7 +46,7 @@ def test_older_python_when_a_wheel_is_missing(tmp_path, monkeypatch):
 
 
 def test_only_one_python_says_what_to_do(tmp_path, monkeypatch):
-    monkeypatch.setattr(exe, "find_pythons", lambda: [PY314])
+    monkeypatch.setattr(exe_python, "find_pythons", lambda: [PY314])
     checks(monkeypatch, {"3.14": ["pygame"]})
     lines = []
     assert exe.choose_python(code(tmp_path), "", lines.append) is PY314
@@ -56,7 +56,7 @@ def test_only_one_python_says_what_to_do(tmp_path, monkeypatch):
 
 
 def test_chosen_python_wins(tmp_path, monkeypatch):
-    monkeypatch.setattr(exe, "find_pythons", lambda: [PY314, PY313])
+    monkeypatch.setattr(exe_python, "find_pythons", lambda: [PY314, PY313])
     checks(monkeypatch, {"3.14": [], "3.13": []})
     lines = []
     assert exe.choose_python(code(tmp_path), "3.13", lines.append) is PY313
@@ -65,7 +65,7 @@ def test_chosen_python_wins(tmp_path, monkeypatch):
 
 
 def test_no_python_at_all(tmp_path, monkeypatch):
-    monkeypatch.setattr(exe, "find_pythons", lambda: [])
+    monkeypatch.setattr(exe_python, "find_pythons", lambda: [])
     with pytest.raises(CockpitError) as error:
         exe.choose_python(code(tmp_path))
     assert error.value.message == exe.NO_PYTHON
@@ -123,7 +123,7 @@ def test_venv_with_another_python_is_made_again(tmp_path, monkeypatch):
     (venv / "pyvenv.cfg").write_text("home = C:\\Python314\nversion = 3.14.6\n",
                                      encoding="utf-8")
     assert exe.venv_version(venv) == (3, 14)
-    monkeypatch.setattr(exe, "choose_python", lambda *a, **k: PY313)
+    monkeypatch.setattr(exe_python, "choose_python", lambda *a, **k: PY313)
     made = []
 
     def run_process(args, cwd, on_line, cancel, env):
@@ -133,8 +133,8 @@ def test_venv_with_another_python_is_made_again(tmp_path, monkeypatch):
             (venv / "Scripts" / "python.exe").write_text("", encoding="utf-8")
         return 0
 
-    monkeypatch.setattr(exe, "run_process", run_process)
-    monkeypatch.setattr(exe, "_works", lambda python: True)
+    monkeypatch.setattr(exe_python, "run_process", run_process)
+    monkeypatch.setattr(exe_python, "_works", lambda python: True)
     lines = []
     exe.prepare_venv(code(tmp_path), lines.append, venv=venv, python_wanted="")
     assert "Die Bau-Umgebung wird für Python 3.13 neu angelegt." in lines

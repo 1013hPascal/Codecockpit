@@ -22,6 +22,7 @@ from tests.test_phase5a import account, live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import labels, select_code, setup_repo
 from tests.test_phase5e import connected_project
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -281,7 +282,7 @@ def test_open_list_from_the_window(live, qtbot, account, tmp_path, projects_root
         def exec(self):
             return 0
 
-    monkeypatch.setattr(pull_request_dialogs, "PullRequestsDialog", FakeList)
+    patch_split(monkeypatch, pull_request_dialogs, "PullRequestsDialog", FakeList)
     entry = next(e for e in win.current_entries() if e.action.id == "pull_requests")
     win.run_entry(entry)
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)
@@ -333,7 +334,7 @@ def test_create_uploads_first_then_creates(live, qtbot, account, tmp_path, proje
         def exec(self):
             return 1
 
-    monkeypatch.setattr(pull_request_dialogs, "CreatePullRequestDialog", FakeCreate)
+    patch_split(monkeypatch, pull_request_dialogs, "CreatePullRequestDialog", FakeCreate)
     pull_request_flow.PullRequestRunner(win.controller, project).create()
     text, buttons = questions[0]
     assert text.startswith("Der Branch suche-pdfs ist noch nicht auf GitHub.")
@@ -365,7 +366,7 @@ def test_list_dialog_filter_and_details(qtbot, make_services, monkeypatch):
     idle(qtbot, dialog)
     assert dialog.list.count() == 2
     errors = []
-    monkeypatch.setattr(pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog.new_pull()                                              # ohne Branch mit Änderungen
     assert "Wechseln Sie zuerst" in errors[0]
 
@@ -376,7 +377,7 @@ def test_list_buttons_act_on_the_marked_pull(qtbot, make_services, monkeypatch):
     fake = PullFake()
     fake.pulls[0] = pull(12, draft=True, url="https://x/pull/12")
     questions, opened = [], []
-    monkeypatch.setattr(pull_request_dialogs, "confirm",
+    patch_split(monkeypatch, pull_request_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
     monkeypatch.setattr(pull_request_dialogs.browser_login_dialog, "open_url", opened.append)
     dialog = pull_request_dialogs.PullRequestsDialog(
@@ -438,7 +439,7 @@ def test_comments_dialog(qtbot, monkeypatch):
     assert dialog.comments.item(0).text() == "anna, 24.09.2026: Sieht gut aus"
     assert dialog.edit.accessibleName() == "Neuer Kommentar"
     errors = []
-    monkeypatch.setattr(pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog.send_comment()
     assert errors == ["Bitte schreiben Sie zuerst einen Kommentar."]
     dialog.edit.setPlainText("Danke!")
@@ -453,7 +454,7 @@ def test_comments_dialog(qtbot, monkeypatch):
 def test_create_dialog(qtbot, monkeypatch):
     from PySide6.QtCore import Qt
     errors = []
-    monkeypatch.setattr(pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, pull_request_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = pull_request_dialogs.CreatePullRequestDialog(
         "design", ["main", "entwicklung"], "main", "Vorschlag", "- A", ["ben", "max"],
         "Hinweis")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from cockpit.core import backups, branches, exe, git, licenses, sync
+from cockpit.core import backups, branches, exe, exe_install, git, licenses, sync
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.features.exe_build import exe_branch
@@ -14,6 +14,7 @@ from tests.conftest import said
 from tests.test_phase10f import structured, window
 from tests.test_phase5a import sh
 from tests.test_phase5c import setup_repo
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -223,9 +224,9 @@ class Recorder:
             def exec(self):
                 return 1
 
-        monkeypatch.setattr(exe_wizard, "BuildSettingsDialog", Files)
-        monkeypatch.setattr(exe_wizard, "SummaryDialog", Summary)
-        monkeypatch.setattr(exe_wizard, "WizardBuildDialog", Build)
+        patch_split(monkeypatch, exe_wizard, "BuildSettingsDialog", Files)
+        patch_split(monkeypatch, exe_wizard, "SummaryDialog", Summary)
+        patch_split(monkeypatch, exe_wizard, "WizardBuildDialog", Build)
 
 
 def wizard_setup(qtbot, services, project, monkeypatch):
@@ -263,7 +264,7 @@ def test_wizard_cancel_deletes_the_new_branch(qtbot, tmp_path, projects_root, ma
     settings = exe.BuildSettings("main.py", "Tagebuch")
     Recorder(monkeypatch, settings, summary=[exe_wizard.CANCEL, exe_wizard.CANCEL])
     answers = [False, True]                       # erst "Zurück", dann wirklich abbrechen
-    monkeypatch.setattr(exe_wizard, "confirm", lambda *a, **k: answers.pop(0))
+    patch_split(monkeypatch, exe_wizard, "confirm", lambda *a, **k: answers.pop(0))
     win, wizard = wizard_setup(qtbot, services, project, monkeypatch)
     wizard.run()
     assert not exe_branch.exists(project) and answers == []
@@ -437,7 +438,7 @@ def test_blocked_message_window_counts_as_blocked(tmp_path, monkeypatch):
     script = tmp_path / "laeuft.py"
     script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
     real = subprocess.Popen
-    monkeypatch.setattr(exe, "error_window_text", lambda pid: "Intelligente App-Steuerung hat "
+    monkeypatch.setattr(exe_install, "error_window_text", lambda pid: "Intelligente App-Steuerung hat "
                         "einen Teil dieser App blockiert.")
     monkeypatch.setattr(exe.subprocess, "Popen",
                         lambda args, **kw: real([sys.executable, str(script)], **kw))
@@ -535,7 +536,7 @@ def test_deleting_the_current_branch_keeps_main_clean(qtbot, tmp_path, projects_
     dialog = branch_dialogs.BranchesDialog(project, branches.list_branches(code))
     qtbot.addWidget(dialog)
     asked = []
-    monkeypatch.setattr(branch_dialogs, "confirm",
+    patch_split(monkeypatch, branch_dialogs, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or True)
     dialog.set_show(branch_dialogs.ALL)
     dialog.list.setCurrentRow(dialog.row_of("versuch"))
@@ -596,7 +597,7 @@ def test_fix_after_a_problem_hands_error_and_chat_to_the_ai(qtbot, tmp_path, pro
     services, project = folders_project(tmp_path, projects_root, make_services)
     settings = exe.BuildSettings("main.py", "Tagebuch")
     Recorder(monkeypatch, settings, summary=[exe_wizard.NEXT, exe_wizard.CANCEL])
-    monkeypatch.setattr(exe_wizard, "confirm", lambda *a, **k: True)
+    patch_split(monkeypatch, exe_wizard, "confirm", lambda *a, **k: True)
     whats = []
 
     class Work:
@@ -617,7 +618,7 @@ def test_fix_after_a_problem_hands_error_and_chat_to_the_ai(qtbot, tmp_path, pro
             return 1
 
     monkeypatch.setattr(exe_ai, "WorkDialog", Work)
-    monkeypatch.setattr(exe_wizard, "ProblemDialog", Problem)
+    patch_split(monkeypatch, exe_wizard, "ProblemDialog", Problem)
     failures = [("Fehlerhafter Code.", "Zeile 3")]
     monkeypatch.setattr(exe_wizard.ExeWizard, "apply_proposal",
                         lambda self: failures.pop(0) if failures else None)
@@ -643,7 +644,7 @@ def test_real_fix_button_goes_to_step_three_with_error_and_chat(qtbot, tmp_path,
     settings = exe.BuildSettings("main.py", "Tagebuch")
     Recorder(monkeypatch, settings, summary=[exe_wizard.NEXT, exe_wizard.CANCEL])
     asked = []
-    monkeypatch.setattr(exe_wizard, "confirm", lambda *a, **k: asked.append(a) or True)
+    patch_split(monkeypatch, exe_wizard, "confirm", lambda *a, **k: asked.append(a) or True)
     whats = []
 
     class Work:

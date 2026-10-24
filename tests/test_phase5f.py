@@ -15,10 +15,11 @@ from cockpit.core.actions import Target
 from cockpit.core.errors import CockpitError
 from cockpit.core.sync import ConflictKind
 from cockpit.ui import branch_dialogs
-from tests.conftest import said
+from tests.conftest import said, patch_controller
 from tests.test_phase5a import live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import head, labels, select_code, setup_repo
+from tests.conftest import patch_split
 
 # Die Commits der Tests macht "Test" (siehe sh), heute
 BY = f"zuletzt von Test am {datetime.now():%d.%m.%Y}"
@@ -329,9 +330,9 @@ def answers(monkeypatch):
         record.questions.append((title, text, {"buttons": buttons, "default": default}))
         return record.choice
 
-    monkeypatch.setattr(branch_dialogs, "confirm", confirm)
-    monkeypatch.setattr(branch_dialogs, "ask_buttons", ask_buttons)
-    monkeypatch.setattr(branch_dialogs, "show_error", lambda *a: record.errors.append(a[2]))
+    patch_split(monkeypatch, branch_dialogs, "confirm", confirm)
+    patch_split(monkeypatch, branch_dialogs, "ask_buttons", ask_buttons)
+    patch_split(monkeypatch, branch_dialogs, "show_error", lambda *a: record.errors.append(a[2]))
     return record
 
 
@@ -391,7 +392,7 @@ def test_branches_from_the_window(live, qtbot, make_services, projects_root, tmp
         def exec(self):
             return 0
 
-    monkeypatch.setattr(branch_dialogs, "BranchesDialog", FakeBranches)
+    patch_split(monkeypatch, branch_dialogs, "BranchesDialog", FakeBranches)
     project_id = win.action_context().project.id
     assert win.project_list.select(Target.REPOSITORY, project_id)
     # Seit dem 20.10.2026 in der Auswahl "Branches …"
@@ -410,7 +411,7 @@ def test_stash_push_from_the_window(live, qtbot, make_services, projects_root, t
     win = live(services)
     select_code(win, services, code)
     questions = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
     entry = next(e for e in win.current_entries() if e.action.id == "stash_push")
     win.run_entry(entry)
@@ -489,7 +490,7 @@ def test_new_branch(qtbot, make_services, tmp_path, projects_root, answers, monk
         def exec(self):
             return 1
 
-    monkeypatch.setattr(branch_dialogs, "BranchNameDialog", FakeName)
+    patch_split(monkeypatch, branch_dialogs, "BranchNameDialog", FakeName)
     dialog.new_branch()
     assert git.status(code).branch == "neue-idee"
     assert said("Branch neue-idee angelegt. Sie sind jetzt auf neue-idee.")
@@ -500,7 +501,7 @@ def test_new_branch(qtbot, make_services, tmp_path, projects_root, answers, monk
 def test_branch_name_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     _, code, _ = branch_repo(tmp_path, projects_root)
     errors = []
-    monkeypatch.setattr(branch_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, branch_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = branch_dialogs.BranchNameDialog("Neuer Branch", "Hinweis", code)
     qtbot.addWidget(dialog)
     assert dialog.edit.accessibleName() == "Name des Branches"
@@ -572,7 +573,7 @@ def test_rename_and_delete_in_the_dialog(qtbot, make_services, tmp_path, project
         def exec(self):
             return 1
 
-    monkeypatch.setattr(branch_dialogs, "BranchNameDialog", FakeName)
+    patch_split(monkeypatch, branch_dialogs, "BranchNameDialog", FakeName)
     select(dialog, "main")
     dialog.rename_current()            # seit dem 06.10.2026 mit Rückfrage, Vorgabe Abbrechen
     assert "main ist der Haupt-Branch und heißt danach main-2." in answers.questions[-1][1]
@@ -611,9 +612,9 @@ def test_stash_dialog(qtbot, make_services, tmp_path, projects_root, monkeypatch
     write(code, "main.py", "zwei\n")
     branches.stash_push(code, "Tagebuch")
     questions, errors = [], []
-    monkeypatch.setattr(branch_dialogs, "confirm",
+    patch_split(monkeypatch, branch_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
-    monkeypatch.setattr(branch_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, branch_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = branch_dialogs.StashDialog(project)
     qtbot.addWidget(dialog)
     assert dialog.windowTitle() == "Beiseitegelegte Änderungen von Tagebuch: 2 Einträge"
@@ -633,7 +634,7 @@ def test_stash_dialog(qtbot, make_services, tmp_path, projects_root, monkeypatch
         def exec(self):
             return 1
 
-    monkeypatch.setattr(branch_dialogs, "BranchNameDialog", FakeName)
+    patch_split(monkeypatch, branch_dialogs, "BranchNameDialog", FakeName)
     write(code, "x.py", "x\n")
     branches.stash_push(code, "Tagebuch")
     dialog.fill()
@@ -698,8 +699,8 @@ def test_buttons_that_do_not_fit_are_hidden(qtbot, make_services, tmp_path, proj
 def test_branches_guide_in_the_help_menu():
     import inspect
     from cockpit.core import paths
-    from cockpit.ui import main_window
-    assert '"B&ranches verstehen …", self.show_branches_guide' in inspect.getsource(main_window)
+    from cockpit.ui import window_menus
+    assert '"B&ranches verstehen …", self.show_branches_guide' in inspect.getsource(window_menus)
     text = (paths.resource_dir() / "anleitungen" / "branches-verstehen.md").read_text(
         encoding="utf-8")
     assert "Welche Branches darf ich löschen?" in text

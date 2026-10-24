@@ -101,14 +101,39 @@ def _new_file(code_dir: Path, path: str) -> str:
     return f"Neue Datei {path}:\n{head}{more}"
 
 
-def commit_context(code_dir: Path, max_chars: int) -> str:
-    """Übersicht für die Commit-Nachricht."""
+def _chosen(changes: "sync.Changes", selection: dict) -> "sync.Changes":
+    """Nur die gewählten Dateien (Auswahl beim Commit, 21.10.2026)."""
+    from dataclasses import replace
+    return replace(changes, **{name: [f for f in getattr(changes, name) if f in selection]
+                               for name in ("modified", "added", "deleted", "renamed")})
+
+
+def _chosen_hunks(code_dir: Path, path: str, kind: str, numbers: set[int]) -> str:
+    from cockpit.core import staging
+    diff = staging.file_diff(code_dir, path, kind)
+    lines = [f"diff --git a/{path} b/{path}"]
+    for hunk in diff.hunks:
+        if hunk.number in numbers:
+            lines += [hunk.header, *hunk.lines]
+    return "\n".join(lines) + "\n"
+
+
+def commit_context(code_dir: Path, max_chars: int, selection: dict | None = None) -> str:
+    """Übersicht für die Commit-Nachricht. selection wie CommitDialog.selection: None für alles,
+    sonst Pfad -> None (ganze Datei) oder die Nummern der gewählten Abschnitte."""
     changes = sync.changes(code_dir)
+    if selection is not None:
+        changes = _chosen(changes, selection)
     parts = ["Geänderte Dateien:", *changes.lines()]
     tracked = [f for f in changes.modified + changes.deleted + changes.renamed]
+    partial = {p: n for p, n in (selection or {}).items() if n is not None and p in tracked}
+    whole = [f for f in tracked if f not in partial]
     if tracked and _has_commit(code_dir):
-        diff = git.run(["diff", "HEAD", "--no-color", "--unified=2", "--", *tracked], code_dir,
-                       check=False).stdout
+        diff = git.run(["diff", "HEAD", "--no-color", "--unified=2", "--", *whole], code_dir,
+                       check=False).stdout if whole else ""
+        kinds = changes.kinds()
+        for path, numbers in partial.items():
+            diff += _chosen_hunks(code_dir, path, kinds.get(path, "geändert"), numbers)
         if diff.strip():
             room = max_chars - len("\n".join(parts)) - 200 * len(changes.added)
             parts += ["", "Geänderte Zeilen:", spread(filter_diff(diff), room)]

@@ -65,8 +65,9 @@ Stichwörter: hochladen, Commit, speichern, push, committen, Nachricht
 Schritt 1: Klappen Sie das Projekt mit Pfeil rechts auf und gehen Sie auf den Main-Branch oder auf die Zeile Ihres Branches.
 Schritt 2: Drücken Sie Tab. Oben steht „Änderungen auf GitHub hochladen …“. Drücken Sie Enter.
 Schritt 3: Schreiben Sie, was Sie geändert haben, oder holen Sie mit „Vorschlag der KI“ einen Vorschlag. Das ist die Commit-Nachricht.
-Schritt 4: Bestätigen Sie. Das Cockpit macht den Commit und lädt hoch. Sie hören Töne, solange es läuft.
-Schritt 5: Auf einem Branch bietet das Cockpit danach an, einen Pull Request zu stellen.
+Schritt 4: In der Liste „Änderungen“ ist jede Datei angehakt. Mit der Leertaste nehmen Sie eine Datei aus dem Commit. Enter auf einer Datei zeigt ihre Abschnitte: Dort haken Sie ab, was noch nicht mit soll, und Enter liest einen Abschnitt vor. Was nicht angehakt ist, bleibt in der Datei für später. Mit „Co-Autoren …“ nennen Sie Personen, die mitgearbeitet haben.
+Schritt 5: Bestätigen Sie. Das Cockpit macht den Commit und lädt hoch. Sie hören Töne, solange es läuft.
+Schritt 6: Auf einem Branch bietet das Cockpit danach an, einen Pull Request zu stellen.
 
 ## Änderungen von GitHub holen
 Bereich: branch
@@ -102,6 +103,43 @@ Schritt 1: Laden Sie zuerst Ihre Änderungen auf dem Branch hoch.
 Schritt 2: Gehen Sie auf die Zeile des Branches, drücken Sie Tab und wählen Sie „Pull Request erstellen …“.
 Schritt 3: Prüfen Sie Titel und Beschreibung. Mit Tab kommen Sie zum Ziel-Branch und zu „Prüfer, freiwillig“. Wählen Sie dort Personen für ein Review.
 Schritt 4: Drücken Sie Tab bis „Erstellen“ und Enter.
+
+## Checks eines Pull Requests ansehen
+Bereich: branch
+Aktionen: pull_requests
+Stichwörter: Checks, Prüfungen, Tests, Actions, fehlgeschlagen, CI
+Schritt 1: Öffnen Sie „Pull Requests …“ und drücken Sie Enter auf dem Pull Request.
+Schritt 2: In den Angaben steht zum Beispiel „Checks: 1 fehlgeschlagen (Tests), 2 erfolgreich“.
+Schritt 3: Drücken Sie Tab bis „Checks …“. Dort steht jeder Check mit seinem Ergebnis, fehlgeschlagene zuerst.
+Schritt 4: Beim Übernehmen steht der Stand der Checks gleich nach dem ersten Satz.
+
+## Zu einem fremden Projekt beitragen (Fork)
+Bereich: start
+Aktionen: add_remote
+Stichwörter: Fork, fremdes Projekt, beitragen, Original, upstream
+Schritt 1: Wählen Sie „Projekt von GitHub herunterladen“, dann „Adresse eingeben …“, und geben Sie die Adresse des Projekts ein.
+Schritt 2: Dürfen Sie dort nicht hochladen, fragt das Cockpit nach einem Fork. Wählen Sie „Fork anlegen und herunterladen“.
+Schritt 3: Arbeiten Sie in einem eigenen Branch und laden Sie wie gewohnt hoch. Das landet in Ihrem Fork.
+Schritt 4: Bei „Pull Request erstellen …“ wählen Sie „An das Original“.
+Schritt 5: Neues aus dem Original holen Sie beim Main-Branch mit „Vom Original holen …“. Danach laden Sie main hoch.
+
+## Issues lesen und anlegen
+Bereich: branch
+Aktionen: issues
+Stichwörter: Issue, Fehlermeldung, Aufgabe, Ticket, Label, zuweisen, Bug
+Schritt 1: Gehen Sie auf den Main-Branch, drücken Sie Tab und öffnen Sie „Issues …“.
+Schritt 2: Die Liste zeigt die offenen Issues. Bei „Anzeigen“ wählen Sie auch geschlossene oder alle.
+Schritt 3: Enter öffnet die Details mit allen Kommentaren. Dort schreiben Sie bei „Neuer Kommentar“ und wählen „Kommentar senden“.
+Schritt 4: Mit „Neues Issue …“ legen Sie eines an, auf Wunsch mit Labels und Personen.
+Schritt 5: „Labels …“, „Zuweisen …“ und „Issue schließen …“ wirken auf das markierte Issue.
+
+## Issue mit KI zusammenfassen und Branch anlegen
+Bereich: branch
+Aktionen: issues
+Stichwörter: Issue, KI, zusammenfassen, Branch-Name, Vorschlag
+Schritt 1: Öffnen Sie „Issues …“ und drücken Sie Enter auf dem Issue.
+Schritt 2: Ist der KI-Assistent im Projekt aktiv, gibt es „Mit KI zusammenfassen“. Die Zusammenfassung und ein Branch-Name stehen danach oben in den Angaben.
+Schritt 3: Schließen Sie die Details und wählen Sie „Branch dafür anlegen …“. Der Name der KI ist schon eingetragen. Ohne KI steht dort die Nummer mit dem Titel, zum Beispiel 12-suche-in-pdfs.
 
 ## Review abgeben, abhaken oder Änderungen anfordern
 Bereich: branch
@@ -139,6 +177,40 @@ Schritt 3: Drücken Sie Enter für die Details.
 Schritt 4: Ist der Commit noch nicht hochgeladen, wählen Sie „Commit zurücknehmen …“. Die Änderungen bleiben in den Dateien.
 Schritt 5: Ist er schon hochgeladen, wählen Sie „Version rückgängig machen …“. Das Cockpit macht dafür einen neuen Commit, nichts geht verloren.
 
+## Commit nachbessern
+Bereich: branch
+Aktionen: history
+Stichwörter: nachbessern, amend, Nachricht ändern, vergessen, korrigieren
+Schritt 1: Öffnen Sie „Verlauf …“ und wählen Sie den neuesten Commit. Drücken Sie Enter für die Details.
+Schritt 2: Wählen Sie „Commit nachbessern …“. Das geht nur, solange der Commit noch nicht hochgeladen ist.
+Schritt 3: Ändern Sie Nachricht und Beschreibung. Haken Sie „Änderungen ohne Commit mit hineinnehmen“ an, wenn vergessene Dateien mit sollen.
+Schritt 4: Bestätigen Sie. Der alte Stand bleibt gesichert.
+
+## Commit in einen anderen Branch übernehmen
+Bereich: branch
+Aktionen: history
+Stichwörter: übernehmen, cherry-pick, kopieren, anderer Branch
+Schritt 1: Öffnen Sie „Verlauf …“, wählen Sie den Commit und drücken Sie Enter.
+Schritt 2: Wählen Sie „In anderen Branch übernehmen …“ und dann den Ziel-Branch.
+Schritt 3: Bestätigen Sie. Passt der Commit nicht ohne Konflikt, bleibt alles, wie es war.
+
+## Commits umsortieren oder zusammenfassen
+Bereich: branch
+Aktionen: history
+Stichwörter: umsortieren, zusammenfassen, squash, Reihenfolge, rebase
+Schritt 1: Öffnen Sie „Verlauf …“ und drücken Sie Tab bis „Reihenfolge und Zusammenfassen …“. Der Knopf erscheint, wenn mindestens zwei Commits noch nicht hochgeladen sind.
+Schritt 2: Die neueste Zeile steht oben. Mit Strg und Pfeil hoch oder runter verschieben Sie einen Commit.
+Schritt 3: Mit „Mit dem darunter zusammenfassen“ kommt ein Commit mit dem darunter zusammen.
+Schritt 4: Wählen Sie „Übernehmen“ und bestätigen Sie. Hochgeladene Commits bleiben immer, wie sie sind.
+
+## Branch ab einem früheren Commit
+Bereich: branch
+Aktionen: history
+Stichwörter: Branch ab hier, früherer Stand, abzweigen, alter Commit
+Schritt 1: Öffnen Sie „Verlauf …“, wählen Sie den Commit und drücken Sie Enter.
+Schritt 2: Wählen Sie „Neuer Branch ab hier …“ und geben Sie den Namen ein.
+Schritt 3: Mit Branch-Ordnern bekommt der Branch einen eigenen Ordner. Sonst bleiben Sie auf Ihrem Branch.
+
 ## Zu einer früheren Version zurück
 Bereich: branch
 Aktionen: history
@@ -169,8 +241,17 @@ Bereich: branch
 Aktionen: resolve_conflicts
 Stichwörter: Konflikt, zusammenführen, gleiche Stelle, merge conflict
 Schritt 1: Die Zeile des Branches sagt „Konflikte beim Zusammenführen“. Drücken Sie dort Enter oder Tab und „Konflikte lösen …“.
-Schritt 2: Wählen Sie für jede Datei, welche Fassung gilt.
-Schritt 3: Bestätigen Sie. Danach laden Sie wie gewohnt hoch.
+Schritt 2: Wählen Sie für jede Datei, welche Fassung gilt. Oder drücken Sie Enter auf der Datei: Dann hören Sie jede Konfliktstelle einzeln.
+Schritt 3: Bei den Stellen liest Enter vor, erst Ihre Fassung, dann die von GitHub. Wählen Sie dann „Meine Fassung“, „Fassung von GitHub“ oder „Beide, meine zuerst“. „Stelle im Editor anzeigen“ springt im Editor zur Zeile.
+Schritt 4: Wählen Sie „Zusammenführen abschließen“. Danach laden Sie wie gewohnt hoch.
+
+## Im Editor öffnen
+Bereich: branch
+Aktionen: open_in_editor
+Stichwörter: Editor, Visual Studio Code, VS Code, Notepad++, bearbeiten, öffnen
+Schritt 1: Gehen Sie auf den Main-Branch oder die Zeile Ihres Branches.
+Schritt 2: Drücken Sie Tab und wählen Sie „Im Editor öffnen“. Der Ordner des Branches öffnet sich im Editor.
+Schritt 3: Das Cockpit nimmt Visual Studio Code, Notepad++ oder den Windows-Editor, je nachdem, was es findet. Einen anderen Editor tragen Sie in den Grundeinstellungen bei „Editor-Programm“ ein.
 
 ## README erstellen oder bearbeiten
 Bereich: repository
@@ -276,3 +357,64 @@ Stichwörter: Tasten, Tastenkürzel, Tastatur, Shortcut
 Schritt 1: Im Menü Hilfe zeigt „Tastenkürzel“ die ganze Liste. Das geht auch mit Strg+Umschalt+F1.
 Schritt 2: Strg+F1 sagt an, welche Tasten beim Element mit dem Fokus etwas tun.
 Schritt 3: Strg+K sucht einen Befehl, die Menütaste öffnet die Aktionen als Kontextmenü.
+
+
+## Pakete und Modelle verwalten
+Bereich: alle
+Aktionen:
+Stichwörter: Pakete, Modelle, Bibliotheken, pip, winget, Chocolatey, veraltet, aktualisieren, Version, Paketübersicht
+Schritt 1: Drücken Sie Strg+Umschalt+P. Oder öffnen Sie mit Alt+A das Menü Pakete und wählen Sie „Paketübersicht …“.
+Schritt 2: Sie sind in der Liste der Quellen. Die erste Zeile nennt den Speicherplatz. Jede Quelle sagt, wie viele Pakete veraltet sind. Die Prüfung läuft im Hintergrund.
+Schritt 3: Mit „Zeigen“ wählen Sie: alles, nur die Cockpit-Projekte oder nur den übrigen Rechner.
+Schritt 4: Gehen Sie auf eine Quelle und drücken Sie Enter. Die Pakete stehen neueste zuerst, mit „aktuell“ oder „veraltet“.
+Schritt 5: Drücken Sie Tab. Sie sind bei den Aktionen, zum Beispiel „Aktualisieren …“, „Version wählen …“, „Festhalten“ und „Zurück …“.
+Schritt 6: Vor jeder Änderung fragt das Cockpit. Vorgabe und Escape sind die sichere Antwort.
+
+## Pakete und Modelle aufräumen
+Bereich: alle
+Aktionen:
+Stichwörter: aufräumen, Speicherplatz, Platz, löschen, alte Fassungen, Zwischenspeicher, Modelle
+Schritt 1: Öffnen Sie mit Alt+A das Menü Pakete und wählen Sie „Aufräumen …“.
+Schritt 2: Die Liste nennt, was weg kann, und wie viel Platz das bringt. Haken Sie mit der Leertaste an, was weg soll.
+Schritt 3: Nichts ist vorab angehakt. Bei Modellen ohne bekannten Benutzer prüfen Sie selbst, ob ein anderes Programm sie braucht.
+Schritt 4: Bestätigen Sie. Vorher kommt eine Liste mit dem Befehl zum Wiederherstellen in die Sicherheitskopien.
+
+## Bibliotheken oder Modell in Projekten tauschen
+Bereich: alle
+Aktionen:
+Stichwörter: tauschen, Bibliotheken, Projekte, requirements, Modell ersetzen, Nachfolger, Branch
+Schritt 1: Öffnen Sie die Paketübersicht mit Strg+Umschalt+P.
+Schritt 2: Für Bibliotheken wählen Sie „Bibliotheken in Projekten …“. Für ein Modell öffnen Sie die Quelle Sprachmodelle, gehen auf das Modell und wählen „In Projekten tauschen …“.
+Schritt 3: Beim Modell geben Sie den neuen Namen ein oder holen einen Vorschlag der KI. Ein Vorschlag ist nur ein Vorschlag, prüfen Sie ihn.
+Schritt 4: Das Cockpit ändert die Projekte in einem eigenen Branch und lässt danach die Tests laufen. In main ändert sich nichts.
+
+## Liste der Pakete für einen neuen Rechner
+Bereich: alle
+Aktionen:
+Stichwörter: neuer Rechner, Liste speichern, einlesen, installieren, umziehen
+Schritt 1: Öffnen Sie mit Alt+A das Menü Pakete und wählen Sie „Liste für einen neuen Rechner speichern …“. Wählen Sie einen Ort für die Datei.
+Schritt 2: Auf dem neuen Rechner wählen Sie „Liste einlesen und installieren …“ und dann die Datei.
+Schritt 3: Das Cockpit zeigt, was fehlt. Alles ist angehakt. Nehmen Sie mit der Leertaste den Haken weg, wo Sie nichts installieren wollen, und bestätigen Sie.
+
+## Ordner nach Modellen durchsuchen
+Bereich: alle
+Aktionen:
+Stichwörter: Modelle suchen, Ordner, Modelldateien, gguf, durchsuchen
+Schritt 1: Öffnen Sie mit Alt+A das Menü Pakete und wählen Sie „Ordner nach Modellen durchsuchen …“.
+Schritt 2: Wählen Sie den Ordner. Das Cockpit merkt ihn sich.
+Schritt 3: Gefundene Modelldateien stehen danach in der Quelle Sprachmodelle.
+## Neuigkeiten seit dem letzten Start lesen
+Bereich: alle
+Stichwörter: Neuigkeiten, neu, Kommentare, Issues, Pull Requests, Sterne, was ist passiert, Wochenüberblick
+Schritt 1: Drücken Sie Strg+Umschalt+N. Oder öffnen Sie mit Alt+N das Menü Neuigkeiten und wählen Sie „Neuigkeiten seit dem letzten Start“.
+Schritt 2: Sie sind in der Liste. Jede Zeile beginnt mit dem Projekt, dann was passiert ist, dann wer und wann.
+Schritt 3: Für einen anderen Zeitraum drücken Sie Umschalt+Tab bis „Zeitraum“ und wählen mit Pfeil runter „Letzte 7 Tage“ oder „Letzte 30 Tage“.
+Schritt 4: Enter auf einer Zeile zeigt das Issue oder den Pull Request im Cockpit. Mit Tab kommen Sie zu „Im Browser öffnen“.
+
+## Aktivität der Projekte ansehen
+Bereich: alle
+Stichwörter: Aktivität, Aufrufe, Besucher, Klone, Downloads, Sterne, Statistik, beliebt, README
+Schritt 1: Öffnen Sie mit Alt+N das Menü Neuigkeiten und wählen Sie „Aktivität der Projekte“.
+Schritt 2: Sie sind in der Liste der Projekte. Jede Zeile nennt Aufrufe, Klone, Downloads und Sterne.
+Schritt 3: Enter auf einem Projekt zeigt die Einzelheiten: Zahlen pro Tag, Downloads pro Release, meistbesuchte Seiten und Herkunft der Besucher.
+Schritt 4: Mit Tab kommen Sie zu „Kommentare und Issues“. Dort stehen die letzten Kommentare, Issues und Pull Requests des Projekts.

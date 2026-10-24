@@ -12,11 +12,11 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 
-from cockpit.core import exe
+from cockpit.core import exe, exe_install
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.projects import Project
 from cockpit.features.exe_build import ai_fix
-from cockpit.ui import exe_ai, exe_flow
+from cockpit.ui import exe_ai, exe_dialogs, exe_flow
 from cockpit.ui.exe_chat import ExeChat
 from tests.conftest import said
 from tests.test_phase8b import quiet_machine  # noqa: F401 (Fixture)
@@ -86,7 +86,7 @@ def test_settings_dialog_has_a_checklist(qtbot, tmp_path, monkeypatch):
     assert said("Sicherungen kommt neben die Exe.")
     dialog.beside.item(0).setCheckState(Qt.CheckState.Unchecked)
     assert dialog.chosen_beside() == ["Sicherungen"]
-    monkeypatch.setattr(exe_flow, "confirm", lambda *a, **k: True)     # trotzdem weglassen
+    monkeypatch.setattr(exe_dialogs, "confirm", lambda *a, **k: True)     # trotzdem weglassen
     dialog.form.fields["start_file"].set("gui.py")
     dialog.check()
     assert dialog.settings.beside == ["Sicherungen"]
@@ -170,7 +170,7 @@ def test_start_test_fails_on_an_error_window(tmp_path, monkeypatch):
     from cockpit.core.errors import CockpitError
     script = tmp_path / "laeuft.py"
     script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
-    monkeypatch.setattr(exe, "error_window_text",
+    monkeypatch.setattr(exe_install, "error_window_text",
                         lambda pid: "Unhandled exception in script\nNameError: name 'sys'")
     monkeypatch.setattr(exe.subprocess, "Popen", _python_popen(sys.executable, script))
     with pytest.raises(CockpitError) as raised:
@@ -355,7 +355,7 @@ def test_unchecking_required_asks_and_rechecks(qtbot, tmp_path, monkeypatch):
     qtbot.addWidget(dialog)
     dialog.show()
     asked = []
-    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **k:
+    monkeypatch.setattr(exe_dialogs, "confirm", lambda parent, title, text, **k:
                         asked.append((text, k)) or False)              # Wieder anhaken
     dialog.beside.item(0).setCheckState(Qt.CheckState.Unchecked)
     dialog.check()
@@ -373,7 +373,7 @@ def test_handmade_spec_hides_the_form(qtbot, tmp_path):
     qtbot.addWidget(dialog)
     dialog.show()
     assert dialog.handmade and not dialog.form.isVisible()
-    labels = [w.text() for w in dialog.findChildren(exe_flow.QLabel)]
+    labels = [w.text() for w in dialog.findChildren(exe_dialogs.QLabel)]
     assert any(t.startswith("Die Bauanleitung VokabelApp.spec ist von Hand geschrieben.")
                for t in labels)
     dialog.check()

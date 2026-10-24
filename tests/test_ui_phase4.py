@@ -9,7 +9,7 @@ from cockpit.adapters.base import TestResult
 from cockpit.core.accounts import find_type
 from cockpit.core.errors import CockpitError
 from cockpit.core.secret import Secret
-from cockpit.platforms import github
+from cockpit.platforms import github, github_login
 from cockpit.platforms.base import BrowserLogin
 from cockpit.platforms.github import GitHubPlatform
 from cockpit.ui import accounts_dialog as ad
@@ -18,6 +18,7 @@ from cockpit.ui import setup_wizard as sw
 from tests.conftest import FakeVault, said
 from tests.test_github import TOKEN, FakeGitHub
 from tests.test_ui import show_active
+from tests.conftest import patch_split
 
 
 @pytest.fixture(autouse=True)
@@ -26,10 +27,10 @@ def no_blocking_dialogs(monkeypatch):
     opened: list[str] = []
     monkeypatch.setattr(bld, "open_url", opened.append)
     monkeypatch.setattr(bld, "show_error", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ad, "show_info", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ad, "show_error", lambda *args, **kwargs: None)
-    monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
-    monkeypatch.setattr(sw, "show_error", lambda *args, **kwargs: None)
+    patch_split(monkeypatch, ad, "show_info", lambda *args, **kwargs: None)
+    patch_split(monkeypatch, ad, "show_error", lambda *args, **kwargs: None)
+    patch_split(monkeypatch, sw, "confirm", lambda *args, **kwargs: True)
+    patch_split(monkeypatch, sw, "show_error", lambda *args, **kwargs: None)
     return opened
 
 
@@ -89,11 +90,11 @@ def test_browser_login_denied(qtbot, monkeypatch):
 def test_browser_button_only_with_client_id(qtbot, make_services, monkeypatch):
     services = make_services(vault=FakeVault())
     account_type = find_type("platform", "github")
-    monkeypatch.setattr(github, "CLIENT_ID", "")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "")
     without = ad.AccountEditDialog(services, account_type)
     qtbot.addWidget(without)
     assert without.browser_button is None
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     dialog = ad.AccountEditDialog(services, account_type)
     qtbot.addWidget(dialog)
     assert dialog.browser_button.text() == "Im &Browser anmelden …"
@@ -101,7 +102,7 @@ def test_browser_button_only_with_client_id(qtbot, make_services, monkeypatch):
 
 def test_browser_login_leads_to_done_page_and_saves(qtbot, make_services, monkeypatch):
     services = make_services(vault=FakeVault())
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
 
@@ -148,7 +149,7 @@ def test_token_way_does_not_save_a_rejected_token(qtbot, make_services, server):
 
 
 def test_sso_result_offers_the_link(qtbot, monkeypatch, no_blocking_dialogs):
-    monkeypatch.setattr(ad, "confirm", lambda *args, **kwargs: True)
+    patch_split(monkeypatch, ad, "confirm", lambda *args, **kwargs: True)
     ad.show_test_result(None, TestResult(False, github.SSO_REQUIRED, "HTTP 403",
                                          link="https://github.com/orgs/firma/sso",
                                          link_text="Freigabeseite im Browser öffnen?"))
@@ -195,7 +196,7 @@ def test_wizard_github_page_counts_missing_accounts(wizard):
     go_to(dialog, "Code-Plattformen wählen")
     dialog.next()                                             # GitHub ist angehakt
     assert dialog.heading.text() == "Schritt 5 von 8: Code-Plattformen einrichten"
-    assert dialog.focusWidget() is dialog.page.list
+    assert dialog.focusWidget() is dialog.page.text           # zuerst die Erklärung
     assert dialog.next_button.text() == "&Weiter (1 nicht eingerichtet)"
     services.accounts.create(find_type("platform", "github"), "GitHub privat",
                              {"username": "1013hPascal", "token": Secret(TOKEN)})
@@ -238,7 +239,7 @@ def test_token_guide_button_sits_before_the_token(qtbot, make_services, monkeypa
         def exec(self):
             return True
 
-    monkeypatch.setattr(ad, "TextDialog", FakeText)
+    patch_split(monkeypatch, ad, "TextDialog", FakeText)
     dialog.show_guide()
     assert opened[0][0] == "GitHub-Token erstellen"
     assert "personal-access-tokens/new" in opened[0][1]
@@ -261,7 +262,7 @@ def test_new_github_account_offers_two_ways_after_the_explanation(qtbot, make_se
                                                                   monkeypatch):
     """Test Phase 4: Erst die Erklärung, dann die Wahl: Im Browser oder mit Token."""
     from PySide6.QtCore import Qt
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
@@ -286,7 +287,7 @@ def test_new_github_account_offers_two_ways_after_the_explanation(qtbot, make_se
 
 
 def test_explanation_without_browser_login(qtbot, make_services, monkeypatch):
-    monkeypatch.setattr(github, "CLIENT_ID", "")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "")
     services = make_services(vault=FakeVault())
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)

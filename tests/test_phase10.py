@@ -17,7 +17,7 @@ from cockpit.core import exe
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import read_config
 from cockpit.features.exe_build.manifest import MANIFEST as EXE_BUILD
-from tests.conftest import FAKE_TOKEN, make_project, said
+from tests.conftest import FAKE_TOKEN, make_project, said, patch_running_from
 from tests.test_phase5a import sh
 
 windows = pytest.mark.skipif(sys.platform != "win32", reason="nur Windows")
@@ -200,7 +200,7 @@ def test_own_exe_waits_for_restart(make_services, projects_root, tmp_path, monke
     services, project = project_with(make_services, projects_root)
     (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
     fake_exe(project.exe_dir, "Rechner.exe", "alt")
-    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    patch_running_from(monkeypatch, lambda folder: True)
     built = fake_exe(tmp_path / "dist", "Rechner.exe", "neu")
     result = exe.install(project, built, "abc")
     assert result.pending
@@ -223,7 +223,7 @@ def test_restart_keeps_versions_and_rolls_back(make_services, projects_root, tmp
     (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
     fake_exe(project.exe_dir / "Rechner", "Rechner.exe", "alt")
     fake_exe(project.exe_dir / "Rechner-v1.0.0", "Rechner.exe", "veröffentlicht")
-    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    patch_running_from(monkeypatch, lambda folder: True)
     exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     script = exe.restart_script(project).read_text(encoding="utf-8")
@@ -473,7 +473,7 @@ def test_build_settings_dialog(qtbot, make_services, projects_root):
     assert dialog.settings.name == "Rechner" and not dialog.settings.one_file
     dialog.form.fields["start_file"].set("fehlt.py")
     dialog.settings = None
-    import cockpit.ui.exe_flow as flow
+    import cockpit.ui.exe_dialogs as flow             # die Fenster stehen seit 21.10.2026 dort
     errors = []
     flow.show_error, old = (lambda parent, title, text, details="": errors.append(text)), \
         flow.show_error
@@ -538,10 +538,10 @@ def test_blocked_test_leaves_the_choice(make_services, projects_root, tmp_path, 
 @pytest.mark.parametrize("answer", [True, False])
 def test_build_dialog_asks_when_blocked(qtbot, make_services, projects_root, tmp_path,
                                         monkeypatch, answer):
-    from cockpit.ui import exe_flow
+    from cockpit.ui import exe_dialogs, exe_flow
     services, project = blocked_build(make_services, projects_root, tmp_path, monkeypatch)
     questions = []
-    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **kw:
+    monkeypatch.setattr(exe_dialogs, "confirm", lambda parent, title, text, **kw:
                         questions.append(text) or answer)
     dialog = exe_flow.BuildDialog(services, project, exe.BuildSettings(name="Rechner"))
     qtbot.addWidget(dialog)
@@ -563,7 +563,7 @@ def test_restart_names_a_published_home_with_its_version(make_services, projects
     (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
     fake_exe(project.exe_dir / "Rechner", "Rechner.exe", "alt")
     (project.exe_dir / "Rechner" / exe.VERSION_FILE).write_text("1.3.0\n", encoding="utf-8")
-    monkeypatch.setattr(exe, "running_from", lambda folder: True)
+    patch_running_from(monkeypatch, lambda folder: True)
     exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     script = exe.restart_script(project).read_text(encoding="utf-8")

@@ -438,7 +438,7 @@ def test_push_from_the_window(live, qtbot, make_services, projects_root, tmp_pat
     select_code(win, services, code)
 
     class FakeCommitDialog:
-        def __init__(self, title, changes, parent=None, source=None):
+        def __init__(self, title, changes, parent=None, source=None, **_kw):
             assert changes.summary() == "1 Datei geändert"
             self.message = "Neue Suche"
 
@@ -476,7 +476,7 @@ def test_push_behind_offers_pull_then_push(live, qtbot, make_services, projects_
     select_code(win, services, code)
 
     class FakeCommitDialog:
-        def __init__(self, title, changes, parent=None, source=None):
+        def __init__(self, title, changes, parent=None, source=None, **_kw):
             self.message = "Lokal"
 
         def exec(self):
@@ -624,7 +624,8 @@ def test_conflict_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     sync.fetch(code)
     sync.merge(code, stash=False)
     opened = []
-    monkeypatch.setattr(dialogs.core_actions, "open_path", lambda p: opened.append(p))
+    monkeypatch.setattr("cockpit.ui.editor_ui.open_in_editor",
+                        lambda widget, p, line=None: opened.append(p) or True)
     dialog = dialogs.ConflictDialog(code, ConflictKind.MERGE, "GitHub")
     qtbot.addWidget(dialog)
     dialog.show()
@@ -671,14 +672,19 @@ def test_conflict_dialog(qtbot, tmp_path, projects_root, monkeypatch):
         "meine\n", "github\n", "beides\n"]
 
 
-def test_conflict_dialog_escape_is_abort(qtbot, tmp_path, projects_root):
+def test_conflict_dialog_escape_is_abort(qtbot, tmp_path, projects_root, monkeypatch):
     from PySide6.QtCore import Qt
+    from cockpit.ui import conflict_dialogs
     from cockpit.ui import sync_dialogs as dialogs
     code, _, _ = merge_conflict(tmp_path, projects_root)
+    shown = []
+    monkeypatch.setattr(conflict_dialogs.ConflictBlocksDialog, "exec",
+                        lambda self: shown.append(self.path) or 0)
     dialog = dialogs.ConflictDialog(code, ConflictKind.MERGE, "GitHub")
     qtbot.addWidget(dialog)
     dialog.show()
-    qtbot.keyClick(dialog.list, Qt.Key.Key_Return)                   # Enter in der Liste: nichts
+    qtbot.keyClick(dialog.list, Qt.Key.Key_Return)            # Enter: Stellen lesen (21.10.2026)
+    assert shown == ["main.py"]
     assert dialog.isVisible() and sync.conflicted(code) == ["main.py"]
     qtbot.keyClick(dialog, Qt.Key.Key_Escape)
     assert dialog.result() == 0

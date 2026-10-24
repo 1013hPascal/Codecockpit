@@ -15,6 +15,7 @@ from cockpit.core.errors import CockpitError
 from cockpit.core.projects import classify_folder, main_code_dir
 from tests.test_phase5a import account, sh  # noqa: F401
 from tests.test_phase5f import branch_repo, commit
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -239,9 +240,9 @@ def test_new_folder_in_main_does_not_block_merging(qtbot, tmp_path, projects_roo
     assert sync.blocking_merge(project.code_dir, "suche") == ["main.py"]
     sh(project.code_dir, "checkout", "--", "main.py")
     questions, errors = [], []
-    monkeypatch.setattr(branch_dialogs, "confirm", lambda parent, title, text, **kw:
+    patch_split(monkeypatch, branch_dialogs, "confirm", lambda parent, title, text, **kw:
                         questions.append(text) or False)
-    monkeypatch.setattr(branch_dialogs, "show_error", lambda parent, title, text, *a:
+    patch_split(monkeypatch, branch_dialogs, "show_error", lambda parent, title, text, *a:
                         errors.append(text))
     items = [b for b in branches.list_branches(project.code_dir) if b.name == "suche"]
     dialog = branch_dialogs.BranchesDialog(project, items, single=True)

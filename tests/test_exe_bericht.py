@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from cockpit.core import exe
+from cockpit.core import exe, exe_probe
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project
 from cockpit.features.exe_build import setup_check
@@ -124,6 +124,7 @@ def test_build_puts_the_report_into_the_result_and_the_error(tmp_path, monkeypat
     (tmp_path / "cache").mkdir()
     monkeypatch.setattr(exe, "head_commit", lambda code_dir: "abc")
     monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None, **kw: "py")
+    monkeypatch.setattr(exe_probe, "probe", lambda *a, **kw: exe_probe.ProbeResult())
 
     def fake_build(code_dir, python, spec, work, on_line, cancel):
         warn = work / "build" / "Strecken" / "warn-Strecken.txt"
@@ -163,6 +164,7 @@ def test_start_test_sees_the_files_beside_the_exe(tmp_path, monkeypatch):
     (tmp_path / "cache").mkdir()
     monkeypatch.setattr(exe, "head_commit", lambda code_dir: "abc")
     monkeypatch.setattr(exe, "prepare_venv", lambda code_dir, on_line, cancel, venv=None, **kw: "py")
+    monkeypatch.setattr(exe_probe, "probe", lambda *a, **kw: exe_probe.ProbeResult())
 
     def fake_build(code_dir, python, spec, work, on_line, cancel):
         target = work / "dist" / "Strecken.exe"           # eine einzelne Datei (one_file)

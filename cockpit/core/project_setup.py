@@ -5,6 +5,7 @@ Umgebungsvariablen, nie über die Befehlszeile.
 """
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from cockpit.core import git, worktrees
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project, code_root_in
 from cockpit.core.remote_repos import StoredRepo
+
+log = logging.getLogger(__name__)
 
 
 def _environment(services, account_id: int | None) -> dict[str, str]:
@@ -49,6 +52,28 @@ def download(services, repo: StoredRepo, root: Path,
     services.projects.set_remote(project, repo.address, repo.pushed_at[:19] or None)
     services.remote_repos.unhide(repo.address)          # wieder geholt: wieder in der Liste
     return services.projects.get(project.id)
+
+
+def download_fork(services, original: StoredRepo, root: Path,
+                  cancel: threading.Event | None = None) -> Project:
+    """Fork des Originals im Konto anlegen, den Fork herunterladen und das Original als upstream
+    eintragen (21.10.2026)."""
+    from cockpit.core import forks
+    from cockpit.platforms.base import RepoRef, SupportsForks
+    platform = services.platform(original.account_id) if original.account_id else None
+    if not isinstance(platform, SupportsForks):
+        raise CockpitError("Die Plattform kennt keine Forks.")
+    fork = platform.fork(RepoRef(original.owner, original.name), cancel)
+    stored = StoredRepo(0, original.account_id, original.host, fork.ref.owner, fork.ref.name,
+                        fork.private, fork.clone_url, fork.web_url, fork.pushed_at)
+    project = download(services, stored, root, cancel)
+    url = original.clone_url or f"https://{original.host}/{original.owner}/{original.name}.git"
+    forks.add_upstream(project.code_dir, url)
+    try:
+        forks.fetch(project.code_dir, _environment(services, original.account_id), cancel)
+    except CockpitError as exc:                 # später mit "Vom Original holen" noch einmal
+        log.warning("Original holen: %s %s", exc.message, exc.details)
+    return project
 
 
 def connect(services, project: Project, url: str, account_id: int | None,

@@ -25,8 +25,8 @@ from cockpit.features.releases.runs import FEATURE_ID
 from cockpit.platforms.base import Release, WorkflowRun
 from cockpit.ui import vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import (FocusDialog, PlainEdit, click_focused_button, confirm, label_for,
-                               make_copyable, name_widget, show_info)
+from cockpit.ui.common import (FocusDialog, PlainEdit, ask_buttons, click_focused_button, confirm,
+                               label_for, make_copyable, name_widget, show_info)
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.repo_dialogs import _is_enter, button_row
 from cockpit.ui.tasks import Task
@@ -35,6 +35,11 @@ if TYPE_CHECKING:
     from cockpit.ui.project_actions import ProjectController
 
 log = logging.getLogger(__name__)
+
+# Nach einer neuen Version ohne Exe (Rückmeldung des Nutzers vom 21.10.2026)
+BUILD_EXE = "Exe aus dem Code erstellen …"
+CHOOSE_EXE = "Vorhandene Exe wählen …"
+SOURCE_ONLY = "Release nur mit Quellcode …"
 
 
 # -- Fenster -------------------------------------------------------------------------------------
@@ -434,17 +439,33 @@ class ReleasesActions:
         Requests mehr)."""
         if not self.active(project):
             return False
-        if not confirm(self.window, "Release", f"Für Version {version} ein Release auf GitHub "
-                       "anlegen?", yes="Release anlegen", no="Später"):
-            return False
-        from cockpit.core import exe
         exe_actions = self.controller.exe
         context = ActionContext(self.services, project, Target.EXE)
-        if exe_actions._building(context) and exe.current_exe(project) is not None:
-            exe_actions.publish(context)                # schlägt diese Version vor (Phase 9)
-        else:
+        if not exe_actions._building(context):
+            if not confirm(self.window, "Release", f"Für Version {version} ein Release auf "
+                           "GitHub anlegen?", yes="Release anlegen", no="Später"):
+                return False
             self.publish_source(project, version)
-        return True
+            return True
+        if exe_actions._publishable(project):
+            if not confirm(self.window, "Release", f"Für Version {version} ein Release mit der "
+                           "Exe auf GitHub anlegen?", yes="Release mit Exe anlegen", no="Später"):
+                return False
+            exe_actions.publish(context)                # schlägt diese Version vor (Phase 9)
+            return True
+        # Rückmeldung des Nutzers vom 21.10.2026: Ohne Exe nicht nach dem Veröffentlichen fragen,
+        # sondern anbieten, eine hinzuzufügen. Die Exe veröffentlichen Sie danach selbst.
+        choice = ask_buttons(self.window, "Release", f"Für Version {version} kann ein Release auf "
+                             "GitHub entstehen. Es gibt noch keine Exe. Möchten Sie eine "
+                             "hinzufügen?", [BUILD_EXE, CHOOSE_EXE, SOURCE_ONLY, "Später"],
+                             default=3, escape=3)
+        if choice == 0:
+            exe_actions.build_menu(context)
+        elif choice == 1:
+            exe_actions.import_exe(context)
+        elif choice == 2:
+            self.publish_source(project, version)
+        return choice in (0, 1, 2)
 
     def publish_source(self, project: Project, version: str) -> None:
         """Release nur mit dem Quellcode. GitHub hängt ihn selbst als ZIP-Datei an."""
@@ -459,7 +480,7 @@ class ReleasesActions:
         from cockpit.ui.exe_flow import PublishDialog
         source = ai_suggest.for_release_notes(self.services, project, tags)
         dialog = PublishDialog(project, version, tags, "nur Quellcode", self.window,
-                               source=source)
+                               source=source, title="Release anlegen")
         if not dialog.exec():
             return
         chosen, notes = dialog.version, dialog.notes

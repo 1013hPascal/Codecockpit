@@ -33,6 +33,7 @@ def setting_fields() -> list[SettingField]:
                minimum=1000, maximum=200000),
         YesNo("auto_clone_new", "Neue Repositories automatisch herunterladen", False),
         YesNo("branch_folders", "Neue Projekte mit einem Ordner pro Branch", True),
+        Text("editor", "Editor-Programm, leer: automatisch"),
         YesNo("update_check", "Täglich nach Updates für CodeCockpit suchen", True),
         YesNo("transfer_sounds", "Töne beim Hoch- und Herunterladen und beim Exe-Bau", True),
         YesNo("ai_sounds", "Töne, während die KI schreibt", True),
@@ -53,6 +54,7 @@ class Settings:
     branches_by_default: bool = False
     auto_clone_new: bool = False                  # neue Repositories des Kontos herunterladen
     branch_folders: bool = True                   # neue Projekte: Repository\main und Branch-Ordner
+    editor: str = ""                              # Pfad zur Exe, leer: Editor suchen (21.10.2026)
     update_check: bool = True                    # Exe: bei jedem Start nach Updates suchen
     transfer_sounds: bool = True                 # Töne beim Hoch- und Herunterladen (07.10.2026)
     ai_sounds: bool = True                       # Töne, während die KI schreibt (14.10.2026)

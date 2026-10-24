@@ -1258,3 +1258,172 @@ Grundlage ist die Liste des Nutzers in checklisten\aktionen-aufraeumen.md.
 - Seltene Aktionen stehen im Untermenü „Weitere …“ direkt über dem Terminal (Action.more): Features dieses Projekts, Ordner umbenennen und zurücksetzen, Git-Name und E-Mail, Hochladeverlauf, Änderungen beiseitelegen, Beiseitegelegte Änderungen, Mit vorhandenem Repository verbinden, Virtuelle Umgebung neu anlegen, Wie funktioniert die Exe?.
 - „Branches anzeigen …“ heißt „Branches …“. Die Auswahl hat ganz unten „Branches verwalten …“. Die eigene Aktion „Branches verwalten …“ entfällt, die Schnellnavigation öffnet das Fenster weiter direkt.
 - Umbenannt: „Pull-Requests-Übersicht …“ in „Pull Requests …“, „Repository-Identität …“ in „Git-Name und E-Mail …“, „Release einlesen …“ in „Exe aus einem Release holen …“, „Release für Branch aus Repository erstellen …“ in „Exe für einen Branch erstellen …“, „Release entfernen …“ beim einzelnen Release in „Dieses Release entfernen …“, „Anzeigen …“ in „Liste filtern …“. „Exe aus diesem Branch erstellen …“ heißt wie auf der Release-Zeile „Exe aus <Branch> erstellen …“.
+
+## 21.10.2026: Auswählen, was in den Commit kommt
+
+- Im Fenster „Änderungen hochladen“ hat die Liste „Änderungen“ Kontrollkästchen, alle angehakt. Leertaste nimmt eine Datei aus dem Commit. Enter auf einer geänderten Datei öffnet „Abschnitte von …“, jeder Abschnitt mit Kästchen, zum Beispiel „Zeile 1 bis 6, 1 neu, 1 entfernt“. Enter auf einem Abschnitt liest ihn vor, jede Zeile mit „Neu:“, „Entfernt:“ oder „Gleich:“ vorne. Bei neuen Dateien zeigt Enter den Inhalt.
+- Einzelne Zeilen sind nicht wählbar, nur Dateien und Abschnitte (Antwort des Nutzers: sonst zu viel Pfeilarbeit mit Screenreader).
+- Ist alles angehakt, läuft der Commit wie bisher mit git add -A. Sonst nimmt das Cockpit erst alles aus dem Index und bringt dann ganze Dateien mit git add und Abschnitte mit git apply --cached hinein (cockpit\core\staging.py). Die Dateien auf der Festplatte ändern sich nie. Bei umbenannten Dateien kommt der alte Name mit.
+- Die Sicherheitsprüfung prüft dann nur die gewählten Dateien, denn nur sie gehen hoch.
+- Grund: Vorher kam immer alles in den Commit. Das war die größte Lücke im Vergleich zu GitHub Desktop.
+
+## 21.10.2026: Commits nachbessern, übernehmen, umsortieren und zusammenfassen
+
+Wunsch des Nutzers nach dem Vergleich mit GitHub Desktop.
+
+- Nachbessern (amend) geht nur beim neuesten Commit und nur, solange er nicht hochgeladen ist. Wahlweise nur die Nachricht oder mit den Änderungen ohne Commit.
+- Übernehmen in einen anderen Branch (cherry-pick -x). Mit Branch-Ordnern geschieht das im Ordner des Ziel-Branches. Bei einem Konflikt bricht das Cockpit ab, und alles bleibt, wie es war. Hat das Ziel die Änderung schon, sagt das Cockpit das.
+- Umsortieren und Zusammenfassen nur bei Commits, die noch nicht hochgeladen sind, ohne Zusammenführungen und ohne Änderungen ohne Commit. Statt eines interaktiven Rebase mit Editor baut das Cockpit die Commits in der neuen Reihenfolge neu auf. Bei einem Konflikt kommt der alte Stand zurück.
+- Neuer Branch ab einem früheren Commit, mit Branch-Ordnern in einem eigenen Ordner.
+- Co-Autoren beim Commit als Zeile „Co-authored-by:“. Die Auswahl kommt aus den Personen im Verlauf.
+- Grund für die Grenzen: Es gibt nie einen force push. Vor jeder Änderung merkt sich das Cockpit den alten Stand unter refs/codecockpit/vorher/. Das ist die Sicherheitskopie.
+
+## 21.10.2026: Konfliktstellen vorlesen und im Editor öffnen
+
+Wunsch des Nutzers nach dem Vergleich mit GitHub Desktop.
+
+- Im Fenster Konflikte öffnet Enter auf einer Datei ihre Konfliktstellen. Jede Stelle nennt Zeile und Umfang. Enter liest sie vor, erst meine Fassung, dann die der Plattform. Pro Stelle gilt meine Fassung, die der Plattform oder beide.
+- Ist keine Stelle mehr offen, gilt die Datei als gelöst.
+- „Alle Stellen zurückholen“ holt die Konfliktmarken der Datei zurück (git checkout -m). Vorher kommt die Datei in eine Sicherheitskopie.
+- Neue Aktion „Im Editor öffnen“ beim Main-Branch und bei jedem Branch. Sie öffnet den Ordner des Branches.
+- Der Editor kommt aus den Grundeinstellungen („Editor-Programm“). Ist dort nichts eingetragen, sucht das Cockpit Visual Studio Code, dann Notepad++, dann den Windows-Editor.
+- „Konflikt im Editor anzeigen“ heißt weiter so, wie der Nutzer es sich gewünscht hat. Der Knopf öffnet die Datei jetzt im Editor statt mit dem Programm, das Windows für die Endung kennt. Bei .py-Dateien könnte das sonst Python sein, dann liefe die Datei. Visual Studio Code und Notepad++ springen gleich zur ersten Konfliktstelle.
+
+## 21.10.2026: Checks bei Pull Requests und Forks
+
+Wunsch des Nutzers nach dem Vergleich mit GitHub Desktop.
+
+Checks:
+- Die Details eines Pull Requests nennen den Stand der Checks, zum Beispiel „Checks: 1 fehlgeschlagen (Tests), 2 erfolgreich“. Das Schlechteste steht vorne.
+- Der Knopf „Checks …“ zeigt jeden Check einzeln, fehlgeschlagene zuerst.
+- Das Fenster „Übernehmen“ nennt die Checks gleich nach dem ersten Satz.
+- Gelesen werden die Check-Läufe (zum Beispiel GitHub Actions) und die älteren Statusmeldungen anderer Dienste.
+- In der Liste der Pull Requests stehen die Checks noch nicht. Das wären zwei Anfragen mehr pro Pull Request.
+
+Forks:
+- Beim Herunterladen über eine Adresse prüft das Cockpit, ob das Konto dort hochladen darf. Wenn nicht, bietet es einen Fork an. Vorgabe ist „Abbrechen“, weil ein Fork etwas im Konto anlegt.
+- Heruntergeladen wird der Fork. Das Original steht in Git als upstream.
+- „Vom Original holen …“ beim Main-Branch zieht main nur vorwärts nach (fast-forward). Hat main eigene Commits, bricht das Cockpit ab und erklärt, dass die Arbeit in einen Branch gehört. So geht nie etwas verloren, und es braucht nie einen force push.
+- „Pull Request erstellen …“ fragt bei einem Fork, ob er an das Original oder in den Fork gehen soll. Beim Original gibt es keine Prüfer zur Auswahl, weil nur das Original sie anfragen kann.
+- Die Liste der Pull Requests zeigt weiter die des Forks. Die Pull Requests im Original sieht man auf GitHub.
+
+## 21.10.2026: Issues, mit und ohne KI
+
+Wunsch des Nutzers nach dem Vergleich mit GitHub Desktop: „Issue soll normal gehen und mit KI, also beides möglich.“
+
+- Neue Aktion „Issues …“ beim Main-Branch. Sie zeigt offene, geschlossene oder alle Issues. Pull Requests, die GitHub dort mitliefert, fehlen in der Liste.
+- Ohne KI geht alles: lesen, anlegen, kommentieren, schließen und wieder öffnen, Labels setzen und Personen zuweisen.
+- Mit KI-Assistent im Projekt gibt es in den Details „Mit KI zusammenfassen“. Die KI bekommt Titel, Labels, Beschreibung und Kommentare. Zeilen mit Geheimnissen werden vorher entfernt, wie bei den anderen Vorschlägen. Vorher fragt das Cockpit wie immer, wenn die KI außerhalb des Rechners läuft.
+- Die KI schlägt auch einen Branch-Namen vor. Er beginnt immer mit der Nummer des Issues. Ohne KI entsteht er aus Nummer und Titel.
+- „Branch dafür anlegen …“ arbeitet wie „Neuer Branch“: mit Branch-Ordnern in einem eigenen Ordner.
+- Schließen fragt nach, Wieder öffnen nicht, weil es nichts verliert.
+
+## 21.10.2026: Probelauf vor dem Exe-Bau
+
+Punkt aus der Bewertung: Der Exe-Bau soll Fehler früher melden.
+
+- Nach dem Einrichten der virtuellen Umgebung prüft ein kurzer Probelauf den Code. Er braucht Sekunden statt der Minuten von PyInstaller.
+- Er geht von der Startdatei aus den eigenen Imports nach. Er meldet Syntaxfehler und fremde Bibliotheken, die in der virtuellen Umgebung fehlen.
+- Geprüft werden nur Imports ganz oben in einer Datei. Imports in Funktionen oder in try dürfen oft mit Absicht fehlen.
+- Findet er etwas, baut das Cockpit nicht. Die Meldung nennt die Datei, die Zeile und die fehlenden Bibliotheken und rät, sie in requirements.txt einzutragen.
+- Klappt der Probelauf selbst nicht, ist das kein Fehler des Projekts. Dann läuft der Bau wie bisher.
+
+## 21.10.2026: Automatische Tests auf GitHub
+
+Punkt aus der Bewertung: Die Tests sollen nicht nur auf dem eigenen Rechner laufen.
+
+- Neue Datei .github/workflows/tests.yml. GitHub führt alle Tests bei jedem Hochladen auf main und bei jedem Pull Request auf main aus.
+- Es läuft auf Windows mit Python 3.14, wie auf dem Rechner des Nutzers. Die Bibliotheken kommen aus requirements.txt, dort stehen auch pytest und pytest-qt.
+- Fenster laufen ohne Bildschirm (QT_QPA_PLATFORM=offscreen).
+- Der Workflow braucht keine Geheimnisse und darf das Repository nur lesen.
+- Das Ergebnis zeigt das Cockpit bei Pull Requests unter „Checks …“.
+
+## 21.10.2026: Vorschlag der KI passt zur Auswahl beim Commit
+
+- Sind im Commit-Fenster nicht alle Dateien oder Abschnitte gewählt, sieht die KI nur die gewählten. So beschreibt die Nachricht genau das, was in den Commit kommt.
+- Die Auswahl wird beim Drücken von „Vorschlag der KI“ gelesen. Wer danach die Auswahl ändert, kann den Vorschlag neu holen.
+
+## 21.10.2026: Große Dateien aufgeteilt
+
+Punkt aus der Bewertung, vom Nutzer freigegeben: Drei Dateien waren sehr groß. Der Code ist nur verschoben, am Verhalten ändert sich nichts.
+
+- cockpit/core/exe.py: Der Bericht bei Fehlern steht jetzt in exe_report.py, Versionen und Veröffentlichen in exe_publish.py.
+- cockpit/ui/exe_flow.py: Die Fenster (Exe-Einstellungen, Bau, Veröffentlichen) stehen jetzt in exe_dialogs.py.
+- cockpit/ui/project_actions.py: Stand und Bedingungen hinter den Aktionen stehen jetzt in action_conditions.py.
+- Alle alten Namen bleiben über die bisherigen Dateien erreichbar. Die neuen Dateien holen Teile aus exe.py erst beim Aufruf, so gibt es keinen Kreis beim Import.
+- Tests, die eine Rückfrage in einem Fenster ersetzen, ersetzen sie jetzt in exe_dialogs.
+- Die Klasse ProjectController bleibt in einem Stück. Sie aufzuteilen wäre ein echter Umbau.
+
+## 21.10.2026: Release nach einer neuen Version, mit oder ohne Exe
+
+Rückmeldung des Nutzers: Das Cockpit fragte nach dem Veröffentlichen einer Exe, obwohl es noch keine gab.
+
+- Gibt es eine Exe: „Für Version 1.4.0 ein Release mit der Exe auf GitHub anlegen?“ Danach geht es weiter wie bei „Exe veröffentlichen“.
+- Gibt es keine Exe: Das Cockpit bietet an, eine hinzuzufügen. Die Knöpfe heißen „Exe aus dem Code erstellen …“, „Vorhandene Exe wählen …“, „Release nur mit Quellcode …“ und „Später“. Vorgabe und Escape sind „Später“.
+- Nach dem Erstellen oder Wählen der Exe veröffentlicht der Nutzer sie selbst mit „Exe veröffentlichen …“. So entscheidet er nach dem Test der Exe.
+- Ohne das Feature Exe-Erstellung bleibt die Frage wie bisher.
+- Das Fenster für ein Release nur mit Quellcode heißt jetzt „Release anlegen“ statt „Exe veröffentlichen“.
+## 21.10.2026: Paketübersicht
+
+Wunsch des Nutzers: Pakete und Sprachmodelle auf dem Rechner und in den Projekten an einer Stelle sehen und pflegen. Der Plan steht in PLAN-PAKETUEBERSICHT.md.
+
+- Die Paketübersicht ist ein Feature („packages“) und ist von Anfang an an. Die Logik liegt in cockpit/features/packages, nicht im Kern. So bleibt die Regel „Der Kern importiert keine Features“.
+- Das Menü heißt „Pakete“ und steht nach „Features“. Alt+A öffnet es, weil Alt+P schon belegt ist. Strg+Umschalt+P öffnet die Übersicht direkt.
+- Quellen sind pip, winget, Chocolatey und Sprachmodelle (Hugging Face, Ollama, eigene Modelle des Cockpits, Modelldateien in gewählten Ordnern).
+- Ein Filter zeigt alles, nur die Cockpit-Projekte oder nur den übrigen Rechner.
+- Chocolatey braucht für Änderungen Administratorrechte. Das Cockpit fragt dann über Windows nach, nur für diesen einen Befehl.
+- Vor dem Löschen von Paketen und Modellen kommt eine Liste in die Sicherheitskopien, keine Kopie der Dateien. Die Liste nennt Name, Version, Quelle und den Befehl zum Wiederherstellen. Grund: Modelle sind oft viele Gigabyte groß. Der Nutzer hat diese Ausnahme gewählt.
+- Bei Modellen bleibt die alte Fassung neben der neuen liegen, bis der Nutzer sie entfernt.
+- Bibliotheken und Modelle in Projekten tauscht das Cockpit immer in einem eigenen Branch: „Cockpit-pakete-aktualisieren“ und „Cockpit-modell-tauschen“. Nach dem Tausch laufen die Tests des Projekts.
+- Nachfolger für ein Modell schlägt die KI nur auf Wunsch vor. Die Vorschläge sind deutlich als Vorschlag gekennzeichnet.
+- Sicherheitslücken kommen aus der freien Datenbank OSV. Gesendet werden nur Name und Version der Pakete.
+- Springt die erste Stelle der Version, warnt die Zeile. Dann kann sich vieles ändern.
+- „Aufräumen“ hakt Modelle ohne bekannten Benutzer nicht vorab an. Ein Programm außerhalb der Projekte kann sie trotzdem brauchen.
+## 22.10.2026: Große Dateien aufgeteilt
+
+Auf Wunsch des Nutzers ist der Code stärker in Module geteilt. Ziel: Dateien mit höchstens etwa 500 Zeilen. Das spart beim Suchen Zeit und Tokens.
+
+- Nur verschoben, am Verhalten ändert sich nichts.
+- Die alten Namen bleiben im alten Modul erreichbar (Import mit "noqa: F401").
+- Große Klassen sind in Mixins geteilt: ProjectController, GitHubPlatform und MainWindow. Die Mixins haben kein eigenes __init__.
+- Dialog-Dateien sind nach Klassen geteilt, zum Beispiel repo_people_dialogs.py und history_edit_dialogs.py.
+- Tests ersetzen Namen dort, wo sie aufgerufen werden. Dafür gibt es in tests/conftest.py die Helfer patch_split, patch_controller und patch_running_from.
+- cockpit/MODULE.md nennt jede Datei mit einer Zeile.
+- Noch über 500 Zeilen: exe_flow.py (eine große Klasse), project_list.py, branch_dialogs.py, package_dialogs.py, platforms/base.py und einige Dateien im Kern. Sie sind in sich geschlossen.
+
+## 22.10.2026: Neuigkeiten und Aktivität
+
+Wunsch des Nutzers, Plan in PLAN-NEUIGKEITEN-UND-MODULE.md, Teil A und B.
+
+- Zwei neue Features, beide abschaltbar und vorausgewählt: „Neuigkeiten“ (cockpit/features/news) und „Aktivität“ (cockpit/features/activity). Beide wirken für alle Projekte, wie die Paketübersicht. Sie werden nur global ein- und ausgeschaltet.
+- Neues Menü „&Neuigkeiten“ (Alt+N) mit „Neuigkeiten seit dem letzten Start …“ (Strg+Umschalt+N) und „Aktivität der Projekte …“.
+- Die Schnittstelle SupportsActivity steht in einer eigenen Datei, cockpit/platforms/activity.py, nicht in base.py. Grund: base.py hat schon über 600 Zeilen. Die GitHub-Umsetzung steht in github_activity.py. Neu ist auch die Fähigkeit Capability.ACTIVITY.
+- Abgefragt wird zusammen mit den Repositories im Hintergrund. Die Neuigkeiten der letzten 30 Tage und die Zahlen kommen in die Datenbank (Tabellen news, activity_daily, activity_snapshot). Die Fenster lesen nur aus der Datenbank, deshalb gehen sie auch ohne Internet.
+- Der Zeitpunkt des letzten Starts (news.last_seen) wird erst beim Beenden gesetzt. Beim allerersten Start gibt es keine Ansage.
+- Die Zahlen der Aktivität holt das Cockpit höchstens einmal am Tag. Läuft es über Mitternacht, prüft ein Zeitgeber stündlich, ob ein neuer Tag begonnen hat.
+- Eigene Beiträge zählen nicht als Neuigkeit. Ausnahme: fehlgeschlagene GitHub Actions, auch wenn man den Lauf selbst ausgelöst hat.
+- „Im Cockpit zeigen“ öffnet die Issues des Projekts mit dem Issue markiert. Bei Pull Requests öffnet es die Liste der offenen Pull Requests, noch ohne Markierung.
+- Ist ein Feature ausgeschaltet, ist auch sein Tastenkürzel weg, wie bei der Paketübersicht.
+- Die Testdaten enthalten erfundene Neuigkeiten und Zahlen für Tagebuch und PDF-Chat.
+
+## 22.10.2026: Einrichtung überarbeitet, neue Seite „Features wählen“
+
+Wunsch des Nutzers: Die Einrichtung soll auch für Neulinge klar sein. Features ohne weitere Einrichtung stehen als Liste, alle angehakt.
+
+- Jede Seite sagt zuerst, wozu der Schritt gut ist: was Git und GitHub sind, warum Zugangsdaten geschützt werden, was die KI konkret tut, lokal oder extern. Die Bewertung steht in BEWERTUNG-EINRICHTUNG.md.
+- Neue Seite „Features wählen“ nach dem Projekte-Hauptordner. Sie zeigt alle Features, die weder KI noch Plattform noch einen anderen Dienst brauchen, auch über benötigte Features. Alle sind angehakt. Abhaken schaltet das Feature global aus. Angehakte kommen in die Vorauswahl für Projekte, auch Versionen, das sonst aus ist. Überspringen ändert nichts.
+- Features mit KI stehen als Erklärung auf der Seite KI, Features mit Plattform auf der Seite Code-Plattformen wählen. Grund: Man sieht, wozu man das einrichtet.
+- Neuigkeiten und Aktivität brauchen jetzt die Fähigkeit „Aktivität“ der Plattform. Grund: Ihre Daten kommen von GitHub. Die Prüfung ohne Projekt bleibt gleich.
+- Die Zusammenfassung beginnt nicht mehr mit „Perfekt, Sie haben eingerichtet“, weil oft auch Übersprungenes folgt.
+## 22.10.2026: Optik für Sehende (PLAN-OPTIK.md)
+
+Wunsch des Nutzers: einen Plan für die Optik des ganzen Programms und ihn umsetzen. Regel: Was NVDA ansagt und die Braillezeile zeigt, bleibt gleich. Alles Neue ist nur für das Auge und nutzt nur Farben aus der Palette des Windows-Themas.
+
+- Projektliste: Zeilen unter einem Projekt und Projekte in einer geöffneten Sammlung sind eingerückt. Vor Projekten und Sammlungen steht ein Pfeil (▸ zu, ▾ auf). Der Name ist fett, Datum und „ausgeklappt“ sind gedämpft. Das macht ein Zeichner (Delegate), der Text der Zeilen ändert sich nicht.
+- Dieselben zwei Textebenen in den Fenstern Neuigkeiten und Aktivität. Passt eine Zeile dort nicht in eine Zeile, zeichnet Qt sie wie bisher mit Umbruch.
+- Die Aktionen sind schmaler, ein Drittel der Breite, lange Einträge brechen um. Darunter steht der Bereich „Stand“ mit den Angaben der markierten Zeile untereinander. Er ist kein Tab-Stopp und sagt nichts an. Grund: Für Screenreader und Braillezeile steht alles schon in der Zeile (Nutzer: „was du besser findest“). Im Bereich darf nie etwas stehen, das nicht auch in der Zeile steht.
+- Listen mit Fokus haben einen Rahmen von 2 Pixeln in der Hervorhebungsfarbe (Stylesheet mit palette(highlight)).
+- Erklärungen in der Einrichtung und die Beschreibung in der Feature-Verwaltung sehen aus wie Text: kein Rahmen, Hintergrund des Fensters. Für den Screenreader bleiben es Listen.
+- Die Gruppe „KI“ in der Feature-Verwaltung ist fett.
+- Programmsymbol „CC“ auf der Akzentfarbe, mit Qt gemalt. Einige Menüeinträge haben Symbole aus dem Windows-Stil. Die Exe bekommt das Symbol erst, wenn es eine .ico-Datei gibt.
+- Geprüft mit Bildern, die unsichtbar entstehen: hell, dunkel und mit 150 Prozent.

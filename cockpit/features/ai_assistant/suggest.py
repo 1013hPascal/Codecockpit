@@ -46,8 +46,9 @@ def _system(language: str) -> str:
 
 
 def commit(ai: TextAI, code_dir: Path, language: str,
-           cancel: threading.Event | None = None) -> Suggestion:
-    changes = context.commit_context(code_dir, ai.max_chars)
+           cancel: threading.Event | None = None, selection: dict | None = None) -> Suggestion:
+    """selection: nur die gewählten Dateien und Abschnitte (21.10.2026), None für alles."""
+    changes = context.commit_context(code_dir, ai.max_chars, selection)
     request = prompt_files.fill(prompt_files.load("ai_assistant_commit"), aenderungen=changes)
     return parse(ai.ask(request, _system(language), cancel, MAX_ANSWER_TOKENS))
 
@@ -68,6 +69,19 @@ def description(ai: TextAI, code_dir: Path, name: str, language: str,
     found = parse(ai.ask(request, _system(language), cancel, 200), MAX_DESCRIPTION)
     text = " ".join(p for p in (found.summary, found.details.replace("\n", " ")) if p)
     return Suggestion(text[:MAX_DESCRIPTION].rstrip())
+
+
+def issue(ai: TextAI, found, comments, language: str,
+          cancel: threading.Event | None = None) -> Suggestion:
+    """Zusammenfassung eines Issues (21.10.2026). summary: der Branch-Name, schon gültig,
+    details: die Zusammenfassung."""
+    from cockpit.core import issues
+    from cockpit.core.ai_tools import limit_text
+    text = limit_text(context.redact(issues.issue_context(found, comments)), ai.max_chars)
+    request = prompt_files.fill(prompt_files.load("ai_assistant_issue"), issue=text)
+    answer = parse(ai.ask(request, _system(language), cancel, MAX_ANSWER_TOKENS))
+    name = issues.clean_branch_name(answer.summary, found.number) if answer.summary else ""
+    return Suggestion(name or issues.branch_name(found), answer.details)
 
 
 def release_notes(ai: TextAI, code_dir: Path, last_tag: str, language: str,

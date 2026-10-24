@@ -12,7 +12,7 @@ import pytest
 from cockpit.core import exe
 from cockpit.core.errors import CockpitError
 from cockpit.ui import folder_rename_flow, project_actions
-from tests.conftest import said
+from tests.conftest import said, patch_controller
 
 
 def files(folder, names):
@@ -41,11 +41,11 @@ def test_add_other_creates_layout_and_says_where_the_code_goes(qtbot, tmp_path, 
     files(folder / "Waagenfinder-code", ["main.py"])
     services = make_services([])
     win = window(qtbot, services)
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
-    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 0)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder)
+    patch_controller(monkeypatch, "ask_buttons", lambda *a, **k: 0)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: True)
     infos = []
-    monkeypatch.setattr(project_actions, "show_info",
+    patch_controller(monkeypatch, "show_info",
                         lambda parent, title, text: infos.append(text))
     win.controller.add_local()
     project = services.projects.find_by_dir(folder)
@@ -63,9 +63,9 @@ def test_adding_code_and_exe_offers_the_rename(qtbot, tmp_path, make_services, m
     files(folder / "Exe", ["Rechner.exe"])
     services = make_services([])
     win = window(qtbot, services)
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder)
     monkeypatch.setattr(folder_rename_flow, "confirm", lambda *a, **k: True)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: True)
     monkeypatch.setattr(project_actions.ProjectController, "offer_upload", lambda self, p: None)
     win.controller.add_local()
     qtbot.waitUntil(lambda: (folder / "Repository").is_dir() and said("Rechner hinzugefügt."),

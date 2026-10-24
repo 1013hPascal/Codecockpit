@@ -131,6 +131,18 @@ def create(project: Project, name: str, env: Mapping[str, str] | None = None,
     return Worktree(path, name)
 
 
+def create_at(project: Project, name: str, sha: str) -> Worktree:
+    """Neuer Branch mit eigenem Ordner ab einem früheren Commit (Wunsch vom 21.10.2026)."""
+    problem = branches.name_problem(project.code_dir, name)
+    if problem:
+        raise CockpitError(problem)
+    prune(project.code_dir)
+    path = free_folder(project, name)
+    git.run(["worktree", "add", "-q", "--no-track", "-b", name, str(path), sha],
+            project.code_dir, action="Branch anlegen")
+    return Worktree(path, name)
+
+
 def open_branch(project: Project, name: str, env: Mapping[str, str] | None = None,
                 cancel: threading.Event | None = None) -> Worktree:
     """Ordner für einen vorhandenen Branch, auch für einen, den es nur auf der Plattform gibt."""

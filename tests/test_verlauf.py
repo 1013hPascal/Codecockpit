@@ -11,6 +11,7 @@ from cockpit.core import git, history
 from cockpit.ui import history_dialogs
 from tests.conftest import said
 from tests.test_phase5d import EMAIL, NAME, commit, history_repo, sh
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -76,7 +77,7 @@ def test_dialog_versions_then_commits_and_back(qtbot, make_services, tmp_path, p
     _, code, _ = history_repo(tmp_path, projects_root)
     project = services.projects.add(code.parent)
     asked = []
-    monkeypatch.setattr(history_dialogs, "confirm",
+    patch_split(monkeypatch, history_dialogs, "confirm",
                         lambda p, t, text, **k: asked.append((t, text, k)) or True)
     dialog = history_dialogs.HistoryDialog(services, project, history.log_commits(code))
     qtbot.addWidget(dialog)

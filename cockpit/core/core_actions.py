@@ -62,6 +62,13 @@ def _open_code_dir(context: ActionContext) -> None:
     context.announce("Branch-Ordner wird geöffnet.")
 
 
+def _open_in_editor(context: ActionContext) -> None:
+    from cockpit.core import editor
+    name = editor.open_in_editor(context.project.code_dir,
+                                 setting=context.services.settings.load().editor)
+    context.announce(f"Wird in {name} geöffnet.")
+
+
 def _open_repo_dir(context: ActionContext) -> None:
     open_path(context.project.code_root)
     context.announce("Repository-Ordner wird geöffnet.")
@@ -124,6 +131,9 @@ CORE_ACTIONS: tuple[Action, ...] = (
     # öffnen", beim Repository "Repository-Ordner öffnen"
     Action("open_code_dir", "Branch-Ordner öffnen", Target.CODE, _open_code_dir,
            availability=_project_found, order=99),
+    # Wunsch des Nutzers (21.10.2026): wie in GitHub Desktop den Branch im Editor öffnen
+    Action("open_in_editor", "Im Editor öffnen", Target.CODE, _open_in_editor,
+           availability=_project_found, order=98),
     Action("open_repo_dir", "Repository-Ordner öffnen", Target.REPOSITORY, _open_repo_dir,
            availability=_project_found, order=95),
     Action("run_exe", "Exe starten", Target.EXE, _run_exe, availability=_exe_found,

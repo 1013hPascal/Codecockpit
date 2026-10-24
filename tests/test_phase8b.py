@@ -24,6 +24,7 @@ from cockpit.core.features.registry import FeatureRegistry
 from cockpit.core.secret import Secret
 from cockpit.core.services import LOCAL_ONLY, NO_AI
 from tests.conftest import FakeAI, FakeVault, said
+from tests.conftest import patch_split
 
 FAKE_KEY = "sk-ErfundenerSchluesselNurFuerTests123456"
 
@@ -452,7 +453,7 @@ def test_manager_adds_local_tool_and_changes_default(qtbot, make_services, quiet
     from cockpit.ui import ai_dialogs
     services = make_services()
     dialog = manager(qtbot, services)
-    monkeypatch.setattr(ai_dialogs, "choose_from_list", lambda *a, **k: 0)
+    patch_split(monkeypatch, ai_dialogs, "choose_from_list", lambda *a, **k: 0)
     monkeypatch.setattr(ai_dialogs.AIManagerDialog, "pick_model",
                         lambda self, provider, is_ollama, current: "gemma4:12b")
     dialog.open_current()
@@ -464,7 +465,7 @@ def test_manager_adds_local_tool_and_changes_default(qtbot, make_services, quiet
     assert not dialog.default_button.isHidden()
     dialog.make_default()
     assert services.ai_tools.default().model == "gemma4:e4b"
-    monkeypatch.setattr(ai_dialogs, "confirm", lambda *a, **k: True)
+    patch_split(monkeypatch, ai_dialogs, "confirm", lambda *a, **k: True)
     dialog.remove_current()
     assert [t.model for t in services.ai_tools.all()] == ["gemma4:12b"]
 
@@ -474,7 +475,7 @@ def test_manager_adds_existing_ai_account(qtbot, make_services, quiet_machine, m
     services = make_services()
     ai_account(services)
     dialog = manager(qtbot, services)
-    monkeypatch.setattr(ai_dialogs, "choose_from_list", lambda parent, title, name, options:
+    patch_split(monkeypatch, ai_dialogs, "choose_from_list", lambda parent, title, name, options:
                         options.index("Extern: Firmen-KI"))
     picked = []
     monkeypatch.setattr(ai_dialogs.AIManagerDialog, "pick_model",
@@ -496,7 +497,7 @@ def test_manual_memory(qtbot, make_services, quiet_machine, monkeypatch):
 
         def exec(self):
             return 1
-    monkeypatch.setattr(ai_dialogs, "RamDialog", FakeRam)
+    patch_split(monkeypatch, ai_dialogs, "RamDialog", FakeRam)
     dialog.enter_ram()
     qtbot.waitUntil(lambda: dialog.task is None, timeout=10000)
     assert rows(dialog.info)[0] == "Arbeitsspeicher Ihres Computers: 16 GB, von Ihnen eingegeben"
@@ -585,6 +586,7 @@ def test_menu_ai(qtbot, make_services, quiet_machine, monkeypatch):
 
 
 def test_wizard_page_ai(qtbot, make_services, quiet_machine):
+    from cockpit.ui import setup_wizard as sw
     from cockpit.ui.setup_wizard import AIPage, SetupWizard
     services = make_services()
     wizard = SetupWizard(services)
@@ -593,11 +595,13 @@ def test_wizard_page_ai(qtbot, make_services, quiet_machine):
     page.on_show()
     qtbot.waitUntil(lambda: page.task is None, timeout=10000)
     lines = rows(page.text)
-    assert lines[0].startswith("Um Ihren Alltag zu vereinfachen, gibt es mehrere KI-Features.")
+    assert lines[0] == sw.AI_INTRO
     assert lines[1] == "Es ist noch keine KI eingerichtet."
-    assert lines[2] == "Arbeitsspeicher Ihres Computers: 32 GB"
-    assert lines[3].startswith("Empfehlung für Text-KI mit Ollama: gemma4:12b")
-    assert lines[4].startswith("Empfehlung für Sprach-KI mit Whisper: medium")
+    machine = lines[2 + len(sw.AI_LINES):]                    # nach der Erklärung
+    assert machine[0] == "Arbeitsspeicher Ihres Computers: 32 GB"
+    assert machine[1].startswith("Empfehlung für Text-KI mit Ollama: gemma4:12b")
+    assert machine[2].startswith("Empfehlung für Sprach-KI mit Whisper: medium")
+    assert lines[-1] == sw.AI_TAB
     assert page.done_text == ""
     services.ai_tools.add(TEXT, OLLAMA, "gemma4:12b")
     page.on_show()

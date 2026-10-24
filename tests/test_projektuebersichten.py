@@ -11,7 +11,7 @@ import dataclasses
 import pytest
 from PySide6.QtCore import Qt
 
-from cockpit.core import core_actions, git, project_status, worktrees
+from cockpit.core import core_actions, exe_python, git, project_status, worktrees
 from cockpit.core.actions import ActionContext, Target, entries_for
 from cockpit.core.git import RemoteAddress
 from cockpit.platforms.base import Release, ReleaseAsset
@@ -539,7 +539,7 @@ def test_build_venv_takes_over_the_old_path_name(tmp_path, projects_root, make_s
 def test_prepare_venv_shows_pip_output_and_a_hint(tmp_path, monkeypatch):
     from cockpit.core import exe
     venv = fake_venv(tmp_path)
-    monkeypatch.setattr(exe, "_works", lambda python: True)
+    monkeypatch.setattr(exe_python, "_works", lambda python: True)
     calls = []
 
     def pip(args, cwd, on_line=None, cancel=None, env=None):
@@ -548,7 +548,7 @@ def test_prepare_venv_shows_pip_output_and_a_hint(tmp_path, monkeypatch):
         on_line("Downloading pyside6_webengine-6.12.0.whl (131.7 MB)")
         return 0
 
-    monkeypatch.setattr(exe, "run_process", pip)
+    monkeypatch.setattr(exe_python, "run_process", pip)
     lines = []
     exe.prepare_venv(tmp_path, lines.append, venv=venv)
     assert "--quiet" not in calls[0]
@@ -566,14 +566,14 @@ def test_prepare_venv_names_long_paths(tmp_path, monkeypatch):
     from cockpit.core import exe
     from cockpit.core.errors import CockpitError
     venv = fake_venv(tmp_path)
-    monkeypatch.setattr(exe, "_works", lambda python: True)
+    monkeypatch.setattr(exe_python, "_works", lambda python: True)
 
     def pip(args, cwd, on_line=None, cancel=None, env=None):
         on_line("HINT: This error might have occurred since this system does not have Windows "
                 "Long Path support enabled.")
         return 1
 
-    monkeypatch.setattr(exe, "run_process", pip)
+    monkeypatch.setattr(exe_python, "run_process", pip)
     with pytest.raises(CockpitError) as raised:
         exe.prepare_venv(tmp_path, venv=venv)
     assert raised.value.message == exe.LONG_PATHS
@@ -583,8 +583,8 @@ def test_prepare_venv_replaces_a_broken_environment(tmp_path, monkeypatch):
     from cockpit.core import exe
     venv = fake_venv(tmp_path)
     calls = []
-    monkeypatch.setattr(exe, "_works", lambda python: False)
-    monkeypatch.setattr(exe, "find_python", lambda: ["py"])
+    monkeypatch.setattr(exe_python, "_works", lambda python: False)
+    monkeypatch.setattr(exe_python, "find_python", lambda: ["py"])
 
     def run(args, cwd, on_line=None, cancel=None, env=None):
         calls.append(args)
@@ -593,7 +593,7 @@ def test_prepare_venv_replaces_a_broken_environment(tmp_path, monkeypatch):
             (venv / "Scripts" / "python.exe").write_bytes(b"neu")
         return 0
 
-    monkeypatch.setattr(exe, "run_process", run)
+    monkeypatch.setattr(exe_python, "run_process", run)
     python = exe.prepare_venv(tmp_path, venv=venv)
     assert calls[0] == ["py", "-m", "venv", str(venv)]            # neu angelegt
     assert python.read_bytes() == b"neu"
@@ -608,8 +608,9 @@ def test_long_path_hint_is_recognised():
 
 def test_build_failure_offers_long_paths(qtbot, monkeypatch):
     from cockpit.core import exe
+    from cockpit.ui import exe_dialogs
     offered = []
-    monkeypatch.setattr(exe_flow, "offer_long_paths", lambda parent: offered.append(True))
+    monkeypatch.setattr(exe_dialogs, "offer_long_paths", lambda parent: offered.append(True))
     dialog = exe_flow.BuildDialog.__new__(exe_flow.BuildDialog)
     monkeypatch.setattr(exe_flow.BuildDialog, "ended", lambda self, text, urgent=False: None)
     dialog.output = type("Out", (), {"addItem": lambda self, text: None,
@@ -633,13 +634,14 @@ def test_build_failure_offers_long_paths(qtbot, monkeypatch):
                                                     (True, False, False)])
 def test_offer_long_paths(monkeypatch, agree, works, expected):
     from cockpit.core import long_paths
+    from cockpit.ui import exe_dialogs
     asked, enabled = [], []
     monkeypatch.setattr(long_paths, "enabled", lambda: False)
     monkeypatch.setattr(long_paths, "enable", lambda: enabled.append(True) or works)
-    monkeypatch.setattr(exe_flow, "confirm", lambda parent, title, text, **k: asked.append(k)
+    monkeypatch.setattr(exe_dialogs, "confirm", lambda parent, title, text, **k: asked.append(k)
                         or agree)
-    monkeypatch.setattr(exe_flow, "show_info", lambda *a, **k: None)
-    monkeypatch.setattr(exe_flow, "show_error", lambda *a, **k: None)
+    monkeypatch.setattr(exe_dialogs, "show_info", lambda *a, **k: None)
+    monkeypatch.setattr(exe_dialogs, "show_error", lambda *a, **k: None)
     assert exe_flow.offer_long_paths(None) is expected
     assert asked == [{"yes": "Einschalten", "no": "Nicht jetzt"}]
     assert enabled == ([True] if agree else [])

@@ -3,8 +3,9 @@
 CommitDialog: Was haben Sie geändert? Der Titel nennt die Änderungen kurz, die Liste darunter jede
 Datei. Der Fokus beginnt im Feld für die Nachricht, Enter lädt hoch.
 
-ConflictDialog: Dateien mit Konflikt als Liste. Für die markierte Datei: "Meine Fassung
-behalten", "Fassung von GitHub übernehmen" oder "Konflikt im Editor anzeigen". Im Editor stehen
+ConflictDialog: Dateien mit Konflikt als Liste. Für die markierte Datei: "Stellen lesen und
+lösen" (auch mit Enter, siehe conflict_dialogs.py), "Meine Fassung behalten", "Fassung von GitHub
+übernehmen" oder "Konflikt im Editor anzeigen". Im Editor stehen
 über jedem Abschnitt "Meine Fassung" oder "Fassung von GitHub" mit Dateiname und Zeile.
 "Erneut prüfen" erkennt im Editor gelöste Dateien daran, dass keine Konfliktmarken mehr darin
 stehen. "Zusammenführen abschließen" ist immer erreichbar und sagt, was noch offen ist. Ist der
@@ -14,10 +15,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QListWidget, QPushButton, QVBoxLayout,
-                               QWidget)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
+                               QVBoxLayout, QWidget)
 
-from cockpit.core import core_actions, sync
+from cockpit.core import sync
 from cockpit.core.errors import CockpitError
 from cockpit.core.sync import Changes, ConflictKind
 from cockpit.core.text import count
@@ -26,14 +28,17 @@ from cockpit.ui.common import FocusDialog, PlainEdit, label_for, name_widget
 from cockpit.ui.error_dialog import show_error
 
 NO_MESSAGE = "Bitte schreiben Sie kurz, was Sie geändert haben."
+NOTHING_CHOSEN = ("Es ist keine Datei angehakt. Haken Sie mit der Leertaste an, was in den Commit "
+                  "soll.")
 
 
 class CommitDialog(FocusDialog):
     """Commit-Nachricht. Nach accept() steht sie in message: erste Zeile, Leerzeile, Rest."""
 
     def __init__(self, title: str, changes: Changes, parent: QWidget | None = None,
-                 source=None) -> None:
-        """source: Vorschlag der KI (Feature KI-Assistent), None: kein Knopf."""
+                 source=None, code_dir: Path | None = None) -> None:
+        """source: Vorschlag der KI (Feature KI-Assistent), None: kein Knopf. code_dir: Ordner
+        für die Abschnitte der Dateien, None: nur ganze Dateien wählbar."""
         super().__init__(parent)
         self.setWindowTitle(f"{title}: {changes.summary()}")
         self.message = ""
@@ -46,16 +51,37 @@ class CommitDialog(FocusDialog):
             from cockpit.ui.ai_suggest import SuggestButton
             self.suggest_button = SuggestButton(self, source, self.apply_suggestion,
                                                 self.summary)
+        # Wunsch des Nutzers vom 21.10.2026: Dateien abhaken, Enter zeigt die Abschnitte einer
+        # Datei. Was nicht angehakt ist, bleibt für einen späteren Commit.
+        self.changes = changes
+        self.code_dir = code_dir
+        self.kinds = changes.kinds()
+        self.chosen_hunks: dict[str, set[int]] = {}       # Datei -> gewählte Abschnitte
+        self.hunk_counts: dict[str, int] = {}
         self.files = QListWidget()
         files_label = label_for(self.files, "Ä&nderungen:")
-        self.files.addItems(changes.lines())
+        for line, path in zip(changes.lines(), self._paths()):
+            item = QListWidgetItem(line)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked)
+            self.files.addItem(item)
         self.files.setCurrentRow(0)
+        self.files.installEventFilter(self)
+        # Co-Autoren (21.10.2026): Personen, die mitgearbeitet haben, aus dem Verlauf wählen
+        self.coauthors: list[str] = []
+        self.coauthors_button = None
+        if code_dir is not None:
+            self.coauthors_button = QPushButton("Co-&Autoren …")
+            self.coauthors_button.clicked.connect(self.choose_coauthors)
         self.ok_button = QPushButton("&Hochladen")
         self.ok_button.setDefault(True)
         self.ok_button.clicked.connect(self.check)
         cancel = QPushButton("Abbrechen")
         cancel.clicked.connect(self.reject)
         buttons = QHBoxLayout()
+        if self.coauthors_button is not None:
+            buttons.addWidget(self.coauthors_button)
         buttons.addStretch(1)
         buttons.addWidget(self.ok_button)
         buttons.addWidget(cancel)
@@ -70,8 +96,8 @@ class CommitDialog(FocusDialog):
         for widget in (files_label, self.files):
             layout.addWidget(widget)
         layout.addLayout(buttons)
-        order = [self.summary, self.details, self.suggest_button, self.files, self.ok_button,
-                 cancel]
+        order = [self.summary, self.details, self.suggest_button, self.files,
+                 self.coauthors_button, self.ok_button, cancel]
         order = [w for w in order if w is not None]
         for first, second in zip(order, order[1:]):
             self.setTabOrder(first, second)
@@ -82,6 +108,69 @@ class CommitDialog(FocusDialog):
     def apply_suggestion(self, suggestion) -> None:
         self.summary.setText(suggestion.summary)
         self.details.setPlainText(suggestion.details)
+
+    # -- Auswahl der Dateien und Abschnitte (21.10.2026) ------------------------------------
+    def _paths(self) -> list[str]:
+        """Pfade in derselben Reihenfolge wie Changes.lines()."""
+        c = self.changes
+        return c.modified + c.added + c.deleted + c.renamed
+
+    def eventFilter(self, watched, event) -> bool:
+        from cockpit.ui.repo_dialogs import _is_enter
+        if watched is self.files and _is_enter(event):
+            self.show_file()
+            return True
+        return super().eventFilter(watched, event)
+
+    def show_file(self) -> None:
+        """Enter auf einer Datei: ihre Abschnitte zum Wählen, bei neuen Dateien der Inhalt."""
+        from cockpit.core import staging
+        from cockpit.ui.text_dialog import TextDialog
+        item = self.files.currentItem()
+        if item is None:
+            return
+        path = item.data(Qt.ItemDataRole.UserRole)
+        kind = self.kinds.get(path, "geändert")
+        if self.code_dir is None:
+            announce("Hier lassen sich nur ganze Dateien wählen.")
+            return
+        diff = staging.file_diff(self.code_dir, path, kind)
+        if not diff.partial_possible:
+            lines = diff.text or [line for h in diff.hunks for line in h.readable()] or [
+                f"{path}: {diff.summary()}."]
+            TextDialog(f"Änderungen an {path}", lines, "Änderungen", self).exec()
+            return
+        dialog = HunksDialog(diff, self.chosen_hunks.get(path), self)
+        if not dialog.exec():
+            return
+        self.hunk_counts[path] = len(diff.hunks)
+        chosen = dialog.chosen
+        self.chosen_hunks[path] = chosen
+        item.setCheckState(Qt.CheckState.Checked if chosen else Qt.CheckState.Unchecked)
+        base = item.text().split(", ")[0] + ", " + kind
+        item.setText(base if len(chosen) in (0, len(diff.hunks)) else
+                     f"{base}, {len(chosen)} von {len(diff.hunks)} Abschnitten")
+        announce(f"{len(chosen)} von {len(diff.hunks)} Abschnitten gewählt.")
+
+    @property
+    def selection(self):
+        """None: alles, wie früher. Sonst Pfad -> None (ganze Datei) oder Abschnitte."""
+        result = {}
+        everything = True
+        for row in range(self.files.count()):
+            item = self.files.item(row)
+            path = item.data(Qt.ItemDataRole.UserRole)
+            if item.checkState() != Qt.CheckState.Checked:
+                everything = False
+                continue
+            chosen = self.chosen_hunks.get(path)
+            # Leere Auswahl, aber wieder angehakt: dann gilt die ganze Datei
+            if chosen and len(chosen) < self.hunk_counts.get(path, 0):
+                everything = False
+                result[path] = set(chosen)
+            else:
+                result[path] = None
+        return None if everything else result
 
     def reject(self) -> None:
         from cockpit.ui.ai_suggest import handle_escape
@@ -99,8 +188,120 @@ class CommitDialog(FocusDialog):
             show_error(self, self.windowTitle(), NO_MESSAGE)
             self.summary.setFocus()
             return
+        if self.selection == {}:
+            show_error(self, self.windowTitle(), NOTHING_CHOSEN)
+            self.files.setFocus()
+            return
         details = self.details.toPlainText().strip()
-        self.message = f"{summary}\n\n{details}" if details else summary
+        self.message = sync.with_coauthors(f"{summary}\n\n{details}" if details else summary,
+                                           self.coauthors)
+        self.accept()
+
+    def choose_coauthors(self) -> None:
+        people = sync.known_people(self.code_dir)
+        if not people:
+            announce("Im Verlauf gibt es noch keine anderen Personen.")
+            return
+        dialog = CheckListDialog("Co-Autoren", "&Personen:", people, set(self.coauthors), self)
+        if not dialog.exec():
+            return
+        self.coauthors = dialog.chosen
+        self.coauthors_button.setText(f"Co-&Autoren ({len(self.coauthors)}) …"
+                                      if self.coauthors else "Co-&Autoren …")
+        announce(f"{count(len(self.coauthors), 'Co-Autor', 'Co-Autoren')} gewählt.")
+
+
+class CheckListDialog(FocusDialog):
+    """Einträge mit Kästchen, Leertaste hakt an. Nach accept() stehen die angehakten in chosen."""
+
+    def __init__(self, title: str, label: str, items: list[str], checked: set[str],
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.items = items
+        self.chosen: list[str] = []
+        self.list = QListWidget()
+        list_label = label_for(self.list, label)
+        for text in items:
+            item = QListWidgetItem(text)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if text in checked
+                               else Qt.CheckState.Unchecked)
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
+        ok = QPushButton("Ü&bernehmen")
+        ok.setDefault(True)
+        ok.clicked.connect(self.take)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(ok)
+        buttons.addWidget(cancel)
+        layout = QVBoxLayout(self)
+        layout.addWidget(list_label)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(buttons)
+        self.resize(520, 380)
+        self.initial_focus_widget = self.list
+
+    def take(self) -> None:
+        self.chosen = [self.items[r] for r in range(self.list.count())
+                       if self.list.item(r).checkState() == Qt.CheckState.Checked]
+        self.accept()
+
+
+class HunksDialog(FocusDialog):
+    """Die Abschnitte einer Datei mit Kästchen. Leertaste hakt an oder ab, Enter liest den
+    Abschnitt vor. Nach accept() stehen die gewählten Nummern in chosen."""
+
+    def __init__(self, diff, chosen: set[int] | None, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.diff = diff
+        self.chosen: set[int] = set()
+        self.setWindowTitle(f"Abschnitte von {diff.path}")
+        self.list = QListWidget()
+        label = label_for(self.list, "&Abschnitte:")
+        for hunk in diff.hunks:
+            item = QListWidgetItem(hunk.label)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if chosen is None or hunk.number in chosen
+                               else Qt.CheckState.Unchecked)
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
+        self.list.installEventFilter(self)
+        ok = QPushButton("Ü&bernehmen")
+        ok.clicked.connect(self.take)
+        cancel = QPushButton("Abbrechen")
+        cancel.clicked.connect(self.reject)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(ok)
+        buttons.addWidget(cancel)
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(buttons)
+        self.resize(600, 400)
+        self.initial_focus_widget = self.list
+
+    def eventFilter(self, watched, event) -> bool:
+        from cockpit.ui.repo_dialogs import _is_enter
+        if watched is self.list and _is_enter(event):
+            self.read_current()
+            return True
+        return super().eventFilter(watched, event)
+
+    def read_current(self) -> None:
+        from cockpit.ui.text_dialog import TextDialog
+        row = self.list.currentRow()
+        if 0 <= row < len(self.diff.hunks):
+            hunk = self.diff.hunks[row]
+            TextDialog(hunk.label, hunk.readable(), "Abschnitt", self).exec()
+
+    def take(self) -> None:
+        self.chosen = {hunk.number for row, hunk in enumerate(self.diff.hunks)
+                       if self.list.item(row).checkState() == Qt.CheckState.Checked}
         self.accept()
 
 
@@ -122,6 +323,9 @@ class ConflictDialog(FocusDialog):
         self.mine_button.clicked.connect(lambda: self.choose(True))
         self.theirs_button = QPushButton(f"Fassung von &{platform_name} übernehmen")
         self.theirs_button.clicked.connect(lambda: self.choose(False))
+        # 21.10.2026: Enter oder "Stellen lesen" liest die Konfliktstellen einzeln vor
+        self.blocks_button = QPushButton("Stellen &lesen und lösen …")
+        self.blocks_button.clicked.connect(self.read_blocks)
         self.editor_button = QPushButton("Konflikt im &Editor anzeigen")
         self.editor_button.clicked.connect(self.open_current)
         self.recheck_button = QPushButton("E&rneut prüfen")
@@ -131,8 +335,8 @@ class ConflictDialog(FocusDialog):
         cancel = QPushButton("Zusammenführen abbrechen")
         cancel.clicked.connect(self.reject)
         actions = QHBoxLayout()
-        for button in (self.mine_button, self.theirs_button, self.editor_button,
-                       self.recheck_button):
+        for button in (self.blocks_button, self.mine_button, self.theirs_button,
+                       self.editor_button, self.recheck_button):
             actions.addWidget(button)
         actions.addStretch(1)
         bottom = QHBoxLayout()
@@ -145,8 +349,8 @@ class ConflictDialog(FocusDialog):
         layout.addLayout(bottom)
         self.resize(720, 360)
         self.initial_focus_widget = self.list
-        # Wie in der Sicherheitsprüfung: Enter in der Liste löst nichts aus, Enter auf einem Knopf
-        # genau diesen Knopf.
+        # Enter in der Liste öffnet die Konfliktstellen der Datei (21.10.2026), Enter auf einem
+        # Knopf genau diesen Knopf.
         self.list.installEventFilter(self)
         self.fill()
 
@@ -175,7 +379,8 @@ class ConflictDialog(FocusDialog):
     def update_buttons(self) -> None:
         path = self.current()
         unresolved = path is not None and path in self.open_files()
-        for button in (self.mine_button, self.theirs_button, self.editor_button):
+        for button in (self.blocks_button, self.mine_button, self.theirs_button,
+                       self.editor_button):
             button.setEnabled(unresolved)
 
     def _next_row(self, row: int) -> int:
@@ -217,10 +422,44 @@ class ConflictDialog(FocusDialog):
         path = self.current()
         if path is None:
             return
+        from cockpit.core import conflicts
+        from cockpit.ui import editor_ui
         sync.label_conflicts(self.code_dir, path, self.kind, self.platform_name)
         self.state[path] = "im Editor angezeigt, noch Konfliktmarken"
         self.fill(self.list.currentRow())
-        core_actions.open_path(self.code_dir / path)
+        try:
+            found = conflicts.blocks(self.code_dir, path, self.kind, self.platform_name)
+        except CockpitError:
+            found = []
+        # Der Editor springt zur ersten Konfliktstelle
+        editor_ui.open_in_editor(self, self.code_dir / path, found[0].line if found else None)
+
+    def read_blocks(self) -> None:
+        """Die Konfliktstellen der markierten Datei einzeln vorlesen und lösen."""
+        from cockpit.ui.conflict_dialogs import ConflictBlocksDialog
+        path = self.current()
+        if path is None or path not in self.open_files():
+            return
+        if not sync.has_markers(self.code_dir, path):
+            announce("In dieser Datei gibt es keine Konfliktstellen. Wählen Sie eine Fassung.")
+            return
+        dialog = ConflictBlocksDialog(self.code_dir, path, self.kind, self.platform_name, self)
+        dialog.exec()
+        row = self.list.currentRow()
+        if sync.has_markers(self.code_dir, path):
+            self.state[path] = "Stellen teilweise gelöst"
+            self.fill(row)
+            self.list.setFocus()
+            return
+        try:
+            sync.mark_resolved(self.code_dir, path)
+        except CockpitError as exc:
+            show_error(self, "Konflikt lösen", exc.message, exc.details)
+            return
+        self.state[path] = "gelöst: Stelle für Stelle"
+        self.fill(self._next_row(row))
+        self._focus_next()
+        announce(f"{path} gelöst. {self._remaining_text()}")
 
     def recheck(self) -> None:
         """Im Editor bearbeitete Dateien ohne Konfliktmarken gelten als gelöst."""
@@ -244,6 +483,7 @@ class ConflictDialog(FocusDialog):
         from PySide6.QtCore import QEvent, Qt
         if watched is self.list and event.type() == QEvent.Type.KeyPress and event.key() in (
                 Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.read_blocks()
             return True
         return super().eventFilter(watched, event)
 

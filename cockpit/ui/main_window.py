@@ -8,96 +8,36 @@ Es erscheinen nur Menüpunkte, die schon funktionieren (ENTSCHEIDUNGEN.md).
 """
 from __future__ import annotations
 
-import dataclasses
 import logging
 import time
-from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow, QMenu,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QVBoxLayout, QWidget
 
-from cockpit import APP_NAME, __version__
-from cockpit.core import backups, core_actions, git, paths, project_status
-from cockpit.core.actions import (MORE_TEXT, ActionContext, ActionEntry, Target, default_entry,
-                                  entries_for, find_entry, shown_entries)
-from cockpit.core.errors import CockpitError
+from cockpit import APP_NAME
+from cockpit.core import backups, git
 from cockpit.core.services import Services
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce, announcer
 from cockpit.ui.action_list import ActionList
-from cockpit.ui import vault_ui
-from cockpit.ui.accounts_dialog import AccountsDialog
 from cockpit.ui.asker import QtAsker
-from cockpit.ui.common import show_info
-from cockpit.ui.error_dialog import show_error
-from cockpit.ui.menus import AccessibleMenu
-from cockpit.ui.messages_dialog import MessagesDialog
 from cockpit.ui.project_actions import ProjectController
 from cockpit.ui.project_list import ProjectList
-from cockpit.ui.settings_dialog import SettingsDialog
-from cockpit.ui.setup_wizard import SetupWizard
 from cockpit.ui.tasks import Task
-from cockpit.ui.text_dialog import TextDialog
-from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
+# Aufgeteilt am 22.10.2026: Menüs, Aktionen, Stand der Projekte und Tresor stehen in eigenen
+# Dateien. MainWindow setzt sie zusammen.
+from cockpit.ui.window_menus import MenuMixin, SHORTCUTS  # noqa: F401
+from cockpit.ui.window_actions import ActionsMixin, SHOW_KEY  # noqa: F401
+from cockpit.ui.window_status import StatusMixin, refresh_pull_requests  # noqa: F401
+from cockpit.ui.window_vault import VaultMixin
 
 log = logging.getLogger(__name__)
 
 LOCK_CHECK_MS = 15_000
-SHOW_KEY = "projects.branch_show"          # Auswahl beim Repository je Projekt (06.10.2026)
-
-SHORTCUTS = [
-    "Aufbau: links die Projektliste, rechts die Aktionen",
-    "Zwischen Projektliste und Aktionen wechseln, Tab",
-    "Aus den Aktionen zurück zum Eintrag in der Projektliste, Umschalt+Tab",
-    "Projektliste",
-    "Projekt ausklappen, Pfeil rechts, Leertaste oder Enter",
-    "Im ausgeklappten Projekt zum ersten Unterordner, Pfeil rechts",
-    "Projekt zuklappen, Leertaste oder Enter auf dem Projekt",
-    "Zuklappen und zurück zum Projekt, Pfeil links auf einer Zeile darunter",
-    "Wichtigste Aktion auf einer Zeile unter dem Projekt, Enter",
-    "Aktionen als Kontextmenü, Menütaste oder Umschalt+F10",
-    "Bei einem ausgeklappten Projekt steht im Kontextmenü zuerst die Schnellnavigation",
-    "Filter über den Projekten, Enter auf der Zeile Anzeigen",
-    "Repository herunterladen, das nur auf GitHub liegt, Enter",
-    "Projektsammlung öffnen, Pfeil rechts, Leertaste oder Enter",
-    "Projektsammlung schließen, Pfeil links oder Enter auf der Sammlung, Rücktaste überall darin",
-    "In einer Sammlung vom Projekt zur Sammlung, Pfeil links",
-    "Aktionen",
-    "Markierte Aktion ausführen, Enter oder Leertaste",
-    "Bei nicht verfügbaren Aktionen wird der Grund angesagt",
-    "Bereiche",
-    "Projektliste, Strg+1",
-    "Aktionen, Strg+2",
-    "Nächster und vorheriger Bereich, F6 und Umschalt+F6",
-    "Meldungen",
-    "Letzte Meldung wiederholen, Strg+Umschalt+M",
-    "Liste der letzten Meldungen, Strg+Umschalt+L",
-    "Menüs",
-    "Datei, Alt+D",
-    "Features, Alt+F",
-    "KI, Alt+K",
-    "Konten, Alt+O",
-    "Einstellungen, Alt+E",
-    "Hilfe, Alt+H",
-    "Projekte neu einlesen und Stand abfragen, Strg+R",
-    "Terminal im Ordner der markierten Zeile öffnen, Strg+T",
-    "Beenden, Strg+Q",
-    "Spracheingabe",
-    "Diktieren starten und beenden, in einem Textfeld, Strg+D",
-    "Diktieren abbrechen, Strg+Umschalt+D",
-    "Hilfe mit Kurzanleitungen und KI fragen, F1",
-    "Diese Liste, Strg+Umschalt+F1",
-    "Befehl suchen, alle Aktionen und Menüs, Strg+K",
-    "Tasten für das Element mit dem Fokus ansagen, Strg+F1",
-    "KI-Hilfe, Fragen zur Bedienung, Umschalt+F1",
-    "In Listen wie dieser: Zeile kopieren, Strg+C",
-]
 
 
-class MainWindow(QMainWindow):
+class MainWindow(MenuMixin, ActionsMixin, StatusMixin, VaultMixin, QMainWindow):
     def __init__(self, services: Services, testdata: bool = False) -> None:
         super().__init__()
         self.services = services
@@ -116,6 +56,9 @@ class MainWindow(QMainWindow):
         self.status_callbacks: list[Callable[[], None]] = []
         self.remote_task: Task | None = None
         self.actions_list = ActionList()
+        # Die Aktionen sind schmaler (PLAN-OPTIK.md): lange Einträge umbrechen statt abschneiden
+        self.actions_list.setWordWrap(True)
+        self.actions_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         list_label = QLabel("&Projekte:")
         list_label.setBuddy(self.project_list)
         actions_label = QLabel("A&ktionen:")
@@ -127,10 +70,14 @@ class MainWindow(QMainWindow):
         right = QVBoxLayout()
         right.addWidget(actions_label)
         right.addWidget(self.actions_list, 1)
+        # Stand der markierten Zeile, nur für das Auge, kein Tab-Stopp (PLAN-OPTIK.md, Schritt 2)
+        from cockpit.ui.state_panel import StatePanel
+        self.state_panel = StatePanel(self.project_list)
+        right.addWidget(self.state_panel)
         central = QWidget()
         layout = QHBoxLayout(central)
-        layout.addLayout(left, 3)
-        layout.addLayout(right, 2)
+        layout.addLayout(left, 2)                      # Aktionen schmaler, ein Drittel
+        layout.addLayout(right, 1)
         self.setCentralWidget(central)
         self.resize(1000, 700)
 
@@ -184,149 +131,6 @@ class MainWindow(QMainWindow):
         self.reload_projects()
         self.updater.start()
 
-    # -- Aufbau ---------------------------------------------------------------------------
-    def _action(self, menu: QMenu, text: str, slot, shortcut: str | None = None) -> QAction:
-        action = QAction(text, self)
-        if shortcut:
-            action.setShortcut(QKeySequence(shortcut))
-            action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
-            self.addAction(action)                     # Kürzel gelten auch bei geschlossenem Menü
-        action.triggered.connect(lambda checked=False: slot())
-        menu.addAction(action)
-        return action
-
-    def _build_menus(self) -> None:
-        bar = self.menuBar()
-        file_menu = AccessibleMenu("&Datei", self)
-        bar.addMenu(file_menu)
-        self._action(file_menu, "Projekt vom &Rechner hinzufügen …", self.controller.add_local)
-        self.act_download = self._action(file_menu, "Projekt von GitHub &herunterladen …",
-                                         self.controller.add_remote)
-        file_menu.aboutToShow.connect(self.update_file_menu)
-        self._action(file_menu, "Projekte &neu einlesen", self.rescan, "Ctrl+R")
-        self._action(file_menu, "&Sicherheitskopien …", self.open_backups)
-        # Aufräumrunde vom 20.10.2026: Terminal im Ordner der markierten Zeile
-        self._action(file_menu, "&Terminal hier öffnen", self.open_terminal_here, "Ctrl+T")
-        file_menu.addSeparator()
-        self._action(file_menu, "&Beenden", self.close, "Ctrl+Q")
-
-        features_menu = AccessibleMenu("&Features", self)
-        bar.addMenu(features_menu)
-        self._action(features_menu, "Feature-&Verwaltung …", self.open_features)
-
-        ai_menu = AccessibleMenu("&KI", self)
-        bar.addMenu(ai_menu)
-        # Wunsch des Nutzers (07.10.2026): oben steht, ob die KI auf den Rechner eingestellt ist
-        from cockpit.ui.ai_tuning_ui import Calibrator
-        self.calibrator = Calibrator(self.services, self)
-        self.act_ai_tuning = self._action(ai_menu, self.calibrator.menu_text,
-                                          self.open_ai_tuning)
-        ai_menu.aboutToShow.connect(
-            lambda: self.act_ai_tuning.setText(self.calibrator.menu_text))
-        self._action(ai_menu, "KI-&Verwaltung …", self.open_ai_manager)
-        self._action(ai_menu, "KI-&Features …", self.open_ai_features)
-
-        accounts_menu = AccessibleMenu("K&onten", self)
-        bar.addMenu(accounts_menu)
-        self._action(accounts_menu, "&Kontenverwaltung …", self.open_accounts)
-        self._action(accounts_menu, "&Tresor-Einstellungen …", self.open_vault_settings)
-        self.act_lock = self._action(accounts_menu, "Tresor &sperren", self.lock_vault)
-        self.act_unlock = self._action(accounts_menu, "Tresor &entsperren …", self.unlock_vault)
-        accounts_menu.aboutToShow.connect(self.update_vault_actions)
-        self.update_vault_actions()
-
-        settings_menu = AccessibleMenu("&Einstellungen", self)
-        bar.addMenu(settings_menu)
-        self._action(settings_menu, "&Grundeinstellungen …", self.open_settings)
-        self._action(settings_menu, "&Einrichtungsassistent …", self.open_wizard)
-
-        help_menu = AccessibleMenu("&Hilfe", self)
-        bar.addMenu(help_menu)
-        # Wunsch des Nutzers (07.10.2026): F1 öffnet die Hilfe mit den Kurzanleitungen
-        self._action(help_menu, "Hilfe und &Kurzanleitungen …", self.open_help, "F1")
-        self._action(help_menu, "&Tastenkürzel", self.show_shortcuts, "Ctrl+Shift+F1")
-        self._action(help_menu, "KI-&Hilfe …", self.open_ai_help, "Shift+F1")
-        # Wunsch des Nutzers (07.10.2026): Befehle suchen und Tasten ansagen lassen
-        self._action(help_menu, "Befehl &suchen …", self.search_commands, "Ctrl+K")
-        self._action(help_menu, "Tasten hier a&nsagen", self.announce_keys, "Ctrl+F1")
-        self._action(help_menu, "&Letzte Meldung wiederholen", announcer.repeat_last,
-                     "Ctrl+Shift+M")
-        self._action(help_menu, "&Meldungen …", self.show_messages, "Ctrl+Shift+L")
-        self._action(help_menu, "&Git installieren …", self.show_git_guide)
-        self._action(help_menu, "GitHub-T&oken erstellen …", self.show_token_guide)
-        self._action(help_menu, "B&ranches verstehen …", self.show_branches_guide)
-        self._action(help_menu, "&Python installieren …",
-                     lambda: self.show_guide("anleitungen/python-installieren.md",
-                                             "Python installieren"))
-        self._action(help_menu, "Wie funktioniert die &Exe? …",
-                     lambda: self.show_guide("anleitungen/exe-verstehen.md",
-                                             "Wie funktioniert die Exe?"))
-        self._action(help_menu, "Oll&ama installieren …",
-                     lambda: self.show_guide("anleitungen/ollama-installieren.md",
-                                             "Ollama installieren"))
-        help_menu.addSeparator()
-        self._action(help_menu, "Nach &Updates suchen …", self.updater.check_now)
-        self._action(help_menu, f"Ü&ber {APP_NAME}", self.show_about)
-
-    def open_ai_help(self) -> None:
-        """Fragen zur Bedienung (Konzept 10.17, Teilschritt 8e)."""
-        from cockpit.ui.ai_help_dialog import open_help
-        open_help(self)
-
-    def open_ai_tuning(self) -> None:
-        """Erklärung der Messung, Art und Stufe von +3 bis -3 (07.10.2026)."""
-        from cockpit.ui.ai_tuning_ui import AITuningDialog
-        calibrator = self.calibrator
-        name = calibrator.name
-        if not name:
-            tool = self.services.text_tool(None)
-            name = self.services.ai_tools.label(tool, mark_default=False) if tool else ""
-        AITuningDialog(self.services, name, calibrator.state, self).exec()
-
-    def start_ai_tuning(self) -> None:
-        """Nach dem Start, nicht in startup(): Starttest der KI im Hintergrund (07.10.2026)."""
-        if not self.testdata:
-            self.calibrator.start()
-
-    def open_ai_manager(self) -> None:
-        """KI-Werkzeuge für Text, lokal oder extern (Konzept 11.1)."""
-        from cockpit.ui.ai_dialogs import AIManagerDialog
-        AIManagerDialog(self.services, self).exec()
-        self.services.forget_platforms()
-        self.refresh_actions(keep_selection=True)
-
-    def open_ai_features(self) -> None:
-        """Feature-Verwaltung, markiert beim ersten KI-Feature (Konzept 11.1)."""
-        from cockpit.core.features.manifest import AI_SERVICES
-        ai_features = [m.id for m in self.services.registry.all()
-                       if set(AI_SERVICES) & set(m.requires_services)]
-        self.open_features(select=ai_features[0] if ai_features else None)
-
-    def open_features(self, select: str | None = None) -> None:
-        """Feature-Verwaltung für alle Projekte (Konzept 8.5)."""
-        from cockpit.ui.features_dialogs import GlobalFeaturesDialog
-        dialog = GlobalFeaturesDialog(self.services, self)
-        if select is not None:
-            dialog.select(select)
-        dialog.exec()
-        if dialog.changed:
-            self.refresh_actions(keep_selection=True)
-            self.refresh_status()
-
-    def open_backups(self) -> None:
-        from cockpit.ui.backups_dialog import BackupsDialog
-        BackupsDialog(self).exec()
-        self.refresh_status()                  # Wiederherstellen kann den Stand ändern
-
-    def update_file_menu(self) -> None:
-        self.act_download.setText(f"Projekt von {self.platform_name()} &herunterladen …")
-
-    def _build_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+1"), self, activated=self.focus_project_list)
-        QShortcut(QKeySequence("Ctrl+2"), self, activated=self.focus_actions)
-        QShortcut(QKeySequence("F6"), self, activated=lambda: self.cycle_area(+1))
-        QShortcut(QKeySequence("Shift+F6"), self, activated=lambda: self.cycle_area(-1))
-
     def _show_status(self, message) -> None:
         self.status_label.setText(message.text)
 
@@ -349,6 +153,8 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             log.warning("Alte Sicherheitskopien nicht gelöscht: %r", exc)
         self.refresh_remote()
+        if self.remote_task is None:
+            self.news.after_refresh()            # ohne Abfrage: aus der Datenbank (22.10.2026)
 
     def offer_folder_rename(self) -> None:
         """Nach dem Start, nicht in startup(): Ordner Code und Exe umbenennen (06.10.2026)."""
@@ -369,457 +175,10 @@ class MainWindow(QMainWindow):
         local = {p.remote.key for p in self.services.projects.all() if p.remote is not None}
         return self.services.remote_repos.only_remote(local)
 
-    def reload_projects(self, refresh: bool = True) -> list:
-        """Hauptordner durchsuchen und Projektliste neu füllen. Gibt neu gefundene Projekte zurück.
-        refresh: danach den Stand aller Projekte im Hintergrund abfragen."""
-        root = Path(self.services.settings.load().projects_root)
-        found = self.services.projects.scan(root) if root.is_dir() else []
-        self.project_list.platform_name = self.platform_name()
-        collections = self.services.collections
-        projects = self.services.projects.all()
-        collections.adopt(projects)                 # heruntergeladen: Sammlung übernehmen
-        self.project_list.set_projects(projects, self._remote_only(), collections.all(),
-                                       collections.membership(),
-                                       collections.remote_membership())
-        self.refresh_actions()
-        if refresh:
-            self.refresh_status()
-        return found
-
-    def rescan(self) -> None:
-        found = self.reload_projects()
-        total = len(self.services.projects.all())
-        text = f"Projekte neu eingelesen. {count(total, 'Projekt', 'Projekte')}."
-        if found:
-            text += f" Neu: {', '.join(p.name for p in found)}."
-        announce(text)
-        self.refresh_remote()
-
-    def show_project(self, project_id: int) -> None:
-        """Projekt in der Liste markieren."""
-        self.project_list.select(Target.PROJECT, project_id)
-
-    def _reload_if_remote_changed(self) -> None:
-        """Nur neu aufbauen, wenn sich die Zeilen "nur auf GitHub" geändert haben."""
-        remote_ids = {r.id for r in self._remote_only()}
-        if remote_ids != set(self.project_list.remote_ids()):
-            self.reload_projects(refresh=False)
-
-    def refresh_status(self, project_ids: list[int] | None = None,
-                       on_done: Callable[[], None] | None = None) -> None:
-        """Stand der Projekte im Hintergrund abfragen (ohne Ansage, der Fokus bleibt).
-        on_done kommt, wenn keine Abfrage mehr läuft oder wartet."""
-        if on_done is not None:
-            self.status_callbacks.append(on_done)
-        if self.status_task is not None:
-            if project_ids is None:
-                self.status_queue_all = True
-            self.status_queue = (self.status_queue or set()) | set(project_ids or [])
-            return
-        store = self.services.projects
-        pulls = self.services.pull_request_cache
-        wanted = None if project_ids is None else set(project_ids)
-        projects = [p for p in store.all() if wanted is None or p.id in wanted]
-
-        def work(task: Task) -> list:
-            result = []
-            for project in projects:
-                if task.cancel_event.is_set():
-                    break
-                status = project_status.compute(project)
-                project_status.remember(store, project, status)
-                if status.repo is not None and status.repo.branch:
-                    # Aus dem Zwischenspeicher, ohne GitHub zu fragen (Phase 6)
-                    status.open_pulls = pulls.count_for_branch(project.remote,
-                                                               status.repo.branch)
-                # Für Filter und Zeichen in der Liste (07.10.2026)
-                open_pulls = pulls.open_pulls(project.remote) if project.remote else []
-                status.repo_pulls = len(open_pulls)
-                status.review_requests = sum(1 for p in open_pulls if p.reviewers)
-                status.has_release = _has_release(project)
-                if project.remote is not None:
-                    # Gemerkt beim Abfragen der Repositories (Phase 14)
-                    from cockpit.features.releases.runs import last_failed
-                    status.actions_failed = last_failed(self.services.database,
-                                                        project.remote.key)
-                result.append(status)
-            return result
-
-        task = Task(work, self)
-        task.result.connect(self._status_done)
-        task.finished.connect(self._status_finished)
-        self.status_task = task
-        task.start()
-
-    def _status_done(self, statuses: list) -> None:
-        current = self.project_list.current_target()[1]
-        for status in statuses:
-            self.project_list.update_status(status, self.services.projects.get(status.project_id))
-        if any(s.project_id == current for s in statuses):
-            self.refresh_actions(keep_selection=True)
-        self._reload_if_remote_changed()           # ein Projekt ist jetzt verbunden
-
-    def _status_finished(self) -> None:
-        task, self.status_task = self.status_task, None
-        if task is not None:
-            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
-            task.deleteLater()
-        if self.status_queue is not None:
-            queued = None if self.status_queue_all else list(self.status_queue)
-            self.status_queue, self.status_queue_all = None, False
-            self.refresh_status(queued)
-            return
-        callbacks, self.status_callbacks = self.status_callbacks, []
-        for callback in callbacks:
-            callback()
-
-    def refresh_remote(self) -> None:
-        """Repositories der Plattform-Konten im Hintergrund abfragen. Ist die Tresordatei
-        gesperrt, bleibt es bei der gemerkten Liste (das Master-Passwort kommt erst bei Bedarf)."""
-        accounts = self.services.platform_accounts()
-        vault = self.services.vault
-        if not accounts or self.remote_task is not None or vault.vault is None:
-            return
-        if not vault.is_unlocked():
-            return
-        services = self.services
-
-        def work(task: Task) -> tuple:
-            new, problems = [], []
-            for account in accounts:
-                if task.cancel_event.is_set():
-                    break
-                try:
-                    platform = services.platform(account.id)
-                    if platform is None:
-                        continue
-                    repos = platform.repositories()
-                    new.extend(services.remote_repos.replace(account.id, repos))
-                    refresh_pull_requests(services, platform, account, task.cancel_event)
-                    from cockpit.core import repo_admin
-                    from cockpit.features.releases.runs import refresh_state
-                    mine = [p for p in services.projects.all()
-                            if (owner := repo_admin.account_for(services, p)) is not None
-                            and owner.id == account.id]
-                    refresh_state(services, platform, mine, task.cancel_event)
-                except CockpitError as exc:
-                    log.warning("Repositories von %s: %s %s", account.display_name,
-                                exc.message, exc.details)
-                    problems.append(f"{account.display_name}: {exc.message}")
-            return new, problems
-
-        task = Task(work, self)
-        task.result.connect(self._remote_done)
-        task.finished.connect(self._remote_finished)
-        self.remote_task = task
-        task.start()
-
-    def _remote_done(self, outcome) -> None:
-        new, problems = outcome
-        for problem in problems:
-            announce(f"Repositories nicht abgefragt. {problem}", speak=False)
-        self._reload_if_remote_changed()
-        self.refresh_status()                      # Hinweis auf fehlgeschlagene Läufe (14)
-        if new and self.services.settings.load().auto_clone_new:
-            remote_ids = set(self.project_list.remote_ids())
-            for repo in new:
-                if repo.id in remote_ids:
-                    self.controller.download(repo, speak=False)
-
-    def _remote_finished(self) -> None:
-        task, self.remote_task = self.remote_task, None
-        if task is not None:
-            task.wait()                      # Thread ganz beendet, sonst bricht Qt ab
-            task.deleteLater()
-
-    # -- Aktionen -------------------------------------------------------------------------
-    def action_context(self) -> ActionContext:
-        target, item_id = self.project_list.current_target()
-        key = self.project_list.current_key()
-        project = remote = None
-        collection = None
-        if target is Target.REMOTE_REPO:
-            remote = self.services.remote_repos.get(item_id) if item_id is not None else None
-        elif target is Target.COLLECTION:
-            collection = self.services.collections.get(item_id) if item_id is not None else None
-        elif item_id is not None:
-            project = self.services.projects.get(item_id)
-        status = self.project_list.status_of(project.id) if project is not None else None
-        context = ActionContext(self.services, project, target, announce=announce,
-                                asker=self.asker, status=status, remote_repo=remote,
-                                collection=collection)
-        if target is Target.BRANCH and project is not None:
-            # Die Aktionen von Code, aber im Branch-Ordner (Phase 10f)
-            tree = next((t for t, _s in (status.worktrees if status else []) if t.folder == key),
-                        None)
-            if tree is not None:
-                context.target, context.worktree, context.main_project = \
-                    Target.CODE, tree, project
-                context.project = dataclasses.replace(project, code_dir=tree.path)
-                context.status = project_status.for_folder(status, key)
-        elif target is Target.REMOTE_BRANCH and project is not None:
-            context.remote_branch = self.project_list.remote_branch(project.id, key)
-        elif target in (Target.EXE, Target.RELEASE) and project is not None                 and project.has_exe_dir:
-            # Releases (06.10.2026): EXE ist Exe-main, RELEASE das Release eines Branches
-            from cockpit.core import local_releases
-            folder = key if target is Target.RELEASE else local_releases.MAIN
-            context.release = local_releases.find(project, folder or local_releases.MAIN)
-            if target is Target.RELEASE:
-                context.main_project = project
-                context.worktree = next((t for t, _s in (status.worktrees if status else [])
-                                         if t.folder == key), None)
-        return context
-
-    def _save_show(self, project_id: int, show: str) -> None:
-        saved = dict(self.services.database.get_value(SHOW_KEY, {}) or {})
-        saved[str(project_id)] = show
-        self.services.database.set_value(SHOW_KEY, saved)
-        self.refresh_actions(keep_selection=True)
-
-    def current_entries(self) -> list[ActionEntry]:
-        context = self.action_context()
-        actions = core_actions.all_actions(context) + self.controller.actions()
-        return entries_for(actions, context)
-
-    def refresh_actions(self, keep_selection: bool = False) -> None:
-        self.actions_list.set_entries(self.current_entries(), keep_selection)
-
-    def run_entry(self, entry: ActionEntry) -> None:
-        if entry.children:
-            self.show_more(entry)
-            return
-        if not entry.availability.available:
-            announce(f"{entry.text} ist nicht verfügbar. {entry.availability.reason}")
-            return
-        try:
-            entry.action.run(self.action_context())
-        except CockpitError as exc:
-            announce(exc.message, urgent=True)
-            show_error(self, entry.text, exc.message, exc.details)
-        except OSError as exc:
-            log.warning("Aktion %s fehlgeschlagen: %r", entry.action.id, exc)
-            message = f"{entry.text} hat nicht geklappt."
-            announce(message, urgent=True)
-            show_error(self, entry.text, message, str(exc))
-        # Die Markierung bleibt auf der ausgeführten Aktion, statt nach oben zu springen
-        self.refresh_actions(keep_selection=True)
-
-    def run_default_action(self) -> None:
-        """Enter in der Projektliste: wichtigste Aktion, sonst in die Aktionsliste springen."""
-        entries = self.current_entries()
-        entry = default_entry(entries)
-        if entry is not None:
-            self.run_entry(entry)
-            return
-        blocked = next((e for e in entries if e.action.is_default), None)
-        if blocked is not None:
-            self.run_entry(blocked)                    # sagt den Grund an
-            return
-        self.focus_actions()
-
-    def show_context_menu(self, position) -> None:
-        entries = self.current_entries()
-        if not entries:
-            return
-        menu = AccessibleMenu("Aktionen", self)
-        # Wunsch des Nutzers (07.10.2026): bei einem ausgeklappten Projekt zuerst die
-        # Schnellnavigation als Untermenü
-        target, item_id = self.project_list.current_target()
-        expanded = self.project_list.expanded_project_id
-        if expanded is not None and item_id == expanded and target is not Target.COLLECTION:
-            from cockpit.ui.quick_nav import quick_menu
-            menu.addMenu(quick_menu(self, expanded))
-            menu.addSeparator()
-        chosen: dict[QAction, ActionEntry] = {}
-        for entry in shown_entries(entries):
-            if entry.children:
-                more = menu.addMenu(entry.label.replace("&", "&&"))
-                for child in entry.children:
-                    chosen[more.addAction(child.label.replace("&", "&&"))] = child
-                continue
-            chosen[menu.addAction(entry.label.replace("&", "&&"))] = entry
-        picked = menu.exec(position)
-        self.project_list.setFocus()
-        if picked is not None:
-            self.run_entry(chosen[picked])
-
-    def show_more(self, entry: ActionEntry) -> None:
-        """Untermenü "Weitere …" unter der markierten Aktion. Escape führt zurück in die
-        Aktionsliste (Aufräumrunde vom 20.10.2026)."""
-        menu = AccessibleMenu(MORE_TEXT.removesuffix(" …"), self)
-        chosen: dict[QAction, ActionEntry] = {}
-        for child in entry.children:
-            chosen[menu.addAction(child.label.replace("&", "&&"))] = child
-        listing = self.actions_list
-        item = listing.currentItem()
-        rect = listing.visualItemRect(item) if item is not None else listing.rect()
-        first = next(iter(chosen), None)
-        picked = menu.exec(listing.viewport().mapToGlobal(rect.bottomLeft()), first)
-        if picked is None:
-            listing.setFocus()
-            return
-        self.run_entry(chosen[picked])
-
-    def open_terminal_here(self) -> None:
-        """Strg+T: das Terminal der markierten Zeile, ohne Menü (20.10.2026)."""
-        entry = next((e for e in self.current_entries()
-                      if e.action.id.startswith("terminal_")), None)
-        if entry is None:
-            announce("Hier gibt es kein Terminal.")
-            return
-        self.run_entry(entry)
-
-    # -- Bereiche -------------------------------------------------------------------------
-    def focus_project_list(self) -> None:
-        self.project_list.setFocus()
-
-    def focus_actions(self) -> None:
-        self.actions_list.setFocus()
-
-    def focus_action(self, project_id: int, action_id: str,
-                     target: Target = Target.PROJECT) -> bool:
-        """Zeile markieren und in der Aktionsliste auf eine Aktion springen, zum Beispiel
-        "Lizenz …" beim Repository (Wunsch des Nutzers vom 03.10.2026: "Jetzt hinzufügen" beim
-        Bauen). False, wenn es die Aktion dort nicht gibt."""
-        self.project_list.select(target, project_id)
-        self.refresh_actions()
-        entries = self.actions_list.entries
-        row = next((i for i, e in enumerate(entries) if e.action.id == action_id), None)
-        if row is None:                            # vielleicht unter "Weitere …"
-            row = next((i for i, e in enumerate(entries)
-                        if find_entry(list(e.children), action_id) is not None), None)
-        if row is None:
-            self.project_list.setFocus()
-            return False
-        self.actions_list.setCurrentRow(row)
-        self.actions_list.setFocus()
-        return True
-
-    def cycle_area(self, step: int) -> None:
-        focused = QApplication.focusWidget()
-        index = self.areas.index(focused) if focused in self.areas else -1
-        self.areas[(index + step) % len(self.areas)].setFocus()
-
-    # -- Menüs ----------------------------------------------------------------------------
-    def open_settings(self) -> None:
-        old_root = self.services.settings.load().projects_root
-        dialog = SettingsDialog(self.services.settings, self)
-        if dialog.exec():
-            announce("Grundeinstellungen gespeichert.")
-            if self.services.settings.load().projects_root != old_root:
-                self.rescan()
-
-    def open_help(self) -> None:
-        """Hilfefenster, nicht modal. Ein Fenster für die ganze Sitzung."""
-        from cockpit.ui.help_window import HelpWindow, area_of
-        if getattr(self, "help_window", None) is None:
-            self.help_window = HelpWindow(self)
-        self.help_window.open_for(area_of(self))
-
-    def search_commands(self) -> None:
-        from cockpit.ui.quick_nav import search_commands
-        search_commands(self)
-
-    def announce_keys(self) -> None:
-        from cockpit.ui.quick_nav import announce_hint
-        announce_hint(self)
-
     def _update_hint(self) -> None:
         """Tooltip der Projektliste: welche Tasten auf der markierten Zeile etwas tun."""
         from cockpit.ui.quick_nav import key_hint
         self.project_list.setToolTip(key_hint(self.project_list, self))
-
-    def show_shortcuts(self) -> None:
-        TextDialog("Tastenkürzel", SHORTCUTS, "Liste der Tastenkürzel", self).exec()
-
-    def show_messages(self) -> None:
-        MessagesDialog(announcer.newest_first(), self).exec()
-
-    def show_guide(self, relative_path: str, title: str) -> None:
-        """Anleitung aus dem Ordner anleitungen als Liste zeigen."""
-        try:
-            text = (paths.resource_dir() / relative_path).read_text(encoding="utf-8")
-        except OSError as exc:
-            show_error(self, title, "Die Anleitung wurde nicht gefunden.", str(exc))
-            return
-        TextDialog(title, text, f"Anleitung {title}", self).exec()
-
-    def show_git_guide(self) -> None:
-        self.show_guide(git.GUIDE, "Git installieren")
-
-    def show_token_guide(self) -> None:
-        self.show_guide("anleitungen/github-token-erstellen.md", "GitHub-Token erstellen")
-
-    def show_branches_guide(self) -> None:
-        self.show_guide("anleitungen/branches-verstehen.md", "Branches verstehen")
-
-    def show_about(self) -> None:
-        text = [f"{APP_NAME} Version {__version__}",
-                f"Datenordner: {paths.data_dir()}",
-                "Verwaltet Code-Projekte auf GitHub und GitLab ohne Terminal.",
-                "Barrierefrei entwickelt, vollständig per Tastatur bedienbar."]
-        TextDialog(f"Über {APP_NAME}", text, f"Über {APP_NAME}", self).exec()
-
-    # -- Konten und Tresor ---------------------------------------------------------------
-    def update_vault_actions(self) -> None:
-        """Sperren und Entsperren gibt es nur bei der Tresordatei."""
-        vault = self.services.vault
-        self.act_lock.setVisible(vault.needs_unlock and vault.is_unlocked())
-        self.act_unlock.setVisible(vault.needs_unlock and not vault.is_unlocked())
-
-    def open_accounts(self) -> None:
-        AccountsDialog(self.services, self).exec()
-        self.services.forget_platforms()
-        self.restart_lock_timer()
-        self.reload_projects(refresh=False)
-        self.refresh_remote()
-
-    def open_vault_settings(self) -> None:
-        VaultSettingsDialog(self.services, self).exec()
-        self.update_vault_actions()
-        self.restart_lock_timer()
-
-    def lock_vault(self) -> None:
-        self.services.vault.lock()
-        self.update_vault_actions()
-        announce("Tresor gesperrt.")
-
-    def unlock_vault(self) -> None:
-        vault_ui.ensure_unlocked(self.services, self)
-        self.update_vault_actions()
-        self.restart_lock_timer()
-
-    def open_wizard(self) -> None:
-        SetupWizard(self.services, self).exec()
-        self.update_vault_actions()
-        self.reload_projects()
-
-    def restart_lock_timer(self) -> None:
-        vault = self.services.vault
-        minutes = self.services.settings.load().auto_lock_minutes
-        self.last_input = time.time()
-        if vault.needs_unlock and vault.is_unlocked() and minutes > 0:
-            self.lock_timer.start()
-        else:
-            self.lock_timer.stop()
-
-    def check_auto_lock(self) -> None:
-        minutes = self.services.settings.load().auto_lock_minutes
-        if minutes > 0 and time.time() - self.last_input >= minutes * 60:
-            self.auto_lock()
-
-    def auto_lock(self) -> None:
-        self.lock_timer.stop()
-        if self.services.vault.needs_unlock and self.services.vault.is_unlocked():
-            self.services.vault.lock()
-            self.update_vault_actions()
-            minutes = self.services.settings.load().auto_lock_minutes
-            text = (f"Der Tresor wurde nach {count(minutes, 'Minute', 'Minuten')} ohne "
-                    "Eingabe gesperrt.")
-            # Meldungsfenster mit OK (Wunsch aus dem Test): NVDA liest es sicher vor, auch wenn
-            # man gerade in einem anderen Programm war und zurückkommt.
-            announce(text, speak=False)
-            show_info(self, "Tresor gesperrt", text)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Jede Taste und jeder Mausklick startet die Zeit bis zum automatischen Sperren neu."""
@@ -837,6 +196,7 @@ class MainWindow(QMainWindow):
             self.help_window.close()             # wartet auf eine laufende Frage an die KI
         self.updater.shutdown()
         self.dictation.shutdown()
+        self.news.shutdown()                        # merkt sich den Zeitpunkt (22.10.2026)
         for task in (self.status_task, self.remote_task):
             if task is not None:
                 task.cancel()
@@ -847,35 +207,4 @@ class MainWindow(QMainWindow):
         ollama.server().stop()                      # nur ein selbst gestartetes Ollama
         super().closeEvent(event)
 
-
-def _has_release(project) -> bool:
-    """Liegt in einem Release-Ordner eine Exe? Fehler beim Lesen zählen als nein."""
-    from cockpit.core import local_releases
-    try:
-        return local_releases.has_any_exe(project)
-    except OSError:
-        return False
-
-
-def refresh_pull_requests(services, platform, account, cancel=None) -> None:
-    """Offene Pull Requests der Projekte dieses Kontos in den Zwischenspeicher holen (Phase 6).
-    Läuft im Hintergrund. Fehler bei einem Projekt stören die anderen nicht."""
-    from cockpit.core import repo_admin
-    from cockpit.platforms.base import SupportsPullRequests
-    if not isinstance(platform, SupportsPullRequests):
-        return
-    for project in services.projects.all():
-        if cancel is not None and cancel.is_set():
-            return
-        if project.remote is None:
-            continue
-        owner = repo_admin.account_for(services, project)
-        if owner is None or owner.id != account.id:
-            continue
-        try:
-            pulls = platform.pull_requests(repo_admin.repo_ref(project), "open")
-        except CockpitError as exc:
-            log.warning("Pull Requests von %s: %s", project.name, exc.message)
-            continue
-        services.pull_request_cache.replace(project.remote, pulls)
 

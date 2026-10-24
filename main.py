@@ -17,6 +17,7 @@ from cockpit.core import paths
 from cockpit.core.errors import CockpitError
 from cockpit.core.logging_setup import setup_logging
 from cockpit.core.services import Services
+from cockpit.ui import look
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.main_window import MainWindow
 from cockpit.ui.setup_wizard import SetupWizard
@@ -64,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
     _german_qt(app)
+    look.apply(app)                       # Fokusrahmen und Programmsymbol (PLAN-OPTIK.md)
     if use_testdata:
         try:
             _, projects_root = testdata.prepare()
@@ -87,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         services.settings.update(projects_root=str(projects_root))
         services.projects.scan(projects_root)
         testdata.remove_missing_example(projects_root)
+        testdata.add_news(services)
         testdata_platform.register()
 
     if not self_test:

@@ -16,6 +16,7 @@ from cockpit.core.features.manifest import AI_SERVICES
 from cockpit.features.dictation.manifest import FEATURE_ID, MANIFEST
 from cockpit.ui import dictation as dictation_ui
 from tests.conftest import said
+from tests.conftest import patch_split
 
 
 @pytest.fixture(autouse=True)
@@ -246,7 +247,7 @@ def test_models_of_the_diary_are_found(hf_cache):
 def test_speech_dialog(qtbot, make_services, monkeypatch, hf_cache):
     from cockpit.ui import ai_dialogs
     services = make_services([MANIFEST])
-    monkeypatch.setattr(ai_dialogs, "current_ram", lambda s: 32)
+    patch_split(monkeypatch, ai_dialogs, "current_ram", lambda s: 32)
     fake_model("small")
     snapshot = hf_cache / "models--Systran--faster-whisper-medium" / "snapshots" / "abc"
     snapshot.mkdir(parents=True)

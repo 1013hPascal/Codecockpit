@@ -82,6 +82,7 @@ class PushRunner(_Runner):
         self.confirmed = confirmed            # schon bestätigt, zum Beispiel nach dem Holen
         self.then = then                      # danach, zum Beispiel Pull Request erstellen
         self.message = ""
+        self.selection = None                 # Auswahl der Dateien und Abschnitte, None: alles
         self.public = False
         self.accepted: set[tuple[str, str, str]] = set()
 
@@ -117,11 +118,16 @@ class PushRunner(_Runner):
             self.choose_target(state)
             return
         from cockpit.ui import ai_suggest
-        source = ai_suggest.for_commit(self.services, self.project)
-        dialog = sync_dialogs.CommitDialog(self.title, changes, self.window, source=source)
+        opened = []                      # die KI sieht nur, was im Fenster gewählt ist
+        source = ai_suggest.for_commit(self.services, self.project,
+                                       lambda: opened[0].selection if opened else None)
+        dialog = sync_dialogs.CommitDialog(self.title, changes, self.window, source=source,
+                                           code_dir=self.project.code_dir)
+        opened.append(dialog)
         if not dialog.exec():
             return
         self.message = dialog.message
+        self.selection = getattr(dialog, "selection", None)   # None: alles (21.10.2026)
         self.choose_target(state)
 
     # -- 2b. Branch wählen (Feature "Branches und Pull Requests", Phase 6c) ------------------------
@@ -179,12 +185,13 @@ class PushRunner(_Runner):
         settings = services.settings.load()
         self.public = sync.is_public(services, project)
         public = self.public
+        only = list(self.selection) if self.selection is not None else None
 
         def work(task: Task):
             if self.message:
                 sync.prepare_commit(project.code_dir, project.name, settings.git_name,
                                     settings.git_email)
-            return sync.scan(project.code_dir, public, settings.git_email)
+            return sync.scan(project.code_dir, public, settings.git_email, only=only)
 
         self.controller.run_task(self.key, work, self.review, self.title)
 
@@ -193,9 +200,10 @@ class PushRunner(_Runner):
         if report.findings:
             code_dir, public = self.project.code_dir, self.public
             spec = upload.UploadSpec(self.project.name, private=not public)
+            only = list(self.selection) if self.selection is not None else None
             dialog = upload_dialogs.SafetyDialog(
                 report, code_dir, spec, email,
-                rescan=lambda: sync.scan(code_dir, public, email), parent=self.window)
+                rescan=lambda: sync.scan(code_dir, public, email, only=only), parent=self.window)
             if not dialog.exec():
                 announce("Hochladen abgebrochen.")
                 self.refresh()
@@ -208,7 +216,7 @@ class PushRunner(_Runner):
         services, project = self.services, self.project
         asker = self.window.asker
         data = {"message": self.message, "public": self.public, "accepted": self.accepted,
-                "git_email": email}
+                "git_email": email, "selection": self.selection}
 
         def work(task: Task):
             data["env"] = sync.environment(services, project)

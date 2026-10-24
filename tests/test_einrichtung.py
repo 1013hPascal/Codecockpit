@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QPushButton
 from cockpit.core import core_actions, paths
 from cockpit.core.accounts import find_type
 from cockpit.core.secret import Secret
-from cockpit.platforms import github
+from cockpit.platforms import github, github_login
 from cockpit.platforms.github import GitHubPlatform
 from cockpit.ui import accounts_dialog as ad
 from cockpit.ui import ai_dialogs
@@ -24,6 +24,7 @@ from tests.conftest import FakeVault, said
 from tests.test_github import TOKEN, FakeGitHub
 from tests.test_phase8b import quiet_machine  # noqa: F401 (Fixture)
 from tests.test_ui import show_active
+from tests.conftest import patch_split
 
 NOREPLY = "94653295+1013hPascal@users.noreply.github.com"
 
@@ -33,9 +34,9 @@ def no_blocking_dialogs(monkeypatch):
     """Meldungsfenster würden die Tests anhalten. Fehler werden gesammelt."""
     shown: list[str] = []
     for module in (sw, ad, videos):
-        monkeypatch.setattr(module, "show_error",
-                            lambda parent, title, text, *args, **kwargs: shown.append(text))
-    monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
+        patch_split(monkeypatch, module, "show_error",
+                    lambda parent, title, text, *args, **kwargs: shown.append(text))
+    patch_split(monkeypatch, sw, "confirm", lambda *args, **kwargs: True)
     return shown
 
 
@@ -115,9 +116,12 @@ def test_welcome_lists_features_and_offers_the_video(wizard, opened):
     assert next_focus(page.text) is page.video_button         # Tab: Video, dann Weiter
     assert next_focus(page.video_button) is dialog.next_button
     lines = texts(page.text)
-    assert lines[1] == "In diesem Programm erwartet Sie:"
-    assert lines[2:2 + len(sw.FEATURES)] == sw.FEATURES
+    assert lines[1].startswith("Das Cockpit hilft Ihnen, Ihre Code-Projekte zu verwalten")
+    assert lines[2] == "In diesem Programm erwartet Sie:"
+    assert lines[3:3 + len(sw.FEATURES)] == sw.FEATURES
     assert sw.FEATURES[0] == "Die wichtigsten Aktionen für Ihre Code-Projekte, ganz ohne Terminal"
+    assert any(f.startswith("Neuigkeiten nach dem Start") for f in sw.FEATURES)
+    assert any(line.startswith("Die Schritte: Zugangsdaten schützen, Git") for line in lines)
     assert lines[-1] == "Videos: erstellt mit Google NotebookLM"
     page.video_button.click()
     assert opened == [paths.resource_dir() / "erklärvideos" / videos.INTRO]
@@ -148,8 +152,9 @@ def test_vault_page_explains_why(wizard):
     page = dialog.page
     assert dialog.heading.text() == "Schritt 2 von 8: Zugangsdaten schützen"
     lines = texts(page.text)
-    assert lines[0].startswith("In den folgenden Schritten richten Sie Ihr Git-Programm ein")
-    assert any("externe KI" in line for line in lines)
+    assert lines[0].startswith("Für GitHub und für eine externe KI braucht das Cockpit "
+                               "Zugangsdaten")
+    assert not any("E-Mail-Konto" in line or "Automatisierung" in line for line in lines)
     assert any(line.startswith("Erstens: Windows-Anmeldeinformationsverwaltung, empfohlen.")
                for line in lines)
     assert "Zugangsdaten wie Tokens liegen immer verschlüsselt im Tresor." not in lines
@@ -161,7 +166,10 @@ def test_platform_choice_is_a_checklist(wizard):
     go_to(dialog, "Code-Plattformen wählen")
     page = dialog.page
     assert dialog.heading.text() == "Schritt 4 von 8: Code-Plattformen wählen"
-    assert page.list.accessibleName() == "Git-Systeme"
+    assert dialog.focusWidget() is page.text                  # zuerst die Erklärung
+    assert texts(page.text)[0].startswith("Eine Code-Plattform bewahrt Ihren Code im Internet")
+    assert next_focus(page.text) is page.list
+    assert page.list.accessibleName() == "Code-Plattformen"
     assert texts(page.list) == ["GitHub"]
     item = page.list.item(0)
     assert item.flags() & Qt.ItemFlag.ItemIsUserCheckable
@@ -209,7 +217,7 @@ def test_setup_opens_the_account_dialog_with_identity(wizard, monkeypatch):
         def exec(self):
             return True
 
-    monkeypatch.setattr(ad, "AccountEditDialog", FakeEdit)
+    patch_split(monkeypatch, ad, "AccountEditDialog", FakeEdit)
     page.list.setCurrentRow(0)
     page.setup_current()
     assert calls == [("github", None, True)]
@@ -229,7 +237,7 @@ class DoneLogin:
 
 
 def edit_dialog(qtbot, services, monkeypatch):
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"), with_identity=True)
     qtbot.addWidget(dialog)
     return dialog
@@ -289,7 +297,7 @@ def test_token_way_also_ends_on_the_result_page(qtbot, make_services, server, mo
 
 def test_without_identity_nothing_changes(qtbot, make_services, monkeypatch):
     services = make_services(vault=FakeVault())
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     dialog = ad.AccountEditDialog(services, find_type("platform", "github"))
     qtbot.addWidget(dialog)
     assert dialog.identity_form is None and dialog.noreply_button is None
@@ -328,10 +336,11 @@ def test_ai_page_text(wizard, qtbot):
     page = dialog.page
     qtbot.waitUntil(lambda: page.task is None, timeout=10000)
     lines = texts(page.text)
-    assert lines[0].startswith("Um Ihren Alltag zu vereinfachen, gibt es mehrere KI-Features.")
-    assert "Text-KI und eine Sprach-KI" in lines[0]
-    assert lines[-5:] == sw.AI_LINES
+    assert lines[0] == sw.AI_INTRO
+    assert lines[2:2 + len(sw.AI_LINES)] == sw.AI_LINES       # ohne Features keine Liste
+    assert any(line.startswith("Lokale KI: Sie läuft auf Ihrem Rechner.") for line in lines)
     assert any("Firmen-KI" in line for line in lines)
+    assert lines[-1] == "Mit Tab kommen Sie zu KI einrichten."
 
 
 def test_ai_dialog_from_the_wizard_saves(qtbot, make_services, quiet_machine,  # noqa: F811
@@ -367,7 +376,9 @@ def test_summary_with_tips_and_video(wizard, opened):
     go_to(dialog, "Zusammenfassung")
     page = dialog.page
     lines = texts(page.list)
-    assert lines[0] == "Perfekt, Sie haben folgende Tools eingerichtet:"
+    assert lines[0] == ("Die Einrichtung ist fertig. Hier sehen Sie, was eingerichtet ist und "
+                        "was nicht.")
+    assert any(line.startswith("F1 öffnet die Hilfe") for line in lines)
     assert lines[-1] == "Mit Tab gelangen Sie zu den Tipps, zum Video und zu Fertig."
     tips = texts(page.tips)
     assert tips[0] == "Für einen perfekten Start hier noch ein paar Tipps."
@@ -398,3 +409,89 @@ def test_summary_names_platform_and_identity(wizard):
     lines = texts(dialog.page.list)
     assert (f"Eingerichtet: GitHub-Konto: GitHub privat, 1013hPascal. Git-Identität: "
             f"1013hPascal, {NOREPLY}.") in lines
+
+
+# -- Features wählen (22.10.2026) -----------------------------------------------------------
+@pytest.fixture
+def full_wizard(qtbot, make_services, quiet_machine):  # noqa: F811
+    from cockpit.core.features.registry import FeatureRegistry
+    services = make_services(FeatureRegistry.discover().all())
+    services.use_vault(services.make_vault("windows"))
+    dialog = sw.SetupWizard(services)
+    qtbot.addWidget(dialog)
+    show_active(qtbot, dialog)
+    return dialog, services
+
+
+def test_features_are_grouped_by_what_they_need(full_wizard):
+    _, services = full_wizard
+    free = {m.id for m in sw.features_in(services, "free")}
+    assert {"versions", "exe_build", "packages"} <= free
+    assert not free & {"news", "activity", "releases", "ai_help", "dictation", "readme"}
+    assert {"news", "activity", "releases"} <= {m.id for m in sw.features_in(services, "platform")}
+    assert {"ai_help", "dictation"} <= {m.id for m in sw.features_in(services, "ai")}
+
+
+def test_feature_page_comes_after_the_folder(full_wizard):
+    dialog, _ = full_wizard
+    go_to(dialog, "Projekte-Hauptordner")
+    dialog.next()
+    page = dialog.page
+    assert page.title == "Features wählen"
+    # go_to hat die Plattform übersprungen, deshalb fehlt "Code-Plattformen einrichten"
+    assert dialog.heading.text() == "Schritt 6 von 8: Features wählen"
+    assert dialog.focusWidget() is page.text
+    assert next_focus(page.text) is page.list
+    assert page.list.accessibleName() == "Features"
+    rows = texts(page.list)
+    assert rows and all(page.list.item(r).checkState() == Qt.CheckState.Checked
+                        for r in range(len(rows)))
+    assert any(row.startswith("Versionen: ") for row in rows)
+    assert not any(row.startswith("Neuigkeiten: ") for row in rows)
+
+
+def test_unchecked_feature_is_off_and_checked_ones_are_on(full_wizard):
+    dialog, services = full_wizard
+    go_to(dialog, "Features wählen")
+    page = dialog.page
+    row = next(r for r, m in enumerate(page.features) if m.id == "packages")
+    page.list.item(row).setCheckState(Qt.CheckState.Unchecked)
+    dialog.next()
+    assert dialog.page.title == "KI"
+    assert not services.features.globally_enabled("packages")
+    assert services.features.globally_enabled("versions")
+    assert "versions" in services.features.default_features()     # sonst standardmäßig aus
+    total = len(page.features)
+    go_to(dialog, "Zusammenfassung")
+    assert (f"Eingerichtet: Features: {total - 1} von {total} eingeschaltet."
+            in texts(dialog.page.list))
+
+
+def test_skipped_feature_page_changes_nothing(full_wizard):
+    dialog, services = full_wizard
+    go_to(dialog, "Features wählen")
+    dialog.skip()
+    assert services.settings.load().default_features is None
+    go_to(dialog, "Zusammenfassung")
+    assert ("Übersprungen: Features wählen. Nachholen: Menü Features, Feature-Verwaltung."
+            in texts(dialog.page.list))
+
+
+def test_platform_and_ai_pages_name_their_features(full_wizard, qtbot):
+    dialog, _ = full_wizard
+    go_to(dialog, "Code-Plattformen wählen")
+    lines = texts(dialog.page.text)
+    assert "Dazu kommen diese Features:" in lines
+    assert any(line.startswith("Neuigkeiten: ") for line in lines)
+    go_to(dialog, "KI")
+    qtbot.waitUntil(lambda: dialog.page.task is None, timeout=10000)
+    lines = texts(dialog.page.text)
+    assert "Mit KI nutzen Sie diese Features:" in lines
+    assert any(line.startswith("KI-Hilfe: ") for line in lines)
+
+
+def test_git_page_explains_git(wizard):
+    dialog, _ = wizard
+    go_to(dialog, "Git")
+    lines = texts(dialog.page.state)
+    assert lines[1:1 + len(sw.GIT_LINES)] == sw.GIT_LINES

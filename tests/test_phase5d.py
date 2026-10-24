@@ -17,6 +17,7 @@ from tests.test_phase5a import EMAIL, NAME, live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import (head, labels, push_from_other, run_push, select_code,
                                 setup_repo)
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -338,7 +339,7 @@ def test_history_dialog_and_revert(qtbot, make_services, tmp_path, projects_root
     _, code, _ = history_repo(tmp_path, projects_root)
     project = services.projects.add(code.parent)
     questions = []
-    monkeypatch.setattr(history_dialogs, "confirm",
+    patch_split(monkeypatch, history_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((t, text, k)) or True)
     dialog = history_dialogs.HistoryDialog(services, project, history.log_commits(code))
     qtbot.addWidget(dialog)
@@ -378,7 +379,7 @@ def test_version_dialog_restore_and_undo(qtbot, make_services, tmp_path, project
     project = services.projects.add(code.parent)
     commit(code, "Noch lokal", {"main.py": "lokal\n"})
     answers = []
-    monkeypatch.setattr(history_dialogs, "confirm",
+    patch_split(monkeypatch, history_dialogs, "confirm",
                         lambda p, t, text, **k: answers.append((text, k)) or len(answers) > 1)
     commits = history.log_commits(code)
     first = history_dialogs.VersionDialog(services, project, commits[-1])
@@ -413,8 +414,8 @@ def test_revert_of_a_merge_explains_without_question(qtbot, make_services, tmp_p
     sync.finish(code, sync.ConflictKind.MERGE)
     project = services.projects.add(code.parent)
     errors = []
-    monkeypatch.setattr(history_dialogs, "show_error", lambda *a: errors.append(a[2]))
-    monkeypatch.setattr(history_dialogs, "confirm", lambda *a, **k: pytest.fail("keine Frage"))
+    patch_split(monkeypatch, history_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, history_dialogs, "confirm", lambda *a, **k: pytest.fail("keine Frage"))
     dialog = history_dialogs.VersionDialog(services, project, history.log_commits(code)[0])
     qtbot.addWidget(dialog)
     dialog.revert()
@@ -426,8 +427,8 @@ def test_discard_dialog(qtbot, tmp_path, projects_root, monkeypatch):
     write(code, "main.py", "x\n")
     write(code, "neu.py", "n\n")
     errors, questions = [], []
-    monkeypatch.setattr(history_dialogs, "show_error", lambda *a: errors.append(a[2]))
-    monkeypatch.setattr(history_dialogs, "confirm",
+    patch_split(monkeypatch, history_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, history_dialogs, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or True)
     dialog = history_dialogs.DiscardDialog("Tagebuch", history.local_changes(code))
     qtbot.addWidget(dialog)
@@ -465,7 +466,7 @@ def test_discard_from_the_window(live, qtbot, make_services, projects_root, tmp_
         def exec(self):
             return True
 
-    monkeypatch.setattr(history_dialogs, "DiscardDialog", FakeDiscard)
+    patch_split(monkeypatch, history_dialogs, "DiscardDialog", FakeDiscard)
     entry = next(e for e in win.current_entries() if e.action.id == "discard")
     win.run_entry(entry)
     assert said("1 Änderung verworfen.")
@@ -490,7 +491,7 @@ def test_history_from_the_window(live, qtbot, make_services, projects_root, tmp_
         def exec(self):
             return True
 
-    monkeypatch.setattr(history_dialogs, "HistoryDialog", FakeHistory)
+    patch_split(monkeypatch, history_dialogs, "HistoryDialog", FakeHistory)
     entry = next(e for e in win.current_entries() if e.action.id == "history")
     win.run_entry(entry)
     qtbot.waitUntil(lambda: bool(shown), timeout=10000)

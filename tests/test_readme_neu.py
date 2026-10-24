@@ -9,6 +9,7 @@ from cockpit.core.actions import ActionContext, Target
 from cockpit.core.errors import CockpitError
 from cockpit.features.readme import plan
 from tests.test_phase9 import ScriptedAI, project_with
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -128,8 +129,8 @@ def no_boxes(monkeypatch):
     def error(parent, title, message, details=""):
         raise AssertionError(f"{title}: {message} {details}")
 
-    monkeypatch.setattr(readme_flow, "show_error", error)
-    monkeypatch.setattr(readme_flow, "confirm", lambda *args, **kwargs: True)
+    patch_split(monkeypatch, readme_flow, "show_error", error)
+    patch_split(monkeypatch, readme_flow, "confirm", lambda *args, **kwargs: True)
 
 
 @pytest.fixture
@@ -285,13 +286,13 @@ def test_import_action_asks_first(qtbot, tmp_path, projects_root, make_services,
     monkeypatch.setattr(readme_flow.QFileDialog, "getOpenFileName",
                         lambda *args, **kwargs: (str(source), ""))
     asked = []
-    monkeypatch.setattr(readme_flow, "confirm",
+    patch_split(monkeypatch, readme_flow, "confirm",
                         lambda parent, title, text, **kw: asked.append(text) or False)
     context = ActionContext(services, project, Target.PROJECT)
     readme.import_file(context)
     assert asked == ["Beschreibung.md wird als README.md in den Ordner Repository kopiert. "
                      "Übernehmen?"]
     assert not (project.code_dir / "README.md").exists()          # Abbrechen ist die Vorgabe
-    monkeypatch.setattr(readme_flow, "confirm", lambda *args, **kw: True)
+    patch_split(monkeypatch, readme_flow, "confirm", lambda *args, **kw: True)
     readme.import_file(context)
     assert read(project) == "# Rechner\n"

@@ -13,6 +13,7 @@ from cockpit.core import core_actions
 from cockpit.core.actions import Target
 from cockpit.core.features import settings_fields as sf
 from cockpit.ui import main_window as mw
+from cockpit.ui import window_actions
 from cockpit.ui.announcer import announcer
 from cockpit.ui.error_dialog import ErrorDialog
 from cockpit.ui.form_builder import FormError, SettingsForm
@@ -101,8 +102,9 @@ def test_no_fixed_colors(window):
 def test_menu_bar_order_and_unique_mnemonics(window):
     win = window()
     titles = [a.text() for a in win.menuBar().actions()]
-    assert [t.replace("&", "") for t in titles] == ["Datei", "Features", "KI", "Konten",
-                                                    "Einstellungen", "Hilfe"]
+    assert [t.replace("&", "") for t in titles] == ["Datei", "Features", "Pakete", "KI",
+                                                    "Konten", "Einstellungen", "Neuigkeiten",
+                                                    "Hilfe"]
     keys = [re.search(r"&(\w)", t).group(1).lower() for t in titles]
     assert len(keys) == len(set(keys))
     for top in win.menuBar().actions():
@@ -374,7 +376,7 @@ def test_failing_action_shows_error_dialog(window, monkeypatch, qtbot):
         raise OSError(f"[WinError 193] keine Anwendung {FAKE_TOKEN}")
     monkeypatch.setattr(core_actions, "start_program", broken)
     shown = []
-    monkeypatch.setattr(mw, "show_error", lambda *args: shown.append(args))
+    monkeypatch.setattr(window_actions, "show_error", lambda *args: shown.append(args))
     win = window()
     project = next(p for p in win.services.projects.all() if p.name == "PDF-Chat")
     (project.exe_dir / "PDF-Chat.exe").write_text("x")
@@ -393,7 +395,7 @@ def test_context_menu_offers_the_same_actions(window, qtbot, monkeypatch):
         seen.extend(a.text() for a in menu.actions())
         assert menu.accessibleName() == "Aktionen"
         return None
-    monkeypatch.setattr(mw.AccessibleMenu, "exec", fake_exec)
+    monkeypatch.setattr(window_actions.AccessibleMenu, "exec", fake_exec)
     win.show_context_menu(win.project_list.mapToGlobal(win.project_list.rect().center()))
     assert seen == win.actions_list.texts()
     assert win.project_list.hasFocus()

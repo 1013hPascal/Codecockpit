@@ -19,7 +19,8 @@ TASK_NAMES = {"terminal_explain": "Erklärungen im Terminal",
               "exe_fix": "die Einrichtung der Exe",
               "ai_help": "die KI-Hilfe",
               "readme": "die README-Pflege",
-              "releases": "Releases und GitHub Actions"}
+              "releases": "Releases und GitHub Actions",
+              "packages": "Vorschläge zu neueren Modellen"}
 DECLINED = "Nicht gesendet. Sie haben der KI außerhalb Ihres Rechners nicht zugestimmt."
 
 

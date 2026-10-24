@@ -214,6 +214,40 @@ def merge_state_text(pull: PullRequest) -> str:
     return ""
 
 
+# -- Checks (21.10.2026) ---------------------------------------------------------------------------
+def checks_text(checks) -> str:
+    """"Checks: 1 fehlgeschlagen (Tests), 2 erfolgreich" oder leer, wenn es keine gibt. Das
+    Schlechteste steht vorne."""
+    if not checks:
+        return ""
+    failed = [c for c in checks if c.failed]
+    running = [c for c in checks if c.running]
+    good = [c for c in checks if c.conclusion == "success"]
+    parts = []
+    if failed:
+        parts.append(f"{len(failed)} fehlgeschlagen ({', '.join(c.name for c in failed)})")
+    if running:
+        parts.append(f"{len(running)} {'laufen' if len(running) > 1 else 'läuft'} noch")
+    if good:
+        parts.append(f"{len(good)} erfolgreich")
+    rest = len(checks) - len(failed) - len(running) - len(good)
+    if rest:
+        parts.append(f"{rest} ohne Ergebnis")
+    return "Checks: " + ", ".join(parts)
+
+
+def check_lines(checks) -> list[str]:
+    """Eine Zeile pro Check, fehlgeschlagene zuerst: "Tests: fehlgeschlagen, 2 Fehler"."""
+    order = sorted(checks, key=lambda c: (not c.failed, not c.running, c.name.lower()))
+    lines = []
+    for check in order:
+        line = f"{check.name}: {check.state_text()}"
+        if check.summary:
+            line += f", {' '.join(check.summary.split())}"
+        lines.append(line)
+    return lines or ["Für diesen Pull Request gibt es keine Checks."]
+
+
 METHOD_TEXTS = {
     "merge": "Merge-Commit: Alle Commits bleiben, dazu kommt ein Commit für das Übernehmen",
     "squash": "Squash: Alle Commits werden zu einem einzigen zusammengefasst",

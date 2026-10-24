@@ -20,7 +20,7 @@ Ergebnis:
 
 [ ] 3. Release nur mit Quellcode
 Tasten: Bei einem Projekt ohne Exe-Erstellung „Release anlegen“.
-Ansage: Das Fenster „Exe veröffentlichen: …, nur Quellcode“ mit der Version und dem Feld Versionshinweise. Alt+I holt einen Vorschlag der KI. Nach „Veröffentlichen“: „Release … angelegt. Link kopiert.“
+Ansage: Das Fenster „Release anlegen: …, nur Quellcode“ mit der Version und dem Feld Versionshinweise. Alt+I holt einen Vorschlag der KI. Nach „Veröffentlichen“: „Release … angelegt. Link kopiert.“
 Auf GitHub: Das Release hat den Quellcode als ZIP-Datei.
 Ergebnis:
 

@@ -20,6 +20,7 @@ from cockpit.ui.project_manage import ProjectManageDialog, delete_text
 from tests.conftest import FakePlatform, said
 from tests.test_phase10f import structured, window
 from tests.test_phase5a import sh
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -137,7 +138,7 @@ def test_show_choice_changes_rows_and_is_kept(qtbot, tmp_path, projects_root, ma
     assert win.project_list.select(Target.REPOSITORY, project.id)
     assert any(t.startswith("Branch suche") for t in win.project_list.texts())
     offered = []
-    monkeypatch.setattr(listing, "pick_show",
+    patch_split(monkeypatch, listing, "pick_show",
                         lambda widget, names, current, extra=None: offered.append((names, current))
                         or "main")
     entry = next(e for e in win.current_entries() if e.action.id == "branch_show")
@@ -160,7 +161,7 @@ def test_enter_on_repository_opens_the_choice(qtbot, tmp_path, projects_root, ma
     win = window(qtbot, services)
     win.project_list.select(Target.REPOSITORY, project.id)
     opened = []
-    monkeypatch.setattr(listing, "pick_show",
+    patch_split(monkeypatch, listing, "pick_show",
                         lambda widget, names, current, extra=None: opened.append(current) or None)
     win.project_list.setFocus()
     qtbot.keyClick(win.project_list, Qt.Key.Key_Return)

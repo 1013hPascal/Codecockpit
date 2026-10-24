@@ -52,27 +52,28 @@ def current_folder(project: Project) -> Path | None:
     return project.code_dir if git.status(project.code_dir).branch == BRANCH else None
 
 
-def prepare(project: Project) -> Path:
+def prepare(project: Project, name: str = BRANCH) -> Path:
     """Ordner, in dem der Branch ausgecheckt ist. Gibt es ihn schon, wird er weiterbenutzt.
     Ein neuer Branch beginnt beim Stand von main auf diesem Rechner, nicht auf der Plattform.
-    So passt der Vorschlag der KI genau, und es braucht kein Netz."""
+    So passt der Vorschlag der KI genau, und es braucht kein Netz. name: ein anderer Branch,
+    zum Beispiel für die Paketübersicht (21.10.2026)."""
     code_dir = project.code_dir
     state = git.status(code_dir)
     main = state.default_branch or "main"
     if project.has_branch_folders:
-        if _local(code_dir, BRANCH):
-            return worktrees.open_branch(project, BRANCH).path
+        if _local(code_dir, name):
+            return worktrees.open_branch(project, name).path
         worktrees.prune(code_dir)
-        path = worktrees.free_folder(project, BRANCH)
-        git.run(["worktree", "add", "-q", "--no-track", "-b", BRANCH, str(path), main],
+        path = worktrees.free_folder(project, name)
+        git.run(["worktree", "add", "-q", "--no-track", "-b", name, str(path), main],
                 code_dir, action="Branch-Ordner anlegen")
         return path
-    if state.branch == BRANCH:
+    if state.branch == name:
         return code_dir
-    if _local(code_dir, BRANCH):
-        branches.switch(code_dir, BRANCH)
+    if _local(code_dir, name):
+        branches.switch(code_dir, name)
         return code_dir
-    git.run(["switch", "-q", "-c", BRANCH, main], code_dir, action="Branch anlegen")
+    git.run(["switch", "-q", "-c", name, main], code_dir, action="Branch anlegen")
     return code_dir
 
 

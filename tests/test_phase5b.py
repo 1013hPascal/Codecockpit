@@ -18,7 +18,7 @@ from cockpit.core.projects import read_config
 from cockpit.core.safety_check import Kind
 from cockpit.core.upload import UploadSpec
 from cockpit.ui import project_actions, upload_dialogs, upload_flow
-from tests.conftest import FakePlatform, make_project, said
+from tests.conftest import FakePlatform, make_project, said, patch_controller
 from tests.test_phase5a import EMAIL, NAME, account, live, sh, wait_idle  # noqa: F401
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
@@ -415,11 +415,11 @@ def test_add_local_then_upload_end_to_end(live, qtbot, account, projects_root, t
             return True
 
     asked, questions, infos, errors = [], [], [], []
-    monkeypatch.setattr(project_actions, "show_error", lambda *a: errors.append(a[2:]))
+    patch_controller(monkeypatch, "show_error", lambda *a: errors.append(a[2:]))
     monkeypatch.setattr(upload_flow, "show_error", lambda *a: errors.append(a[2:]))
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: source)
-    monkeypatch.setattr(project_actions, "ask_buttons", lambda *a, **k: 1)     # verschieben
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "pick_folder", lambda *a: source)
+    patch_controller(monkeypatch, "ask_buttons", lambda *a, **k: 1)     # verschieben
+    patch_controller(monkeypatch, "confirm",
                         lambda p, t, text, **k: asked.append((text, k)) or True)
     monkeypatch.setattr(upload_dialogs, "UploadDialog", FakeUploadDialog)
     monkeypatch.setattr(upload_dialogs, "SafetyDialog", FakeSafety)
@@ -456,8 +456,8 @@ def test_upload_offer_defaults_to_later(live, qtbot, account, projects_root, tmp
     folder = make_project(tmp_path, "Spaeter")
     win = live(services)
     started = []
-    monkeypatch.setattr(project_actions, "pick_folder", lambda *a: folder)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: False)   # Escape: Später
+    patch_controller(monkeypatch, "pick_folder", lambda *a: folder)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: False)   # Escape: Später
     from cockpit.ui import folder_rename_flow
     monkeypatch.setattr(folder_rename_flow, "confirm", lambda *a, **k: False)
     monkeypatch.setattr(upload_flow.UploadRunner, "start", lambda self: started.append(1))
@@ -486,7 +486,7 @@ def test_download_from_list_with_organizations(live, qtbot, account, projects_ro
     platform.repositories = lambda owner="": [club] if owner == "verein" else original()
     win = live(services)
     shown = []
-    monkeypatch.setattr(project_actions, "choose_from_list",
+    patch_controller(monkeypatch, "choose_from_list",
                         lambda parent, title, name, items, current=0: shown.append(items) or 1)
     win.project_list.select(Target.ADD_REMOTE, None)
     win.run_entry(win.current_entries()[0])

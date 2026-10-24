@@ -12,9 +12,10 @@ from cockpit.core import git, repo_admin, upload
 from cockpit.core.actions import ActionContext, Target
 from cockpit.core.git import RemoteAddress
 from cockpit.platforms.base import NotFound, RepoInfo, RepoRef
-from tests.conftest import said
+from tests.conftest import said, patch_controller
 from tests.test_phase5a import sh
 from tests.test_phase5c import setup_repo
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -123,7 +124,7 @@ def test_manage_offers_to_create_when_missing(qtbot, tmp_path, projects_root, ma
     monkeypatch.setattr(vault_ui, "ensure_unlocked", lambda *a: True)
     monkeypatch.setattr(services, "platform_for", lambda p: FakePlatform(False))
     asked = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or False)
     win.controller.manage_action(ActionContext(services, project, Target.PROJECT))
     qtbot.waitUntil(lambda: bool(asked), timeout=10000)
@@ -140,7 +141,7 @@ def test_deleting_the_repo_always_removes_the_address(qtbot, tmp_path, projects_
     info = RepoInfo(RepoRef("tester", "Chatbot-fuer-Text"), True, False, "main", URL)
     dialog = repo_dialogs.ManageRepoDialog(services, project, FakePlatform(True), info)
     qtbot.addWidget(dialog)
-    monkeypatch.setattr(repo_dialogs, "ask_buttons", lambda *a, **k: choice)
+    patch_split(monkeypatch, repo_dialogs, "ask_buttons", lambda *a, **k: choice)
     dialog._deleted()
     assert git.config_get(code, "remote.origin.url") == ""
     assert said("Chatbot-fuer-Text ist auf GitHub gelöscht.")

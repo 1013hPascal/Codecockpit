@@ -1,0 +1,5 @@
+Ein Projekt benutzt das Sprachmodell <<modell>> (<<ort>>). Gibt es neuere Modelle, die es gleichwertig oder besser ersetzen und auf einem normalen Rechner laufen?
+
+Nennen Sie höchstens drei, das passendste zuerst. Eine Zeile pro Modell, ohne Aufzählungszeichen: zuerst der genaue Name zum Herunterladen, dann ein Doppelpunkt, dann ein kurzer Grund und die ungefähre Größe.
+Nehmen Sie bei Ollama den Namen mit Tag, zum Beispiel qwen3:8b. Nehmen Sie bei Hugging Face den Namen mit Besitzer, zum Beispiel Systran/faster-whisper-large-v3.
+Nennen Sie nur Modelle, die Sie sicher kennen. Wissen Sie keines, schreiben Sie: Kein Vorschlag: und den Grund.

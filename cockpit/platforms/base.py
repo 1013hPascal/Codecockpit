@@ -37,6 +37,7 @@ class Capability(Enum):
     SECURITY_ALERTS = auto()
     COLLABORATORS = auto()
     BRANCH_PROTECTION = auto()
+    ACTIVITY = auto()                # Neuigkeiten, Aufrufe und Klone (22.10.2026)
 
 
 # Deutsche Namen für Begründungen ("Die Plattform kennt keine Releases.")
@@ -57,6 +58,7 @@ CAPABILITY_NAMES = {
     Capability.SECURITY_ALERTS: "Sicherheitswarnungen",
     Capability.COLLABORATORS: "Mitarbeiter",
     Capability.BRANCH_PROTECTION: "Schutzregeln",
+    Capability.ACTIVITY: "Aktivität",
 }
 
 
@@ -244,6 +246,37 @@ class PullRequest:
     node_id: str = ""                # für GraphQL (Entwurf freigeben)
     mergeable: bool | None = None    # None: GitHub rechnet noch
     mergeable_state: str = ""        # "clean", "dirty" (Konflikte), "blocked", "behind" ...
+    head_sha: str = ""               # neuester Commit des Branches, für die Checks
+    head_repo: str = ""              # "owner/name", bei einem Fork nicht dieses Repository
+
+
+@dataclass(frozen=True)
+class Check:
+    """Eine automatische Prüfung zu einem Commit, zum Beispiel ein Lauf von GitHub Actions
+    (21.10.2026)."""
+    name: str
+    status: str                      # "queued", "in_progress", "completed"
+    conclusion: str = ""             # "success", "failure", "neutral", "skipped" ... oder ""
+    url: str = ""
+    summary: str = ""                # kurze Beschreibung der Plattform, falls vorhanden
+
+    @property
+    def running(self) -> bool:
+        return self.status != "completed"
+
+    @property
+    def failed(self) -> bool:
+        return self.conclusion in ("failure", "timed_out", "startup_failure", "action_required",
+                                   "cancelled", "error")
+
+    def state_text(self) -> str:
+        if self.running:
+            return "wartet" if self.status in ("queued", "waiting", "pending") else "läuft"
+        return {"success": "erfolgreich", "failure": "fehlgeschlagen", "error": "fehlgeschlagen",
+                "cancelled": "abgebrochen", "skipped": "übersprungen", "neutral": "neutral",
+                "timed_out": "Zeit überschritten",
+                "action_required": "braucht eine Freigabe"}.get(self.conclusion,
+                                                                 self.conclusion or "fertig")
 
 
 @dataclass(frozen=True)
@@ -322,6 +355,88 @@ class SupportsPullRequests:
         raise NotImplementedError
 
     def merge_pull_request(self, repo: RepoRef, number: int, method: str) -> None:
+        raise NotImplementedError
+
+    # -- 21.10.2026 ----------------------------------------------------------------------------
+    def pull_request_checks(self, repo: RepoRef, pull: PullRequest) -> list[Check]:
+        """Die automatischen Prüfungen zum neuesten Commit des Pull Requests."""
+        raise NotImplementedError
+
+
+# -- Issues (21.10.2026) -----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Issue:
+    number: int
+    title: str
+    author: str
+    state: str = "open"              # "open" oder "closed"
+    body: str = ""
+    labels: tuple[str, ...] = ()
+    assignees: tuple[str, ...] = ()
+    created: str = ""                # ISO
+    url: str = ""
+    comments: int = 0                # Zahl der Kommentare
+
+
+@dataclass(frozen=True)
+class IssueComment:
+    author: str
+    created: str                     # ISO
+    body: str
+
+
+class SupportsIssues:
+    """Issues lesen, anlegen, kommentieren, schließen, mit Labels und Zuweisen."""
+
+    def issues(self, repo: RepoRef, state: str = "open") -> list[Issue]:
+        """state: "open", "closed" oder "all". Neueste zuerst, ohne Pull Requests."""
+        raise NotImplementedError
+
+    def issue(self, repo: RepoRef, number: int) -> Issue:
+        raise NotImplementedError
+
+    def create_issue(self, repo: RepoRef, title: str, body: str,
+                     labels: tuple[str, ...] = (), assignees: tuple[str, ...] = ()) -> Issue:
+        raise NotImplementedError
+
+    def issue_comments(self, repo: RepoRef, number: int) -> list[IssueComment]:
+        """Älteste zuerst."""
+        raise NotImplementedError
+
+    def add_issue_comment(self, repo: RepoRef, number: int, body: str) -> None:
+        raise NotImplementedError
+
+    def set_issue_open(self, repo: RepoRef, number: int, open_: bool) -> None:
+        raise NotImplementedError
+
+    def issue_labels(self, repo: RepoRef) -> list[str]:
+        """Alle Labels, die es im Repository gibt."""
+        raise NotImplementedError
+
+    def set_issue_labels(self, repo: RepoRef, number: int, labels: tuple[str, ...]) -> None:
+        raise NotImplementedError
+
+    def assignable(self, repo: RepoRef) -> list[str]:
+        """Wer Issues zugewiesen bekommen kann."""
+        raise NotImplementedError
+
+    def set_issue_assignees(self, repo: RepoRef, number: int,
+                            assignees: tuple[str, ...]) -> None:
+        raise NotImplementedError
+
+
+# -- Forks (21.10.2026) ------------------------------------------------------------------------------
+class SupportsForks:
+    """Zu fremden Projekten beitragen: eine eigene Kopie (Fork) anlegen, dort hochladen und dem
+    Original einen Pull Request stellen."""
+
+    def can_push(self, repo: RepoRef) -> bool:
+        """Darf das Konto direkt in dieses Repository hochladen?"""
+        raise NotImplementedError
+
+    def fork(self, repo: RepoRef, cancel=None) -> RemoteRepo:
+        """Fork im eigenen Konto anlegen oder den vorhandenen zurückgeben. Wartet, bis er bereit
+        ist."""
         raise NotImplementedError
 
 

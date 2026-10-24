@@ -18,11 +18,12 @@ from cockpit.platforms.base import (Capability, Collaborator, PermissionMissing,
                                     RepoRef, SupportsCollaborators)
 from cockpit.platforms.github import GitHubPlatform
 from cockpit.ui import repo_dialogs
-from tests.conftest import FakePlatform, said
+from tests.conftest import FakePlatform, said, patch_controller
 from tests.test_github import TOKEN, platform as github_platform, server  # noqa: F401
 from tests.test_phase5a import account, live, sh, wait_idle  # noqa: F401
 from tests.test_phase5b import write
 from tests.test_phase5c import labels, setup_repo
+from tests.conftest import patch_split
 
 pytestmark = pytest.mark.skipif(git.find_git() is None, reason="Git ist nicht installiert")
 
@@ -140,9 +141,9 @@ def answers(monkeypatch):
         record.questions.append((title, text, {"buttons": buttons, "default": default}))
         return record.choice(buttons) if callable(record.choice) else record.choice
 
-    monkeypatch.setattr(repo_dialogs, "confirm", confirm)
-    monkeypatch.setattr(repo_dialogs, "ask_buttons", ask_buttons)
-    monkeypatch.setattr(repo_dialogs, "show_error", lambda *a: record.errors.append(a[2]))
+    patch_split(monkeypatch, repo_dialogs, "confirm", confirm)
+    patch_split(monkeypatch, repo_dialogs, "ask_buttons", ask_buttons)
+    patch_split(monkeypatch, repo_dialogs, "show_error", lambda *a: record.errors.append(a[2]))
     return record
 
 
@@ -330,7 +331,7 @@ def test_remove_from_list(live, qtbot, account, tmp_path, projects_root, monkeyp
     project = connected_project(services, code, acc.id)
     win = live(services)
     questions = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda p, t, text, **k: questions.append((text, k)) or len(questions) > 1)
     win.project_list.select(Target.PROJECT, project.id)
 
@@ -362,7 +363,7 @@ def test_hide_remote_repo(live, qtbot, account, tmp_path, projects_root, monkeyp
     repo = services.remote_repos.all()[0]
     win.project_list.select(Target.REMOTE_REPO, repo.id)
     assert "Aus der Liste entfernen …" in labels(win)
-    monkeypatch.setattr(project_actions, "confirm", lambda *a, **k: True)
+    patch_controller(monkeypatch, "confirm", lambda *a, **k: True)
     entry = next(e for e in win.current_entries() if e.action.id == "hide_remote")
     win.run_entry(entry)
     assert said("Wetter aus der Liste entfernt.")
@@ -389,7 +390,7 @@ def test_manage_opens_with_repo_info(live, qtbot, account, tmp_path, projects_ro
         def exec(self):
             return 0
 
-    monkeypatch.setattr(repo_dialogs, "ManageRepoDialog", FakeManage)
+    patch_split(monkeypatch, repo_dialogs, "ManageRepoDialog", FakeManage)
     win.project_list.select(Target.REPOSITORY, project.id)          # seit dem 06.10.2026
     entry = next(e for e in win.current_entries() if e.action.id == "manage_repo")
     win.run_entry(entry)
@@ -523,7 +524,7 @@ def test_delete_offers_archive_and_needs_the_name(qtbot, make_services, tmp_path
         def exec(self):
             return 0                                             # Name falsch oder Escape
 
-    monkeypatch.setattr(repo_dialogs, "TypeNameDialog", WrongName)
+    patch_split(monkeypatch, repo_dialogs, "TypeNameDialog", WrongName)
     answers.choice = 0
     dialog.delete()
     assert fake.calls == [("archive", "Tagebuch")]
@@ -644,7 +645,7 @@ def test_delete_without_browser_login_explains(qtbot, make_services, tmp_path, p
 
 def test_type_name_dialog(qtbot, monkeypatch):
     errors = []
-    monkeypatch.setattr(repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = repo_dialogs.TypeNameDialog("codecockpit-test")
     qtbot.addWidget(dialog)
     assert dialog.edit.accessibleName() == ("Zur Bestätigung den Namen eintippen: "
@@ -677,7 +678,7 @@ def test_collaborators_dialog(qtbot, answers, monkeypatch):
         def exec(self):
             return 1
 
-    monkeypatch.setattr(repo_dialogs, "InviteDialog", FakeInvite)
+    patch_split(monkeypatch, repo_dialogs, "InviteDialog", FakeInvite)
     from PySide6.QtCore import Qt
     dialog.list.setCurrentRow(0)
     qtbot.keyClick(dialog.list, Qt.Key.Key_Return)                 # Enter auf "Einladen …"
@@ -734,7 +735,7 @@ def test_github_change_permission(server):
 
 def test_invite_dialog(qtbot, monkeypatch):
     errors = []
-    monkeypatch.setattr(repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
+    patch_split(monkeypatch, repo_dialogs, "show_error", lambda *a: errors.append(a[2]))
     dialog = repo_dialogs.InviteDialog()
     qtbot.addWidget(dialog)
     assert dialog.rights.currentText() == "schreiben"              # Vorgabe

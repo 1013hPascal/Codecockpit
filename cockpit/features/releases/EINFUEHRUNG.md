@@ -2,7 +2,7 @@
 
 Ein Release ist eine veröffentlichte Version Ihres Projekts auf GitHub, mit Versionshinweisen und auf Wunsch mit einer Exe zum Herunterladen.
 
-Setzen Sie beim Hochladen eine neue Version, fragt das Cockpit danach: „Für Version 1.4.0 ein Release auf GitHub anlegen?“ Vorgabe ist „Später“. Ist die Exe-Erstellung aktiv, kommt die Exe mit. Sonst hängt GitHub nur den Quellcode als ZIP-Datei an. Die Versionshinweise schlägt die KI aus den Commits vor, Sie können sie vorher ändern.
+Setzen Sie beim Hochladen eine neue Version, fragt das Cockpit danach: „Für Version 1.4.0 ein Release auf GitHub anlegen?“ Vorgabe ist „Später“. Ist die Exe-Erstellung aktiv und gibt es eine Exe, kommt die Exe mit. Gibt es noch keine Exe, bietet das Cockpit an, eine aus dem Code zu erstellen oder eine vorhandene zu wählen. Sonst hängt GitHub nur den Quellcode als ZIP-Datei an. Die Versionshinweise schlägt die KI aus den Commits vor, Sie können sie vorher ändern.
 
 Auf der Projektzeile steht „Releases …“. Die Liste zeigt Ihre Releases, neueste oben, mit Datum und Downloads. Mit Tab kommen Sie zu Versionshinweise ansehen, bearbeiten, Link kopieren, im Browser öffnen und löschen. Beim Löschen bleibt das Tag im Code.
 

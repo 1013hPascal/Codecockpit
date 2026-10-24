@@ -1,0 +1,33 @@
+# Automatische Tests auf GitHub (Punkt aus der Bewertung vom 21.10.2026).
+# Läuft bei jedem Hochladen auf main und bei jedem Pull Request auf main.
+# Braucht keine Geheimnisse: Die Tests benutzen nur erfundene.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Tests ausführen
+        run: python -m pytest -q -p no:cacheprovider

@@ -62,6 +62,7 @@ class Changes:
     added: list[str] = field(default_factory=list)
     deleted: list[str] = field(default_factory=list)
     renamed: list[str] = field(default_factory=list)
+    origins: dict[str, str] = field(default_factory=dict)   # umbenannt: neuer -> alter Name
 
     @property
     def files(self) -> list[str]:
@@ -98,6 +99,14 @@ class Changes:
         export.py." """
         return " ".join(f"{text}: {self._names(files)}." for text, files in self.parts())
 
+    def kinds(self) -> dict[str, str]:
+        """Pfad -> "geändert", "neu", "gelöscht" oder "umbenannt" (für staging)."""
+        found: dict[str, str] = {}
+        for files, what in ((self.modified, "geändert"), (self.added, "neu"),
+                            (self.deleted, "gelöscht"), (self.renamed, "umbenannt")):
+            found.update({f: what for f in files})
+        return found
+
     def lines(self) -> list[str]:
         """Eine Zeile pro Datei, der Name vorne: "main.py, geändert"."""
         result = []
@@ -105,6 +114,28 @@ class Changes:
                             (self.deleted, "gelöscht"), (self.renamed, "umbenannt")):
             result.extend(f"{f}, {what}" for f in files)
         return result
+
+
+def known_people(code_dir: Path, limit: int = 2000) -> list[str]:
+    """Personen mit Commits in diesem Repository, als "Name <E-Mail>", ohne die eigene Adresse.
+    Für "Co-Autoren" beim Hochladen (21.10.2026)."""
+    own = git.identity(code_dir)[1].lower()
+    result = git.run(["log", f"-{limit}", "--all", "--format=%an <%ae>"], code_dir, check=False)
+    found: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line in found or (own and f"<{own}>" in line.lower()):
+            continue
+        found.append(line)
+    return sorted(found, key=str.lower)
+
+
+def with_coauthors(message: str, people: list[str]) -> str:
+    """Die Nachricht mit "Co-authored-by:" am Ende, so erkennt GitHub die Mitautoren."""
+    if not people:
+        return message
+    trailers = "\n".join(f"Co-authored-by: {person}" for person in people)
+    return f"{message.rstrip()}\n\n{trailers}"
 
 
 def blocking_merge(code_dir: Path, source: str) -> list[str]:
@@ -140,8 +171,10 @@ def changes(code_dir: Path) -> Changes:
             continue
         code, path = entry[:2], entry[3:]
         if code[0] in "RC":
-            next(entries, None)                    # alter Name
+            old = next(entries, None)              # alter Name
             found.renamed.append(path)
+            if old and code[0] == "R":
+                found.origins[path] = old
         elif code == "??" or "A" in code:
             found.added.append(path)
         elif "D" in code:
@@ -153,13 +186,18 @@ def changes(code_dir: Path) -> Changes:
 
 # -- Sicherheitsprüfung beim Hochladen ------------------------------------------------------------
 def scan(code_dir: Path, public: bool, git_email: str,
-         accepted: set[tuple[str, str, str]] | None = None) -> safety_check.Report:
-    """Prüft die geänderten Dateien und die Commits, die noch nicht hochgeladen sind."""
+         accepted: set[tuple[str, str, str]] | None = None,
+         only: list[str] | None = None) -> safety_check.Report:
+    """Prüft die geänderten Dateien und die Commits, die noch nicht hochgeladen sind. only: nur
+    diese Dateien, die anderen kommen nicht in den Commit (Auswahl vom 21.10.2026)."""
     upstream = git.status(code_dir).upstream
     history = f"{upstream}..HEAD" if upstream else "HEAD"
     emails = safety_check.commit_emails(code_dir, history)
     emails.append(git.identity(code_dir)[1] or git_email)
-    report = safety_check.scan(code_dir, files=changes(code_dir).existing, public=public,
+    files = changes(code_dir).existing
+    if only is not None:
+        files = [f for f in files if f in only]
+    report = safety_check.scan(code_dir, files=files, public=public,
                                emails=emails, history_range=history)
     accepted = accepted or set()
     report.findings = [f for f in report.findings
@@ -170,8 +208,9 @@ def scan(code_dir: Path, public: bool, git_email: str,
 # -- Schritte des Ablaufs "Änderungen hochladen" ---------------------------------------------------
 def _step_check(context: FlowContext) -> StepResult:
     data = context.data
+    selection = data.get("selection")
     report = scan(context.project.code_dir, data.get("public", False), data.get("git_email", ""),
-                  data.get("accepted"))
+                  data.get("accepted"), list(selection) if selection is not None else None)
     if report.blocking:
         return StepResult(False, "Die Sicherheitsprüfung hat das Hochladen gestoppt.",
                           report.blocking[0].text)
@@ -186,7 +225,14 @@ def _step_commit(context: FlowContext) -> StepResult:
     code_dir = context.project.code_dir
     if not message:
         return StepResult(True)                    # nur Commits hochladen, die schon da sind
-    git.run(["add", "-A"], code_dir, action="Dateien vormerken")
+    selection = context.data.get("selection")
+    if selection is None:
+        git.run(["add", "-A"], code_dir, action="Dateien vormerken")
+    else:
+        # Nur das Gewählte (Wunsch des Nutzers vom 21.10.2026), der Rest bleibt für später
+        from cockpit.core import staging
+        found = changes(code_dir)
+        staging.stage(code_dir, selection, found.kinds(), found.origins)
     if git.run(["diff", "--cached", "--quiet"], code_dir, check=False).returncode == 0:
         return StepResult(True)
     args = ["commit", "-q"]

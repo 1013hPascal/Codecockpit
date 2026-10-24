@@ -84,6 +84,10 @@ class _FeatureListDialog(FocusDialog):
             item = QListWidgetItem()
             if manifest is not None:
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            else:
+                font = item.font()                     # Gruppe "KI" fett, nur für das Auge
+                font.setBold(True)
+                item.setFont(font)
             self.list.addItem(item)
         if not self.manifests:
             self.list.addItem("Keine Features.")
@@ -99,6 +103,8 @@ class _FeatureListDialog(FocusDialog):
         name_widget(self.info, "Beschreibung")
         self.info.setWordWrap(True)
         self.info.installEventFilter(self)
+        from cockpit.ui import look
+        look.mark_explanation(self.info)                # sieht aus wie Text, nur für das Auge
         self.intro_button = QPushButton("&Einführung …")
         self.intro_button.clicked.connect(self.show_intro)
         self.save_button = QPushButton("&Speichern")

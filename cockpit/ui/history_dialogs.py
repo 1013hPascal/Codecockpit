@@ -13,33 +13,24 @@ Enter in Angaben, Dateien und Änderungen nichts aus, Enter auf einem Knopf gena
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QHBoxLayout, QListWidget, QListWidgetItem, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import QHBoxLayout, QListWidget, QPushButton, QVBoxLayout, QWidget
 
-from cockpit.core import history
+from cockpit.core import history, rewrite
 from cockpit.core.errors import CockpitError
-from cockpit.core.history import Commit, LocalChange
+from cockpit.core.history import Commit
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import FocusDialog, confirm, label_for, make_copyable, name_widget
+from cockpit.ui.common import FocusDialog, confirm, label_for, name_widget
 from cockpit.ui.error_dialog import show_error
+# Aufgeteilt am 22.10.2026: Teile stehen in history_edit_dialogs.py. Die Namen bleiben hier erreichbar.
+from cockpit.ui.history_edit_dialogs import (  # noqa: F401
+    BACKUP_NOTE, DiscardDialog, NO_CHOICE, ReorderDialog, UploadHistoryDialog, VersionDialog)
 
 if TYPE_CHECKING:
     from cockpit.core.projects import Project
     from cockpit.core.services import Services
-
-NO_CHOICE = "Bitte wählen Sie mit der Leertaste mindestens eine Datei aus."
-BACKUP_NOTE = "Vorher kommen die betroffenen Dateien als Sicherheitskopie in den Ordner backups."
-
-
-def _ignore_enter(dialog: FocusDialog, watched, event, lists) -> bool:
-    from PySide6.QtCore import QEvent
-    return (watched in lists and event.type() == QEvent.Type.KeyPress
-            and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter))
 
 
 class HistoryDialog(FocusDialog):
@@ -68,11 +59,15 @@ class HistoryDialog(FocusDialog):
         details.clicked.connect(self.show_details)
         self.back_button = QPushButton("Zu dieser Version &zurück …")
         self.back_button.clicked.connect(self.back_to_version)
+        # 21.10.2026: Commits, die noch nicht hochgeladen sind, umsortieren und zusammenfassen
+        self.reorder_button = QPushButton("&Reihenfolge und Zusammenfassen …")
+        self.reorder_button.clicked.connect(self.reorder)
         close = QPushButton("Schließen")
         close.clicked.connect(self.reject)
         buttons = QHBoxLayout()
         buttons.addWidget(details)
         buttons.addWidget(self.back_button)
+        buttons.addWidget(self.reorder_button)
         buttons.addStretch(1)
         buttons.addWidget(close)
         layout = QVBoxLayout(self)
@@ -100,6 +95,7 @@ class HistoryDialog(FocusDialog):
         self.versions.addItems([g.line() for g in self.groups] or ["Noch keine Commits."])
         self.versions.setCurrentRow(max(0, min(row, self.versions.count() - 1)))
         self.versions.blockSignals(False)
+        self.reorder_button.setVisible(sum(1 for c in self.commits if not c.uploaded) >= 2)
         self._fill_commits()
 
     def group(self) -> history.Group | None:
@@ -157,6 +153,26 @@ class HistoryDialog(FocusDialog):
         self.versions.setFocus()
         announce(f"Zurück zu Version {group.version}. Neuer Commit, noch nicht hochgeladen.")
 
+    def reorder(self) -> None:
+        title = "Reihenfolge und Zusammenfassen"
+        try:
+            local = rewrite.local_commits(self.project.code_dir, self.commits)
+        except CockpitError as exc:
+            show_error(self, title, exc.message, exc.details)
+            return
+        dialog = ReorderDialog(local, self)
+        if not dialog.exec():
+            return
+        try:
+            rewrite.reorder(self.project.code_dir, dialog.plan)
+        except CockpitError as exc:
+            show_error(self, title, exc.message, exc.details)
+            return
+        self.changed = True
+        self.reload(0)
+        self.versions.setFocus()
+        announce("Verlauf geändert, noch nicht hochgeladen.")
+
     def show_details(self) -> None:
         commit = self.current()
         if commit is None:
@@ -176,271 +192,3 @@ class HistoryDialog(FocusDialog):
         self.list.setFocus()
 
 
-class VersionDialog(FocusDialog):
-    def __init__(self, services: "Services", project: "Project", commit: Commit,
-                 parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.services = services
-        self.project = project
-        self.commit = commit
-        self.code_dir: Path = project.code_dir
-        self.files_changed = False
-        self.history_changed = False
-        self.changes = history.commit_files(self.code_dir, commit)
-        self.paths = [line.rpartition(", ")[0] for line in self.changes.lines()]
-        self.setWindowTitle(commit.line())
-        steps = history.recorded_steps(services.database, project.id, commit.sha)
-        self.info = QListWidget()
-        name_widget(self.info, "Angaben")
-        make_copyable(self.info)
-        self.info.addItems(history.details(commit, steps))
-        self.info.setCurrentRow(0)
-        self.info.setWordWrap(True)
-        self.files = QListWidget()
-        files_label = label_for(self.files, f"&Dateien, {self.changes.summary()}:")
-        self.files.addItems(self.changes.lines() or ["Keine Dateien geändert."])
-        self.files.setCurrentRow(0)
-        buttons = QHBoxLayout()
-        restore = QPushButton("Datei &wiederherstellen …")
-        restore.clicked.connect(self.restore_current)
-        revert = QPushButton("Version &rückgängig machen …")
-        revert.clicked.connect(self.revert)
-        buttons.addWidget(restore)
-        buttons.addWidget(revert)
-        self.undo_button = None
-        if history.can_undo(commit):
-            self.undo_button = QPushButton("Commit &zurücknehmen …")
-            self.undo_button.clicked.connect(self.undo)
-            buttons.addWidget(self.undo_button)
-        buttons.addStretch(1)
-        close = QPushButton("Schließen")
-        close.clicked.connect(self.reject)
-        buttons.addWidget(close)
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.info, 1)
-        layout.addWidget(files_label)
-        layout.addWidget(self.files, 1)
-        layout.addLayout(buttons)
-        self.resize(720, 520)
-        self.initial_focus_widget = self.info
-        for widget in (self.info, self.files):
-            widget.installEventFilter(self)
-
-    def eventFilter(self, watched, event) -> bool:
-        if _ignore_enter(self, watched, event, (self.info, self.files)):
-            return True
-        return super().eventFilter(watched, event)
-
-    def _when(self) -> str:
-        return f"vom {self.commit.date:%d.%m.%Y} „{self.commit.subject}“"
-
-    # -- Datei wiederherstellen --------------------------------------------------------------
-    def current_path(self) -> str | None:
-        row = self.files.currentRow()
-        if 0 <= row < len(self.paths):
-            return self.paths[row]
-        announce("Es gibt keine Datei.")
-        return None
-
-    def restore_current(self) -> None:
-        path = self.current_path()
-        if path is None:
-            return
-        deleted = path in self.changes.deleted
-        if deleted:
-            what = (f"{path} wurde in der Version {self._when()} gelöscht. Die Datei kommt mit dem "
-                    "Stand direkt davor zurück.")
-        else:
-            what = f"{path} kommt auf den Stand der Version {self._when()}."
-        now = (" Die jetzige Datei kommt vorher als Sicherheitskopie in den Ordner backups."
-               if (self.code_dir / path).is_file() else "")
-        text = (f"{what}{now} Danach ist das eine normale Änderung, die Sie wie gewohnt hochladen. "
-                "Wiederherstellen?")
-        if not confirm(self, "Datei wiederherstellen", text, yes="Wiederherstellen",
-                       no="Abbrechen"):
-            return
-        try:
-            history.restore_file(self.code_dir, self.project.name, self.commit, path,
-                                 self.changes)
-        except CockpitError as exc:
-            show_error(self, "Datei wiederherstellen", exc.message, exc.details)
-            return
-        self.files_changed = True
-        self.files.setFocus()
-        announce(f"{path} wiederhergestellt.")
-
-    # -- Version rückgängig machen -----------------------------------------------------------
-    def revert(self) -> None:
-        title = "Version rückgängig machen"
-        if self.commit.is_merge or not self.commit.parents:
-            try:
-                history.revert(self.code_dir, self.project.name, self.commit)
-            except CockpitError as exc:
-                show_error(self, title, exc.message, exc.details)
-            return
-        text = (f"Das Cockpit erstellt einen neuen Commit „{history.revert_message(self.commit)}“. "
-                f"Er hebt die Änderungen der Version {self._when()} auf: "
-                f"{self.changes.summary()}. Der Verlauf bleibt vollständig erhalten. "
-                f"{BACKUP_NOTE} Der neue Commit ist danach noch nicht hochgeladen. "
-                "Rückgängig machen?")
-        if not confirm(self, title, text, yes="Rückgängig machen", no="Abbrechen"):
-            return
-        settings = self.services.settings.load()
-        try:
-            history.revert(self.code_dir, self.project.name, self.commit, settings.git_name,
-                           settings.git_email)
-        except CockpitError as exc:
-            show_error(self, title, exc.message, exc.details)
-            return
-        self.history_changed = True
-        self.accept()
-        announce(f"Rückgängig gemacht. Neuer Commit „{history.revert_message(self.commit)}“.")
-
-    # -- Commit zurücknehmen -----------------------------------------------------------------
-    def undo(self) -> None:
-        title = "Commit zurücknehmen"
-        text = (f"Der Commit „{self.commit.subject}“ wird zurückgenommen. Er ist noch nicht "
-                "hochgeladen. Seine Änderungen bleiben in den Dateien und erscheinen wieder als "
-                "Änderungen ohne Commit. Keine Datei wird verändert. Zurücknehmen?")
-        if not confirm(self, title, text, yes="Zurücknehmen", no="Abbrechen"):
-            return
-        try:
-            history.undo_commit(self.code_dir, self.commit)
-        except CockpitError as exc:
-            show_error(self, title, exc.message, exc.details)
-            return
-        self.history_changed = True
-        self.accept()
-        announce("Commit zurückgenommen. Die Änderungen sind noch da, ohne Commit.")
-
-
-class DiscardDialog(FocusDialog):
-    """Änderungen ohne Commit auswählen. Nach accept() stehen sie in chosen."""
-
-    def __init__(self, project_name: str, changes: list[LocalChange],
-                 parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.changes = changes
-        self.chosen: list[LocalChange] = []
-        self.setWindowTitle(f"Änderungen verwerfen in {project_name}: "
-                            f"{count(len(changes), 'Änderung', 'Änderungen')}")
-        self.list = QListWidget()
-        name_widget(self.list, "Änderungen")
-        for change in changes:
-            item = QListWidgetItem(change.line())
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.list.addItem(item)
-        self.list.setCurrentRow(0)
-        self.list.installEventFilter(self)
-        self.all_button = QPushButton("&Alle auswählen")
-        self.all_button.clicked.connect(self.toggle_all)
-        discard = QPushButton("&Verwerfen …")
-        discard.clicked.connect(self.check)
-        cancel = QPushButton("Abbrechen")
-        cancel.clicked.connect(self.reject)
-        buttons = QHBoxLayout()
-        buttons.addWidget(self.all_button)
-        buttons.addStretch(1)
-        buttons.addWidget(discard)
-        buttons.addWidget(cancel)
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.list, 1)
-        layout.addLayout(buttons)
-        self.resize(640, 420)
-        self.initial_focus_widget = self.list
-
-    def eventFilter(self, watched, event) -> bool:
-        if _ignore_enter(self, watched, event, (self.list,)):
-            return True
-        return super().eventFilter(watched, event)
-
-    def checked(self) -> list[LocalChange]:
-        return [c for row, c in enumerate(self.changes)
-                if self.list.item(row).checkState() == Qt.CheckState.Checked]
-
-    def toggle_all(self) -> None:
-        select = len(self.checked()) < len(self.changes)
-        state = Qt.CheckState.Checked if select else Qt.CheckState.Unchecked
-        for row in range(self.list.count()):
-            self.list.item(row).setCheckState(state)
-        self.all_button.setText("Alle &abwählen" if select else "&Alle auswählen")
-        announce("Alle ausgewählt." if select else "Keine ausgewählt.")
-
-    def check(self) -> None:
-        chosen = self.checked()
-        if not chosen:
-            show_error(self, self.windowTitle(), NO_CHOICE)
-            self.list.setFocus()
-            return
-        text = (f"{history.discard_description(chosen)} Vorher kommen die Dateien als "
-                "Sicherheitskopie in den Ordner backups. Verwerfen?")
-        if not confirm(self, "Änderungen verwerfen", text, yes="Verwerfen", no="Abbrechen"):
-            return
-        self.chosen = chosen
-        self.accept()
-
-
-class UploadHistoryDialog(FocusDialog):
-    """Hochladeverlauf eines Branches (Wunsch des Nutzers vom 07.10.2026). Oben jedes Hochladen,
-    zum Beispiel „06.10.2026 14:12, Pascal, 3 Commits nach main“. Tab führt in die Commits dieses
-    Hochladens, Enter dort zeigt die Details mit Rückgängig machen."""
-
-    def __init__(self, services: "Services", project: "Project", branch: str,
-                 uploads: list, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.services = services
-        self.project = project
-        self.uploads = uploads
-        self.changed = False
-        self.setWindowTitle(f"Hochladeverlauf von {branch}: "
-                            f"{count(len(uploads), 'Eintrag', 'Einträge')}")
-        self.uploads_list = QListWidget()
-        uploads_label = label_for(self.uploads_list, "&Hochgeladen:")
-        self.uploads_list.addItems([u.text for u in uploads] or [
-            "Noch nichts hochgeladen."])
-        self.uploads_list.currentRowChanged.connect(lambda _row: self._fill_commits())
-        self.uploads_list.itemActivated.connect(lambda _item: self.list.setFocus())
-        self.list = QListWidget()
-        commits_label = label_for(self.list, "&Commits:")
-        self.list.itemActivated.connect(lambda _item: self.show_details())
-        details = QPushButton("&Details anzeigen …")
-        details.clicked.connect(self.show_details)
-        close = QPushButton("Schließen")
-        close.clicked.connect(self.reject)
-        buttons = QHBoxLayout()
-        buttons.addWidget(details)
-        buttons.addStretch(1)
-        buttons.addWidget(close)
-        layout = QVBoxLayout(self)
-        for widget in (uploads_label, self.uploads_list, commits_label, self.list):
-            layout.addWidget(widget)
-        layout.addLayout(buttons)
-        self.resize(720, 560)
-        self.initial_focus_widget = self.uploads_list
-        self.uploads_list.setCurrentRow(0)
-        self._fill_commits()
-
-    def _commits(self) -> list[Commit]:
-        row = self.uploads_list.currentRow()
-        return self.uploads[row].commits if 0 <= row < len(self.uploads) else []
-
-    def _fill_commits(self) -> None:
-        self.list.clear()
-        self.list.addItems([c.short_line() for c in self._commits()] or ["Keine Commits."])
-        self.list.setCurrentRow(0)
-
-    def show_details(self) -> None:
-        commits = self._commits()
-        row = self.list.currentRow()
-        if not 0 <= row < len(commits):
-            announce("Es gibt keinen Commit.")
-            return
-        try:
-            dialog = VersionDialog(self.services, self.project, commits[row], self)
-        except CockpitError as exc:
-            show_error(self, "Hochladeverlauf", exc.message, exc.details)
-            return
-        dialog.exec()
-        self.changed |= dialog.files_changed or dialog.history_changed
-        self.list.setFocus()

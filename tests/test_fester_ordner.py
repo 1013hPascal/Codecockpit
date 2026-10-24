@@ -14,6 +14,7 @@ import time
 import pytest
 
 from cockpit.core import backups, exe, update
+from tests.conftest import patch_running_from
 
 
 def version_folder(release, name, version, text="alt"):
@@ -50,7 +51,7 @@ def test_running_version_is_not_pruned(tmp_path, home, monkeypatch):
     release = tmp_path / "Release"
     for version in ("1.0.0", "1.1.0", "1.2.0"):
         version_folder(release, "CodeCockpit", version)
-    monkeypatch.setattr(exe, "running_from", lambda folder: folder.name.endswith("1.0.0"))
+    patch_running_from(monkeypatch, lambda folder: folder.name.endswith("1.0.0"))
     assert exe.prune_versions(release, "CodeCockpit", "CodeCockpit") == []
 
 

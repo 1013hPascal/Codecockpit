@@ -11,7 +11,7 @@ from cockpit.core.accounts import find_type
 from cockpit.core.errors import Cancelled, CockpitError
 from cockpit.core.logging_setup import mask_secrets
 from cockpit.core.secret import Secret
-from cockpit.platforms import github
+from cockpit.platforms import github, github_login
 from cockpit.platforms.base import (BrowserLogin, Capability, NetworkError, NewRepo,
                                     NotAuthenticated, NotFound, PendingApproval,
                                     PermissionMissing, PlatformError, RepoRef,
@@ -231,15 +231,15 @@ def test_git_credentials_keep_token_out_of_command_line_and_log():
 
 # -- Anmeldung im Browser -------------------------------------------------------------------
 def test_browser_login_needs_client_id_and_github_com(monkeypatch):
-    monkeypatch.setattr(github, "CLIENT_ID", "")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "")
     assert not GitHubPlatform.browser_login_available()
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     assert GitHubPlatform.browser_login_available("https://github.com")
     assert not GitHubPlatform.browser_login_available("https://git.firma.de")
 
 
 def test_browser_login_start(server, monkeypatch):
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     server.route("POST", "/login/device/code", body={
         "device_code": "geraet", "user_code": "ABCD-1234",
         "verification_uri": "https://github.com/login/device", "interval": 5,
@@ -251,7 +251,7 @@ def test_browser_login_start(server, monkeypatch):
 
 
 def test_browser_login_disabled_is_explained(server, monkeypatch):
-    monkeypatch.setattr(github, "CLIENT_ID", "Ov23Test")
+    monkeypatch.setattr(github_login, "CLIENT_ID", "Ov23Test")
     server.route("POST", "/login/device/code", 400, {"error": "device_flow_disabled"})
     with pytest.raises(CockpitError, match="Enable Device Flow"):
         GitHubPlatform.start_browser_login()

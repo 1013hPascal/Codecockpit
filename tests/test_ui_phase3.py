@@ -19,6 +19,7 @@ from cockpit.ui.vault_settings_dialog import VaultSettingsDialog
 from cockpit.vault.vault_file import FileVault
 from tests.conftest import FAKE_TOKEN, FakeVault, said
 from tests.test_ui import show_active
+from tests.conftest import patch_split
 
 PASSWORD = "ErfundenesMasterPasswort1"
 
@@ -30,9 +31,9 @@ shown_infos: list[str] = []
 def no_blocking_questions(monkeypatch):
     """Rückfragen beim Schließen (zum Beispiel "Einrichtung abbrechen?") würden die Tests
     anhalten. Tests, die eine Antwort prüfen, ersetzen confirm selbst."""
-    monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: True)
-    monkeypatch.setattr(sw, "show_error", lambda *args, **kwargs: None)
-    monkeypatch.setattr(ad, "show_info", lambda *args, **kwargs: None)
+    patch_split(monkeypatch, sw, "confirm", lambda *args, **kwargs: True)
+    patch_split(monkeypatch, sw, "show_error", lambda *args, **kwargs: None)
+    patch_split(monkeypatch, ad, "show_info", lambda *args, **kwargs: None)
     shown_infos.clear()
     monkeypatch.setattr("cockpit.ui.vault_settings_dialog.show_info",
                         lambda parent, title, text: shown_infos.append(text))
@@ -51,8 +52,8 @@ class FakeNewPassword:
 
 def errors_to(monkeypatch, module) -> list[str]:
     shown: list[str] = []
-    monkeypatch.setattr(module, "show_error", lambda parent, title, text, details="":
-                        shown.append(text))
+    patch_split(monkeypatch, module, "show_error", lambda parent, title, text, details="":
+                shown.append(text))
     return shown
 
 
@@ -121,7 +122,8 @@ def test_wizard_pages_and_announcements(wizard, monkeypatch):
     dialog, services = wizard()
     assert [p.title for p in dialog.pages] == [
         "Willkommen", "Zugangsdaten schützen", "Git", "Code-Plattformen wählen",
-        "Code-Plattformen einrichten", "Projekte-Hauptordner", "KI", "Zusammenfassung"]
+        "Code-Plattformen einrichten", "Projekte-Hauptordner", "Features wählen", "KI",
+        "Zusammenfassung"]
     assert dialog.heading.text() == "Schritt 1 von 8: Willkommen"
     assert not dialog.skip_button.isVisible()
     assert not dialog.back_button.isVisible()
@@ -198,7 +200,7 @@ def test_wizard_cancelled_vault_password_stays_on_page(wizard, monkeypatch):
 
 def test_wizard_cancel_asks_first(wizard, monkeypatch):
     answers = [False, True]
-    monkeypatch.setattr(sw, "confirm", lambda *args, **kwargs: answers.pop(0))
+    patch_split(monkeypatch, sw, "confirm", lambda *args, **kwargs: answers.pop(0))
     dialog, _ = wizard()
     dialog.reject()
     assert dialog.isVisible()                                 # "Weiter einrichten"
@@ -282,7 +284,7 @@ def test_account_edit_connection_test_uses_stored_secret(qtbot, accounts, monkey
     account = services.accounts.create(account_type, "A", {"username": "a",
                                                             "token": Secret(FAKE_TOKEN)})
     infos = []
-    monkeypatch.setattr(ad, "show_info", lambda parent, title, text: infos.append(text))
+    patch_split(monkeypatch, ad, "show_info", lambda parent, title, text: infos.append(text))
     edit = ad.AccountEditDialog(services, account_type, account)
     qtbot.addWidget(edit)
     edit.test_connection()
@@ -294,7 +296,7 @@ def test_account_edit_connection_test_uses_stored_secret(qtbot, accounts, monkey
 def test_failed_connection_test_shows_details(qtbot, accounts, monkeypatch):
     dialog, services, account_type = accounts
     errors = []
-    monkeypatch.setattr(ad, "show_error", lambda parent, title, text, details="":
+    patch_split(monkeypatch, ad, "show_error", lambda parent, title, text, details="":
                         errors.append((text, details)))
     edit = ad.AccountEditDialog(services, account_type)
     qtbot.addWidget(edit)
@@ -317,7 +319,7 @@ def test_delete_account_asks_with_safe_default(accounts, monkeypatch):
         asked.append((text, default_yes))
         return len(asked) > 1
 
-    monkeypatch.setattr(ad, "confirm", fake_confirm)
+    patch_split(monkeypatch, ad, "confirm", fake_confirm)
     dialog.delete_current()
     assert services.accounts.all() and asked[0][1] is False
     assert "Auf der Plattform ändert sich nichts" in asked[0][0]
@@ -472,7 +474,7 @@ def test_auto_lock_after_inactivity(qtbot, make_services, monkeypatch):
     assert services.vault.is_unlocked()                      # noch keine 5 Minuten
     win.last_input -= 5 * 60 + 1                             # auch Standby zählt mit
     infos = []
-    monkeypatch.setattr("cockpit.ui.main_window.show_info",
+    monkeypatch.setattr("cockpit.ui.window_vault.show_info",
                         lambda parent, title, text: infos.append(text))
     win.check_auto_lock()
     assert infos == ["Der Tresor wurde nach 5 Minuten ohne Eingabe gesperrt."]
@@ -531,7 +533,7 @@ def test_accounts_help_entry_opens_explanation(accounts, monkeypatch):
         def exec(self):
             return True
 
-    monkeypatch.setattr(ad, "TextDialog", FakeText)
+    patch_split(monkeypatch, ad, "TextDialog", FakeText)
     dialog.list.setCurrentRow(dialog.list.count() - 1)
     dialog.open_current()
     assert opened[0][0] == "Wofür sind Konten?"

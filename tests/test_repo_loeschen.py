@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from cockpit.core.actions import Target
 from cockpit.ui import project_actions, repo_dialogs
+from tests.conftest import patch_controller
 from tests.test_collections import add_remote_repos
 from tests.test_phase5e import RepoFake, answers  # noqa: F401 (Fixture)
 from tests.test_ui import window  # noqa: F401 (Fixture)
@@ -68,7 +69,7 @@ def test_cancel_or_wrong_name_deletes_nothing(window, monkeypatch, answers):  # 
 def test_archive_instead(window, monkeypatch, answers, qtbot):  # noqa: F811
     win, repo, fake = remote_window(window, monkeypatch)
     asked = []
-    monkeypatch.setattr(project_actions, "confirm",
+    patch_controller(monkeypatch, "confirm",
                         lambda parent, title, text, **k: asked.append(text) or True)
     answers.choice = 1                                             # stattdessen archivieren
     run(win, "Repository löschen …")

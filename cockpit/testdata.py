@@ -278,6 +278,53 @@ def _rezepte(base: Path, root: Path) -> None:
     _git(code, "fetch", "-q")
 
 
+def add_news(services) -> None:
+    """Erfundene Neuigkeiten und Zahlen für Tagebuch und PDF-Chat (22.10.2026). Der letzte Start
+    war vor zwei Tagen, so kommt nach dem Start die Ansage. Ohne Verbindung zu GitHub."""
+    from datetime import date, datetime, timedelta, timezone
+    from cockpit.features.activity import activity
+    from cockpit.features.news import news
+    from cockpit.platforms.activity import (COMMENT, ISSUE, PULL, RUN_FAILED, STAR, DayCount,
+                                            NewsItem, Traffic)
+    now = datetime.now(timezone.utc)
+    projects = {p.name: p for p in services.projects.all()}
+
+    def ago(hours: float) -> str:
+        return news.iso(now - timedelta(hours=hours))
+
+    services.database.set_value(news.LAST_SEEN_KEY, ago(48))
+    url = "https://example.invalid/tester/{}/issues/{}"
+    if "Tagebuch" in projects:
+        news.store(services.database, projects["Tagebuch"].id, [
+            NewsItem(COMMENT, ago(3), "anna", 12, url=url.format("Tagebuch", 12)),
+            NewsItem(ISSUE, ago(20), "anna", 12, "Suche in alten Einträgen",
+                     url.format("Tagebuch", 12)),
+            NewsItem(STAR, ago(30), "carla"),
+            NewsItem(PULL, ago(24 * 6), "ben", 3, "Dunkles Design", on_pull=True)],
+            news.iso(now - timedelta(days=news.DAYS_KEPT)))
+    if "PDF-Chat" in projects:
+        news.store(services.database, projects["PDF-Chat"].id, [
+            NewsItem(RUN_FAILED, ago(5), "tester", 7, "Tests"),
+            NewsItem(COMMENT, ago(24 * 10), "ben", 2, on_pull=True)],
+            news.iso(now - timedelta(days=news.DAYS_KEPT)))
+    today = date.today()
+    for name, stars, views in (("Tagebuch", 4, 12), ("PDF-Chat", 9, 30)):
+        project = projects.get(name)
+        if project is None:
+            continue
+        days = tuple(DayCount((today - timedelta(days=d)).isoformat(), views + d, 3 + d % 4)
+                     for d in range(10))
+        activity.store_traffic(services.database, project.id,
+                               Traffic(days, days[:4]))
+        for day, count_ in ((today - timedelta(days=8), stars - 1), (today, stars)):
+            services.database.execute(
+                "INSERT INTO activity_snapshot (project_id, day, stars, forks, watchers, "
+                "downloads) VALUES (?, ?, ?, 1, 2, 35)", (project.id, day.isoformat(), count_))
+        services.database.set_value(activity.EXTRA_KEY.format(project.id), {
+            "paths": [["README", 30, 9], [name, 12, 5]], "referrers": [["Google", 12, 5]],
+            "releases": [["1.2", 30], ["1.1", 5]]})
+
+
 def remove_missing_example(root: Path) -> None:
     """Nach dem ersten Einlesen den Ordner von Notizen löschen, damit er als fehlend erscheint."""
     remove_tree(root / "Notizen")

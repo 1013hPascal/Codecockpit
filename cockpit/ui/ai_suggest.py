@@ -28,7 +28,8 @@ CANCELLED = "Vorschlag abgebrochen."
 WHAT = {"commit": "die Liste der geänderten Dateien und die geänderten Zeilen",
         "pull_request": "die Commit-Nachrichten und die geänderten Zeilen",
         "description": "die Dateiliste, der Anfang der README und die Imports",
-        "release": "die Commit-Nachrichten seit dem letzten Release"}
+        "release": "die Commit-Nachrichten seit dem letzten Release",
+        "issue": "Titel, Beschreibung und Kommentare des Issues"}
 
 
 @dataclass
@@ -156,11 +157,25 @@ def _source(services, project, what: str, make) -> SuggestionSource | None:
         lambda ai, cancel: make(ai, language, cancel))
 
 
-def for_commit(services, project) -> SuggestionSource | None:
+def for_commit(services, project, selection: Callable[[], object] | None = None
+               ) -> SuggestionSource | None:
+    """selection: gibt die Auswahl im Commit-Fenster zurück (21.10.2026), None: alles."""
     from cockpit.features.ai_assistant import suggest
     code_dir = project.code_dir
-    return _source(services, project, "commit",
-                   lambda ai, language, cancel: suggest.commit(ai, code_dir, language, cancel))
+    chosen = None
+    source = _source(services, project, "commit",
+                     lambda ai, language, cancel: suggest.commit(ai, code_dir, language, cancel,
+                                                                 chosen))
+    if source is None or selection is None:
+        return source
+    prepare = source.prepare
+
+    def prepare_with_selection(parent):
+        nonlocal chosen
+        chosen = selection()             # im Vordergrund lesen, nicht aus dem Hintergrund
+        return prepare(parent)
+    source.prepare = prepare_with_selection
+    return source
 
 
 def for_pull_request(services, project, head: str, base: Callable[[], str]
@@ -191,6 +206,16 @@ def for_release_notes(services, project, tags: list[str]) -> SuggestionSource | 
     return _source(services, project, "release",
                    lambda ai, language, cancel: suggest.release_notes(ai, code_dir, last,
                                                                       language, cancel))
+
+
+def for_issue(services, project, load: Callable[[], tuple]) -> SuggestionSource | None:
+    """Issue zusammenfassen (21.10.2026). load: im Hintergrund, gibt (Issue, Kommentare)."""
+    from cockpit.features.ai_assistant import suggest
+
+    def make(ai, language, cancel):
+        found, comments = load()
+        return suggest.issue(ai, found, comments, language, cancel)
+    return _source(services, project, "issue", make)
 
 
 def for_description(services, project) -> SuggestionSource | None:

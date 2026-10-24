@@ -13,14 +13,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
-from cockpit.core import git, pull_requests, repo_admin, sync
+from cockpit.core import forks, git, pull_requests, repo_admin, sync
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import Project
 from cockpit.core.text import count
-from cockpit.platforms.base import (PullRequest, SupportsCollaborators, SupportsPullRequests)
+from cockpit.platforms.base import (PullRequest, RepoRef, SupportsCollaborators,
+                                    SupportsPullRequests)
 from cockpit.ui import pull_request_dialogs, vault_ui
 from cockpit.ui.announcer import announce
-from cockpit.ui.common import confirm
+from cockpit.ui.common import ask_buttons, confirm
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.tasks import Task
 
@@ -119,11 +120,29 @@ class PullRequestRunner:
                  on_created: Callable[[PullRequest], None] | None) -> None:
         project, services = self.project, self.services
         code_dir = project.code_dir
+        # Forks (21.10.2026): Der Pull Request kann an das Original gehen
+        original = forks.upstream(code_dir)
+        if original is not None:
+            choice = ask_buttons(parent, "Pull Request erstellen",
+                                 f"Dieses Projekt ist ein Fork von {original.owner}/"
+                                 f"{original.name}. Wohin soll der Pull Request gehen?",
+                                 [f"An das Original {original.owner}/{original.name}",
+                                  "In Ihren Fork", "Abbrechen"], default=0, escape=2)
+            if choice == 2:
+                return
+            if choice == 1:
+                original = None
+        if original is not None:
+            main = forks.main_branch(code_dir)
 
         def work(task: Task):
             platform = self._platform()
             ref = repo_admin.repo_ref(project)
             people: list[str] = []
+            if original is not None:
+                # Prüfer im Original kann nur das Original selbst anfragen
+                title, body = pull_requests.suggest(code_dir, head, main)
+                return platform, people, forks.branches(code_dir), title, body
             if isinstance(platform, SupportsCollaborators):
                 try:
                     own = (getattr(platform, "username", "") or "").lower()
@@ -153,18 +172,25 @@ class PullRequestRunner:
             holder.append(dialog)
             if not dialog.exec():
                 return
-            self._create(platform, dialog, on_created)
+            self._create(platform, dialog, on_created, original)
 
         self.controller.run_task(self.key, work, done, "Pull Request erstellen")
 
-    def _create(self, platform, dialog, on_created) -> None:
+    def _create(self, platform, dialog, on_created, original=None) -> None:
         project, services = self.project, self.services
         ref = repo_admin.repo_ref(project)
+        head = dialog.head
+        if original is not None:
+            # An das Original: der Branch liegt im Fork, GitHub schreibt das "besitzer:branch"
+            ref = RepoRef(original.owner, original.name)
+            head = f"{repo_admin.repo_ref(project).owner}:{dialog.head}"
         announce("Pull Request wird erstellt.")
 
         def work(task: Task) -> PullRequest:
-            created = platform.create_pull_request(ref, dialog.head, dialog.base, dialog.title,
+            created = platform.create_pull_request(ref, head, dialog.base, dialog.title,
                                                    dialog.body, dialog.draft, dialog.reviewers)
+            if original is not None:
+                return created
             try:
                 services.pull_request_cache.replace(project.remote,
                                                     platform.pull_requests(ref, "open"))
@@ -175,7 +201,8 @@ class PullRequestRunner:
         def done(created: PullRequest) -> None:
             self.window.refresh_status([project.id])
             draft = " als Entwurf" if created.draft else ""
-            announce(f"Pull Request Nr. {created.number} erstellt{draft}.")
+            where = f" bei {original.owner}/{original.name}" if original is not None else ""
+            announce(f"Pull Request Nr. {created.number}{where} erstellt{draft}.")
             if on_created is not None:
                 on_created(created)
 

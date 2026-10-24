@@ -55,6 +55,9 @@ def _environment(extra: Mapping[str, str] | None) -> dict[str, str]:
     env["GIT_TERMINAL_PROMPT"] = "0"         # nie im Hintergrund auf eine Eingabe warten
     env["GCM_INTERACTIVE"] = "never"         # Git Credential Manager: kein eigenes Fenster
     env["LC_ALL"] = "C"                      # Meldungen auf Englisch, damit sie erkennbar sind
+    # Lesende Befehle wie "git status" sperren den Index nicht. Sonst stört der Abruf im
+    # Hintergrund eine laufende Aktion ("index.lock: File exists").
+    env["GIT_OPTIONAL_LOCKS"] = "0"
     env.pop("GIT_DIR", None)
     env.pop("GIT_WORK_TREE", None)
     if extra:
