@@ -37,7 +37,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 
 - __init__.py (1 Zeilen): Der Kern: Logik ohne Oberfläche. Nichts in diesem Paket importiert PySide6.
 - accounts.py (225 Zeilen): Konten (Konzept 5.1): Zugänge zu Plattformen, KI, E-Mail und Automation.
-- actions.py (165 Zeilen): Aktionen für die Aktionsliste (Konzept 8.3).
+- actions.py (168 Zeilen): Aktionen für die Aktionsliste (Konzept 8.3).
 - activity.py (42 Zeilen): Arbeitet die KI gerade? (Wunsch des Nutzers vom 14.10.2026)
 - ai_tools.py (215 Zeilen): KI-Werkzeuge (Konzept 11.1, Teilschritt 8b).
 - ai_tuning.py (156 Zeilen): Die KI auf den Rechner einstellen (Wunsch des Nutzers vom 07.10.2026).
@@ -86,7 +86,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - safety_check.py (357 Zeilen): Sicherheitsprüfung vor dem Hochladen (Konzept 9.6). Teil des Kerns und nicht abschaltbar.
 - secret.py (62 Zeilen): Hülle für Geheimnisse (Tokens, API-Schlüssel, Passwörter).
 - services.py (207 Zeilen): Der Behälter, über den Features und Oberfläche an Kern-Dienste und Adapter kommen.
-- settings.py (102 Zeilen): Grundeinstellungen der Installation.
+- settings.py (106 Zeilen): Grundeinstellungen der Installation.
 - staging.py (183 Zeilen): Auswählen, was in den Commit kommt (Wunsch des Nutzers vom 21.10.2026).
 - sync.py (574 Zeilen): Änderungen hochladen und holen (Konzept 9.2 und 9.3, Teilschritt 5c).
 - terminal.py (174 Zeilen): Eingebautes Terminal (Konzept 9.9, Teilschritt 8a).
@@ -157,6 +157,11 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - manifest.py (20 Zeilen): Feature "Exe-Erstellung" (Konzept 10.4, Phase 10).
 - setup_check.py (413 Zeilen): Exe-Einrichtung prüfen (Konzept 10.4). Ergebnis als Zeilen, das Ergebnis jeweils vorne.
 
+## cockpit/features/explanations
+
+- manifest.py (26 Zeilen): Feature "Erklärungen" (Wunsch des Nutzers vom 25.10.2026).
+- texts.py (602 Zeilen): Die Texte der Erklärungen (Wunsch des Nutzers vom 25.10.2026).
+
 ## cockpit/features/news
 
 - __init__.py (1 Zeilen): Feature "Neuigkeiten" (Wunsch des Nutzers vom 22.10.2026).
@@ -165,7 +170,8 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 
 ## cockpit/features/packages
 
-- base.py (152 Zeilen): Gemeinsame Bausteine der Paketübersicht.
+- base.py (153 Zeilen): Gemeinsame Bausteine der Paketübersicht.
+- cache.py (64 Zeilen): Gespeicherte Liste der Paketübersicht (Wunsch des Nutzers vom 24.10.2026).
 - catalog.py (231 Zeilen): Alle Quellen der Paketübersicht an einer Stelle: laden, prüfen, ändern.
 - choco_source.py (111 Zeilen): Programme aus Chocolatey.
 - cleanup.py (158 Zeilen): Aufräumen (Stufe 2 der Paketübersicht): wo Platz frei werden kann.
@@ -239,7 +245,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - account_edit_dialog.py (517 Zeilen): Ein Konto anlegen oder ändern.
 - accounts_dialog.py (175 Zeilen): Kontenverwaltung (Menü Konten, Konzept 5.1).
 - action_conditions.py (128 Zeilen): Stand und Bedingungen hinter den Aktionen der Projektliste (Wunsch des Nutzers, 02.10.2026).
-- action_list.py (68 Zeilen): Die Aktionsliste (Konzept 8.3).
+- action_list.py (88 Zeilen): Die Aktionsliste (Konzept 8.3).
 - ai_dialogs.py (345 Zeilen): KI-Verwaltung (Menü KI, Konzept 11.1, Teilschritt 8b).
 - ai_help_dialog.py (195 Zeilen): KI-Hilfe (Konzept 10.17, Teilschritt 8e): Hilfe, KI-Hilfe oder Umschalt+F1.
 - ai_model_dialogs.py (256 Zeilen): Modell wählen und Arbeitsspeicher angeben.
@@ -253,7 +259,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - branch_dialogs.py (611 Zeilen): Übersicht "Branches" und beiseitegelegte Änderungen (Konzept 10.14, Teilschritt 5f).
 - browser_login_dialog.py (146 Zeilen): Anmeldung im Browser (Konzept 6.1, Device Flow).
 - collections_flow.py (269 Zeilen): Projektsammlungen in der Projektliste (Wunsch des Nutzers vom 29.09.2026).
-- common.py (195 Zeilen): Kleine Hilfen für die Oberfläche (Muster aus Chatbot und Tagebuch).
+- common.py (207 Zeilen): Kleine Hilfen für die Oberfläche (Muster aus Chatbot und Tagebuch).
 - conflict_dialogs.py (145 Zeilen): Konfliktstellen einer Datei: vorlesen und Stelle für Stelle lösen (21.10.2026).
 - dictation.py (293 Zeilen): Spracheingabe in der Oberfläche (Konzept 10.15, Teilschritt 8d).
 - editor_ui.py (37 Zeilen): Im Editor öffnen, aus jedem Dialog heraus (21.10.2026).
@@ -264,6 +270,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - exe_flow.py (721 Zeilen): Die Exe in der Oberfläche (Konzept 10.4, Phase 10).
 - exe_wizard.py (330 Zeilen): Exe aus dem Code erstellen, Schritt für Schritt (Wunsch des Nutzers vom 03.10.2026).
 - exe_wizard_steps.py (411 Zeilen): Die einzelnen Schritte des Exe-Assistenten.
+- explanations.py (273 Zeilen): Oberfläche des Features Erklärungen (Wunsch des Nutzers vom 25.10.2026).
 - features_dialogs.py (451 Zeilen): Feature-Verwaltung (Konzept 8.4 und 8.5, Phase 7).
 - folder_rename_flow.py (161 Zeilen): Ordner Code und Exe in Repository und Release umbenennen (Antwort des Nutzers vom 06.10.2026).
 - fork_flow.py (124 Zeilen): Forks in der Oberfläche (Wunsch des Nutzers vom 21.10.2026, siehe core/forks.py).
@@ -276,19 +283,19 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - issue_flow.py (93 Zeilen): Issues in der Oberfläche (21.10.2026): im Hintergrund die offenen Issues, die Labels und die
 - license_flow.py (157 Zeilen): Lizenz eines Projekts in der Oberfläche (Wunsch des Nutzers vom 03.10.2026).
 - look.py (92 Zeilen): Aussehen für das Auge (PLAN-OPTIK.md, Schritte 4, 5 und 7, 22.10.2026).
-- main_window.py (210 Zeilen): Hauptfenster: Menüleiste, Projektliste, Aktionsliste und Statuszeile.
-- menus.py (38 Zeilen): Barrierefreie Menüs (zusammengeführt aus Chatbot und Tagebuch).
+- main_window.py (224 Zeilen): Hauptfenster: Menüleiste, Projektliste, Aktionsliste und Statuszeile.
+- menus.py (51 Zeilen): Barrierefreie Menüs (zusammengeführt aus Chatbot und Tagebuch).
 - messages_dialog.py (33 Zeilen): Liste der letzten Meldungen, neueste oben (Strg+Umschalt+L).
 - news_dialogs.py (212 Zeilen): Fenster "Neuigkeiten" und "Aktivität" (Wunsch des Nutzers vom 22.10.2026).
 - news_flow.py (116 Zeilen): Menü Neuigkeiten und die Ansage nach dem Start (Wunsch des Nutzers vom 22.10.2026).
-- package_dialogs.py (642 Zeilen): Fenster der Paketübersicht (Wunsch des Nutzers vom 21.10.2026, PLAN-PAKETUEBERSICHT.md).
+- package_dialogs.py (729 Zeilen): Fenster der Paketübersicht (Wunsch des Nutzers vom 21.10.2026, PLAN-PAKETUEBERSICHT.md).
 - package_flow.py (420 Zeilen): Menü Pakete und die Abläufe der Paketübersicht (Wunsch des Nutzers vom 21.10.2026).
 - password_dialogs.py (116 Zeilen): Dialoge für das Master-Passwort der Tresordatei (Konzept 5.2).
 - project_actions.py (276 Zeilen): Aktionen rund um Projekte, die Dialoge oder Hintergrund-Arbeit brauchen (Phase 5a).
 - project_add_actions.py (243 Zeilen): Projekt vom Rechner hinzufügen: Aufbau prüfen, Ordner umstellen, danach hochladen anbieten.
 - project_git_actions.py (326 Zeilen): Git-Aktionen auf Main-Branch und Branch: hochladen, holen, Verlauf, Branches, Beiseitelegen.
 - project_labels.py (210 Zeilen): Texte der Projektliste: Beschriftungen, Filter und Kinder eines Eintrags.
-- project_list.py (627 Zeilen): Die Projektliste (Konzept 8.2, umgesetzt als Liste statt Baum, siehe ENTSCHEIDUNGEN.md).
+- project_list.py (644 Zeilen): Die Projektliste (Konzept 8.2, umgesetzt als Liste statt Baum, siehe ENTSCHEIDUNGEN.md).
 - project_list_delegate.py (51 Zeilen): Zeichner der Projektliste, nur für das Auge (PLAN-OPTIK.md, Schritte 1 und 3, 22.10.2026).
 - project_manage.py (243 Zeilen): Projekt verwalten (Wunsch des Nutzers vom 06.10.2026).
 - project_manage_actions.py (200 Zeilen): Projekt verwalten: neu einlesen, Filter, Features, Links, entfernen, neuer Ort, Umgebung.
@@ -297,20 +304,21 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - pull_request_dialogs.py (479 Zeilen): Pull Requests ansehen, erstellen und kommentieren (Konzept 10.14, Teilschritt 6a).
 - pull_request_flow.py (218 Zeilen): Pull Requests in der Oberfläche (Teilschritt 6a).
 - pull_request_forms.py (292 Zeilen): Pull Request anlegen, kommentieren, prüfen und übernehmen.
-- quick_nav.py (208 Zeilen): Schnellnavigation, Befehlssuche und Tastenhinweise (Wunsch des Nutzers vom 07.10.2026).
+- quick_nav.py (209 Zeilen): Schnellnavigation, Befehlssuche und Tastenhinweise (Wunsch des Nutzers vom 07.10.2026).
 - readme_dialogs.py (352 Zeilen): Dialoge für die README: Text, Schreiben, Ändern, Übersetzen, Sprachen.
 - readme_flow.py (190 Zeilen): README-Pflege in der Oberfläche (Konzept 10.2, Phase 9).
 - release_rows.py (267 Zeilen): Aktionen der Zeile Releases und der Release-Zeilen (Wunsch des Nutzers vom 06.10.2026).
 - releases_flow.py (499 Zeilen): Releases und GitHub Actions in der Oberfläche (Phase 14).
 - repo_delete.py (162 Zeilen): Repository löschen: Name zur Bestätigung eintippen, dann löschen.
-- repo_dialog_parts.py (78 Zeilen): Bausteine der Repository-Dialoge: Hintergrundarbeit und Knopfzeile.
+- repo_dialog_parts.py (89 Zeilen): Bausteine der Repository-Dialoge: Hintergrundarbeit und Knopfzeile.
 - repo_dialogs.py (313 Zeilen): Links, Repository verwalten und Mitarbeiter (Konzept 9.5, Teilschritt 5e).
 - repo_people_dialogs.py (278 Zeilen): Mitarbeiter einladen und verwalten, Schutz der Branches.
 - row_delegate.py (112 Zeilen): Zeilen in Listen mit zwei Textebenen, nur für das Auge (PLAN-OPTIK.md, Schritt 3).
 - settings_dialog.py (50 Zeilen): Dialog Grundeinstellungen (Menü Einstellungen).
-- setup_pages.py (650 Zeilen): Die Seiten des Einrichtungs-Assistenten.
+- setup_pages.py (662 Zeilen): Die Seiten des Einrichtungs-Assistenten.
 - setup_wizard.py (143 Zeilen): Einrichtungsassistent beim ersten Start (Konzept 8.7, ohne Profile).
-- sounds.py (205 Zeilen): Töne beim Hoch- und Herunterladen (Wunsch des Nutzers vom 07.10.2026) und während die KI
+- sounds.py (297 Zeilen): Töne beim Hoch- und Herunterladen (Wunsch des Nutzers vom 07.10.2026) und während die KI
+- sounds_dialog.py (68 Zeilen): Fenster "Signaltöne" im Menü Einstellungen (Wunsch des Nutzers vom 24.10.2026).
 - stash_dialogs.py (163 Zeilen): Beiseitegelegte Änderungen und Name für einen neuen Branch.
 - state_panel.py (57 Zeilen): Bereich "Stand" unter den Aktionen, nur für das Auge (PLAN-OPTIK.md, Schritt 2, 22.10.2026).
 - sync_dialogs.py (497 Zeilen): Fenster für Änderungen hochladen und holen (Konzept 9.2 und 9.3).
@@ -324,8 +332,8 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - vault_settings_dialog.py (109 Zeilen): Dialog Tresor-Einstellungen (Menü Konten, Konzept 13).
 - vault_ui.py (89 Zeilen): Tresor in der Oberfläche: entsperren bei Bedarf und Speicherart wechseln (Konzept 5.2).
 - videos.py (31 Zeilen): Erklärvideos im Ordner erklärvideos (Wunsch des Nutzers, 29.09.2026).
-- window_actions.py (196 Zeilen): Aktionsliste des Hauptfensters: Kontext, Ausführen, Kontextmenü, Fokus.
-- window_menus.py (292 Zeilen): Menüleiste und Tastenkürzel des Hauptfensters, dazu die Fenster, die die Menüs öffnen.
+- window_actions.py (198 Zeilen): Aktionsliste des Hauptfensters: Kontext, Ausführen, Kontextmenü, Fokus.
+- window_menus.py (300 Zeilen): Menüleiste und Tastenkürzel des Hauptfensters, dazu die Fenster, die die Menüs öffnen.
 - window_status.py (228 Zeilen): Stand der Projekte im Hauptfenster: neu einlesen, Git-Stand und Stand auf der Plattform holen.
 - window_vault.py (74 Zeilen): Tresor im Hauptfenster: sperren, entsperren, automatisch sperren, Konten.
 - worktree_flow.py (324 Zeilen): Ein Ordner pro Branch in der Oberfläche (Phase 10f).

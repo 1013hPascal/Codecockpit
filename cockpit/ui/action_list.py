@@ -17,11 +17,16 @@ EMPTY_TEXT = "Keine Aktionen"
 
 class ActionList(QListWidget):
     entryTriggered = Signal(object)              # ActionEntry
+    explanationRequested = Signal()              # Enter auf "Erklärung: Aktionen" (25.10.2026)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         name_widget(self, "Aktionen")
         self.entries: list[ActionEntry] = []
+        # Feature Erklärungen: Text der obersten Zeile, leer ohne Erklärung. Die Markierung
+        # startet trotzdem auf der ersten Aktion, die Erklärung steht darüber.
+        self.explanation = ""
+        self.offset = 0                          # 1, wenn die Erklärung oben steht
         self.itemActivated.connect(self._activated)
 
     def set_entries(self, entries: list[ActionEntry], keep_selection: bool = False) -> None:
@@ -29,28 +34,40 @@ class ActionList(QListWidget):
         die markierte Aktion behalten (für Änderungen aus dem Hintergrund). Seltene Aktionen
         stehen unter "Weitere …", "Terminal …" zuletzt (20.10.2026)."""
         entries = shown_entries(entries)
-        labels = [e.label for e in entries] or [EMPTY_TEXT]
+        top = [self.explanation] if self.explanation and entries else []
+        labels = top + [e.label for e in entries] or [EMPTY_TEXT]
         if keep_selection and labels == self.texts():
             self.entries = list(entries)
             return
         current = self.current_entry()
         keep_id = current.action.id if keep_selection and current is not None else None
+        on_explanation = keep_selection and self.on_explanation() and bool(top)
         self.entries = list(entries)
+        self.offset = len(top)
         self.clear()
         if not entries:
             self.addItem(QListWidgetItem(EMPTY_TEXT))
+        for text in top:
+            self.addItem(QListWidgetItem(text))
         for entry in entries:
             item = QListWidgetItem(entry.label)
             item.setData(Qt.ItemDataRole.UserRole, entry.action.id)
             self.addItem(item)
         row = next((i for i, e in enumerate(entries) if e.action.id == keep_id), 0)
-        self.setCurrentRow(row)
+        self.setCurrentRow(0 if on_explanation else row + self.offset)
 
     def texts(self) -> list[str]:
         return [self.item(r).text() for r in range(self.count())]
 
+    def on_explanation(self) -> bool:
+        return self.offset > 0 and self.currentRow() == 0
+
+    def row_of_entry(self, index: int) -> int:
+        """Zeile in der Liste für den Eintrag Nummer index in entries."""
+        return index + self.offset
+
     def current_entry(self) -> ActionEntry | None:
-        row = self.currentRow()
+        row = self.currentRow() - self.offset
         return self.entries[row] if 0 <= row < len(self.entries) else None
 
     def keyPressEvent(self, event) -> None:
@@ -62,6 +79,9 @@ class ActionList(QListWidget):
 
     def _activated(self, item: QListWidgetItem | None) -> None:
         if item is None:
+            return
+        if self.on_explanation():
+            self.explanationRequested.emit()
             return
         entry = self.current_entry()
         if entry is not None:

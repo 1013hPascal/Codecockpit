@@ -12,7 +12,7 @@ Stand: 21.10.2026. Wunsch des Nutzers: Überblick über alles, was heruntergelad
 ## Entscheidungen des Nutzers
 
 - Quellen: pip, winget, Chocolatey und Sprachmodelle.
-- Filter oben: „Alles“, „Nur Cockpit-Projekte“, „Nur übriger Rechner“.
+- Filter oben: „Alle“, „Nur im Cockpit“, „Nur auf dem Rechner, nicht im Cockpit“ (Namen und Knopf seit 24.10.2026).
 - Vor dem Löschen keine Kopie der Dateien, sondern eine Liste mit Name, Version und Quelle in den Sicherheitskopien. Damit holt das Cockpit alles wieder (Antwort vom 21.10.2026).
 - Gesamttest erst ganz zum Schluss.
 

@@ -13,11 +13,24 @@ from PySide6.QtWidgets import QApplication, QMenu
 
 FOCUS_REPEAT_MS = 200
 
+# Wird vor jedem Öffnen eines Menüs aufgerufen, zum Beispiel für den Eintrag "Erklärung …" ganz
+# oben (Feature Erklärungen, 25.10.2026). Ein Fehler darin stört das Menü nicht.
+SHOW_HOOKS: list = []
+
 
 class AccessibleMenu(QMenu):
     def __init__(self, title: str = "", parent=None) -> None:
         super().__init__(title, parent)
         self.setAccessibleName(title.replace("&", ""))
+        self.aboutToShow.connect(self._run_hooks)
+
+    def _run_hooks(self) -> None:
+        for hook in list(SHOW_HOOKS):
+            try:
+                hook(self)
+            except Exception:                      # noqa: BLE001 (nur Zusatz)
+                import logging
+                logging.getLogger(__name__).exception("Zusatz für das Menü fehlgeschlagen")
 
     def showEvent(self, event) -> None:
         super().showEvent(event)

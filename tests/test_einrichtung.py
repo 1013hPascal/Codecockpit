@@ -18,6 +18,7 @@ from cockpit.platforms.github import GitHubPlatform
 from cockpit.ui import accounts_dialog as ad
 from cockpit.ui import ai_dialogs
 from cockpit.ui import browser_login_dialog as bld
+from cockpit.ui import setup_pages
 from cockpit.ui import setup_wizard as sw
 from cockpit.ui import videos
 from tests.conftest import FakeVault, said
@@ -447,7 +448,14 @@ def test_feature_page_comes_after_the_folder(full_wizard):
     assert rows and all(page.list.item(r).checkState() == Qt.CheckState.Checked
                         for r in range(len(rows)))
     assert any(row.startswith("Versionen: ") for row in rows)
-    assert not any(row.startswith("Neuigkeiten: ") for row in rows)
+    # Wunsch des Nutzers (25.10.2026): alle Features, mit dem, was sie brauchen
+    assert {m.id for m in page.features} == {m.id for m in dialog.services.registry.all()}
+    assert any(row.startswith("Neuigkeiten: ") and "Braucht: " in row for row in rows)
+    assert any(row.startswith("KI-Hilfe: ") and "Braucht: " in row for row in rows)
+    assert any(row.startswith("Erklärungen: ") for row in rows)
+    groups = [sw.feature_group(dialog.services, m) for m in page.features]
+    order = setup_pages.FEATURE_GROUPS
+    assert groups == sorted(groups, key=order.index)              # ohne Einrichtung oben
 
 
 def test_unchecked_feature_is_off_and_checked_ones_are_on(full_wizard):

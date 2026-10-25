@@ -439,32 +439,38 @@ class FolderPage(Page):
         return True
 
 
+FEATURE_GROUPS = ("free", "platform", "ai", "other")     # Reihenfolge auf der Seite
+
+
 class FeaturePage(Page):
-    """Wunsch des Nutzers (22.10.2026): Features ohne weitere Einrichtung als Liste, alle
-    angehakt. Abhaken schaltet ein Feature überall aus. Pro Projekt ändert man es später."""
+    """Wunsch des Nutzers (22.10.2026): Features als Liste, alle angehakt. Abhaken schaltet ein
+    Feature überall aus. Pro Projekt ändert man es später. Seit dem 25.10.2026 stehen hier alle
+    Features, auch die mit GitHub oder KI, mit dem, was sie brauchen."""
     title = "Features wählen"
     intro = "Wählen Sie, welche Features Sie nutzen möchten. Alle sind angehakt."
     later = "Menü Features, Feature-Verwaltung"
 
     def __init__(self, wizard) -> None:
         super().__init__(wizard)
-        self.features = features_in(self.services, "free")
+        self.features = [m for group in FEATURE_GROUPS for m in features_in(self.services, group)]
         self.in_summary = bool(self.features)
         self.text = _lines("Erklärung", [
-            "Features sind Zusatzfunktionen des Cockpits. Die Features hier brauchen keine "
-            "weitere Einrichtung.",
+            "Features sind Zusatzfunktionen des Cockpits. Hier stehen alle Features.",
+            "Zuerst kommen die Features ohne weitere Einrichtung. Danach die, die ein Konto bei "
+            "GitHub oder eine KI brauchen. Das steht jeweils am Ende der Zeile.",
             "Alle sind angehakt. Mit der Leertaste haken Sie ein Feature ab oder wieder an.",
-            "Abgehakte Features sind überall aus. Angehakte sind in allen Projekten an.",
+            "Abgehakte Features sind überall aus. Angehakte sind in allen Projekten an. Fehlt "
+            "noch etwas, zum Beispiel die KI, wirkt das Feature erst, wenn es eingerichtet ist.",
+            "Das Feature Erklärungen zeigt ganz oben in Listen und Menüs einen Eintrag "
+            "Erklärung. Er sagt kurz, was man dort machen kann.",
             "Für ein einzelnes Projekt ändern Sie das später in der Projektliste mit Features "
             "dieses Projekts. Für alle Projekte im Menü Features, Feature-Verwaltung.",
-            "Features mit GitHub standen bei den Code-Plattformen, Features mit KI kommen auf "
-            "der nächsten Seite.",
             "Mit Tab kommen Sie zur Liste der Features.",
         ])
         self.list = QListWidget()
         self.list.setWordWrap(True)
         for manifest in self.features:
-            item = QListWidgetItem(feature_line(manifest))
+            item = QListWidgetItem(self.line(manifest))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             on = self.services.features.globally_enabled(manifest.id)
             item.setCheckState(Qt.CheckState.Checked if on else Qt.CheckState.Unchecked)
@@ -474,6 +480,12 @@ class FeaturePage(Page):
         self.layout_.addWidget(self.text, 2)
         self.layout_.addWidget(label_for(self.list, "&Features:"))
         self.layout_.addWidget(self.list, 2)
+
+    def line(self, manifest: FeatureManifest) -> str:
+        from cockpit.core.text import join_words
+        needs = self.services.features.needs(manifest.id)
+        line = feature_line(manifest)
+        return f"{line} Braucht: {join_words(needs)}." if needs else line
 
     def needed(self) -> bool:
         return bool(self.features)

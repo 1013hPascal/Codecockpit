@@ -1427,3 +1427,21 @@ Wunsch des Nutzers: einen Plan für die Optik des ganzen Programms und ihn umset
 - Die Gruppe „KI“ in der Feature-Verwaltung ist fett.
 - Programmsymbol „CC“ auf der Akzentfarbe, mit Qt gemalt. Einige Menüeinträge haben Symbole aus dem Windows-Stil. Die Exe bekommt das Symbol erst, wenn es eine .ico-Datei gibt.
 - Geprüft mit Bildern, die unsichtbar entstehen: hell, dunkel und mit 150 Prozent.
+## Signaltöne zur Wahl und gespeicherte Paketliste (24.10.2026)
+
+Wunsch des Nutzers. Neues Fenster „Signaltöne“ im Menü Einstellungen. Oben „Alle Signaltöne aus“. Darunter je eine Auswahl für „Programm arbeitet“, „KI arbeitet“ und „Erfolg“. Jede Art hat eigene Töne, auch Melodien und einen Dreiklang. Kein Ton kommt in zwei Arten vor, so klingen die Arten nie gleich. Die Vorgaben sind tiefer und weicher, weil der Nutzer die alten hohen Töne nervig fand. Die alten bleiben als „wie früher“ wählbar. Beim Wechsel in der Auswahl erklingt der Ton zum Anhören. Die Töne erzeugt das Cockpit weiter selbst, ohne neue Bibliothek. Die Schalter in den Grundeinstellungen für Töne beim Hochladen und während die KI schreibt bleiben. „Alle Signaltöne aus“ gilt zusätzlich für alles.
+
+Paketübersicht: oben der Knopf „Aktualisieren“, darunter der Knopf „Filtern“ mit „Alle“, „Nur im Cockpit“ und „Nur auf dem Rechner, nicht im Cockpit“. Die Vorgabe ist bei jedem Öffnen „Alle“. Die gelesene Liste wird in der Datenbank gespeichert (Schlüssel packages.cache) und beim nächsten Öffnen, auch nach einem Neustart, sofort gezeigt. Die erste Zeile nennt den Stand. Neu gelesen wird nur mit „Aktualisieren“, beim allerersten Öffnen und nach einer Änderung an einem Paket, dann nur diese Quelle. Gespeichert wird nur eine vollständige Liste, damit ein Abbruch die alte Liste nicht überschreibt. Aktualisieren, Löschen und „Alle aktualisieren“ spielen den Warteton „Programm arbeitet“ und am Ende den Erfolgs- oder Fehlerton. Sie folgen dem Schalter für Töne beim Hochladen.
+Nachtrag: Die Liste wird erst gespeichert, wenn der Hintergrund-Thread ganz zu Ende ist, nie beim Schließen des Fensters. Schreiben in die Datenbank, während der Thread gerade endet, brach in Tests Qt ab. Der Hintergrund-Helfer der Dialoge (DialogWorker) kann dafür „after“ aufrufen, und bei Fehlern „failed“, für den Fehlerton.
+## Feature Erklärungen (25.10.2026)
+
+Wunsch des Nutzers: Ganz oben in Listen und Menüs steht eine Erklärung, in Fenstern ein Knopf. Sie sagt in kurzen Absätzen, was man dort machen kann.
+
+- Es ist ein normales Feature „Erklärungen“ in der Feature-Verwaltung, von Anfang an eingeschaltet. Ausschalten dort schaltet alle Erklärungen aus.
+- Einzelne Erklärungen hakt man in den Einstellungen des Features ab (Liste „Erklärungen anzeigen für“) oder mit „Diese Erklärung nicht mehr anzeigen“. Gespeichert wird die Liste der gezeigten Titel.
+- Projektliste: Zeile „Erklärung: Projektliste“ ganz oben, nur auf der obersten Ebene, nicht in Sammlungen. Dafür gibt es im Kern das neue Ziel Target.EXPLANATION ohne Aktionen. Das ist eine kleine Ergänzung am Kern, ohne PySide6.
+- Aktionen: Zeile „Erklärung: Aktionen“ ganz oben. Die Erklärung entsteht aus den Aktionen, die gerade dastehen, mit zwei bis drei Sätzen pro Aktion.
+- In beiden Listen startet die Markierung auf dem ersten echten Eintrag, die Erklärung steht darüber. Grund: Sonst landet jedes Tab und jeder Start auf der Erklärung, und Enter würde sie statt der Aktion öffnen.
+- Menüs: erster Eintrag „Erklärung …“, auch im Kontextmenü und unter „Weitere“. In Menüs ist er beim Öffnen markiert, wie der Nutzer es beschrieben hat.
+- Fenster: Knopf „Erklärung …“ ganz unten, zuletzt in der Tab-Folge, nicht Standardknopf. Nur Fenster mit eigenem Text bekommen ihn. Kurze Rückfragen, Fehlermeldungen und Textfenster bekommen keinen.
+- Die Einrichtung zeigt auf „Features wählen“ jetzt alle Features, zuerst die ohne weitere Einrichtung, bei den anderen „Braucht: …“ (Wunsch des Nutzers vom selben Tag).

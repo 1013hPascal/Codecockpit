@@ -135,6 +135,7 @@ class MenuMixin:
         settings_menu = AccessibleMenu("&Einstellungen", self)
         bar.addMenu(settings_menu)
         self._action(settings_menu, "&Grundeinstellungen …", self.open_settings)
+        self._action(settings_menu, "&Signaltöne …", self.open_sounds)   # 24.10.2026
         self._action(settings_menu, "&Einrichtungsassistent …", self.open_wizard)
 
         # Wunsch des Nutzers vom 22.10.2026: Neuigkeiten seit dem letzten Start und Aktivität
@@ -211,6 +212,8 @@ class MenuMixin:
         if select is not None:
             dialog.select(select)
         dialog.exec()
+        # Auch ohne Speichern: Die Einstellungen der Erklärungen gelten sofort (25.10.2026)
+        self.refresh_explanations()
         if dialog.changed:
             self.refresh_actions(keep_selection=True)
             self.refresh_status()
@@ -286,7 +289,12 @@ class MenuMixin:
                 "Barrierefrei entwickelt, vollständig per Tastatur bedienbar."]
         TextDialog(f"Über {APP_NAME}", text, f"Über {APP_NAME}", self).exec()
 
+    def open_sounds(self) -> None:
+        from cockpit.ui.sounds_dialog import SoundsDialog
+        SoundsDialog(self.services, self).exec()
+
     def open_wizard(self) -> None:
         SetupWizard(self.services, self).exec()
         self.update_vault_actions()
+        self.project_list.set_explanation(self.explainer.project_row())
         self.reload_projects()

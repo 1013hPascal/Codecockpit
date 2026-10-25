@@ -22,6 +22,7 @@ import sys
 import time
 import wave
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -57,56 +58,147 @@ def waiting_for_user() -> bool:
 RATE = 22050
 
 
-def _chime(notes: list[tuple[float, float]], volume: float = 0.16) -> bytes:
+def _chime(notes: list[tuple[float, float]], volume: float = 0.16, decay: float = 9.0,
+           ring: float = 0.45, overtone: float = 0.25) -> bytes:
     """Weiche Töne wie ein leises Glockenspiel: Sinus mit etwas Oberton, sanfter Anfang und
-    langsames Ausklingen. notes: (Frequenz, Beginn in Sekunden)."""
-    length = max(start for _f, start in notes) + 0.45
+    langsames Ausklingen. notes: (Frequenz, Beginn in Sekunden). Gleicher Beginn: Akkord.
+    decay: wie schnell ein Ton verklingt, groß wie bei Holz, klein wie bei einem Gong."""
+    length = max(start for _f, start in notes) + ring
     samples = [0.0] * int(RATE * length)
     for frequency, start in notes:
         offset = int(RATE * start)
-        for n in range(int(RATE * 0.45)):
+        for n in range(int(RATE * ring)):
             t = n / RATE
-            envelope = min(1.0, t / 0.012) * math.exp(-t * 9)
-            value = math.sin(2 * math.pi * frequency * t) + 0.25 * math.sin(
-                2 * math.pi * frequency * 2 * t) * math.exp(-t * 14)
+            envelope = min(1.0, t / 0.012) * math.exp(-t * decay)
+            value = math.sin(2 * math.pi * frequency * t) + overtone * math.sin(
+                2 * math.pi * frequency * 2 * t) * math.exp(-t * (decay + 5))
             samples[offset + n] += volume * envelope * value
     return b"".join(struct.pack("<h", int(max(-1.0, min(1.0, s)) * 32767)) for s in samples)
 
 
-SOUNDS: dict[str, Callable[[], bytes]] = {
-    TICK: lambda: _chime([(659.3, 0.0)]),                         # e'' allein
-    AI_TICK: lambda: _chime([(523.3, 0.0), (659.3, 0.16)], 0.13),  # c'' und e'', leiser
-    # Wunsch des Nutzers vom 20.10.2026: am Ende ein kurzes, helles Pling für erfolgreich,
-    # g'' und c''' schnell nacheinander, statt des Windows-Tons
-    DONE: lambda: _chime([(784.0, 0.0), (1046.5, 0.08)], 0.2),
+# -- Auswahl der Töne (Wunsch des Nutzers vom 24.10.2026) -----------------------------------------
+# Menü Einstellungen, Signaltöne: je Art mehrere Töne zur Wahl. Jede Art hat ihre eigenen Töne, so
+# klingen "Programm arbeitet", "KI arbeitet" und "Erfolg" nie gleich. Die Vorgaben sind tiefer und
+# weicher als früher, weil der Nutzer die hohen Töne nervig fand. Die alten bleiben wählbar.
+@dataclass(frozen=True)
+class SoundChoice:
+    id: str
+    name: str
+    make: Callable[[], bytes] | None          # None: kein Ton
+
+
+CHOICES: dict[str, tuple[SoundChoice, ...]] = {
+    TICK: (
+        SoundChoice("work_soft_mid", "Weicher Ton, mittel", lambda: _chime([(440.0, 0.0)], 0.14)),
+        SoundChoice("work_soft_low", "Weicher Ton, tief",
+                    lambda: _chime([(329.6, 0.0)], 0.16, decay=7)),
+        SoundChoice("work_wood", "Holzklopfen",
+                    lambda: _chime([(392.0, 0.0)], 0.2, decay=30, ring=0.2, overtone=0.6)),
+        SoundChoice("work_drops", "Zwei tiefe Tropfen",
+                    lambda: _chime([(293.7, 0.0), (220.0, 0.12)], 0.14, decay=14)),
+        SoundChoice("work_melody", "Kleine Melodie, aufwärts",
+                    lambda: _chime([(261.6, 0.0), (329.6, 0.14), (392.0, 0.28)], 0.12)),
+        SoundChoice("work_bell", "Glocke, hell, wie früher", lambda: _chime([(659.3, 0.0)])),
+    ),
+    AI_TICK: (
+        SoundChoice("ai_two_low", "Zwei Töne, tief",
+                    lambda: _chime([(261.6, 0.0), (329.6, 0.16)], 0.13)),
+        SoundChoice("ai_chord", "Sanfter Akkord",
+                    lambda: _chime([(196.0, 0.0), (246.9, 0.0), (293.7, 0.0)], 0.08, decay=5,
+                                   ring=0.6)),
+        SoundChoice("ai_knock", "Doppelklopfen",
+                    lambda: _chime([(349.2, 0.0), (349.2, 0.15)], 0.2, decay=30, ring=0.2,
+                                   overtone=0.6)),
+        SoundChoice("ai_melody", "Melodie, auf und ab",
+                    lambda: _chime([(392.0, 0.0), (440.0, 0.13), (523.3, 0.26), (440.0, 0.39)],
+                                   0.11)),
+        SoundChoice("ai_two_high", "Zwei Töne, hell, wie früher",
+                    lambda: _chime([(523.3, 0.0), (659.3, 0.16)], 0.13)),
+    ),
+    DONE: (
+        SoundChoice("done_soft", "Pling, weich",
+                    lambda: _chime([(523.3, 0.0), (784.0, 0.09)], 0.18)),
+        SoundChoice("done_triad", "Dreiklang, aufwärts",
+                    lambda: _chime([(392.0, 0.0), (493.9, 0.1), (587.3, 0.2)], 0.15)),
+        SoundChoice("done_gong", "Kurzer Gong",
+                    lambda: _chime([(196.0, 0.0), (392.0, 0.0)], 0.16, decay=4, ring=0.8)),
+        SoundChoice("done_bright", "Pling, hell, wie früher",
+                    lambda: _chime([(784.0, 0.0), (1046.5, 0.08)], 0.2)),
+        SoundChoice("done_none", "Kein Ton", None),
+    ),
 }
+CATEGORY_NAMES = {TICK: "Programm arbeitet", AI_TICK: "KI arbeitet", DONE: "Erfolg"}
+DEFAULTS = {kind: options[0].id for kind, options in CHOICES.items()}
+
+_config: dict[str, object] = {"muted": False, **DEFAULTS}
 
 
-def sound_file(kind: str) -> Path:
-    """Die WAV-Datei des Klangs, beim ersten Mal erzeugt."""
+def configure(muted: bool = False, work: str = "", ai: str = "", done: str = "") -> None:
+    """Auswahl aus den Einstellungen übernehmen. Leer oder unbekannt: die Vorgabe."""
+    _config["muted"] = muted
+    for kind, wanted in ((TICK, work), (AI_TICK, ai), (DONE, done)):
+        known = {c.id for c in CHOICES[kind]}
+        _config[kind] = wanted if wanted in known else DEFAULTS[kind]
+
+
+def configure_from(settings) -> None:
+    configure(settings.sounds_off, settings.sound_work, settings.sound_ai, settings.sound_done)
+
+
+def muted() -> bool:
+    return bool(_config["muted"])
+
+
+def chosen(kind: str) -> str:
+    return str(_config[kind])
+
+
+def find(sound_id: str) -> SoundChoice:
+    return next(c for options in CHOICES.values() for c in options if c.id == sound_id)
+
+
+def sound_file(kind: str) -> Path | None:
+    """Die WAV-Datei des gewählten Klangs einer Art (TICK, AI_TICK, DONE) oder eines Klangs mit
+    dieser Kennung, beim ersten Mal erzeugt. None bei "Kein Ton"."""
+    choice = find(chosen(kind) if kind in CHOICES else kind)
+    if choice.make is None:
+        return None
     from cockpit.core import paths
-    path = paths.cache_dir() / "sounds" / f"{kind}.wav"
+    path = paths.cache_dir() / "sounds" / f"{choice.id}.wav"
     if not path.is_file():
         path.parent.mkdir(parents=True, exist_ok=True)
         with wave.open(str(path), "wb") as out:
             out.setnchannels(1)
             out.setsampwidth(2)
             out.setframerate(RATE)
-            out.writeframes(SOUNDS[kind]())
+            out.writeframes(choice.make())
     return path
 
 
 def _windows_sound(kind: str) -> None:
     import winsound
-    if kind in SOUNDS:
-        winsound.PlaySound(str(sound_file(kind)), winsound.SND_FILENAME | winsound.SND_ASYNC
-                           | winsound.SND_NODEFAULT)
+    if kind in (START, ERROR):
+        flags = {START: winsound.MB_ICONASTERISK, ERROR: winsound.MB_ICONHAND}
+        winsound.MessageBeep(flags[kind])
         return
-    flags = {START: winsound.MB_ICONASTERISK, ERROR: winsound.MB_ICONHAND}
-    winsound.MessageBeep(flags[kind])
+    path = sound_file(kind)                       # eine Art oder die Kennung eines Tons
+    if path is not None:
+        winsound.PlaySound(str(path), winsound.SND_FILENAME | winsound.SND_ASYNC
+                           | winsound.SND_NODEFAULT)
+
+
+def preview(sound_id: str) -> None:
+    """Einen Ton zum Anhören abspielen, auch wenn die Signaltöne aus sind."""
+    _sound(sound_id)
 
 
 def _play(kind: str) -> None:
+    if muted():
+        return
+    _sound(kind)
+
+
+def _sound(kind: str) -> None:
     try:
         if sys.platform == "win32":
             _windows_sound(kind)

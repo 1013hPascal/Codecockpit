@@ -57,17 +57,19 @@ def opened(qtbot, make_services, monkeypatch):
 def test_sources_dialog_reads_and_checks(qtbot, make_services, fake_catalog, monkeypatch):
     _services, dialog = opened(qtbot, make_services, monkeypatch)
     assert dialog.windowTitle() == "Paketübersicht"
-    assert dialog.list.accessibleName() == "Quellen" and dialog.filter.accessibleName() == "Zeigen"
+    assert dialog.list.accessibleName() == "Quellen"
+    assert dialog.filter.accessibleName() == "Filtern: Alle"
     assert dialog.list.item(0).text().startswith("Speicherplatz:")
     assert dialog.list.item(1).text() == ("Python-Bibliotheken (pip), 2 Einträge, 1 veraltet")
     assert dialog.list.item(2).text() == ("Programme aus winget, nicht verfügbar: winget fehlt")
     assert said("Prüfung fertig: 1 Paket ist veraltet.")
-    dialog.filter.setCurrentText(base.COCKPIT)
+    dialog.set_filter(base.COCKPIT)
     assert dialog.list.item(1).text() == "Python-Bibliotheken (pip), 1 Eintrag, alles aktuell"
     assert not dialog.cleanup_button.isVisibleTo(dialog)            # ohne Ablauf
 
 
-def test_packages_dialog_buttons_and_update(qtbot, make_services, fake_catalog, monkeypatch):
+def test_packages_dialog_buttons_and_update(qtbot, make_services, fake_catalog, monkeypatch,
+                                            played):
     from cockpit.ui import package_dialogs
     _services, sources = opened(qtbot, make_services, monkeypatch)
     dialog = package_dialogs.PackagesDialog(sources, PIP)

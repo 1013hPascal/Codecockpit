@@ -47,6 +47,9 @@ class Target(Enum):
     RELEASE = "release"
     # Wunsch des Nutzers (07.10.2026): "Anzeigen: Alle Projekte" über den Projekten
     LIST_FILTER = "list_filter"
+    # Wunsch des Nutzers (25.10.2026): Zeile "Erklärung: Projektliste" ganz oben, nur mit dem
+    # Feature Erklärungen. Sie hat keine Aktionen, Enter öffnet die Erklärung.
+    EXPLANATION = "explanation"
 
 
 @dataclass

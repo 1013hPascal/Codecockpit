@@ -77,6 +77,8 @@ class ActionsMixin:
         return entries_for(actions, context)
 
     def refresh_actions(self, keep_selection: bool = False) -> None:
+        context = self.action_context()
+        self.actions_list.explanation = self.explainer.action_row(context.target)
         self.actions_list.set_entries(self.current_entries(), keep_selection)
 
     def run_entry(self, entry: ActionEntry) -> None:
@@ -135,7 +137,7 @@ class ActionsMixin:
             chosen[menu.addAction(entry.label.replace("&", "&&"))] = entry
         picked = menu.exec(position)
         self.project_list.setFocus()
-        if picked is not None:
+        if picked in chosen:                    # nicht beim Eintrag "Erklärung …"
             self.run_entry(chosen[picked])
 
     def show_more(self, entry: ActionEntry) -> None:
@@ -150,7 +152,7 @@ class ActionsMixin:
         rect = listing.visualItemRect(item) if item is not None else listing.rect()
         first = next(iter(chosen), None)
         picked = menu.exec(listing.viewport().mapToGlobal(rect.bottomLeft()), first)
-        if picked is None:
+        if picked not in chosen:                # Escape oder "Erklärung …"
             listing.setFocus()
             return
         self.run_entry(chosen[picked])
@@ -186,7 +188,7 @@ class ActionsMixin:
         if row is None:
             self.project_list.setFocus()
             return False
-        self.actions_list.setCurrentRow(row)
+        self.actions_list.setCurrentRow(self.actions_list.row_of_entry(row))
         self.actions_list.setFocus()
         return True
 

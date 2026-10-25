@@ -16,8 +16,9 @@ SOURCE_NAMES = {PIP: "Python-Bibliotheken (pip)", WINGET: "Programme aus winget"
                 CHOCO: "Programme aus Chocolatey", MODEL: "Sprachmodelle"}
 SOURCES = (PIP, WINGET, CHOCO, MODEL)
 
-# Filter oben im Fenster (Wunsch des Nutzers vom 21.10.2026)
-ALL, COCKPIT, MACHINE = "Alles", "Nur Cockpit-Projekte", "Nur übriger Rechner"
+# Filter oben im Fenster (Wunsch des Nutzers vom 21.10.2026, Namen vom 24.10.2026). Vorgabe ist
+# immer "Alle".
+ALL, COCKPIT, MACHINE = "Alle", "Nur im Cockpit", "Nur auf dem Rechner, nicht im Cockpit"
 FILTERS = (ALL, COCKPIT, MACHINE)
 
 

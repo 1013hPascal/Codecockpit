@@ -44,7 +44,9 @@ class MainWindow(MenuMixin, ActionsMixin, StatusMixin, VaultMixin, QMainWindow):
         self.testdata = testdata
         self.asker = QtAsker(self)
         # Leiser Warteton, solange die KI schreibt (Wunsch des Nutzers vom 14.10.2026)
+        from cockpit.ui import sounds
         from cockpit.ui.sounds import AISound
+        sounds.configure_from(services.settings.load())   # Auswahl der Signaltöne (24.10.2026)
         self.ai_sound = AISound(lambda: services.settings.load().ai_sounds, self)
         self.setWindowTitle(f"{APP_NAME} (Testdaten)" if testdata else APP_NAME)
 
@@ -63,6 +65,12 @@ class MainWindow(MenuMixin, ActionsMixin, StatusMixin, VaultMixin, QMainWindow):
         list_label.setBuddy(self.project_list)
         actions_label = QLabel("A&ktionen:")
         actions_label.setBuddy(self.actions_list)
+        # Feature Erklärungen (25.10.2026): Zeilen ganz oben, Einträge in Menüs und Fenstern
+        from cockpit.ui.explanations import Explainer
+        self.explainer = Explainer(self)
+        self.project_list.set_explanation(self.explainer.project_row())
+        self.project_list.explanationRequested.connect(self.explainer.show_project_list)
+        self.actions_list.explanationRequested.connect(lambda: self.explainer.show_actions())
 
         left = QVBoxLayout()
         left.addWidget(list_label)
@@ -180,6 +188,11 @@ class MainWindow(MenuMixin, ActionsMixin, StatusMixin, VaultMixin, QMainWindow):
         from cockpit.ui.quick_nav import key_hint
         self.project_list.setToolTip(key_hint(self.project_list, self))
 
+    def refresh_explanations(self) -> None:
+        """Nach dem Ein- oder Ausschalten von Erklärungen: Zeilen oben neu setzen."""
+        self.project_list.set_explanation(self.explainer.project_row())
+        self.refresh_actions(keep_selection=True)
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Jede Taste und jeder Mausklick startet die Zeit bis zum automatischen Sperren neu."""
         if event.type() in (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress):
@@ -189,6 +202,7 @@ class MainWindow(MenuMixin, ActionsMixin, StatusMixin, VaultMixin, QMainWindow):
     # -- Ende -----------------------------------------------------------------------------
     def closeEvent(self, event) -> None:
         QApplication.instance().removeEventFilter(self)
+        self.explainer.shutdown()
         self.lock_timer.stop()
         self.controller.wait()
         self.calibrator.stop()

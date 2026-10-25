@@ -29,10 +29,13 @@ class _Worker:
         return self.task is not None
 
     def run(self, work: Callable[[], object], done: Callable[[object], None],
-            speak: str = "") -> None:
+            speak: str = "", failed: Callable[[], None] | None = None,
+            after: Callable[[], None] | None = None) -> bool:
+        """False, wenn schon etwas läuft. failed: nach einem Fehler, vor der Meldung. after:
+        erst, wenn der Thread ganz zu Ende ist, zum Beispiel für Schreiben in die Datenbank."""
         if self.task is not None:
             announce("Das läuft schon.")
-            return
+            return False
         if speak:
             announce(speak)
         task = Task(lambda _task: work(), self.dialog)
@@ -44,13 +47,21 @@ class _Worker:
 
         def on_error(message: str, details: str) -> None:
             self.task = None
+            if failed is not None:
+                failed()
             announce(message, urgent=True)
             show_error(self.dialog, self.title, message, details)
 
         task.result.connect(on_result)
         task.error.connect(on_error)
+        if after is not None:
+            def on_finished() -> None:
+                task.wait()
+                after()
+            task.finished.connect(on_finished)
         task.finished.connect(task.deleteLater)
         task.start()
+        return True
 
     def wait(self) -> None:
         try:

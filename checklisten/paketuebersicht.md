@@ -30,8 +30,8 @@ Ansage: Jede Zeile beginnt mit dem Namen der Quelle, dann die Anzahl und wie vie
 Ergebnis:
 
 [ ] 5. Filter
-Tasten: Alt+Z, dann Pfeil runter.
-Ansage: „Alles“, „Nur Cockpit-Projekte“, „Nur übriger Rechner“. Die Zahlen in der Liste ändern sich.
+Tasten: Alt+F, dann Pfeil runter und Enter.
+Ansage: „Alle“, „Nur im Cockpit“, „Nur auf dem Rechner, nicht im Cockpit“. Die Zahlen in der Liste ändern sich. Seit 24.10.2026 ein Knopf, siehe checklisten\signaltoene.md.
 Ergebnis:
 
 [ ] 6. Verlauf

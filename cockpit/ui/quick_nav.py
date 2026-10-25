@@ -167,6 +167,7 @@ ROW_HINTS = {
     Target.REPOSITORY: "Enter öffnet die Auswahl der Branches, Tab führt zu den Aktionen, Pfeil "
                        "links klappt zu",
     Target.REMOTE_REPO: "Enter lädt herunter, Tab führt zu den Aktionen",
+    Target.EXPLANATION: "Enter öffnet die Erklärung, Pfeil runter führt zu den Projekten",
 }
 CHILD_HINT = "Enter führt die wichtigste Aktion aus, Tab führt zu den Aktionen, Pfeil links klappt zu"
 TOP_HINT = "Enter führt aus, Pfeil runter führt zu den Projekten"

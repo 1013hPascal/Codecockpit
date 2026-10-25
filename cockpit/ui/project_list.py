@@ -67,6 +67,7 @@ class ProjectList(QListWidget):
     expandedChanged = Signal()
     showChanged = Signal(int, str)              # Auswahl beim Repository geändert (06.10.)
     filterChanged = Signal(str)                 # Filter "Anzeigen:" geändert (07.10.2026)
+    explanationRequested = Signal()             # Enter auf "Erklärung: Projektliste" (25.10.)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -82,6 +83,8 @@ class ProjectList(QListWidget):
         self._opened: int | None = None               # geöffnete Sammlung
         self._filter = list_filter.ALL                # "Anzeigen:" über den Projekten
         self._refill_pending = False
+        # Feature Erklärungen (25.10.2026): Text der Zeile ganz oben, leer ohne Erklärung
+        self._explanation = ""
         self.platform_name = "GitHub"
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._context_menu)
@@ -130,6 +133,8 @@ class ProjectList(QListWidget):
                         if self._remote_of.get(r.id) == self._opened]
             entries = [e for e in entries if self._passes(e)]
         else:
+            if self._explanation:
+                self.addItem(self._item(self._explanation, Target.EXPLANATION, None))
             self.addItem(self._item(NEW_COLLECTION_TEXT, Target.NEW_COLLECTION, None))
             self.addItem(self._item(ADD_LOCAL_TEXT, Target.ADD_LOCAL, None))
             self.addItem(self._item(add_remote_text(self.platform_name), Target.ADD_REMOTE,
@@ -170,6 +175,15 @@ class ProjectList(QListWidget):
             item = self._item(self._project_text(entry), Target.PROJECT, entry.id)
             self._mark(item, entry.id)
             self.addItem(item)
+
+    def set_explanation(self, text: str) -> None:
+        """Zeile "Erklärung: Projektliste" ganz oben zeigen (Text) oder entfernen (leer). Die
+        Markierung bleibt, wo sie ist. Nur auf der obersten Ebene, nicht in Sammlungen."""
+        if text == self._explanation:
+            return
+        self._explanation = text
+        if self.count():
+            self._refill()
 
     # -- Filter (Wunsch des Nutzers vom 07.10.2026) -------------------------------------------
     @property
@@ -588,6 +602,9 @@ class ProjectList(QListWidget):
 
     def _activate(self) -> None:
         target, project_id = self.current_target()
+        if target == Target.EXPLANATION:
+            self.explanationRequested.emit()
+            return
         if target == Target.COLLECTION:
             if project_id == self._opened:
                 self.close_collection()

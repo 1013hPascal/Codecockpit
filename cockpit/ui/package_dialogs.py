@@ -1,9 +1,11 @@
 """Fenster der Paketübersicht (Wunsch des Nutzers vom 21.10.2026, PLAN-PAKETUEBERSICHT.md).
 
-SourcesDialog: oben "Zeigen" mit Alles, Nur Cockpit-Projekte, Nur übriger Rechner. Darunter die
-Liste: zuerst der Speicherplatz, dann eine Zeile pro Quelle. Enter öffnet die Pakete der Quelle.
-Gelesen wird gleich beim Öffnen im Hintergrund, danach geprüft, was veraltet ist. Ansagen gibt es
-nur zweimal: wenn alles gelesen ist und wenn die Prüfung fertig ist.
+SourcesDialog: oben "Aktualisieren", darunter "Filtern: Alle" mit Alle, Nur im Cockpit und Nur auf
+dem Rechner (24.10.2026). Darunter die Liste: zuerst Speicherplatz und Stand, dann eine Zeile pro
+Quelle. Enter öffnet die Pakete der Quelle. Die Liste ist gespeichert (cache.py). Gelesen wird nur
+beim allerersten Öffnen, mit "Aktualisieren" und nach einer Änderung (nur diese Quelle), danach
+geprüft, was veraltet ist. Ansagen gibt es nur zweimal: wenn alles gelesen ist und wenn die Prüfung
+fertig ist.
 
 PackagesDialog: die Pakete einer Quelle, neueste oben. Tab führt zu den Knöpfen. Knöpfe, die zum
 markierten Paket nicht passen, sind ausgeblendet. Alles, was ändert, fragt vorher nach. Vorgabe
@@ -15,16 +17,17 @@ import logging
 import webbrowser
 from typing import Callable
 
-from PySide6.QtWidgets import (QComboBox, QLineEdit, QListWidget, QPushButton, QVBoxLayout,
+from PySide6.QtWidgets import (QLineEdit, QListWidget, QPushButton, QVBoxLayout,
                                QWidget)
 
 from cockpit.core.errors import CockpitError
-from cockpit.features.packages import base, catalog, models, record
+from cockpit.features.packages import base, cache, catalog, models, record
 from cockpit.features.packages.base import MODEL, PIP, SOURCE_NAMES, Package
 from cockpit.core.text import count
 from cockpit.ui.announcer import announce
 from cockpit.ui.common import (FocusDialog, ask_buttons, choose_from_list, click_focused_button,
                                confirm, label_for)
+from cockpit.ui import sounds
 from cockpit.ui.error_dialog import show_error
 from cockpit.ui.repo_dialogs import DialogWorker, _is_enter, button_row
 from cockpit.ui.tasks import Task
@@ -63,6 +66,16 @@ class TextInputDialog(FocusDialog):
             self.accept()
 
 
+def save_list(database, data, checked, now) -> bool:
+    """Die gespeicherte Liste ist nur Zusatz, ein Fehler stört nie."""
+    try:
+        cache.save(database, data, checked, now)
+    except Exception as exc:                          # noqa: BLE001
+        log.warning("Paketliste nicht gespeichert: %r", exc)
+        return False
+    return True
+
+
 # -- Quellen -------------------------------------------------------------------------------------
 class SourcesDialog(FocusDialog):
     def __init__(self, services, parent: QWidget | None = None, flow=None) -> None:
@@ -74,10 +87,15 @@ class SourcesDialog(FocusDialog):
         self.infos = catalog.sources()
         self.data: dict[str, list[Package] | None] = {i.source: None for i in self.infos}
         self.checked: set[str] = set()
-        self.filter = QComboBox()
-        self.filter.addItems(list(base.FILTERS))
-        filter_label = label_for(self.filter, "&Zeigen:")
-        self.filter.currentIndexChanged.connect(lambda _i: self.fill())
+        # Wunsch des Nutzers vom 24.10.2026: oben "Aktualisieren", darunter "Filtern". Die Liste
+        # bleibt gespeichert und wird nur mit "Aktualisieren" neu gelesen.
+        self.refresh_button = QPushButton("&Aktualisieren")
+        self.refresh_button.clicked.connect(self.refresh_all)
+        self.filter_value = base.ALL                    # Vorgabe immer "Alle"
+        self.filter = QPushButton()
+        self.filter.clicked.connect(self.choose_filter)
+        self.saved_at = None
+        self.store_pending = False
         self.list = QListWidget()
         list_label = label_for(self.list, "&Quellen:")
         self.list.installEventFilter(self)
@@ -85,7 +103,7 @@ class SourcesDialog(FocusDialog):
         self.open_button.clicked.connect(self.open_current)
         self.history_button = QPushButton("&Verlauf …")
         self.history_button.clicked.connect(self.show_history)
-        self.cleanup_button = QPushButton("&Aufräumen …")
+        self.cleanup_button = QPushButton("A&ufräumen …")
         self.cleanup_button.clicked.connect(self.cleanup)
         self.scan_button = QPushButton("Ordner nach &Modellen durchsuchen …")
         self.scan_button.clicked.connect(self.scan_folder)
@@ -93,14 +111,14 @@ class SourcesDialog(FocusDialog):
         self.projects_button.clicked.connect(self.project_libraries)
         close = QPushButton("&Schließen")
         close.clicked.connect(self.reject)
-        for button in (self.open_button, self.history_button, self.cleanup_button,
-                       self.scan_button, self.projects_button, close):
+        for button in (self.refresh_button, self.filter, self.open_button, self.history_button,
+                       self.cleanup_button, self.scan_button, self.projects_button, close):
             button.setAutoDefault(False)
         for button in (self.cleanup_button, self.scan_button, self.projects_button):
             button.setVisible(flow is not None)
         layout = QVBoxLayout(self)
-        layout.addWidget(filter_label)
-        layout.addWidget(self.filter)
+        layout.addLayout(button_row(self.refresh_button, None))
+        layout.addLayout(button_row(self.filter, None))
         layout.addWidget(list_label)
         layout.addWidget(self.list, 1)
         layout.addLayout(button_row(self.open_button, self.history_button, self.cleanup_button,
@@ -109,14 +127,57 @@ class SourcesDialog(FocusDialog):
         self.resize(760, 460)
         self.initial_focus_widget = self.list
         self.task: Task | None = None
+        self.update_filter_button()
+        stored, checked, self.saved_at = cache.load(services.database)
+        for source in self.data:
+            if source in stored:
+                self.data[source] = stored[source]
+        self.checked = checked & {s for s in self.data if self.data[s] is not None}
         self.fill()
         self.list.setCurrentRow(1 if self.list.count() > 1 else 0)
-        self.load()
+        if self.missing():                              # erstes Öffnen oder neue Quelle
+            self.load()
 
     # -- Anzeige ---------------------------------------------------------------------------
     @property
     def chosen_filter(self) -> str:
-        return self.filter.currentText()
+        return self.filter_value
+
+    def missing(self) -> list[str]:
+        """Verfügbare Quellen ohne gespeicherte Liste."""
+        return [i.source for i in self.infos if i.available and self.data.get(i.source) is None]
+
+    def update_filter_button(self) -> None:
+        self.filter.setText(f"&Filtern: {self.filter_value}")
+        self.filter.setAccessibleName(f"Filtern: {self.filter_value}")
+
+    def set_filter(self, value: str) -> None:
+        self.filter_value = value
+        self.update_filter_button()
+        self.fill()
+        for dialog in self.findChildren(PackagesDialog):
+            dialog.refresh(quiet=True)
+
+    def choose_filter(self) -> None:
+        options = list(base.FILTERS)
+        index = choose_from_list(self, "Filtern", "Zeigen", options,
+                                 options.index(self.filter_value))
+        if index is not None:
+            self.set_filter(options[index])
+            announce(f"Filter: {self.filter_value}.")
+        self.filter.setFocus()
+
+    def refresh_all(self) -> None:
+        """Alle Quellen neu lesen und prüfen (Knopf Aktualisieren)."""
+        if self.task is not None:
+            announce("Wird schon gelesen.")
+            return
+        for source in self.data:
+            self.data[source] = None
+        self.checked.clear()
+        self.fill()
+        announce("Pakete werden neu gelesen.")
+        self.load()
 
     def visible(self, source: str) -> list[Package]:
         return base.apply_filter(self.data.get(source) or [], self.chosen_filter)
@@ -136,7 +197,10 @@ class SourcesDialog(FocusDialog):
         row = self.list.currentRow()
         self.list.clear()
         shown = {s: self.visible(s) for s in self.data if self.data[s] is not None}
-        self.list.addItem(catalog.space_line(shown))
+        line = catalog.space_line(shown)
+        if self.saved_at is not None and self.task is None:
+            line += f". Stand: {self.saved_at:%d.%m.%Y %H:%M}"
+        self.list.addItem(line)
         for info in self.infos:
             self.list.addItem(self.row_text(info))
         self.list.setCurrentRow(max(0, min(row, self.list.count() - 1)))
@@ -209,15 +273,31 @@ class SourcesDialog(FocusDialog):
     def loaded(self, wanted) -> None:
         if not wanted:
             return
+        self.store_pending = True                       # erst, wenn der Thread ganz fertig ist
         old = sum(1 for s in wanted for p in self.visible(s) if p.outdated)
         announce(f"Prüfung fertig: {count(old, 'Paket ist', 'Pakete sind')} veraltet." if old
                  else "Prüfung fertig: alles aktuell.")
+
+    def store(self) -> None:
+        """Liste speichern, nur wenn alle verfügbaren Quellen gelesen sind. So überschreibt ein
+        abgebrochenes Lesen nie die letzte vollständige Liste. Nie beim Schließen: Dann kann
+        die Datenbank schon zu sein."""
+        if self.missing() or self.task is not None:
+            return
+        from datetime import datetime
+        now = datetime.now()
+        if save_list(self.services.database, self.data, self.checked, now):
+            self.saved_at = now
 
     def _finished(self) -> None:
         task, self.task = self.task, None
         if task is not None:
             task.wait()
             task.deleteLater()
+        if self.store_pending:
+            self.store_pending = False
+            self.store()
+        self.fill()                                     # mit "Stand:" in der ersten Zeile
 
     # -- Bedienung -------------------------------------------------------------------------
     def eventFilter(self, watched, event) -> bool:
@@ -404,12 +484,18 @@ class PackagesDialog(FocusDialog):
         TextDialog(f"Angaben zu {package.name}", details(package), "Angaben", self).exec()
 
     def run(self, work: Callable[[], str], speak: str) -> None:
-        """Im Hintergrund, danach die Quelle neu lesen."""
+        """Im Hintergrund, danach die Quelle neu lesen. Solange es läuft, kommt der Warteton
+        "Programm arbeitet" (Wunsch des Nutzers vom 24.10.2026), am Ende der Erfolgston."""
+        sound = sounds.TransferSound(self.services.settings.load().transfer_sounds, self)
+
         def done(text) -> None:
+            sound.finish(True)
             announce(text)
             self.sources.reload(self.source)
             self.refresh(quiet=True)
-        self.worker.run(work, done, speak)
+        sound.start()
+        if not self.worker.run(work, done, speak, failed=lambda: sound.finish(False)):
+            sound.stop()                                # es lief schon etwas
 
     def update_current(self) -> None:
         package = self.current()
@@ -529,7 +615,8 @@ class PackagesDialog(FocusDialog):
         if package.source == "choco":
             announce("Windows fragt nach Administratorrechten.")
         self.worker.run(lambda: catalog.set_pinned(database, package, on),
-                        lambda text: (announce(text), self.refresh(quiet=True)))
+                        lambda text: (announce(text), self.refresh(quiet=True)),
+                        after=self.sources.store)       # "festgehalten" auch gespeichert
 
     def remove_old(self) -> None:
         package = self.current()

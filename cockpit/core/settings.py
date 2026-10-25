@@ -60,6 +60,10 @@ class Settings:
     ai_sounds: bool = True                       # Töne, während die KI schreibt (14.10.2026)
     default_features: list[str] | None = None     # None: Standard der Features
     # Nicht im Formular der Grundeinstellungen, sondern in eigenen Dialogen:
+    sounds_off: bool = False                      # Signaltöne: alle aus (24.10.2026)
+    sound_work: str = ""                          # Kennung des Tons, leer: Vorgabe
+    sound_ai: str = ""
+    sound_done: str = ""
     setup_done: bool = False                      # Einrichtungsassistent abgeschlossen
     vault_kind: str = ""                          # "windows", "vault_file" oder leer
     auto_lock_minutes: int = 0                    # Tresordatei nach Inaktivität sperren, 0: nie

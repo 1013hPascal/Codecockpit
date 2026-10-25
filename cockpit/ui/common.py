@@ -10,6 +10,10 @@ from PySide6.QtWidgets import (QAbstractItemView, QDialog, QLabel, QMessageBox, 
 
 REFOCUS_DELAY_MS = 80
 
+# Wird beim ersten Anzeigen jedes FocusDialog aufgerufen, zum Beispiel für den Knopf
+# "Erklärung …" (Feature Erklärungen, 25.10.2026). Ein Fehler darin stört das Fenster nicht.
+SHOW_HOOKS: list = []
+
 
 class FocusDialog(QDialog):
     """Dialog, der seinen Startfokus erst nach dem Anzeigen setzt und NVDA meldet.
@@ -23,6 +27,14 @@ class FocusDialog(QDialog):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
+        if not getattr(self, "_hooks_done", False):
+            self._hooks_done = True
+            for hook in list(SHOW_HOOKS):
+                try:
+                    hook(self)
+                except Exception:                  # noqa: BLE001 (nur Zusatz)
+                    import logging
+                    logging.getLogger(__name__).exception("Zusatz für das Fenster fehlgeschlagen")
         QTimer.singleShot(REFOCUS_DELAY_MS, self.refocus)
 
     def refocus(self) -> None:
