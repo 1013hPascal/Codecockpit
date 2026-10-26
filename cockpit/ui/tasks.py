@@ -9,7 +9,7 @@ import logging
 import threading
 from typing import Callable
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, Slot
 
 from cockpit.core.errors import Cancelled, CockpitError
 
@@ -29,6 +29,12 @@ class Task(QThread):
         super().__init__(parent)
         self._fn = fn
         self.cancel_event = threading.Event()
+        self._delete_when_done = False
+
+    def delete_when_done(self) -> None:
+        """Nach dem Ende löschen. Statt finished mit deleteLater zu verbinden: "fertig" kommt
+        kurz bevor der Thread wirklich zu Ende ist. Gelöscht wird erst danach (26.10.2026)."""
+        self._delete_when_done = True
 
     def cancel(self) -> None:
         self.cancel_event.set()
@@ -59,8 +65,18 @@ class Task(QThread):
 
     def start(self, *args) -> None:
         Task._running.add(self)              # schon beim Starten, nicht erst im Thread
-        self.finished.connect(lambda: Task._running.discard(self))
+        # Früher ein Lambda: Es lief noch im Thread, kurz vor seinem Ende. wait_all wartete dann
+        # nicht mehr auf ihn, und Qt brach den Testlauf ab ("QThreadStorage: entry 0 destroyed
+        # before end of thread", 26.10.2026). Jetzt im Hauptthread, erst nach dem echten Ende.
+        self.finished.connect(self._ended)
         super().start(*args)
+
+    @Slot()
+    def _ended(self) -> None:
+        self.wait()                          # der Thread ist danach wirklich beendet
+        Task._running.discard(self)
+        if self._delete_when_done:
+            self.deleteLater()
 
     def run(self) -> None:
         try:

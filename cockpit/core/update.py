@@ -135,6 +135,19 @@ def own_version(exe_path: Path) -> tuple[int, int, int] | None:
     return max(found) if found else None
 
 
+def running_version(exe_path: Path | None = None) -> str:
+    """Version für "Über CodeCockpit" (Rückmeldung des Nutzers vom 26.10.2026: dort stand noch
+    1.1.28). In der Exe die höhere aus version.txt daneben und __version__. version.txt schreibt
+    das Veröffentlichen und das Update, __version__ im Code ändert sich nur beim Hochladen mit
+    neuer Version. Aus dem Code gestartet gilt __version__."""
+    from cockpit import __version__
+    exe_path = exe_path if exe_path is not None else own_exe()
+    if exe_path is None:
+        return __version__
+    found = own_version(exe_path)
+    return ".".join(map(str, found)) if found else __version__
+
+
 def _beside(name: str) -> bool:
     """Was aus der ZIP-Datei neben die Exe kommt: README, Lizenz und version.txt."""
     return exe.is_doc(name) or name.lower() == exe.VERSION_FILE

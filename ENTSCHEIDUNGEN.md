@@ -1455,3 +1455,11 @@ Wünsche des Nutzers:
 - In den Paketen einer Quelle steht ganz oben „Anzeigen: Alle“ oder „Nur veraltete“. Vorgabe ist immer „Alle“.
 - Beim Update bleibt der Ordner Release\CodeCockpit stehen. Nur sein Inhalt wird getauscht. Der Inhalt der bisherigen Version kommt in einen neuen Ordner CodeCockpit-vVersion. Grund: Vorher wurde der Ordner umbenannt. Ein offenes Explorer-Fenster folgte dem umbenannten Ordner, und der Nutzer startete daraus wieder die alte Version. Der Neustart nach dem Bauen der eigenen Exe arbeitet noch wie bisher.
 - Nachtrag: Auf Wunsch des Nutzers arbeitet auch der Neustart nach dem Bauen der eigenen Exe so. Liegt in Release\_neu ein Ordner mit demselben Namen wie der bisherige, zum Beispiel CodeCockpit, bleibt der bisherige Ordner stehen. Sein Inhalt kommt nach CodeCockpit-vVersion oder in die Sicherheitskopien, der neue Inhalt in den Ordner.
+
+## Versionsnummer in „Über CodeCockpit“ (26.10.2026)
+
+Rückmeldung des Nutzers: Dort stand noch 1.1.28. Die Nummer im Code (__version__) ändert sich nur beim Hochladen mit neuer Version, nicht beim Veröffentlichen einer Exe. „Über CodeCockpit“ zeigt jetzt die Version der laufenden Exe: die höhere aus version.txt neben der Exe und __version__. version.txt schreiben das Veröffentlichen und das Update, so stimmt die Nummer von selbst. __version__ steht jetzt auf 1.2.1, der neuesten Version.
+
+## Hintergrundaufgaben sauber beenden (26.10.2026)
+
+Der Gesamttest brach ab und zu ab: „QThreadStorage: entry 0 destroyed before end of thread“. Ursache: Eine Aufgabe meldete „fertig“ noch aus ihrem eigenen Thread, kurz vor dessen Ende. Sie strich sich dabei schon aus der Liste der laufenden Aufgaben, und das Aufräumen wartete nicht mehr auf sie. An drei Stellen wurde sie außerdem gelöscht, bevor ihr Thread zu Ende war. Jetzt läuft das Austragen im Hauptthread und wartet erst auf das echte Ende. Löschen nach dem Ende geht über Task.delete_when_done statt finished mit deleteLater.

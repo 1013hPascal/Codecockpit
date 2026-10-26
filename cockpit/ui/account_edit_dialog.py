@@ -58,7 +58,7 @@ def run_in_background(parent: QWidget, fn, on_result, button: QPushButton) -> Ta
     task.result.connect(lambda result: (done(), on_result(result)))
     task.error.connect(lambda message, details: (done(), show_test_result(
         parent, TestResult(False, message, details))))
-    task.finished.connect(task.deleteLater)
+    task.delete_when_done()
     task.start()
     return task
 

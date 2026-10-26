@@ -119,7 +119,7 @@ class BrowserLoginDialog(FocusDialog):
         task = Task(fn, self)
         task.result.connect(on_result)
         task.error.connect(self.failed)
-        task.finished.connect(task.deleteLater)
+        task.delete_when_done()
         self.task = task
         task.start()
 

@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import QMenu
 
-from cockpit import APP_NAME, __version__
+from cockpit import APP_NAME
 from cockpit.core import git, paths
 from cockpit.ui import look
 from cockpit.ui.announcer import announce, announcer
@@ -283,7 +283,8 @@ class MenuMixin:
         self.show_guide("anleitungen/branches-verstehen.md", "Branches verstehen")
 
     def show_about(self) -> None:
-        text = [f"{APP_NAME} Version {__version__}",
+        from cockpit.core import update
+        text = [f"{APP_NAME} Version {update.running_version()}",
                 f"Datenordner: {paths.data_dir()}",
                 "Verwaltet Code-Projekte auf GitHub und GitLab ohne Terminal.",
                 "Barrierefrei entwickelt, vollständig per Tastatur bedienbar."]

@@ -64,14 +64,19 @@ def test_data_dir_follows_environment(home):
     assert paths.logs_dir().is_dir()
 
 
-def test_default_projects_root_is_parent_of_project_folder():
-    here = paths.program_dir()
+def test_default_projects_root_is_parent_of_project_folder(tmp_path, monkeypatch):
+    # Mit erfundenen Ordnern: Auf GitHub liegt der Code nicht in Repository\main, und der Test
+    # schlug dort immer fehl (26.10.2026)
+    def placed(here):
+        monkeypatch.setattr(paths, "program_dir", lambda: here)
+        return paths.default_projects_root()
+    root = tmp_path / "Projekte"
     # Seit 10f liegt der Code auch in Code\main oder in einem Branch-Ordner daneben
     # Seit dem 10.10.2026 heißt der Ordner Code Repository
-    project_dir = here.parent.parent if here.parent.name in ("Code", "Repository") \
-        else here.parent
-    assert {"Code", "Repository"} & {here.name, here.parent.name}
-    assert paths.default_projects_root() == project_dir.parent
+    assert placed(root / "CodeCockpit" / "Repository" / "main") == root
+    assert placed(root / "CodeCockpit" / "Code" / "zweig") == root
+    assert placed(root / "CodeCockpit" / "Release") == root
+    assert placed(tmp_path / "irgendwo") == Path.home() / "Documents" / "GitHub"
 
 
 # -- Datenbank ----------------------------------------------------------------------------

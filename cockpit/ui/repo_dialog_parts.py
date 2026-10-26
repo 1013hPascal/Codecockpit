@@ -59,7 +59,7 @@ class _Worker:
                 task.wait()
                 after()
             task.finished.connect(on_finished)
-        task.finished.connect(task.deleteLater)
+        task.delete_when_done()
         task.start()
         return True
 

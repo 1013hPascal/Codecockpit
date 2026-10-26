@@ -92,7 +92,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - terminal.py (174 Zeilen): Eingebautes Terminal (Konzept 9.9, Teilschritt 8a).
 - text.py (46 Zeilen): Kleine Hilfen für deutsche Texte.
 - trash.py (53 Zeilen): Dateien in den Papierkorb von Windows verschieben (Konzept 9.7, ENTSCHEIDUNGEN.md).
-- update.py (300 Zeilen): Selbst-Aktualisierung der Exe des Cockpits (Konzept 10.5).
+- update.py (313 Zeilen): Selbst-Aktualisierung der Exe des Cockpits (Konzept 10.5).
 - upload.py (213 Zeilen): Auf GitHub hochladen (Konzept 9.1, geändert: Hinzufügen und Hochladen sind getrennt).
 - vault_service.py (152 Zeilen): Der Tresor aus Sicht des Kerns: gewählte Speicherart, Namensliste und Wechsel (Konzept 5.2).
 - venv_repair.py (165 Zeilen): Virtuelle Umgebung nach dem Verschieben eines Projekts (Konzept 7.5).
@@ -323,7 +323,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - state_panel.py (57 Zeilen): Bereich "Stand" unter den Aktionen, nur für das Auge (PLAN-OPTIK.md, Schritt 2, 22.10.2026).
 - sync_dialogs.py (497 Zeilen): Fenster für Änderungen hochladen und holen (Konzept 9.2 und 9.3).
 - sync_flow.py (446 Zeilen): Änderungen hochladen und holen in der Oberfläche (Konzept 9.2 und 9.3, Teilschritt 5c).
-- tasks.py (79 Zeilen): Hintergrund-Aufgaben (Muster aus Chatbot und Tagebuch). Die Oberfläche blockiert nie.
+- tasks.py (95 Zeilen): Hintergrund-Aufgaben (Muster aus Chatbot und Tagebuch). Die Oberfläche blockiert nie.
 - terminal_dialog.py (331 Zeilen): Fenster "Terminal" (Konzept 9.9, Teilschritt 8a).
 - text_dialog.py (59 Zeilen): Fenster, das einen Text als Liste zeigt: eine Zeile pro Eintrag.
 - update_ui.py (221 Zeilen): Updates der Exe des Cockpits: Prüfung bei jedem Start, Rückfrage, Austausch.
@@ -333,7 +333,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - vault_ui.py (89 Zeilen): Tresor in der Oberfläche: entsperren bei Bedarf und Speicherart wechseln (Konzept 5.2).
 - videos.py (31 Zeilen): Erklärvideos im Ordner erklärvideos (Wunsch des Nutzers, 29.09.2026).
 - window_actions.py (198 Zeilen): Aktionsliste des Hauptfensters: Kontext, Ausführen, Kontextmenü, Fokus.
-- window_menus.py (300 Zeilen): Menüleiste und Tastenkürzel des Hauptfensters, dazu die Fenster, die die Menüs öffnen.
+- window_menus.py (301 Zeilen): Menüleiste und Tastenkürzel des Hauptfensters, dazu die Fenster, die die Menüs öffnen.
 - window_status.py (228 Zeilen): Stand der Projekte im Hauptfenster: neu einlesen, Git-Stand und Stand auf der Plattform holen.
 - window_vault.py (74 Zeilen): Tresor im Hauptfenster: sperren, entsperren, automatisch sperren, Konten.
 - worktree_flow.py (324 Zeilen): Ein Ordner pro Branch in der Oberfläche (Phase 10f).

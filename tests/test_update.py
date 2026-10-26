@@ -329,3 +329,15 @@ def test_restart_environment_drops_pyinstaller_variables(monkeypatch):
     env = exe.clean_environment()
     assert "_PYI_APPLICATION_HOME_DIR" not in env and "_MEIPASS2" not in env
     assert env["PYINSTALLER_RESET_ENVIRONMENT"] == "1" and "PATH" in {k.upper() for k in env}
+
+# -- Version in "Über CodeCockpit" (Rückmeldung des Nutzers vom 26.10.2026) -----------------------
+def test_running_version_reads_version_txt_beside_the_exe(own):
+    assert update.running_version(own) == "1.0.0"              # ohne version.txt: aus dem Code
+    (own.parent / exe.VERSION_FILE).write_text("1.2.1\n", encoding="utf-8")
+    assert update.running_version(own) == "1.2.1"              # veröffentlicht oder Update
+
+
+def test_running_version_from_code(monkeypatch):
+    import cockpit
+    monkeypatch.setattr(update, "own_exe", lambda: None)
+    assert update.running_version() == cockpit.__version__
