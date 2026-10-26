@@ -29,17 +29,33 @@ def restart_script(project: Project) -> Path:
     # Versionen bleiben, wie bei backup_current (Rückmeldung des Nutzers vom 11.10.2026: Das
     # Cockpit lief aus CodeCockpit-v1.1.23, der Ordner ließ sich nicht verschieben, und die neue
     # Exe blieb in Release\_neu liegen)
-    old_items: list = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)
-                       and not is_version_home(p)]
-    # Eine veröffentlichte bisherige Version bleibt als Name-vVersion daneben (20.10.2026)
-    for number, item in enumerate(old_items):
+    current: list = [p for p in exe_dir.iterdir() if p.name != PENDING and not is_branch_exe(p)
+                     and not is_version_home(p)]
+    # Wunsch des Nutzers vom 26.10.2026: Ein Ordner wie Release\CodeCockpit bleibt stehen, nur
+    # sein Inhalt wird getauscht. Sonst folgt ein offenes Explorer-Fenster dem umbenannten
+    # Ordner, und man startet daraus wieder die alte Version.
+    first = new_items[0]                          # darin liegt die neue Exe
+    replacements = {p.name.lower(): p for p in new_items if p.is_dir()}
+    old_items: list = []
+    moves_in: list = []
+    make_dirs: list[Path] = []
+    for item in current:
+        # Eine veröffentlichte bisherige Version bleibt als Name-vVersion daneben (20.10.2026)
         version = folder_version(item) if item.is_dir() else ""
         target = exe_dir / f"{item.name}-v{version}"
-        if version and not target.exists():
-            old_items[number] = (item, target)
-    new_exe = exe_in(new_items[0])
-    script = swap_script(exe_dir, old_items, new_items, folder,
-                         exe_dir / new_exe.relative_to(pending))
+        keep = bool(version) and not target.exists()
+        replacement = replacements.pop(item.name.lower(), None) if item.is_dir() else None
+        if replacement is None:
+            old_items.append((item, target) if keep else item)
+            continue
+        place = target if keep else folder / item.name
+        make_dirs.append(place)
+        old_items += [(child, place / child.name) for child in sorted(item.iterdir())]
+        moves_in += [(child, item / child.name) for child in sorted(replacement.iterdir())]
+        new_items.remove(replacement)
+    new_exe = exe_in(first)
+    script = swap_script(exe_dir, old_items, moves_in + new_items, folder,
+                         exe_dir / new_exe.relative_to(pending), make_dirs=make_dirs)
     record = read_record(project.code_dir)
     if record is not None:
         record.pending = False
@@ -48,11 +64,14 @@ def restart_script(project: Project) -> Path:
 
 
 def swap_script(exe_dir: Path, old_items: list, new_items: list[Path], backup: Path,
-                start: Path | None, pid: int | None = None, new_dir: Path | None = None) -> Path:
+                start: Path | None, pid: int | None = None, new_dir: Path | None = None,
+                make_dirs: list[Path] | tuple = ()) -> Path:
     """Skript, das auf das Ende des Cockpits wartet, old_items in die Sicherheitskopie backup
     verschiebt, new_items aus Release\\_neu nach new_dir (sonst exe_dir) holt und start startet
     (None: nicht starten). Ein Eintrag (Quelle, Ziel) in old_items kommt nicht in die
     Sicherheitskopie, sondern nach Ziel, zum Beispiel Release\\CodeCockpit-v1.1.30 (20.10.2026).
+    make_dirs: Ordner, die vor dem Verschieben entstehen, zum Beispiel der Ordner für die
+    bisherige Version (26.10.2026). Klappt der Tausch nicht, verschwinden sie wieder, wenn leer.
     Genutzt vom Neustart nach dem Bauen und von der Selbst-Aktualisierung (update.py)."""
     pending = exe_dir / PENDING
     new_dir = new_dir or exe_dir
@@ -67,8 +86,10 @@ def swap_script(exe_dir: Path, old_items: list, new_items: list[Path], backup: P
              f'"{system}\\tasklist.exe" /FI "PID eq {pid}" /NH | "{system}\\find.exe" '
              f'" {pid} " >nul',
              "if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto warten)"]
+    lines += [f'if not exist "{folder}" mkdir "{folder}"' for folder in make_dirs]
     # Kurz nach dem Beenden kann Windows die alte Exe noch sperren: bis zu 30 Versuche
-    moves = old_moves + [(item, new_dir / item.name) for item in new_items]
+    moves = old_moves + [item if isinstance(item, tuple) else (item, new_dir / item.name)
+                         for item in new_items]
     for number, (source, target) in enumerate(moves, start=1):
         if number == len(old_moves) + 1 and new_dir != exe_dir:
             # Der feste Ordner entsteht erst, wenn der bisherige umbenannt ist
@@ -91,6 +112,7 @@ def swap_script(exe_dir: Path, old_items: list, new_items: list[Path], backup: P
     for item, target in old_moves:
         lines.append(f'if exist "{target}" if not exist "{item}" '
                      f'move /Y "{target}" "{item}" >nul 2>nul')
+    lines += [f'rmdir "{folder}" >nul 2>nul' for folder in make_dirs]   # nur, wenn leer
     # Startet wenigstens die bisherige Exe wieder, falls sie noch da ist
     if start is not None:
         lines.append(f'if exist "{start}" start "" "{start}"')

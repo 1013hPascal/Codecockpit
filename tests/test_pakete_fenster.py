@@ -50,6 +50,7 @@ def opened(qtbot, make_services, monkeypatch):
     services = make_services([MANIFEST])
     dialog = package_dialogs.SourcesDialog(services)
     qtbot.addWidget(dialog)
+    dialog.refresh_all()                        # gelesen wird nur auf Wunsch (26.10.2026)
     qtbot.waitUntil(lambda: dialog.task is None, timeout=10000)
     return services, dialog
 
@@ -59,12 +60,14 @@ def test_sources_dialog_reads_and_checks(qtbot, make_services, fake_catalog, mon
     assert dialog.windowTitle() == "Paketübersicht"
     assert dialog.list.accessibleName() == "Quellen"
     assert dialog.filter.accessibleName() == "Filtern: Alle"
-    assert dialog.list.item(0).text().startswith("Speicherplatz:")
-    assert dialog.list.item(1).text() == ("Python-Bibliotheken (pip), 2 Einträge, 1 veraltet")
-    assert dialog.list.item(2).text() == ("Programme aus winget, nicht verfügbar: winget fehlt")
+    assert dialog.list.item(0).text() == "Paketübersicht aktualisieren"
+    assert dialog.list.item(1).text().startswith("Speicherplatz:")
+    assert dialog.list.item(2).text() == "Kritisch: keine bekannte Sicherheitslücke"
+    assert dialog.list.item(3).text() == ("Python-Bibliotheken (pip), 2 Einträge, 1 veraltet")
+    assert dialog.list.item(4).text() == ("Programme aus winget, nicht verfügbar: winget fehlt")
     assert said("Prüfung fertig: 1 Paket ist veraltet.")
     dialog.set_filter(base.COCKPIT)
-    assert dialog.list.item(1).text() == "Python-Bibliotheken (pip), 1 Eintrag, alles aktuell"
+    assert dialog.list.item(3).text() == "Python-Bibliotheken (pip), 1 Eintrag, alles aktuell"
     assert not dialog.cleanup_button.isVisibleTo(dialog)            # ohne Ablauf
 
 

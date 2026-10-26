@@ -1445,3 +1445,13 @@ Wunsch des Nutzers: Ganz oben in Listen und Menüs steht eine Erklärung, in Fen
 - Menüs: erster Eintrag „Erklärung …“, auch im Kontextmenü und unter „Weitere“. In Menüs ist er beim Öffnen markiert, wie der Nutzer es beschrieben hat.
 - Fenster: Knopf „Erklärung …“ ganz unten, zuletzt in der Tab-Folge, nicht Standardknopf. Nur Fenster mit eigenem Text bekommen ihn. Kurze Rückfragen, Fehlermeldungen und Textfenster bekommen keinen.
 - Die Einrichtung zeigt auf „Features wählen“ jetzt alle Features, zuerst die ohne weitere Einrichtung, bei den anderen „Braucht: …“ (Wunsch des Nutzers vom selben Tag).
+
+## Paketübersicht und Update-Austausch (26.10.2026)
+
+Wünsche des Nutzers:
+
+- Die Paketübersicht liest nur noch, wenn man „Paketübersicht aktualisieren“ wählt. Das ist jetzt die oberste Zeile der Liste, der Knopf „Aktualisieren“ oben ist weg. Auch beim allerersten Öffnen wird nichts von selbst gelesen. Nach einer Änderung an einem Paket liest das Cockpit nur diese eine Quelle neu, sonst wäre die Zeile falsch.
+- Unter dem Speicherplatz steht die Zeile „Kritisch“ mit allen Bibliotheken, die eine bekannte Sicherheitslücke haben. Enter öffnet sie im selben Fenster wie eine Quelle.
+- In den Paketen einer Quelle steht ganz oben „Anzeigen: Alle“ oder „Nur veraltete“. Vorgabe ist immer „Alle“.
+- Beim Update bleibt der Ordner Release\CodeCockpit stehen. Nur sein Inhalt wird getauscht. Der Inhalt der bisherigen Version kommt in einen neuen Ordner CodeCockpit-vVersion. Grund: Vorher wurde der Ordner umbenannt. Ein offenes Explorer-Fenster folgte dem umbenannten Ordner, und der Nutzer startete daraus wieder die alte Version. Der Neustart nach dem Bauen der eigenen Exe arbeitet noch wie bisher.
+- Nachtrag: Auf Wunsch des Nutzers arbeitet auch der Neustart nach dem Bauen der eigenen Exe so. Liegt in Release\_neu ein Ordner mit demselben Namen wie der bisherige, zum Beispiel CodeCockpit, bleibt der bisherige Ordner stehen. Sein Inhalt kommt nach CodeCockpit-vVersion oder in die Sicherheitskopien, der neue Inhalt in den Ordner.

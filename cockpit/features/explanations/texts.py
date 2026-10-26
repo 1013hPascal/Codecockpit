@@ -483,12 +483,16 @@ DIALOGS: dict[str, tuple[str, tuple[str, ...]]] = {
     "SourcesDialog": ("Paketübersicht", (
         "Die Paketübersicht zeigt jede Quelle von Paketen, zum Beispiel Python, Node und "
         "KI-Modelle.",
-        "Enter auf einer Quelle zeigt ihre Pakete. Der Filter zeigt alle, nur die im Cockpit oder "
-        "nur die auf dem Rechner.",
-        "Aktualisieren liest alle Quellen neu.",
+        "Ganz oben steht Paketübersicht aktualisieren. Nur dort liest das Cockpit alle Quellen "
+        "neu und prüft, was veraltet ist. Sonst sehen Sie den gespeicherten Stand.",
+        "Darunter stehen der Speicherplatz und die Zeile Kritisch mit allen Bibliotheken, die "
+        "eine bekannte Sicherheitslücke haben.",
+        "Enter auf einer Quelle zeigt ihre Pakete. Der Filter oben zeigt alle, nur die im "
+        "Cockpit oder nur die auf dem Rechner.",
     )),
     "PackagesDialog": ("Pakete einer Quelle", (
         "Hier stehen die Pakete einer Quelle mit Version und Größe.",
+        "Ganz oben wählen Sie, ob alle Pakete erscheinen oder nur die veralteten.",
         "Mit Tab kommen Sie zu Aktualisieren, Entfernen und Aufräumen. Vorher fragt das "
         "Cockpit nach.",
     )),

@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from cockpit.core import exe
+from cockpit.core import exe, exe_restart
 from cockpit.core.errors import CockpitError
 from cockpit.core.projects import read_config
 from cockpit.features.exe_build.manifest import MANIFEST as EXE_BUILD
@@ -229,7 +229,7 @@ def test_restart_keeps_versions_and_rolls_back(make_services, projects_root, tmp
     script = exe.restart_script(project).read_text(encoding="utf-8")
     assert "Rechner-v1.0.0" not in script                          # Version bleibt liegen
     rollback = script.split(":aufgeben", 1)[1]
-    assert f'if not exist "{project.exe_dir / "Rechner"}"' in rollback
+    assert f'if not exist "{project.exe_dir / "Rechner" / "Rechner.exe"}"' in rollback
 
 
 def test_find_python():
@@ -567,5 +567,38 @@ def test_restart_names_a_published_home_with_its_version(make_services, projects
     exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
     monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
     script = exe.restart_script(project).read_text(encoding="utf-8")
-    assert (f'move /Y "{project.exe_dir / "Rechner"}" "{project.exe_dir / "Rechner-v1.3.0"}"'
-            in script)
+    # Seit dem 26.10.2026 bleibt der Ordner, nur der Inhalt kommt nach Rechner-v1.3.0
+    home, old = project.exe_dir / "Rechner", project.exe_dir / "Rechner-v1.3.0"
+    assert f'mkdir "{old}"' in script
+    assert f'move /Y "{home / "Rechner.exe"}" "{old / "Rechner.exe"}"' in script
+    assert f'move /Y "{home}" ' not in script
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="nur Windows")
+def test_restart_swaps_the_content_and_keeps_the_folder(make_services, projects_root, tmp_path,
+                                                        monkeypatch):
+    """Wunsch des Nutzers vom 26.10.2026: Ein offenes Explorer-Fenster soll danach die neue
+    Version zeigen. Deshalb bleibt der Ordner derselbe."""
+    import subprocess
+    services, project = project_with(make_services, projects_root)
+    (project.code_dir / "cockpit.toml").write_text("is_cockpit = true\n", encoding="utf-8")
+    home = project.exe_dir / "Rechner"
+    fake_exe(home, "Rechner.exe", "alt")
+    (home / exe.VERSION_FILE).write_text("1.3.0\n", encoding="utf-8")
+    folder_id = home.stat().st_ino
+    patch_running_from(monkeypatch, lambda folder: True)
+    exe.install(project, fake_exe(tmp_path / "dist", "Rechner.exe", "neu"), "abc")
+    monkeypatch.setattr(exe.paths, "cache_dir", lambda: tmp_path / "cache")
+    waiting = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1)"])
+    monkeypatch.setattr(exe_restart.os, "getpid", lambda: waiting.pid)
+    script = exe.restart_script(project)
+    script.write_text(script.read_text(encoding="utf-8").replace('start "" ', 'rem '),
+                      encoding="utf-8")                         # die Test-"Exe" nicht starten
+    subprocess.run(["cmd.exe", "/c", str(script)], timeout=60,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    waiting.wait()
+    assert (home / "Rechner.exe").read_text(encoding="utf-8") == "neu"
+    assert home.stat().st_ino == folder_id
+    old = project.exe_dir / "Rechner-v1.3.0"
+    assert (old / "Rechner.exe").read_text(encoding="utf-8") == "alt"
+    assert not (project.exe_dir / exe.PENDING).exists()

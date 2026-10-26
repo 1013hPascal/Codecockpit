@@ -57,7 +57,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - exe_publish.py (120 Zeilen): Versionen und Veröffentlichen der Exe (Phase 10).
 - exe_python.py (365 Zeilen): Python und virtuelle Umgebung für den Bau der Exe.
 - exe_report.py (199 Zeilen): Bericht bei Fehlern beim Exe-Bau (Wunsch des Nutzers vom 14.10.2026).
-- exe_restart.py (121 Zeilen): Eigene Exe des Cockpits: Austausch beim Neustart.
+- exe_restart.py (143 Zeilen): Eigene Exe des Cockpits: Austausch beim Neustart.
 - exe_spec.py (77 Zeilen): Die .spec-Datei für PyInstaller: schreiben, erkennen, Einstellungen ändern.
 - exe_state.py (348 Zeilen): Zustand der Exe eines Projekts: Herkunft, Einstellungen zum Bauen, Zeile im Projektbaum.
 - forks.py (119 Zeilen): Forks: zu fremden Projekten beitragen (Wunsch des Nutzers vom 21.10.2026, nach dem Vergleich
@@ -92,7 +92,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - terminal.py (174 Zeilen): Eingebautes Terminal (Konzept 9.9, Teilschritt 8a).
 - text.py (46 Zeilen): Kleine Hilfen für deutsche Texte.
 - trash.py (53 Zeilen): Dateien in den Papierkorb von Windows verschieben (Konzept 9.7, ENTSCHEIDUNGEN.md).
-- update.py (291 Zeilen): Selbst-Aktualisierung der Exe des Cockpits (Konzept 10.5).
+- update.py (300 Zeilen): Selbst-Aktualisierung der Exe des Cockpits (Konzept 10.5).
 - upload.py (213 Zeilen): Auf GitHub hochladen (Konzept 9.1, geändert: Hinzufügen und Hochladen sind getrennt).
 - vault_service.py (152 Zeilen): Der Tresor aus Sicht des Kerns: gewählte Speicherart, Namensliste und Wechsel (Konzept 5.2).
 - venv_repair.py (165 Zeilen): Virtuelle Umgebung nach dem Verschieben eines Projekts (Konzept 7.5).
@@ -160,7 +160,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 ## cockpit/features/explanations
 
 - manifest.py (26 Zeilen): Feature "Erklärungen" (Wunsch des Nutzers vom 25.10.2026).
-- texts.py (602 Zeilen): Die Texte der Erklärungen (Wunsch des Nutzers vom 25.10.2026).
+- texts.py (606 Zeilen): Die Texte der Erklärungen (Wunsch des Nutzers vom 25.10.2026).
 
 ## cockpit/features/news
 
@@ -170,7 +170,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 
 ## cockpit/features/packages
 
-- base.py (153 Zeilen): Gemeinsame Bausteine der Paketübersicht.
+- base.py (165 Zeilen): Gemeinsame Bausteine der Paketübersicht.
 - cache.py (64 Zeilen): Gespeicherte Liste der Paketübersicht (Wunsch des Nutzers vom 24.10.2026).
 - catalog.py (231 Zeilen): Alle Quellen der Paketübersicht an einer Stelle: laden, prüfen, ändern.
 - choco_source.py (111 Zeilen): Programme aus Chocolatey.
@@ -288,7 +288,7 @@ Neu erzeugt am 22.10.2026. Bitte nach neuen Dateien ergänzen.
 - messages_dialog.py (33 Zeilen): Liste der letzten Meldungen, neueste oben (Strg+Umschalt+L).
 - news_dialogs.py (212 Zeilen): Fenster "Neuigkeiten" und "Aktivität" (Wunsch des Nutzers vom 22.10.2026).
 - news_flow.py (116 Zeilen): Menü Neuigkeiten und die Ansage nach dem Start (Wunsch des Nutzers vom 22.10.2026).
-- package_dialogs.py (729 Zeilen): Fenster der Paketübersicht (Wunsch des Nutzers vom 21.10.2026, PLAN-PAKETUEBERSICHT.md).
+- package_dialogs.py (807 Zeilen): Fenster der Paketübersicht (Wunsch des Nutzers vom 21.10.2026, PLAN-PAKETUEBERSICHT.md).
 - package_flow.py (420 Zeilen): Menü Pakete und die Abläufe der Paketübersicht (Wunsch des Nutzers vom 21.10.2026).
 - password_dialogs.py (116 Zeilen): Dialoge für das Master-Passwort der Tresordatei (Konzept 5.2).
 - project_actions.py (276 Zeilen): Aktionen rund um Projekte, die Dialoge oder Hintergrund-Arbeit brauchen (Phase 5a).

@@ -21,6 +21,18 @@ SOURCES = (PIP, WINGET, CHOCO, MODEL)
 ALL, COCKPIT, MACHINE = "Alle", "Nur im Cockpit", "Nur auf dem Rechner, nicht im Cockpit"
 FILTERS = (ALL, COCKPIT, MACHINE)
 
+# Wunsch des Nutzers vom 26.10.2026: Zeile "Kritisch" unter dem Speicherplatz mit allen
+# Bibliotheken, die eine bekannte Sicherheitslücke haben (osv.py setzt warning).
+CRITICAL = "critical"
+CRITICAL_NAME = "Kritisch: Bibliotheken mit Sicherheitslücke"
+# Filter oben in den Paketen einer Quelle (26.10.2026). Vorgabe ist immer "Alle".
+SHOW_ALL, SHOW_OUTDATED = "Alle", "Nur veraltete"
+SHOWS = (SHOW_ALL, SHOW_OUTDATED)
+
+
+def is_critical(package: "Package") -> bool:
+    return package.warning.startswith("Sicherheitslücke")
+
 
 @dataclass
 class Package:

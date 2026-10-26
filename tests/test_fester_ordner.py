@@ -78,6 +78,8 @@ def test_update_puts_the_new_version_into_the_fixed_folder(tmp_path, home, monke
     pending.mkdir()
     (pending / "CodeCockpit.exe").write_text("1.1.30", encoding="utf-8")
     (pending / exe.VERSION_FILE).write_text("1.1.30\n", encoding="utf-8")
+    (current / "notiz.txt").write_text("eigene Datei", encoding="utf-8")
+    folder_id = current.stat().st_ino
     waiting = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(2)"])
     monkeypatch.setattr(exe.os, "getpid", lambda: waiting.pid)
     script = update.swap(current / "CodeCockpit.exe", "1.1.30", start=False)
@@ -90,7 +92,11 @@ def test_update_puts_the_new_version_into_the_fixed_folder(tmp_path, home, monke
     assert exe.folder_version(current) == "1.1.30"
     old = release / "CodeCockpit-v1.1.29"
     assert (old / "CodeCockpit.exe").read_text(encoding="utf-8") == "1.1.29"
+    assert (old / "notiz.txt").is_file() and not (current / "notiz.txt").exists()
     assert not pending.exists()
+    # Wunsch des Nutzers vom 26.10.2026: derselbe Ordner, nicht umbenannt. Ein offenes
+    # Explorer-Fenster zeigt so danach die neue Version.
+    assert current.stat().st_ino == folder_id
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="nur Windows")

@@ -259,8 +259,12 @@ def is_waiting(exe_path: Path) -> bool:
 
 def swap(exe_path: Path, version: str, start: bool) -> Path:
     """Austausch-Skript für die wartende Exe. Beim festen Ordner: War die bisherige Version
-    veröffentlicht (version.txt), heißt ihr Ordner danach Name-vVersion, sonst kommt sie in die
-    Sicherheitskopien. Die neue kommt in den festen Ordner."""
+    veröffentlicht (version.txt), kommt ihr Inhalt in einen neuen Ordner Name-vVersion, sonst in
+    die Sicherheitskopien. Die neue kommt in den festen Ordner.
+
+    Wunsch des Nutzers vom 26.10.2026: Der feste Ordner selbst bleibt, nur sein Inhalt wird
+    getauscht. Vorher wurde der Ordner umbenannt. Ein offenes Explorer-Fenster folgte dem
+    umbenannten Ordner, und der Nutzer startete daraus wieder die alte Version."""
     new = pending_dir(exe_path) / exe_path.name
     if not new.is_file():
         raise CockpitError("Es wartet keine neue Version.")
@@ -275,12 +279,17 @@ def swap(exe_path: Path, version: str, start: bool) -> Path:
         return exe.swap_script(exe_path.parent, old, [new] + docs, folder,
                                exe_path if start else None)
     old: list = []
-    if home.exists():
+    make: list[Path] = []
+    if home.is_dir():
         before = exe.folder_version(home)
         target = release / f"{home.name}-v{before}"
-        old = [(home, target) if before and not target.exists() else home]
+        if before and not target.exists():
+            make = [target]
+        place = make[0] if make else folder
+        old = [(item, place / item.name) for item in sorted(home.iterdir())]
     return exe.swap_script(release, old, [new] + docs, folder,
-                           home / exe_path.name if start else None, new_dir=home)
+                           home / exe_path.name if start else None, new_dir=home,
+                           make_dirs=make)
 
 
 def tidy(exe_path: Path) -> list[Path]:

@@ -152,3 +152,31 @@ Ergebnis:
 Tasten: Feature-Verwaltung, Paketübersicht ausschalten, dann Strg+Umschalt+P.
 Ansage: „Die Paketübersicht ist ausgeschaltet. Sie schalten sie in der Feature-Verwaltung ein.“
 Ergebnis:
+
+
+## Änderungen vom 26.10.2026
+
+[ ] 26. Aktualisieren als oberste Zeile
+Tasten: Strg+Umschalt+P, dann Pos1.
+Erwartet: Die oberste Zeile heißt „Paketübersicht aktualisieren“. Darunter kommen Speicherplatz, Kritisch und die Quellen. Oben gibt es keinen Knopf „Aktualisieren“ mehr, nur noch „Filtern“.
+Ergebnis:
+
+[ ] 27. Gelesen wird nur auf Wunsch
+Tasten: Paketübersicht schließen und wieder öffnen.
+Erwartet: Es wird nichts neu gelesen und es kommt keine Ansage. Die Liste zeigt den gespeicherten Stand. Die Markierung steht auf der ersten Quelle.
+Ergebnis:
+
+[ ] 28. Aktualisieren starten
+Tasten: Auf „Paketübersicht aktualisieren“ Enter drücken.
+Erwartet: Ansage „Pakete werden neu gelesen.“ Die Zeile heißt dann „Paketübersicht aktualisieren, läuft …“. Am Ende kommt „Prüfung fertig: …“.
+Ergebnis:
+
+[ ] 29. Zeile Kritisch
+Tasten: Zur dritten Zeile gehen und Enter drücken.
+Erwartet: Die Zeile heißt zum Beispiel „Kritisch: 2 Bibliotheken mit Sicherheitslücke“ oder „Kritisch: keine bekannte Sicherheitslücke“. Enter öffnet das Fenster „Kritisch: Bibliotheken mit Sicherheitslücke“ mit diesen Bibliotheken. Die Knöpfe sind dieselben wie bei einer Quelle.
+Ergebnis:
+
+[ ] 30. Nur veraltete anzeigen
+Tasten: Eine Quelle mit Enter öffnen, dann Umschalt+Tab bis „Anzeigen: Alle“ oder Alt+G.
+Erwartet: Der Knopf steht ganz oben im Fenster. Enter öffnet die Auswahl „Alle“ oder „Nur veraltete“. Mit „Nur veraltete“ stehen nur veraltete Pakete in der Liste. Beim nächsten Öffnen steht wieder „Alle“.
+Ergebnis:

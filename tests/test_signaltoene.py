@@ -185,18 +185,38 @@ def opened(qtbot, services):
     from cockpit.ui import package_dialogs
     dialog = package_dialogs.SourcesDialog(services)
     qtbot.addWidget(dialog)
+    if not any(v is not None for v in dialog.data.values()):
+        dialog.refresh_all()
     qtbot.waitUntil(lambda: dialog.task is None, timeout=10000)
     return dialog
+
+
+def test_nothing_is_read_until_refresh(qtbot, make_services, counted_catalog):
+    """Wunsch des Nutzers vom 26.10.2026: Gelesen wird nur mit "Paketübersicht aktualisieren",
+    auch beim allerersten Öffnen nicht."""
+    from cockpit.ui import package_dialogs
+    dialog = package_dialogs.SourcesDialog(make_services([MANIFEST]))
+    qtbot.addWidget(dialog)
+    assert dialog.task is None and counted_catalog == []
+    assert dialog.list.currentRow() == package_dialogs.REFRESH_ROW
+    assert dialog.list.item(2).text() == "Kritisch, noch nicht gelesen"
+    assert dialog.list.item(3).text() == "Python-Bibliotheken (pip), noch nicht gelesen"
+    dialog.open_current()                                       # Enter auf der obersten Zeile
+    assert dialog.list.item(0).text() == "Paketübersicht aktualisieren, läuft …"
+    qtbot.waitUntil(lambda: dialog.task is None, timeout=10000)
+    assert counted_catalog == [PIP]
+    assert dialog.list.item(0).text() == "Paketübersicht aktualisieren"
 
 
 def test_list_is_kept_until_refresh(qtbot, make_services, counted_catalog):
     services = make_services([MANIFEST])
     first = opened(qtbot, services)
     assert counted_catalog == [PIP]
-    assert ". Stand: " in first.list.item(0).text()
+    assert ". Stand: " in first.list.item(1).text()
     second = opened(qtbot, services)                            # wie nach einem Neustart
     assert counted_catalog == [PIP]                             # nicht neu gelesen
-    assert second.list.item(1).text().startswith("Python-Bibliotheken (pip), 2 Einträge")
+    assert second.list.item(3).text().startswith("Python-Bibliotheken (pip), 2 Einträge")
+    assert second.list.currentRow() == 3                        # auf der ersten Quelle
     assert PIP in second.checked
     second.refresh_all()
     assert said("Pakete werden neu gelesen.")
@@ -204,13 +224,38 @@ def test_list_is_kept_until_refresh(qtbot, make_services, counted_catalog):
     assert counted_catalog == [PIP, PIP]
 
 
+def test_critical_row_and_show_only_outdated(qtbot, make_services, counted_catalog,
+                                             monkeypatch):
+    from cockpit.ui import package_dialogs
+    sources = opened(qtbot, make_services([MANIFEST]))
+    sources.data[PIP][0].warning = "Sicherheitslücke bekannt, behoben in 9.9.9"
+    sources.fill()
+    assert sources.list.item(2).text() == "Kritisch: 1 Bibliothek mit Sicherheitslücke"
+    critical = package_dialogs.PackagesDialog(sources, base.CRITICAL)
+    qtbot.addWidget(critical)
+    assert critical.windowTitle() == "Kritisch: Bibliotheken mit Sicherheitslücke: 1 Eintrag"
+    assert [p.name for p in critical.shown] == [sources.data[PIP][0].name]
+    dialog = package_dialogs.PackagesDialog(sources, PIP)
+    qtbot.addWidget(dialog)
+    layout = dialog.layout()
+    assert layout.itemAt(0).layout().itemAt(0).widget() is dialog.show_button
+    assert dialog.show_button.accessibleName() == "Anzeigen: Alle"
+    asked = []
+    monkeypatch.setattr(package_dialogs, "choose_from_list", lambda parent, title, name, items,
+                        current: asked.append((items, current)) or 1)
+    dialog.choose_show()
+    assert asked == [(["Alle", "Nur veraltete"], 0)]
+    assert dialog.show_button.accessibleName() == "Anzeigen: Nur veraltete"
+    assert dialog.shown and all(p.outdated for p in dialog.shown)
+    assert len(dialog.shown) < len(sources.data[PIP])
+
+
 def test_buttons_on_top_and_filter(qtbot, make_services, counted_catalog, monkeypatch):
     from cockpit.ui import package_dialogs
     dialog = opened(qtbot, make_services([MANIFEST]))
     layout = dialog.layout()
-    assert layout.itemAt(0).layout().itemAt(0).widget() is dialog.refresh_button
-    assert layout.itemAt(1).layout().itemAt(0).widget() is dialog.filter
-    assert dialog.refresh_button.text() == "&Aktualisieren"
+    assert layout.itemAt(0).layout().itemAt(0).widget() is dialog.filter
+    assert dialog.list.item(0).text() == package_dialogs.REFRESH_TEXT
     assert dialog.chosen_filter == base.ALL == "Alle"
     asked = []
     monkeypatch.setattr(package_dialogs, "choose_from_list", lambda parent, title, name, items,
@@ -218,7 +263,7 @@ def test_buttons_on_top_and_filter(qtbot, make_services, counted_catalog, monkey
     dialog.choose_filter()
     assert asked == [(["Alle", "Nur im Cockpit", "Nur auf dem Rechner, nicht im Cockpit"], 0)]
     assert dialog.filter.accessibleName() == "Filtern: Nur auf dem Rechner, nicht im Cockpit"
-    assert dialog.list.item(1).text().startswith("Python-Bibliotheken (pip), 1 Eintrag")
+    assert dialog.list.item(3).text().startswith("Python-Bibliotheken (pip), 1 Eintrag")
     assert said("Filter: Nur auf dem Rechner, nicht im Cockpit.")
     again = opened(qtbot, make_services([MANIFEST]))
     assert again.chosen_filter == base.ALL                      # neu geöffnet: wieder Alle
